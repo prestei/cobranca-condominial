@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurações — Daniel Jorge Advocacia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar"><nav class="sidebar__nav"><ul class="nav-list"><li><a class="nav-link" href="index.html">Visão geral</a></li><li><a class="nav-link is-active" href="configuracoes.html">Configurações</a></li></ul></nav></aside>
+      <div class="main">
+        <header class="header"><div class="header__context"><p class="header__title">Configurações</p></div></header>
+        <main class="content">
+          <div class="page">
+            <header class="page-header"><div><h1>Configurações</h1><p>Pré-visualização de componentes (estático)</p></div></header>
+            <div class="grid-2">
+              <div class="alert alert--info"><p class="alert__title">Preferências (demo)</p>Exemplo de feedback positivo.</div>
+              <div class="alert" style="background:#fceaea;border-color:#f0c4c4;color:var(--danger)"><p class="alert__title">Erro (demo)</p>Sem integração real.</div>
+            </div>
+            <section class="panel">
+              <h2 class="panel__title">Formulário</h2>
+              <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center">
+                <label><input type="checkbox" checked /> Notificações por e-mail</label>
+                <label><input type="radio" name="t" checked /> Tema claro</label>
+                <label><input type="radio" name="t" /> Tema escuro</label>
+                <button type="button" class="btn btn--primary">Salvar</button>
+                <button type="button" class="btn btn--secondary">Cancelar</button>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
