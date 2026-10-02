@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Palitagem — Daniel Jorge Advocacia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="palitagem">
+    <div class="app">
+      <aside class="sidebar" id="app-sidebar" aria-label="Navegação principal"></aside>
+      <div class="main">
+        <div class="mobile-bar">Daniel Jorge Advocacia</div>
+        <nav class="mobile-nav" aria-label="Navegação mobile">
+          <a data-nav="overview" href="index.html">Visão geral</a>
+          <a data-nav="palitagem" href="palitagem.html">Palitagem</a>
+          <a data-nav="condominios" href="condominios.html">Condomínios</a>
+          <a data-nav="inadimplencia" href="inadimplencia.html">Inadimplência</a>
+          <a data-nav="unidades" href="unidades.html">Unidades</a>
+        </nav>
+        <header class="header">
+          <div class="header__context">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+              <a href="index.html">Início</a>
+              <span aria-hidden="true">›</span>
+              <span class="breadcrumb__current">Palitagem</span>
+            </nav>
+            <p class="header__title">Palitagem</p>
+          </div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" placeholder="Buscar condomínio, unidade..." aria-label="Buscar" />
+          </div>
+          <button type="button" class="icon-btn" aria-label="Notificações">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="icon-btn__dot" aria-hidden="true"></span>
+          </button>
+          <div class="header__profile">
+            <div class="avatar">MC</div>
+            <div class="header__profile-text">
+              <p class="header__profile-name">Mariana Costa</p>
+              <p class="header__profile-role">Atendente jurídico</p>
+            </div>
+          </div>
+        </header>
+        <main class="content">
+          <div class="page form-card">
+            <header class="page-header"><div><h1>Palitagem</h1><p>Registro visual de atendimento de cobrança</p></div></header>
+            <div class="alert alert--info"><p class="alert__title">Demonstração visual</p>Campos ilustrativos — nenhum dado é salvo.</div>
+            <form class="form-panel" action="#" method="get">
+              <div class="form-grid form-grid--2">
+                <div class="field"><label for="cond">Condomínio</label><select id="cond"><option>Residencial Aurora</option><option>Ed. Horizonte</option></select></div>
+                <div class="field"><label for="un">Unidade</label><input id="un" value="Bloco A — 402" /></div>
+                <div class="field" style="grid-column:1/-1"><label for="nome">Nome do condômino</label><input id="nome" value="Carlos Eduardo Martins" /></div>
+              </div>
+              <fieldset style="border:0;margin:1rem 0 0;padding:0">
+                <legend style="font-size:0.75rem;font-weight:500;margin-bottom:0.5rem">Meio de cobrança</legend>
+                <div class="chip-group">
+                  <span class="chip is-selected">WhatsApp</span>
+                  <span class="chip">Telefone</span>
+                  <span class="chip">E-mail</span>
+                  <span class="chip">Presencial</span>
+                </div>
+              </fieldset>
+              <fieldset style="border:0;margin:1rem 0 0;padding:0">
+                <legend style="font-size:0.75rem;font-weight:500;margin-bottom:0.5rem">Resposta do condômino</legend>
+                <div class="chip-group">
+                  <span class="chip">Atendeu</span>
+                  <span class="chip is-selected-soft">Promessa de pagamento</span>
+                  <span class="chip">Solicitou retorno</span>
+                </div>
+              </fieldset>
+              <div class="form-grid form-grid--2" style="margin-top:1rem">
+                <div class="field"><label for="motivo">Motivo da pendência</label><select id="motivo"><option>Atraso recorrente</option></select></div>
+                <div class="field"><label for="ret">Agendamento de retorno</label><input id="ret" type="date" value="2026-10-03" /></div>
+              </div>
+              <div class="field" style="margin-top:1rem"><label for="obs">Observações</label><textarea id="obs">Condômino informou quitação parcial até sexta-feira.</textarea></div>
+              <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)">
+                <button type="button" class="btn btn--secondary">Cancelar</button>
+                <button type="button" class="btn btn--primary">Salvar atendimento</button>
+              </div>
+            </form>
+          </div>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="/js/sidebar.js"></script>
+  </body>
+</html>
