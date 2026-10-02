@@ -15,7 +15,7 @@ async function loadSidebar() {
   const page = document.body.dataset.page
 
   try {
-    const response = await fetch('/partials/sidebar-inner.html')
+    const response = await fetch('partials/sidebar-inner.html')
     if (!response.ok) throw new Error('sidebar partial not found')
     host.innerHTML = await response.text()
     setActiveNav(page)
