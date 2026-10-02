@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daniel Jorge Advocacia - Design System Completo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="ds-header">
+        <div class="container">
+            <h1 class="ds-title">Daniel Jorge Advocacia</h1>
+            <p class="ds-subtitle">Design System & Biblioteca de Componentes</p>
+        </div>
+    </header>
+
+    <main class="container ds-main">
+        <!-- Sidebar Navigation -->
+        <aside class="ds-sidebar">
+            <nav>
+                <ul>
+                    <li><a href="#cores"><i class="fa-solid fa-palette"></i> Cores</a></li>
+                    <li><a href="#tipografia"><i class="fa-solid fa-font"></i> Tipografia</a></li>
+                    <li><a href="#botoes"><i class="fa-solid fa-stop"></i> Botões</a></li>
+                    <li><a href="#formularios"><i class="fa-solid fa-keyboard"></i> Formulários</a></li>
+                    <li><a href="#alertas"><i class="fa-solid fa-circle-exclamation"></i> Alertas & Badges</a></li>
+                    <li><a href="#icones"><i class="fa-solid fa-icons"></i> Ícones</a></li>
+                    <li><a href="#cards"><i class="fa-solid fa-layer-group"></i> Cards & UI</a></li>
+                    <li><a href="#dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <div class="ds-content">
+            <!-- Colors Section -->
+            <section id="cores" class="ds-section">
+                <h2 class="section-title">Paleta de Cores</h2>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-swatch bg-primary"></div>
+                        <div class="color-info">
+                            <strong>Primária (Azul Marinho)</strong>
+                            <span>#15222E</span>
+                            <span>var(--color-primary)</span>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch bg-secondary"></div>
+                        <div class="color-info">
+                            <strong>Secundária (Ouro Vivo)</strong>
+                            <span>#E3A336</span>
+                            <span>var(--color-secondary)</span>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch bg-accent"></div>
+                        <div class="color-info">
+                            <strong>Destaque / Hover</strong>
+                            <span>#C78B28</span>
+                            <span>var(--color-accent)</span>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch bg-background"></div>
+                        <div class="color-info">
+                            <strong>Fundo (Background)</strong>
+                            <span>#F8F9FA</span>
+                            <span>var(--color-background)</span>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch bg-surface"></div>
+                        <div class="color-info">
+                            <strong>Superfície</strong>
+                            <span>#FFFFFF</span>
+                            <span>var(--color-surface)</span>
+                        </div>
+                    </div>
+                    <div class="color-card">
+                        <div class="color-swatch bg-text"></div>
+                        <div class="color-info">
+                            <strong>Texto Principal</strong>
+                            <span>#333333</span>
+                            <span>var(--color-text)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Typography Section -->
+            <section id="tipografia" class="ds-section">
+                <h2 class="section-title">Tipografia</h2>
+                <div class="typography-preview">
+                    <div class="type-row">
+                        <div class="type-label">Heading 1 - Marcellus (40px)</div>
+                        <h1>Advocacia de Excelência</h1>
+                    </div>
+                    <div class="type-row">
+                        <div class="type-label">Heading 2 - Marcellus (32px)</div>
+                        <h2>Nossas Áreas de Atuação</h2>
+                    </div>
+                    <div class="type-row">
+                        <div class="type-label">Heading 3 - Marcellus (24px)</div>
+                        <h3>Direito Empresarial</h3>
+                    </div>
+                    <div class="type-row">
+                        <div class="type-label">Body Text - Open Sans (16px, 400)</div>
+                        <p>O escritório Daniel Jorge Advocacia atua com foco em resultados, proporcionando segurança jurídica e atendimento personalizado aos nossos clientes. Com anos de experiência no mercado.</p>
+                    </div>
+                    <div class="type-row">
+                        <div class="type-label">Body Text Strong - Open Sans (16px, 600)</div>
+                        <p><strong>Compromisso com a ética, transparência e eficiência judiciais.</strong></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Buttons Section -->
+            <section id="botoes" class="ds-section">
+                <h2 class="section-title">Botões</h2>
+                
+                <div class="component-group">
+                    <h3>Estilos Principais</h3>
+                    <div class="button-row">
+                        <button class="btn btn-primary">Primário</button>
+                        <button class="btn btn-secondary">Secundário</button>
+                        <button class="btn btn-outline">Outline</button>
+                        <button class="btn btn-ghost">Ghost</button>
+                    </div>
+                </div>
+
+                <div class="component-group">
+                    <h3>Tamanhos</h3>
+                    <div class="button-row" style="align-items: center;">
+                        <button class="btn btn-primary btn-sm">Pequeno</button>
+                        <button class="btn btn-primary">Normal</button>
+                        <button class="btn btn-primary btn-lg">Grande</button>
+                    </div>
+                </div>
+
+                <div class="component-group">
+                    <h3>Com Ícones e Estados</h3>
+                    <div class="button-row">
+                        <button class="btn btn-primary"><i class="fa-brands fa-whatsapp"></i> Fale no WhatsApp</button>
+                        <button class="btn btn-secondary">Saiba Mais <i class="fa-solid fa-arrow-right"></i></button>
+                        <button class="btn btn-primary" disabled>Desabilitado</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Forms Section -->
+            <section id="formularios" class="ds-section">
+                <h2 class="section-title">Formulários & Inputs</h2>
+                
+                <form class="ds-form" onsubmit="event.preventDefault();">
+                    <div class="form-row">
+                        <div class="form-group w-50">
+                            <label for="name">Entrada de Texto <span class="required">*</span></label>
+                            <div class="input-with-icon">
+                                <i class="fa-solid fa-user"></i>
+                                <input type="text" id="name" class="form-control" placeholder="Seu nome completo">
+                            </div>
+                        </div>
+                        <div class="form-group w-50">
+                            <label for="email">E-mail <span class="required">*</span></label>
+                            <div class="input-with-icon">
+                                <i class="fa-solid fa-envelope"></i>
+                                <input type="email" id="email" class="form-control" placeholder="seu@email.com">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="assunto">Seleção (Dropdown)</label>
+                        <select id="assunto" class="form-control">
+                            <option value="">Selecione a área de interesse</option>
+                            <option value="1">Direito Civil</option>
+                            <option value="2">Direito Empresarial</option>
+                            <option value="3">Direito Trabalhista</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Opções (Radios)</label>
+                        <div class="radio-group">
+                            <label class="custom-radio">
+                                <input type="radio" name="tipo_pessoa" checked>
+                                <span class="radio-mark"></span>
+                                Pessoa Física
+                            </label>
+                            <label class="custom-radio">
+                                <input type="radio" name="tipo_pessoa">
+                                <span class="radio-mark"></span>
+                                Pessoa Jurídica
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Preferências (Checkboxes)</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" checked>
+                                <span class="checkmark"></span>
+                                Aceito receber contatos via WhatsApp
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox">
+                                <span class="checkmark"></span>
+                                Assinar newsletter jurídica
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Toggle (Switch)</label>
+                        <label class="custom-toggle">
+                            <input type="checkbox">
+                            <span class="toggle-slider"></span>
+                            Ativar notificações
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Área de Texto (Textarea)</label>
+                        <textarea id="message" class="form-control" rows="3" placeholder="Escreva sua mensagem..."></textarea>
+                    </div>
+
+                    <div class="form-group has-error">
+                        <label for="error-input">Estado de Erro</label>
+                        <input type="text" id="error-input" class="form-control" value="Dado inválido">
+                        <span class="error-text">Este campo é obrigatório.</span>
+                    </div>
+
+                </form>
+            </section>
+
+            <!-- Alerts & Badges -->
+            <section id="alertas" class="ds-section">
+                <h2 class="section-title">Alertas e Badges</h2>
+                
+                <div class="component-group">
+                    <h3>Alertas / Mensagens</h3>
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div>
+                            <strong>Informação:</strong> O escritório estará em recesso a partir do dia 20.
+                        </div>
+                    </div>
+                    <div class="alert alert-success">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <div>
+                            <strong>Sucesso:</strong> Sua mensagem foi enviada com sucesso. Entraremos em contato.
+                        </div>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div>
+                            <strong>Atenção:</strong> Por favor, preencha todos os campos obrigatórios.
+                        </div>
+                    </div>
+                    <div class="alert alert-error">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                        <div>
+                            <strong>Erro:</strong> Falha ao tentar conectar com o servidor.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-group">
+                    <h3>Badges (Etiquetas)</h3>
+                    <div class="badge-row">
+                        <span class="badge badge-primary">Novo</span>
+                        <span class="badge badge-secondary">Destaque</span>
+                        <span class="badge badge-success">Concluído</span>
+                        <span class="badge badge-error">Urgente</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Icons -->
+            <section id="icones" class="ds-section">
+                <h2 class="section-title">Ícones Frequentes</h2>
+                <p>Usando FontAwesome integrado com as cores do Design System.</p>
+                <div class="icons-grid">
+                    <div class="icon-box"><i class="fa-solid fa-scale-balanced"></i><span>Justiça</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-gavel"></i><span>Martelo</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-file-contract"></i><span>Contratos</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-building"></i><span>Empresarial</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-users"></i><span>Família</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-envelope"></i><span>E-mail</span></div>
+                    <div class="icon-box"><i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span></div>
+                    <div class="icon-box"><i class="fa-solid fa-location-dot"></i><span>Endereço</span></div>
+                </div>
+            </section>
+
+            <!-- UI Elements / Cards -->
+            <section id="cards" class="ds-section">
+                <h2 class="section-title">Cards e Elementos de Interface</h2>
+                
+                <div class="component-group">
+                    <h3>Navegação (Tabs)</h3>
+                    <div class="ds-tabs">
+                        <div class="tab-item active">Áreas de Atuação</div>
+                        <div class="tab-item">Quem Somos</div>
+                        <div class="tab-item">Nossa Equipe</div>
+                    </div>
+                    <div class="tab-content">
+                        <p>Conteúdo da aba selecionada aparece aqui com espaçamento adequado.</p>
+                    </div>
+                </div>
+
+                <div class="component-group">
+                    <h3>Cards de Serviço</h3>
+                    <div class="card-grid">
+                        <div class="card">
+                            <div class="card-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                            <h4 class="card-title">Direito Civil</h4>
+                            <p class="card-text">Assessoria completa em contratos, responsabilidade civil, família e sucessões.</p>
+                            <a href="#" class="card-link">Saber mais <i class="fa-solid fa-arrow-right"></i></a>
+                        </div>
+                        <div class="card">
+                            <div class="card-icon"><i class="fa-solid fa-building"></i></div>
+                            <h4 class="card-title">Direito Empresarial</h4>
+                            <p class="card-text">Suporte jurídico estratégico para empresas, focando em prevenção e resolução.</p>
+                            <a href="#" class="card-link">Saber mais <i class="fa-solid fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="component-group">
+                    <h3>Card de Perfil (Advogado)</h3>
+                    <div class="profile-card">
+                        <div class="profile-avatar">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h4 class="profile-name">Dr. Daniel Jorge</h4>
+                            <span class="profile-role">Sócio Fundador - OAB/SP 123456</span>
+                            <p class="profile-desc">Especialista em Direito Empresarial com mais de 15 anos de atuação nos tribunais superiores.</p>
+                            <div class="profile-socials">
+                                <a href="#"><i class="fa-brands fa-linkedin"></i></a>
+                                <a href="#"><i class="fa-solid fa-envelope"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="ds-section">
+                <h2 class="section-title">Dashboard (Inadimplência)</h2>
+                
+                <div class="dashboard-grid">
+                    <!-- KPI Cards -->
+                    <div class="dash-kpi">
+                        <div class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Total a Receber</span>
+                            <h3 class="kpi-value">R$ 145.200,00</h3>
+                        </div>
+                    </div>
+                    <div class="dash-kpi">
+                        <div class="kpi-icon error"><i class="fa-solid fa-users-slash"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Clientes Inadimplentes</span>
+                            <h3 class="kpi-value">42</h3>
+                        </div>
+                    </div>
+                    <div class="dash-kpi">
+                        <div class="kpi-icon success"><i class="fa-solid fa-chart-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Taxa de Recuperação</span>
+                            <h3 class="kpi-value">68%</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-row">
+                    <!-- Debts by Age -->
+                    <div class="dash-card w-50">
+                        <h4 class="dash-card-title">Inadimplência por Período</h4>
+                        <div class="progress-list">
+                            <div class="progress-item">
+                                <div class="progress-label"><span>Até 30 dias</span> <span>R$ 45.000</span></div>
+                                <div class="progress-bar"><div class="progress-fill warning" style="width: 40%;"></div></div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label"><span>31 a 90 dias</span> <span>R$ 60.200</span></div>
+                                <div class="progress-bar"><div class="progress-fill accent" style="width: 60%;"></div></div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label"><span>Mais de 90 dias</span> <span>R$ 40.000</span></div>
+                                <div class="progress-bar"><div class="progress-fill error" style="width: 35%;"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Debtors List -->
+                    <div class="dash-card w-50">
+                        <h4 class="dash-card-title">Devedores Recentes</h4>
+                        <ul class="debtor-list">
+                            <li>
+                                <div class="debtor-info">
+                                    <strong>Empresa Alpha Ltda</strong>
+                                    <span>Contrato de Assessoria</span>
+                                </div>
+                                <div class="debtor-status">
+                                    <span class="badge badge-error" style="font-size: 0.9rem;">R$ 12.500</span>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="debtor-info">
+                                    <strong>João Silva Moreira</strong>
+                                    <span>Honorários Processo Civil</span>
+                                </div>
+                                <div class="debtor-status">
+                                    <span class="badge badge-warning" style="font-size: 0.9rem; color: #fff;">R$ 4.200</span>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="debtor-info">
+                                    <strong>Construtora Beta</strong>
+                                    <span>Acordo Trabalhista</span>
+                                </div>
+                                <div class="debtor-status">
+                                    <span class="badge badge-error" style="font-size: 0.9rem;">R$ 28.000</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <footer style="text-align: center; padding: 2rem; background: var(--color-primary); color: white; margin-top: 4rem;">
+        <p>Design System - Daniel Jorge Advocacia &copy; 2026</p>
+    </footer>
+</body>
+</html>

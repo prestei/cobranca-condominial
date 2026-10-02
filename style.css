@@ -1,0 +1,507 @@
+/* ==========================================================================
+   Design System - Daniel Jorge Advocacia (Completo)
+   ========================================================================== */
+
+/* --- 1. Tokens (Variáveis CSS) --- */
+:root {
+    /* Cores Principais */
+    --color-primary: #15222E; /* Azul Marinho Escuro / Slate */
+    --color-secondary: #E3A336; /* Dourado Vivo (Logo e Links) */
+    --color-accent: #C78B28; /* Dourado escuro para hover */
+    
+    /* Base */
+    --color-background: #F8F9FA; 
+    --color-surface: #FFFFFF; 
+    --color-text: #333333; 
+    --color-text-light: #666666; 
+    --color-border: #E0E0E0; 
+    
+    /* Feedback / Status */
+    --color-success: #28a745;
+    --color-success-bg: #d4edda;
+    --color-error: #dc3545;
+    --color-error-bg: #f8d7da;
+    --color-warning: #ffc107;
+    --color-warning-bg: #fff3cd;
+    --color-info: #17a2b8;
+    --color-info-bg: #d1ecf1;
+
+    /* Tipografia */
+    --font-heading: 'Marcellus', serif; 
+    --font-body: 'Open Sans', sans-serif; 
+    
+    /* Espaçamentos */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+    --spacing-xxl: 5rem;
+
+    /* Sombras e Raios */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-pill: 50px;
+    --radius-circle: 50%;
+    
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(21, 34, 46, 0.08); /* Sombra baseada na cor primária */
+    --shadow-hover: 0 8px 24px rgba(21, 34, 46, 0.15);
+
+    /* Transições */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+}
+
+/* --- 2. Reset Base --- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--color-primary);
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: var(--spacing-sm);
+}
+
+p { margin-bottom: var(--spacing-sm); }
+
+a {
+    color: var(--color-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+a:hover { color: var(--color-accent); }
+
+/* --- 3. Layout Utilities --- */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+}
+
+.w-100 { width: 100%; }
+.w-50 { width: calc(50% - (var(--spacing-md) / 2)); }
+
+/* Layout da Página do DS */
+.ds-header {
+    background-color: var(--color-primary);
+    color: var(--color-surface);
+    padding: var(--spacing-xl) 0;
+    text-align: center;
+    border-bottom: 5px solid var(--color-secondary);
+    margin-bottom: var(--spacing-xl);
+}
+.ds-header h1 { color: var(--color-surface); font-size: 2.5rem; }
+.ds-header p { color: var(--color-secondary); letter-spacing: 2px; text-transform: uppercase; }
+
+.ds-main {
+    display: flex;
+    gap: var(--spacing-xl);
+}
+
+.ds-sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 2rem;
+    height: max-content;
+}
+
+.ds-sidebar ul { list-style: none; }
+.ds-sidebar li { margin-bottom: 0.5rem; }
+.ds-sidebar a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem 1rem;
+    color: var(--color-primary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+.ds-sidebar a:hover {
+    background: var(--color-surface);
+    color: var(--color-secondary);
+    box-shadow: var(--shadow-sm);
+}
+.ds-sidebar i { width: 20px; text-align: center; color: var(--color-secondary); }
+
+.ds-content { flex-grow: 1; max-width: 850px; }
+
+.ds-section {
+    background: var(--color-surface);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--spacing-xl);
+}
+
+.section-title {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 2px solid var(--color-border);
+}
+
+/* --- 4. Cores e Tipografia (Preview) --- */
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--spacing-md); }
+.color-card { border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.color-swatch { height: 100px; width: 100%; }
+.bg-primary { background-color: var(--color-primary); }
+.bg-secondary { background-color: var(--color-secondary); }
+.bg-accent { background-color: var(--color-accent); }
+.bg-background { background-color: var(--color-background); border-bottom: 1px solid var(--color-border); }
+.bg-surface { background-color: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.bg-text { background-color: var(--color-text); }
+.color-info { padding: 1rem; display: flex; flex-direction: column; font-size: 0.85rem; }
+.color-info strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 1rem; }
+
+.typography-preview .type-row { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
+.type-label { font-size: 0.8rem; color: var(--color-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; }
+
+/* --- 5. Botões --- */
+.component-group { margin-bottom: 2.5rem; }
+.component-group h3 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--color-text-light); }
+.button-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0.75rem 1.75rem;
+    font-family: var(--font-body); font-weight: 600; font-size: 0.9rem;
+    border: 2px solid transparent; border-radius: var(--radius-md);
+    cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: uppercase; letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+/* Variantes */
+.btn-primary { 
+    background: linear-gradient(135deg, var(--color-primary), #1e3344); 
+    color: var(--color-surface); 
+    box-shadow: 0 4px 12px rgba(21, 34, 46, 0.2);
+}
+.btn-primary:hover:not(:disabled) { 
+    background: linear-gradient(135deg, var(--color-secondary), var(--color-accent)); 
+    color: var(--color-primary); 
+    border-color: transparent;
+    box-shadow: 0 6px 16px rgba(227, 163, 54, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-secondary { 
+    background: linear-gradient(135deg, var(--color-secondary), var(--color-accent)); 
+    color: var(--color-primary); 
+    box-shadow: 0 4px 12px rgba(227, 163, 54, 0.3);
+}
+.btn-secondary:hover:not(:disabled) { 
+    background: linear-gradient(135deg, var(--color-primary), #1e3344); 
+    color: var(--color-surface); 
+    box-shadow: 0 6px 16px rgba(21, 34, 46, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-outline { 
+    background-color: transparent; 
+    border-color: var(--color-primary); 
+    color: var(--color-primary); 
+}
+.btn-outline:hover:not(:disabled) { 
+    background-color: var(--color-primary); 
+    color: var(--color-surface); 
+    box-shadow: 0 6px 15px rgba(21, 34, 46, 0.2);
+    transform: translateY(-2px);
+}
+
+.btn-ghost { 
+    background-color: transparent; 
+    color: var(--color-primary); 
+}
+.btn-ghost:hover:not(:disabled) { 
+    background-color: rgba(21, 34, 46, 0.05); 
+    color: var(--color-secondary); 
+    transform: translateY(-2px);
+}
+
+/* Tamanhos */
+.btn-sm { padding: 0.5rem 1.25rem; font-size: 0.8rem; }
+.btn-lg { padding: 1rem 2.5rem; font-size: 1rem; border-radius: 12px; }
+
+/* Estados */
+.btn:disabled { 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+    filter: grayscale(100%);
+    box-shadow: none;
+}
+
+/* --- 6. Formulários e Inputs --- */
+.ds-form { display: flex; flex-direction: column; gap: 1.5rem; background: var(--color-background); padding: 2rem; border-radius: var(--radius-md); }
+.form-row { display: flex; gap: var(--spacing-md); }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-group label { font-weight: 600; color: var(--color-primary); font-size: 0.95rem; }
+.required { color: var(--color-error); }
+
+.form-control {
+    width: 100%; padding: 0.8rem 1rem;
+    font-family: var(--font-body); font-size: 1rem;
+    color: var(--color-text); background-color: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+.form-control:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 0 3px rgba(227, 163, 54, 0.2); }
+textarea.form-control { resize: vertical; }
+
+/* Input with Icon */
+.input-with-icon { position: relative; }
+.input-with-icon i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-text-light); }
+.input-with-icon .form-control { padding-left: 2.5rem; }
+
+/* Checkbox & Radio Customizados */
+.checkbox-group, .radio-group { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.custom-radio, .custom-checkbox {
+    display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative;
+    font-weight: 400; color: var(--color-text);
+}
+.custom-radio input, .custom-checkbox input { position: absolute; opacity: 0; cursor: pointer; }
+
+/* Custom Radio */
+.radio-mark {
+    height: 20px; width: 20px; background-color: var(--color-surface); border: 2px solid var(--color-border);
+    border-radius: 50%; display: inline-block; position: relative; transition: all var(--transition-fast);
+}
+.custom-radio:hover input ~ .radio-mark { border-color: var(--color-secondary); }
+.custom-radio input:checked ~ .radio-mark { border-color: var(--color-secondary); }
+.radio-mark:after {
+    content: ""; position: absolute; display: none;
+    top: 3px; left: 3px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--color-secondary);
+}
+.custom-radio input:checked ~ .radio-mark:after { display: block; }
+
+/* Custom Checkbox */
+.checkmark {
+    height: 20px; width: 20px; background-color: var(--color-surface); border: 2px solid var(--color-border);
+    border-radius: 4px; display: inline-block; position: relative; transition: all var(--transition-fast);
+}
+.custom-checkbox:hover input ~ .checkmark { border-color: var(--color-secondary); }
+.custom-checkbox input:checked ~ .checkmark { background-color: var(--color-secondary); border-color: var(--color-secondary); }
+.checkmark:after {
+    content: ""; position: absolute; display: none;
+    left: 6px; top: 2px; width: 5px; height: 10px;
+    border: solid white; border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.custom-checkbox input:checked ~ .checkmark:after { display: block; }
+
+/* Toggle Switch */
+.custom-toggle {
+    display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 400;
+}
+.custom-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider {
+    position: relative; width: 44px; height: 24px; background-color: var(--color-border);
+    border-radius: var(--radius-pill); transition: var(--transition-fast);
+}
+.toggle-slider:before {
+    content: ""; position: absolute; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: var(--transition-fast);
+}
+.custom-toggle input:checked + .toggle-slider { background-color: var(--color-secondary); }
+.custom-toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+/* Erros de Formulário */
+.has-error .form-control { border-color: var(--color-error); }
+.has-error .form-control:focus { box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2); }
+.has-error label { color: var(--color-error); }
+.error-text { color: var(--color-error); font-size: 0.85rem; margin-top: -4px; }
+
+/* --- 7. Alertas e Badges --- */
+.alert {
+    display: flex; gap: 15px; padding: 1rem; border-radius: var(--radius-md);
+    margin-bottom: 1rem; align-items: flex-start;
+}
+.alert i { font-size: 1.25rem; margin-top: 2px; }
+.alert-info { background-color: var(--color-info-bg); color: #0c5460; border: 1px solid #bee5eb; }
+.alert-info i { color: var(--color-info); }
+.alert-success { background-color: var(--color-success-bg); color: #155724; border: 1px solid #c3e6cb; }
+.alert-success i { color: var(--color-success); }
+.alert-warning { background-color: var(--color-warning-bg); color: #856404; border: 1px solid #ffeeba; }
+.alert-warning i { color: var(--color-warning); }
+.alert-error { background-color: var(--color-error-bg); color: #721c24; border: 1px solid #f5c6cb; }
+.alert-error i { color: var(--color-error); }
+
+.badge-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.badge {
+    padding: 0.35em 0.85em; font-size: 0.75rem; font-weight: 700;
+    border-radius: var(--radius-pill); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-primary { background: var(--color-primary); color: white; }
+.badge-secondary { background: var(--color-secondary); color: var(--color-primary); }
+.badge-success { background: var(--color-success); color: white; }
+.badge-error { background: var(--color-error); color: white; }
+
+/* --- 8. Ícones --- */
+.icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1rem; text-align: center; }
+.icon-box {
+    background: var(--color-background); padding: 1.5rem 1rem; border-radius: var(--radius-md);
+    border: 1px solid var(--color-border); transition: var(--transition-fast);
+}
+.icon-box:hover { border-color: var(--color-secondary); color: var(--color-secondary); transform: translateY(-3px); }
+.icon-box i { font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem; transition: var(--transition-fast); }
+.icon-box:hover i { color: var(--color-secondary); }
+.icon-box span { display: block; font-size: 0.8rem; color: var(--color-text-light); }
+
+/* --- 9. Componentes de UI Adicionais --- */
+/* Tabs */
+.ds-tabs { display: flex; border-bottom: 2px solid var(--color-border); margin-bottom: 1.5rem; }
+.tab-item {
+    padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 600; color: var(--color-text-light);
+    border-bottom: 2px solid transparent; margin-bottom: -2px; transition: var(--transition-fast);
+}
+.tab-item:hover { color: var(--color-primary); }
+.tab-item.active { color: var(--color-secondary); border-bottom-color: var(--color-secondary); }
+.tab-content { padding: 1rem; background: var(--color-background); border-radius: var(--radius-md); }
+
+/* Cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--spacing-lg); }
+.card {
+    background: var(--color-surface); padding: var(--spacing-xl);
+    border-radius: var(--radius-md); border: 1px solid var(--color-border);
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+.card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: var(--color-secondary); }
+.card-icon { font-size: 2.5rem; color: var(--color-secondary); margin-bottom: var(--spacing-md); }
+.card-title { font-size: 1.5rem; margin-bottom: var(--spacing-xs); }
+.card-text { color: var(--color-text-light); margin-bottom: var(--spacing-md); }
+.card-link { font-weight: 600; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; display: inline-flex; align-items: center; gap: 5px; }
+
+/* Profile Card */
+.profile-card {
+    display: flex; gap: 1.5rem; padding: 2rem; border-radius: var(--radius-md);
+    background: var(--color-background); border-left: 4px solid var(--color-secondary);
+    align-items: center; max-width: 600px;
+}
+.profile-avatar {
+    width: 80px; height: 80px; border-radius: var(--radius-circle);
+    background: var(--color-primary); color: var(--color-secondary);
+    display: flex; align-items: center; justify-content: center; font-size: 2.5rem; flex-shrink: 0;
+}
+.profile-info { flex-grow: 1; }
+.profile-name { margin-bottom: 0; }
+.profile-role { display: block; color: var(--color-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; }
+.profile-desc { font-size: 0.95rem; margin-bottom: 1rem; }
+.profile-socials { display: flex; gap: 15px; }
+.profile-socials a { color: var(--color-primary); font-size: 1.2rem; }
+.profile-socials a:hover { color: var(--color-secondary); }
+
+/* Responsividade Básica do DS */
+@media (max-width: 992px) {
+    .ds-main { flex-direction: column; }
+    .ds-sidebar { width: 100%; position: static; display: flex; overflow-x: auto; padding-bottom: 10px; }
+    .ds-sidebar ul { display: flex; gap: 10px; }
+    .ds-sidebar li { margin-bottom: 0; white-space: nowrap; }
+    .form-row { flex-direction: column; }
+    .form-group.w-50 { width: 100%; }
+}
+
+/* --- 10. Dashboard de Inadimplência --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.dash-kpi {
+    background: linear-gradient(145deg, var(--color-surface), #f0f4f8);
+    border: 1px solid var(--color-border);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dash-kpi:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-secondary);
+}
+
+.kpi-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-circle);
+    background: rgba(21, 34, 46, 0.1);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.kpi-icon.error { background: var(--color-error-bg); color: var(--color-error); }
+.kpi-icon.success { background: var(--color-success-bg); color: var(--color-success); }
+
+.kpi-info { flex-grow: 1; }
+.kpi-label { display: block; font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+.kpi-value { font-family: var(--font-body); font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--color-text); }
+
+.dashboard-row {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.dash-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    flex-grow: 1;
+    min-width: 300px;
+}
+
+.dash-card-title {
+    font-size: 1.1rem;
+    color: var(--color-primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* Progress Bars */
+.progress-list { display: flex; flex-direction: column; gap: 1.25rem; }
+.progress-item { width: 100%; }
+.progress-label { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--color-text); }
+.progress-bar { width: 100%; height: 10px; background-color: var(--color-border); border-radius: var(--radius-pill); overflow: hidden; }
+.progress-fill { height: 100%; background-color: var(--color-primary); border-radius: var(--radius-pill); transition: width 1s ease-in-out; }
+.progress-fill.warning { background: linear-gradient(90deg, #ffc107, #ff9800); }
+.progress-fill.error { background: linear-gradient(90deg, #f44336, #d32f2f); }
+.progress-fill.accent { background: linear-gradient(90deg, var(--color-secondary), var(--color-accent)); }
+
+/* List */
+.debtor-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+.debtor-list li { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--color-background); border-radius: var(--radius-sm); border-left: 4px solid var(--color-error); transition: transform 0.2s ease; }
+.debtor-list li:hover { transform: translateX(5px); }
+.debtor-list li:nth-child(2) { border-left-color: var(--color-warning); }
+.debtor-info strong { display: block; font-size: 1rem; color: var(--color-text); }
+.debtor-info span { font-size: 0.8rem; color: var(--color-text-light); }
