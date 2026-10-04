@@ -109,11 +109,11 @@
                 <p class="panel__subtitle">Dados demonstrativos — últimos 6 meses</p>
                 <div class="chart-area">
                   <svg viewBox="0 0 400 200" role="img" aria-label="Gráfico de linha ilustrativo">
-                    <line x1="40" y1="170" x2="380" y2="170" stroke="#E1E6EC" />
-                    <line x1="40" y1="30" x2="40" y2="170" stroke="#E1E6EC" />
-                    <polyline fill="none" stroke="#17263B" stroke-width="2.5" points="40,120 108,105 176,88 244,95 312,72 380,130" />
-                    <circle cx="40" cy="120" r="3" fill="#17263B"/><circle cx="108" cy="105" r="3" fill="#17263B"/><circle cx="176" cy="88" r="3" fill="#17263B"/><circle cx="244" cy="95" r="3" fill="#17263B"/><circle cx="312" cy="72" r="3" fill="#17263B"/><circle cx="380" cy="130" r="3" fill="#17263B"/>
-                    <text x="40" y="188" fill="#697586" font-size="11">Mai</text><text x="108" y="188" fill="#697586" font-size="11">Jun</text><text x="176" y="188" fill="#697586" font-size="11">Jul</text><text x="244" y="188" fill="#697586" font-size="11">Ago</text><text x="312" y="188" fill="#697586" font-size="11">Set</text><text x="372" y="188" fill="#697586" font-size="11">Out</text>
+                    <line class="chart-axis" x1="40" y1="170" x2="380" y2="170" />
+                    <line class="chart-axis" x1="40" y1="30" x2="40" y2="170" />
+                    <polyline class="chart-line" stroke-width="2.5" points="40,120 108,105 176,88 244,95 312,72 380,130" />
+                    <circle class="chart-dot" cx="40" cy="120" r="3"/><circle class="chart-dot" cx="108" cy="105" r="3"/><circle class="chart-dot" cx="176" cy="88" r="3"/><circle class="chart-dot" cx="244" cy="95" r="3"/><circle class="chart-dot" cx="312" cy="72" r="3"/><circle class="chart-dot" cx="380" cy="130" r="3"/>
+                    <text class="chart-label" x="40" y="188" font-size="11">Mai</text><text class="chart-label" x="108" y="188" font-size="11">Jun</text><text class="chart-label" x="176" y="188" font-size="11">Jul</text><text class="chart-label" x="244" y="188" font-size="11">Ago</text><text class="chart-label" x="312" y="188" font-size="11">Set</text><text class="chart-label" x="372" y="188" font-size="11">Out</text>
                   </svg>
                 </div>
               </section>
@@ -122,17 +122,17 @@
                 <p class="panel__subtitle">Distribuição percentual ilustrativa</p>
                 <div class="chart-area">
                   <svg viewBox="0 0 200 200" role="img" aria-label="Gráfico de pizza ilustrativo">
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#17263B" stroke-width="28" stroke-dasharray="185 440" transform="rotate(-90 100 100)"/>
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#24374F" stroke-width="28" stroke-dasharray="79 440" stroke-dashoffset="-185" transform="rotate(-90 100 100)"/>
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#A88652" stroke-width="28" stroke-dasharray="53 440" stroke-dashoffset="-264" transform="rotate(-90 100 100)"/>
-                    <circle cx="100" cy="100" r="42" fill="#fff"/>
+                    <circle class="chart-slice--primary" cx="100" cy="100" r="70" fill="none" stroke-width="28" stroke-dasharray="185 440" transform="rotate(-90 100 100)"/>
+                    <circle class="chart-slice--tertiary" cx="100" cy="100" r="70" fill="none" stroke-width="28" stroke-dasharray="79 440" stroke-dashoffset="-185" transform="rotate(-90 100 100)"/>
+                    <circle class="chart-slice--secondary" cx="100" cy="100" r="70" fill="none" stroke-width="28" stroke-dasharray="53 440" stroke-dashoffset="-264" transform="rotate(-90 100 100)"/>
+                    <circle class="chart-hole" cx="100" cy="100" r="42"/>
                   </svg>
                 </div>
                 <ul class="chart-legend">
-                  <li><span class="chart-legend__swatch" style="background:#17263B"></span>Taxa condominial</li>
-                  <li><span class="chart-legend__swatch" style="background:#24374F"></span>Fundo de reserva</li>
-                  <li><span class="chart-legend__swatch" style="background:#A88652"></span>Multas</li>
-                  <li><span class="chart-legend__swatch" style="background:#697586"></span>Acordos</li>
+                  <li><span class="chart-legend__swatch chart-legend__swatch--primary"></span>Taxa condominial</li>
+                  <li><span class="chart-legend__swatch chart-legend__swatch--tertiary"></span>Fundo de reserva</li>
+                  <li><span class="chart-legend__swatch chart-legend__swatch--secondary"></span>Multas</li>
+                  <li><span class="chart-legend__swatch chart-legend__swatch--settled"></span>Acordos</li>
                 </ul>
               </section>
             </div>

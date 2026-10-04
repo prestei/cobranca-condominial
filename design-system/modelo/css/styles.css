@@ -1,24 +1,88 @@
-/* Daniel Jorge Advocacia — design system (HTML/CSS estático) */
+/* Lex Condominial — tokens de cor (design-system/DESIGN.md) */
 
 :root {
-  --navy: #17263b;
-  --navy-secondary: #24374f;
-  --surface: #ffffff;
-  --canvas: #f4f6f8;
-  --canvas-muted: #f8fafc;
-  --border: #e1e6ec;
-  --text: #263445;
-  --text-muted: #697586;
-  --accent-gold: #a88652;
-  --success: #23865b;
-  --warning: #b7791f;
-  --danger: #c24141;
+  --primary: #203347;
+  --primary-hover: #172534;
+  --on-primary: #ffffff;
+  --secondary: #eaa015;
+  --tertiary: #4a627a;
+  --neutral: #212529;
+  --black: #000000;
+  --surface-canvas: #f8f9fa;
+  --surface-card: #ffffff;
+  --surface-subtle: #edf1f5;
+  --border-subtle: #dde3ea;
+  --border-strong: #b8c4d1;
+  --gold-subtle: #fdf6ea;
+  --notice-text: #9c6000;
+  --status-settled: #1d7c4d;
+  --settled-tint: #e9f6ed;
+  --settled-text: #135434;
+  --settled-border: #7ecb98;
+  --status-pending: #d98200;
+  --status-critical: #b3261e;
+  --critical-tint: #fcebea;
+  --critical-text: #7a1510;
+  --critical-border: #e59895;
+
+  --navy: var(--primary);
+  --navy-secondary: var(--tertiary);
+  --surface: var(--surface-card);
+  --canvas: var(--surface-canvas);
+  --canvas-muted: var(--surface-subtle);
+  --border: var(--border-subtle);
+  --text: var(--neutral);
+  --text-muted: var(--tertiary);
+  --accent-gold: var(--secondary);
+  --success: var(--status-settled);
+  --warning: var(--status-pending);
+  --danger: var(--status-critical);
+
   --font: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --shadow-sm: 0 1px 2px rgba(23, 38, 59, 0.04);
-  --shadow-md: 0 4px 12px rgba(23, 38, 59, 0.06);
+  --shadow-sm: 0 1px 3px color-mix(in srgb, var(--primary) 5%, transparent);
+  --shadow-md: 0 4px 12px color-mix(in srgb, var(--primary) 8%, transparent);
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-xl: 0.75rem;
   --sidebar-width: 260px;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+
+  --text-headline-xl: 2rem;
+  --text-headline-lg: 1.5rem;
+  --text-headline-sm: 1.125rem;
+  --text-metric: 1.75rem;
+  --text-body-md: 0.875rem;
+  --text-body-sm: 0.75rem;
+  --text-label-sm: 0.6875rem;
+  --tracking-label: 0.08em;
+
+  /* Carteira — aponta para os tokens do design system */
+  --folio-canvas: var(--surface-canvas);
+  --folio-card: var(--surface-card);
+  --folio-ink: var(--black);
+  --folio-muted: var(--black);
+  --folio-forest: var(--primary);
+  --folio-forest-hover: var(--primary-hover);
+  --folio-chip: var(--primary);
+  --folio-brass: var(--secondary);
+  --folio-badge: var(--settled-tint);
+  --folio-badge-ink: var(--black);
+  --folio-tile: var(--surface-subtle);
+  --folio-line: var(--border-subtle);
+  --folio-line-soft: var(--surface-subtle);
+  --folio-line-input: var(--border-subtle);
+  --folio-line-chip: var(--border-strong);
+  --folio-line-badge: var(--settled-border);
+  --folio-head: var(--surface-subtle);
+  --folio-row: var(--surface-canvas);
+  --folio-count-on: color-mix(in srgb, var(--on-primary) 18%, transparent);
+  --folio-focus: 0 0 0 2px color-mix(in srgb, var(--primary) 16%, transparent);
+  --folio-shadow: var(--shadow-sm);
 }
 
 *,
@@ -71,7 +135,7 @@ svg {
 
 .sidebar .nav-link:focus-visible,
 .mobile-nav a:focus-visible {
-  outline: 2px solid rgba(168, 134, 82, 0.85);
+  outline: 2px solid color-mix(in srgb, var(--secondary) 85%, transparent);
   outline-offset: 0;
 }
 
@@ -95,8 +159,8 @@ svg {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--navy);
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   position: sticky;
   top: 0;
   align-self: flex-start;
@@ -106,7 +170,7 @@ svg {
 
 .sidebar__brand {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid color-mix(in srgb, var(--on-primary) 10%, transparent);
   display: flex;
   gap: 0.75rem;
   align-items: center;
@@ -116,8 +180,8 @@ svg {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--radius-md);
-  background: var(--navy-secondary);
-  border: 1px solid rgba(168, 134, 82, 0.3);
+  background: var(--tertiary);
+  border: 1px solid color-mix(in srgb, var(--secondary) 30%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,7 +204,7 @@ svg {
 .sidebar__subtitle {
   margin: 0.125rem 0 0;
   font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--on-primary) 55%, transparent);
 }
 
 .sidebar__nav {
@@ -156,13 +220,13 @@ svg {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: color-mix(in srgb, var(--on-primary) 40%, transparent);
 }
 
 .sidebar__group-label--spaced {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--on-primary) 10%, transparent);
 }
 
 .nav-list {
@@ -182,7 +246,7 @@ svg {
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--on-primary) 75%, transparent);
   line-height: 1.25;
   min-height: 2.375rem;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -201,28 +265,28 @@ svg {
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: color-mix(in srgb, var(--on-primary) 5%, transparent);
+  color: var(--on-primary);
 }
 
 .nav-link:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--on-primary) 12%, transparent);
 }
 
 .nav-link.is-active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border-color: rgba(168, 134, 82, 0.45);
+  background: color-mix(in srgb, var(--on-primary) 10%, transparent);
+  color: var(--on-primary);
+  border-color: color-mix(in srgb, var(--secondary) 45%, transparent);
   box-shadow: none;
 }
 
 .nav-link.is-active:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--on-primary) 12%, transparent);
 }
 
 .sidebar__user {
   padding: 1rem 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--on-primary) 10%, transparent);
 }
 
 .sidebar__user-inner {
@@ -231,7 +295,7 @@ svg {
   align-items: center;
   padding: 0.5rem;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--on-primary) 5%, transparent);
 }
 
 .main {
@@ -261,7 +325,7 @@ svg {
   gap: 1rem;
   height: 3.5rem;
   padding: 0 1rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--surface-card) 95%, transparent);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(6px);
 }
@@ -324,10 +388,14 @@ svg {
   background: var(--surface);
 }
 
-.search input:focus {
-  border-color: var(--navy-secondary);
+.search input:focus,
+.select:focus,
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(23, 38, 59, 0.1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .icon-btn {
@@ -433,8 +501,8 @@ svg {
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: var(--navy-secondary);
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   font-size: 0.6875rem;
   font-weight: 600;
   display: flex;
@@ -466,19 +534,19 @@ svg {
 }
 
 .btn--primary {
-  background: var(--navy);
-  border-color: var(--navy);
-  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
 }
 
 .btn--primary:hover {
-  background: var(--navy-secondary);
+  background: var(--primary-hover);
 }
 
 .btn--secondary {
-  background: var(--surface);
-  border-color: var(--border);
-  color: var(--text);
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--primary);
 }
 
 .btn--secondary:hover {
@@ -555,7 +623,7 @@ svg {
   height: 2.25rem;
   border-radius: var(--radius-md);
   background: var(--canvas-muted);
-  color: var(--navy-secondary);
+  color: var(--tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -616,6 +684,59 @@ svg {
   flex-shrink: 0;
 }
 
+.chart-axis {
+  stroke: var(--border-subtle);
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--primary);
+}
+
+.chart-dot {
+  fill: var(--primary);
+}
+
+.chart-label {
+  fill: var(--tertiary);
+}
+
+.chart-slice--primary {
+  stroke: var(--primary);
+}
+
+.chart-slice--tertiary {
+  stroke: var(--tertiary);
+}
+
+.chart-slice--secondary {
+  stroke: var(--secondary);
+}
+
+.chart-hole {
+  fill: var(--surface-card);
+}
+
+.chart-bar {
+  fill: var(--tertiary);
+}
+
+.chart-legend__swatch--primary {
+  background: var(--primary);
+}
+
+.chart-legend__swatch--tertiary {
+  background: var(--tertiary);
+}
+
+.chart-legend__swatch--secondary {
+  background: var(--secondary);
+}
+
+.chart-legend__swatch--settled {
+  background: var(--status-settled);
+}
+
 .grid-2 {
   display: grid;
   gap: 1rem;
@@ -641,8 +762,8 @@ table.data-table {
 }
 
 .data-table thead {
-  background: rgba(248, 250, 252, 0.9);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--surface-subtle);
 }
 
 .data-table th {
@@ -652,16 +773,16 @@ table.data-table {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--tertiary);
 }
 
 .data-table td {
   padding: 0.625rem 1rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--surface-subtle);
 }
 
 .data-table tbody tr:hover {
-  background: rgba(248, 250, 252, 0.5);
+  background: var(--surface-canvas);
 }
 
 .data-table .num {
@@ -680,27 +801,27 @@ table.data-table {
 }
 
 .badge--gold {
-  background: #f7f3ed;
-  color: var(--accent-gold);
-  border-color: #e0d0b8;
+  background: var(--gold-subtle);
+  color: var(--notice-text);
+  border-color: var(--secondary);
 }
 
 .badge--success {
-  background: #e8f5ee;
-  color: var(--success);
-  border-color: #c5e6d4;
+  background: var(--settled-tint);
+  color: var(--settled-text);
+  border-color: var(--settled-border);
 }
 
 .badge--warning {
-  background: #faf3e6;
-  color: var(--warning);
-  border-color: #e8d4a8;
+  background: var(--gold-subtle);
+  color: var(--status-pending);
+  border-color: var(--secondary);
 }
 
 .badge--danger {
-  background: #fceaea;
-  color: var(--danger);
-  border-color: #f0c4c4;
+  background: var(--critical-tint);
+  color: var(--critical-text);
+  border-color: var(--critical-border);
 }
 
 .badge--neutral {
@@ -821,14 +942,14 @@ table.data-table {
 .chip.is-selected {
   background: var(--navy);
   border-color: var(--navy);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .chip.is-selected-soft {
-  background: #f7f3ed;
-  border-color: rgba(168, 134, 82, 0.5);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(168, 134, 82, 0.25);
+  background: var(--gold-subtle);
+  border-color: color-mix(in srgb, var(--secondary) 50%, transparent);
+  color: var(--neutral);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--secondary) 25%, transparent);
 }
 
 .alert {
@@ -839,8 +960,15 @@ table.data-table {
 }
 
 .alert--info {
-  background: var(--canvas-muted);
-  border-color: var(--border);
+  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+  color: var(--neutral);
+}
+
+.alert--danger {
+  background: var(--critical-tint);
+  border-color: var(--critical-border);
+  color: var(--critical-text);
 }
 
 .alert__title {
@@ -898,7 +1026,7 @@ table.data-table {
 .progress-bar span {
   display: block;
   height: 100%;
-  background: var(--navy-secondary);
+  background: var(--primary);
   border-radius: 999px;
 }
 
@@ -923,7 +1051,7 @@ table.data-table {
   height: 0.625rem;
   border-radius: 50%;
   background: var(--accent-gold);
-  box-shadow: 0 0 0 2px rgba(168, 134, 82, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--secondary) 20%, transparent);
 }
 
 .timeline__date {
@@ -969,13 +1097,13 @@ table.data-table {
   font-size: 0.75rem;
   padding: 0.375rem 0.5rem;
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.08);
+  color: color-mix(in srgb, var(--on-primary) 85%, transparent);
+  background: color-mix(in srgb, var(--on-primary) 8%, transparent);
 }
 
 .mobile-nav a.is-active {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(168, 134, 82, 0.45);
+  background: color-mix(in srgb, var(--on-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--secondary) 45%, transparent);
   box-shadow: none;
 }
 
