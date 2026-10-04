@@ -63,7 +63,6 @@
   --color-overlay: rgb(32 51 71 / 40%);
 
   --font-sans: var(--font-open-sans), "Open Sans", sans-serif;
-  --font-display: var(--font-domine), Domine, serif;
 
   --text-headline-xl: 32px;
   --text-headline-xl--line-height: 40px;
@@ -126,8 +125,57 @@
   --spacing-control-sm: 2rem;
   --spacing-control: 2.25rem;
   --spacing-control-lg: 2.75rem;
+  --spacing-input: 2rem;
+
+  --shadow-button: 0 4px 12px rgb(32 51 71 / 20%);
+  --shadow-button-hover: 0 6px 16px rgb(234 160 21 / 35%);
 
   --shadow-card: 0 1px 3px rgb(32 51 71 / 5%);
   --shadow-popover: 0 4px 12px rgb(32 51 71 / 8%);
   --shadow-modal: 0 12px 32px rgb(32 51 71 / 16%);
+}
+
+@layer components {
+  .checkbox-control {
+    appearance: none;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-strong);
+    background-color: var(--color-surface-card);
+    background-repeat: no-repeat;
+    background-position: center;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      box-shadow 150ms;
+  }
+
+  .checkbox-control:checked {
+    border-color: var(--color-primary-container);
+    background-color: var(--color-primary-container);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' fill='none'%3E%3Cpath d='M2 5.25 4.25 7.5 8 2.75' stroke='%23ffffff' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 0.625rem;
+  }
+
+  .checkbox-control:focus-visible {
+    border-color: var(--color-brass);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brass) 20%, transparent);
+  }
+
+  .checkbox-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .checkbox-control[aria-invalid="true"] {
+    border-color: var(--color-status-critical);
+  }
+
+  .checkbox-control[aria-invalid="true"]:focus-visible {
+    border-color: var(--color-status-critical);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-status-critical) 20%, transparent);
+  }
 }

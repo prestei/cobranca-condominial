@@ -9,28 +9,31 @@ A tela nova segue o design system e o modelo inicial em HTML do projeto. Não in
 
 ## Antes de escrever
 
-1. Localizar e ler o design system (`design-system.css` ou o arquivo de tokens e componentes globais).
-2. Localizar e ler o modelo inicial em HTML: a tela que define o esqueleto (sidebar, barra superior, cabeçalho, área de conteúdo).
-3. Listar os componentes globais que a tela vai usar.
+1. Ler `docs/design-system.md` e a página `/design-site`.
+2. Ler tokens em `src/app/globals.css` (`@theme`).
+3. Listar os componentes em `src/components/` que a tela vai usar.
 
-Se o design system ou o modelo HTML não estiver no repositório, parar e pedir o caminho. Não prosseguir com um visual próprio.
+Se faltar referência visual ou documentação, parar e pedir o caminho. Não prosseguir com visual próprio.
 
 ## Esqueleto
 
-- Copiar a estrutura do modelo HTML: mesmo `app-layout`, sidebar, top bar, page header e área de conteúdo.
-- Ligar o mesmo `design-system.css` e as mesmas fontes e ícones do modelo.
-- **Sempre** usar variáveis definidas para cor e tamanho (`var(--primary)`, `var(--radius-md)`, `var(--shadow-md)`, etc.). Proibido valor literal de cor (`#5448C2`, `rgb(...)`) ou de espaçamento/raio/tipografia quando existir token equivalente no design system.
-- Se faltar token, adicionar no design system (`:root`) e usar `var(--nome)` na tela — não fixar o valor só na página.
-- CSS exclusivo da tela fica num `<style>` na própria página, como no modelo. O que se repete entre telas vai para o design system.
+- Copiar a estrutura do modelo HTML: mesmo `app-layout`, sidebar, top bar, page header e área de conteúdo (quando existir no projeto).
+- **Sempre** usar tokens do `@theme` (`bg-primary-container`, `text-body-md`, `rounded-md`, etc.). Proibido cor ou espaçamento literal quando existir token equivalente.
+- Se faltar token, adicionar em `globals.css` e documentar em `docs/design-system.md` — não fixar o valor só na página.
+- CSS exclusivo da tela: mínimo; o que se repete vira componente global.
 
-## Componentes
+## Componentes (obrigatório)
 
-Prezar por componentes reutilizáveis e globais.
+**Sempre usar os componentes globais existentes. Sempre.**
 
-- Usar o componente que já existe: classe do design system (botão, input, badge, card, modal, toast, tabela, toggle, banner) ou componente compartilhado do projeto.
-- Não recriar, não copiar o markup para a página e não fazer variante local de algo que já é global.
-- Bloco usado em mais de uma tela vira componente global. Não duplicar entre páginas.
-- Uso único permanece na tela. Não criar componente global para um único uso.
+1. Antes de qualquer UI, verificar `src/components/` e `docs/design-system.md`.
+2. Importar de `@/components/...` (`Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, etc.).
+3. **Proibido** recriar botão, input, badge, abas ou variantes locais com classes Tailwind equivalentes.
+4. **Proibido** copiar markup de `/design-site` para a página sem passar pelo componente.
+5. Se nenhum componente existente servir: **parar e perguntar ao usuário** antes de criar outro.
+6. Ao criar componente novo (com aprovação): implementar em `src/components/`, adicionar seção em `/design-site`, atualizar `docs/design-system.md` e `docs/README.md` se necessário.
+
+Bloco usado em mais de uma tela vira componente global. Uso único permanece na tela, mas ainda usando os primitivos globais (Button, Input, etc.).
 
 ## Funções
 
@@ -43,7 +46,8 @@ Padrão: poucas funções, sem muitas funções auxiliares.
 
 ## Conferir
 
-- A página usa o esqueleto e os tokens do modelo.
-- Cores e tamanhos passam só por variáveis do design system (sem hex/rgb/px soltos onde há token).
-- Nenhum componente visual foi recriado fora do design system.
+- A página usa tokens do `@theme`.
+- Toda UI interativa passa por componentes de `src/components/`.
+- Nenhum botão/input/badge/aba foi recriado fora do design system.
 - Não há função auxiliar de uso único.
+- Se algo novo foi criado, documentação e `/design-site` foram atualizados.

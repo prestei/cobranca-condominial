@@ -22,7 +22,7 @@ Nesta versão o servidor de desenvolvimento usa Turbopack. A configuração fica
 
 TypeScript acrescenta tipos ao JavaScript. O compilador deste projeto é o TypeScript 7.0.2, a porta nativa estável. Arquivos com JSX usam `.tsx`; os demais, `.ts`.
 
-`tsconfig.json` segue o modelo que o Next.js gera, com `strict` ligado. O alias `@/*` aponta para a raiz do projeto.
+`tsconfig.json` segue o modelo que o Next.js gera, com `strict` ligado. O código da aplicação fica em `src/` (`src/app`, `src/components`). O alias `@/*` aponta para `src/`.
 
 `any` fica de fora. Valor de formato incerto entra como `unknown` e só é usado depois de estreitar o tipo.
 
