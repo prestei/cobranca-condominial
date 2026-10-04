@@ -7,12 +7,20 @@ export default function HomePage() {
         <p className="text-label-sm text-on-surface-variant uppercase">Lex Condominial</p>
         <h1 className="mt-sm text-headline-lg text-on-surface">Cobrança condominial</h1>
         <p className="mt-sm text-body-md text-on-surface-variant">Em construção.</p>
-        <Link
-          href="/design-system"
-          className="mt-lg inline-block text-label-lg text-primary-container underline-offset-4 hover:underline"
-        >
-          Ver design system
-        </Link>
+        <div className="mt-lg flex flex-col items-center gap-sm">
+          <Link
+            href="/condominios"
+            className="text-label-lg text-primary-container underline-offset-4 hover:underline"
+          >
+            Abrir carteira de condomínios
+          </Link>
+          <Link
+            href="/design-system"
+            className="text-label-lg text-on-surface-variant underline-offset-4 hover:underline"
+          >
+            Ver design system
+          </Link>
+        </div>
       </div>
     </main>
   );
