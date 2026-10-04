@@ -89,7 +89,7 @@ export function SheetContent({ children, className, ...props }: SheetContentProp
   return createPortal(
     <dialog
       ref={ref}
-      className={`m-0 ml-auto hidden h-full max-h-none w-full max-w-lg min-h-0 flex-col rounded-tl-xl rounded-bl-xl border border-border-subtle border-r-0 bg-surface-card p-0 shadow-modal [open]:flex [&::backdrop]:bg-overlay ${className ?? ""}`}
+      className={`open:m-0 open:ml-auto open:flex open:h-full open:max-h-none open:w-full open:max-w-[32rem] open:min-h-0 flex-col rounded-tl-xl rounded-bl-xl border border-border-subtle border-r-0 bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
       {...props}
     >
       {children}

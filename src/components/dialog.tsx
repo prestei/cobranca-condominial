@@ -80,7 +80,7 @@ export function DialogContent({ children, className, ...props }: DialogContentPr
   return createPortal(
     <dialog
       ref={ref}
-      className={`m-auto w-[calc(100%-var(--spacing-xl))] max-w-md rounded-xl border border-border-subtle bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
+      className={`open:m-auto open:w-[min(28rem,calc(100%-var(--spacing-xl)))] rounded-xl border border-border-subtle bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
       {...props}
     >
       {children}

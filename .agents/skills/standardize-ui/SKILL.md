@@ -11,7 +11,7 @@ Especialista sênior em UI/UX, design systems, design tokens, componentização,
 
 **Antes de modificar:** analisar o design existente, identificar padrões já usados e preservar a identidade visual do projeto.
 
-**Neste repositório:** localizar e tratar como fonte principal o design system em `design-system/` (`DESIGN.md`, `modelo/css/styles.css`, modelo HTML em `modelo/index.html` e telas de referência). Alinhar padronização a esses tokens e componentes globais; reutilizar orientações da skill `create-screen` ao criar ou ajustar telas. Se caminhos ou arquivos não existirem, confirmar no repositório antes de inventar padrões paralelos.
+**Neste repositório:** a fonte dos componentes é `src/components/` (usáveis em qualquer página). Tokens em `src/app/globals.css` (`@theme`) e a documentação em `docs/design-system.md`. A rota `/design-system` é o arquivo `src/pages/design-system.tsx`, que só lista esses componentes. Alinhar padronização a esses tokens e componentes globais; reutilizar orientações da skill `create-screen` ao criar ou ajustar telas. Se caminhos ou arquivos não existirem, confirmar no repositório antes de inventar padrões paralelos.
 
 ---
 

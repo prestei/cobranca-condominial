@@ -1,6 +1,6 @@
 ---
 name: create-screen
-description: Cria telas e páginas com Tailwind e componentes globais do design system, alinhadas à proposta oficial e às regras de negócio. Use ao criar tela, página ou componente de interface.
+description: Cria telas e páginas com Tailwind e componentes globais do design system, alinhadas à proposta oficial e às regras de negócio. Cadastro e edição abrem em Sheet. Use ao criar tela, página ou componente de interface.
 ---
 
 # Criar tela
@@ -39,19 +39,64 @@ Dúvida entre duas interpretações de negócio: parar e confirmar com o usuári
 
 ## Esqueleto
 
-- Copiar a estrutura do modelo HTML: mesmo `app-layout`, sidebar, top bar, page header e área de conteúdo (quando existir no projeto).
-- O que se repete vira componente global em `src/components/`.
+Tela interna usa `AppShell` + `AppShellMain`. `PageHeader` fica fora de `PageContent`. O que se repete vira componente global em `src/components/`. Não copiar o markup de `/design-system` nem montar sidebar ou header à mão.
+
+```tsx
+<AppShell sidebar={sidebar} user={user} notificationCount={notificationCount}>
+  <AppShellMain>
+    <PageHeader
+      title="Condomínios"
+      description="Acompanhe unidades, situação e ações da carteira."
+      breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
+      actions={
+        <Button size="md">
+          <Icon icon={Plus} size="sm" />
+          Novo
+        </Button>
+      }
+    />
+    <PageContent>{/* FilterBar, métricas, tabela */}</PageContent>
+  </AppShellMain>
+</AppShell>
+```
+
+## Cabeçalho da página
+
+- A ação principal do `PageHeader` se chama **Novo** e abre o `Sheet` de cadastro. Não acrescentar o nome da entidade no rótulo.
+- Não colocar **Exportar** no cabeçalho.
+- Uma ação principal. Outra ação só entra se a proposta ou a regra de negócio pedir.
+
+## Listagem
+
+Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela.
+
+Usar `FilterBar`. Não remontar a barra com `Input`, `Select` e `Button` soltos.
+
+- Busca e selects na primeira linha, mesma largura, sem rótulo visível e sem ícone dentro do campo. `label` de cada field é só o nome acessível.
+- **Limpar** e **Filtrar** na linha de baixo, alinhados à direita, com Filtrar por último. Limpar é `outline` com `RotateCcw`; Filtrar é primário com `Search`.
+- Fundo `surface-subtle` e borda `border-subtle` vêm do componente. Não substituir por hex nem por outro token.
+- Não passar `applyLabel` nem `clearLabel`, a menos que a tela precise de outro texto.
+
+## Criação e edição
+
+Cadastro e edição **sempre** abrem no `Sheet`, o painel lateral à direita. Não usar página própria, `Dialog` nem modal para o formulário.
+
+O mesmo sheet serve para criar e editar. **Novo** abre vazio; a ação da linha abre com os dados do registro. O título muda; os campos são os mesmos.
+
+Montar com `Sheet`, `SheetContent`, `SheetForm`, `SheetHeader` (`SheetHeaderLead`, `SheetHeaderIcon`, `SheetTitle`, `SheetDescription`, `SheetClose`), `SheetBody` (`FormField`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText`) e `SheetFooterForm` (Fechar + Salvar).
+
+`Dialog` e `ConfirmDialog` ficam para confirmação, não para formulário de cadastro ou edição.
 
 ## Componentes (obrigatório)
 
 **Sempre montar a UI com os componentes globais existentes. Sempre.**
 
 1. Antes de qualquer markup, verificar `src/components/` e `docs/design-system.md`.
-2. Importar de `@/components/...` (`Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, `Dialog`, etc.).
+2. Importar de `@/components/...` (`AppShell`, `PageHeader`, `PageContent`, `FilterBar`, `Sheet`, `Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, `Dialog`, `ConfirmDialog`, etc.).
 3. **Proibido** recriar botão, input, badge, abas, modal ou variantes locais com classes Tailwind equivalentes.
 4. **Proibido** copiar markup de `/design-system` para a página sem passar pelo componente.
 5. Se nenhum componente existente servir: **parar e perguntar ao usuário** antes de criar outro.
-6. Ao criar componente novo (com aprovação): implementar em `src/components/` **somente com Tailwind** (sem arquivo `.css`), adicionar showcase em `src/design-system/`, atualizar `docs/design-system.md` se necessário.
+6. Ao criar componente novo (com aprovação): implementar em `src/components/` **somente com Tailwind** (sem arquivo `.css`), incluir o exemplo em `src/pages/design-system.tsx` e atualizar `docs/design-system.md` se necessário.
 
 Bloco usado em mais de uma tela vira componente global. Uso único permanece na tela, mas ainda usando os primitivos globais (`Button`, `Input`, etc.).
 
@@ -59,7 +104,7 @@ Bloco usado em mais de uma tela vira componente global. Uso único permanece na 
 
 Padrão: poucas funções, sem muitas funções auxiliares.
 
-- Uma função por ação da tela (renderizar a lista, filtrar, abrir o modal, salvar).
+- Uma função por ação da tela (renderizar a lista, filtrar, abrir o sheet, salvar).
 - Formatação, condição e atualização do DOM ficam dentro dessa função.
 - Extrair função só quando o mesmo trecho é chamado em mais de um ponto.
 - Não criar auxiliar de uma linha, wrapper ou getter usado uma vez só.
@@ -68,7 +113,10 @@ Padrão: poucas funções, sem muitas funções auxiliares.
 
 - `docs/proposta-oficial.md` e `docs/regra-negocio.md` foram lidos e a tela reflete perfis, fluxos e campos relevantes.
 - A página usa tokens do `@theme` via Tailwind; nenhum CSS novo fora de `@theme` em `globals.css`.
+- A tela interna usa `AppShell`, `PageHeader` e `PageContent`. A ação do cabeçalho é **Novo**, sem **Exportar**.
+- Listagem usa `FilterBar` (campos sem ícone e sem rótulo; Limpar e depois Filtrar, alinhados à direita), depois métricas e tabela.
+- Cadastro e edição abrem no mesmo `Sheet`. Formulário não vai para página nem para `Dialog`.
 - Toda UI interativa passa por componentes de `src/components/`.
-- Nenhum botão/input/badge/aba/modal foi recriado fora do design system.
+- Nenhum botão/input/badge/aba/modal/filtro foi recriado fora do design system.
 - Não há função auxiliar de uso único.
 - Se algo novo foi criado, documentação e `/design-system` foram atualizados.

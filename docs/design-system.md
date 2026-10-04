@@ -1,6 +1,6 @@
 # Design system
 
-Tokens em `src/app/globals.css` (`@theme`). Tipografia: **Open Sans** em todo o projeto (`font-sans` no `body`; sem fonte com serifa). Componentes globais em `src/components/`. Catálogo visual em `/design-system` (implementação em `src/design-system/`).
+Tokens em `src/app/globals.css` (`@theme`). Tipografia: **Open Sans** em todo o projeto (`font-sans` no `body`; sem fonte com serifa). Componentes globais em `src/components/` — importar de `@/components/...` e usar em qualquer página. A rota `/design-system` é o arquivo `src/pages/design-system.tsx`, que só lista esses componentes.
 
 ## Componentes
 
@@ -13,6 +13,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
 | `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
+| `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
 | `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone. |
@@ -21,6 +22,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Icon` | `icon.tsx` | Ícones Lucide com tamanhos `sm`, `md`, `lg` e traço padronizado. |
 | `Alert` | `alert.tsx` | Feedback inline. Variantes: `info`, `success`, `warning`, `error` (ícone Lucide por variante). |
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
+| `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
 | `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. 32rem. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
@@ -67,6 +69,32 @@ Use `CheckboxField`, `RadioField` ou `SwitchField` para label clicável ao lado.
 <SwitchField label="Notificações" htmlFor="notify">
   <Switch id="notify" />
 </SwitchField>
+```
+
+## Filtros
+
+`FilterBar` compõe `Input`, `Select` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca e selects ficam na primeira linha, todos com a mesma largura e sem rótulo visível. `label` de cada item de `fields` é só o nome acessível do select. Limpar e Filtrar ficam na linha de baixo, alinhados à direita, com Filtrar por último. Filtrar envia o formulário; Limpar chama `onClear`.
+
+```tsx
+<FilterBar
+  searchValue={search}
+  onSearchChange={setSearch}
+  searchPlaceholder="Buscar condomínio..."
+  onApply={handleApply}
+  onClear={handleClear}
+  fields={[
+    {
+      id: "situation",
+      label: "Situação",
+      value: situation,
+      onChange: setSituation,
+      options: [
+        { value: "todos", label: "Todos" },
+        { value: "ativo", label: "Ativo" },
+      ],
+    },
+  ]}
+/>
 ```
 
 ## Abas
@@ -159,6 +187,24 @@ Estado vazio mobile: `TableMobileEmpty` com `EmptyState`. Prop `viewport="mobile
 
 `EmptyState` também pode ficar fora da tabela (painel, página inteira).
 
+## Confirmação
+
+`ConfirmDialog` abre um modal com cancelar e confirmar. O pai controla `open` e decide o que fazer em `onConfirm` (fechar, toast, exclusão).
+
+```tsx
+const [open, setOpen] = useState(false);
+
+<ConfirmDialog
+  open={open}
+  onOpenChange={setOpen}
+  title="Remover condomínio?"
+  description="Esta ação remove o condomínio da carteira."
+  onConfirm={() => setOpen(false)}
+/>
+```
+
+Rótulos padrão: `Cancelar` e `Confirmar`. Troque com `cancelLabel` e `confirmLabel`.
+
 ## Dialog
 
 Controlado por `open` e `onOpenChange`. Fecha com Escape ou clique no backdrop.
@@ -247,7 +293,7 @@ app-layout
     ├── header (busca, notificações, conta)
     └── main
         ├── PageHeader (breadcrumb, título e ações)
-        └── PageContent (métricas, tabela responsiva, etc.)
+        └── PageContent (FilterBar, métricas, tabela responsiva, etc.)
 ```
 
 Compor telas internas com `AppShell` + `PageHeader` + `PageContent`. Passe `user` e `notificationCount` ao `AppShell` para o header. No smartphone (&lt; 961px), a sidebar abre em drawer.
@@ -276,7 +322,7 @@ Compor telas internas com `AppShell` + `PageHeader` + `PageContent`. Passe `user
         title="Condomínios"
         description="Texto de apoio."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
-        actions={<Button>Novo condomínio</Button>}
+        actions={<Button>Novo</Button>}
       />
       {/* conteúdo */}
     </PageContent>
@@ -288,4 +334,4 @@ Breakpoint do drawer mobile: **961px**. Catálogo de componentes em `/design-sys
 
 ## Novos componentes
 
-Só criar componente global após alinhamento com o time. Ao adicionar: implementar em `src/components/`, documentar neste arquivo e incluir exemplo em `/design-system`.
+Só criar componente global após alinhamento com o time. Ao adicionar: implementar em `src/components/`, documentar neste arquivo e incluir o exemplo em `src/pages/design-system.tsx`.
