@@ -29,6 +29,8 @@ const variants = {
   { icon: LucideIcon; container: string; iconClass: string }
 >;
 
+export const feedbackVariants = variants;
+
 export type AlertVariant = keyof typeof variants;
 
 type AlertProps = {

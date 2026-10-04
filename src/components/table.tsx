@@ -252,21 +252,33 @@ type TableActionsCellProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type
   label?: string;
 };
 
-export function TableActionsCell({
+export function TableActionsButton({
   className,
   label = "Abrir menu de ações",
   ...props
 }: TableActionsCellProps) {
   return (
+    <button
+      type="button"
+      aria-label={label}
+      className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
+      {...props}
+    >
+      <EllipsisVertical className="size-5" strokeWidth={2} aria-hidden="true" />
+    </button>
+  );
+}
+
+export function TableActionsCell({
+  className,
+  label,
+  ...props
+}: TableActionsCellProps) {
+  return (
     <TableCell align="center" className={`w-14 px-sm ${className ?? ""}`}>
-      <button
-        type="button"
-        aria-label={label}
-        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
-        {...props}
-      >
-        <EllipsisVertical className="size-5" strokeWidth={2} aria-hidden="true" />
-      </button>
+      <div className="flex justify-center">
+        <TableActionsButton label={label} {...props} />
+      </div>
     </TableCell>
   );
 }
@@ -284,5 +296,149 @@ export function TableEmpty({ colSpan, children, className }: TableEmptyProps) {
         <div className="w-full min-w-0">{children}</div>
       </TableCell>
     </TableRow>
+  );
+}
+
+type ResponsiveTableProps = {
+  desktop: ReactNode;
+  mobile: ReactNode;
+  className?: string;
+  viewport?: "auto" | "desktop" | "mobile";
+};
+
+export function ResponsiveTable({
+  desktop,
+  mobile,
+  className,
+  viewport = "auto",
+}: ResponsiveTableProps) {
+  if (viewport === "mobile") {
+    return <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>{mobile}</div>;
+  }
+
+  if (viewport === "desktop") {
+    return <div className={className}>{desktop}</div>;
+  }
+
+  return (
+    <div className={className}>
+      <div className="hidden min-[768px]:block">{desktop}</div>
+      <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">{mobile}</div>
+    </div>
+  );
+}
+
+type TableMobileListProps = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileList({ children, className, ...props }: TableMobileListProps) {
+  return (
+    <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`} {...props}>
+      {children}
+    </div>
+  );
+}
+
+type TableMobileToolbarProps = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileToolbar({ children, className, ...props }: TableMobileToolbarProps) {
+  return (
+    <div
+      className={`flex items-center gap-sm rounded-lg border border-border-subtle bg-surface-subtle px-md py-sm ${className ?? ""}`}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+type TableMobileCardProps = HTMLAttributes<HTMLElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileCard({ children, className, ...props }: TableMobileCardProps) {
+  return (
+    <article
+      className={`w-full min-w-0 rounded-lg border border-border-subtle bg-surface-card px-md pb-md pt-sm shadow-card ${className ?? ""}`}
+      {...props}
+    >
+      {children}
+    </article>
+  );
+}
+
+type TableMobileCardHeaderProps = HTMLAttributes<HTMLDivElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileCardHeader({ children, className, ...props }: TableMobileCardHeaderProps) {
+  return (
+    <div
+      className={`grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-sm ${className ?? ""}`}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+type TableMobileTitleProps = HTMLAttributes<HTMLParagraphElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileTitle({ children, className, ...props }: TableMobileTitleProps) {
+  return (
+    <p className={`min-w-0 text-label-lg leading-tight text-on-surface ${className ?? ""}`} {...props}>
+      {children}
+    </p>
+  );
+}
+
+type TableMobileFieldsProps = HTMLAttributes<HTMLDListElement> & {
+  children: ReactNode;
+};
+
+export function TableMobileFields({ children, className, ...props }: TableMobileFieldsProps) {
+  return (
+    <dl
+      className={`mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm ${className ?? ""}`}
+      {...props}
+    >
+      {children}
+    </dl>
+  );
+}
+
+type TableMobileFieldProps = {
+  label: string;
+  children: ReactNode;
+  className?: string;
+  valueClassName?: string;
+};
+
+export function TableMobileField({ label, children, className, valueClassName }: TableMobileFieldProps) {
+  return (
+    <div className={`flex min-w-0 items-center justify-between gap-md ${className ?? ""}`}>
+      <dt className="min-w-0 text-label-md text-on-surface-variant">{label}</dt>
+      <dd className={`shrink-0 text-body-md text-on-surface ${valueClassName ?? ""}`}>{children}</dd>
+    </div>
+  );
+}
+
+type TableMobileEmptyProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function TableMobileEmpty({ children, className }: TableMobileEmptyProps) {
+  return (
+    <div
+      className={`overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card ${className ?? ""}`}
+    >
+      {children}
+    </div>
   );
 }

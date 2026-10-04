@@ -44,7 +44,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex cursor-pointer items-center justify-center gap-sm whitespace-nowrap font-semibold uppercase tracking-widest transition-all duration-300 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-60 disabled:grayscale disabled:shadow-none disabled:hover:translate-y-0 ${sizes[size]} ${variants[variant]} ${className ?? ""}`}
+      className={`inline-flex cursor-pointer select-none items-center justify-center gap-sm whitespace-nowrap font-semibold uppercase tracking-widest caret-transparent transition-all duration-300 ease-out focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-60 disabled:grayscale disabled:shadow-none disabled:hover:translate-y-0 ${sizes[size]} ${variants[variant]} ${className ?? ""}`}
       {...props}
     />
   );

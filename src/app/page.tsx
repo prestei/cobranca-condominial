@@ -8,7 +8,7 @@ export default function HomePage() {
         <h1 className="mt-sm text-headline-lg text-on-surface">Cobrança condominial</h1>
         <p className="mt-sm text-body-md text-on-surface-variant">Em construção.</p>
         <Link
-          href="/design-site"
+          href="/design-system"
           className="mt-lg inline-block text-label-lg text-primary-container underline-offset-4 hover:underline"
         >
           Ver design system

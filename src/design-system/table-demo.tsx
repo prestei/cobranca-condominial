@@ -1,18 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Inbox, Plus } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
+import { Checkbox } from "@/components/input";
 import {
+  ResponsiveTable,
   Table,
+  TableActionsButton,
   TableActionsCell,
   TableBody,
   TableCell,
   TableEmpty,
   TableHead,
   TableHeader,
+  TableMobileCard,
+  TableMobileCardHeader,
+  TableMobileEmpty,
+  TableMobileField,
+  TableMobileFields,
+  TableMobileList,
+  TableMobileTitle,
+  TableMobileToolbar,
   TableRow,
   TableSelectCell,
   type TableSortDirection,
@@ -45,7 +56,38 @@ function nextDirection(current: TableSortDirection): TableSortDirection {
   return "none";
 }
 
-export function CondominiumsTableDemo() {
+type CondominiumsTableDemoProps = {
+  viewport?: "auto" | "desktop" | "mobile";
+};
+
+function SelectAllCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate, checked]);
+
+  return (
+    <Checkbox
+      ref={ref}
+      checked={checked}
+      aria-label="Selecionar todos"
+      onChange={(event) => onChange(event.target.checked)}
+    />
+  );
+}
+
+export function CondominiumsTableDemo({ viewport = "auto" }: CondominiumsTableDemoProps) {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<TableSortDirection>("none");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -109,7 +151,7 @@ export function CondominiumsTableDemo() {
     setSelected(new Set());
   }
 
-  return (
+  const desktopTable = (
     <Table aria-label="Condomínios na carteira">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
@@ -151,45 +193,103 @@ export function CondominiumsTableDemo() {
               onCheckedChange={(checked) => toggleRow(row.name, checked)}
             />
             <TableCell className="font-medium">{row.name}</TableCell>
-            <TableCell align="right" className="tabular-nums">{row.units}</TableCell>
+            <TableCell align="right" className="tabular-nums">
+              {row.units}
+            </TableCell>
             <TableCell>
               <Badge variant={situationBadge[row.situation]}>{row.situation}</Badge>
             </TableCell>
-            <TableActionsCell />
+            <TableActionsCell label={`Ações para ${row.name}`} />
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
+
+  const mobileTable = (
+    <TableMobileList aria-label="Condomínios na carteira">
+      <TableMobileToolbar>
+        <SelectAllCheckbox
+          checked={allSelected}
+          indeterminate={someSelected}
+          onChange={toggleAll}
+        />
+        <span className="text-label-md text-primary-container">Selecionar todos</span>
+      </TableMobileToolbar>
+      {rows.map((row) => (
+        <TableMobileCard key={row.name}>
+          <TableMobileCardHeader>
+            <Checkbox
+              checked={selected.has(row.name)}
+              aria-label={`Selecionar ${row.name}`}
+              onChange={(event) => toggleRow(row.name, event.target.checked)}
+            />
+            <TableMobileTitle>{row.name}</TableMobileTitle>
+            <TableActionsButton label={`Ações para ${row.name}`} />
+          </TableMobileCardHeader>
+          <TableMobileFields>
+            <TableMobileField label="Unidades" valueClassName="tabular-nums">
+              {row.units}
+            </TableMobileField>
+            <TableMobileField label="Situação">
+              <Badge variant={situationBadge[row.situation]}>{row.situation}</Badge>
+            </TableMobileField>
+          </TableMobileFields>
+        </TableMobileCard>
+      ))}
+    </TableMobileList>
+  );
+
+  return (
+    <ResponsiveTable viewport={viewport} desktop={desktopTable} mobile={mobileTable} />
+  );
 }
 
-export function CondominiumsTableEmptyDemo() {
-  return (
+type CondominiumsTableEmptyDemoProps = {
+  viewport?: "auto" | "desktop" | "mobile";
+};
+
+export function CondominiumsTableEmptyDemo({ viewport = "auto" }: CondominiumsTableEmptyDemoProps) {
+  const emptyState = (
+    <EmptyState
+      icon={<Inbox className="size-6" strokeWidth={1.75} />}
+      title="Nenhum condomínio encontrado"
+      description="Ajuste os filtros ou cadastre um novo condomínio na carteira."
+      action={
+        <Button size="sm">
+          <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
+          Novo condomínio
+        </Button>
+      }
+    />
+  );
+
+  const desktopTable = (
     <Table aria-label="Exemplo sem registros">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead selection selectionChecked={false} selectionDisabled />
-          <TableHead sortable sortDirection="none">Condomínio</TableHead>
-          <TableHead align="right" className="w-28" sortable sortDirection="none">Unidades</TableHead>
-          <TableHead className="w-36" sortable sortDirection="none">Situação</TableHead>
+          <TableHead sortable sortDirection="none">
+            Condomínio
+          </TableHead>
+          <TableHead align="right" className="w-28" sortable sortDirection="none">
+            Unidades
+          </TableHead>
+          <TableHead className="w-36" sortable sortDirection="none">
+            Situação
+          </TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableEmpty colSpan={5}>
-          <EmptyState
-            icon={<Inbox className="size-6" strokeWidth={1.75} />}
-            title="Nenhum condomínio encontrado"
-            description="Ajuste os filtros ou cadastre um novo condomínio na carteira."
-            action={
-              <Button size="sm">
-                <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
-                Novo condomínio
-              </Button>
-            }
-          />
-        </TableEmpty>
+        <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
       </TableBody>
     </Table>
+  );
+
+  const mobileTable = <TableMobileEmpty>{emptyState}</TableMobileEmpty>;
+
+  return (
+    <ResponsiveTable viewport={viewport} desktop={desktopTable} mobile={mobileTable} />
   );
 }
