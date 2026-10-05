@@ -18,6 +18,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
 | `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone. |
+| `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
 | `EmptyState` | `empty-state.tsx` | Sem dados: título, descrição, ícone e ação opcionais. |
@@ -31,6 +32,10 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
 | `PageHeader`, `PageContent` | `page-header.tsx` | Título, breadcrumb, descrição, ações e container da página. |
+
+## Gráficos
+
+Use os componentes de `charts.tsx` dentro de um cartão da página (`rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card`). Passe `chave` com o recorte dos dados: o desenho cresce de novo quando o filtro muda. `TomGrafico`: `navy`, `brass`, `settled`, `pending`, `critical`, `mist`.
 
 ## Botões
 
