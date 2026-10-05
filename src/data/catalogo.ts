@@ -753,6 +753,47 @@ export function hojeIso() {
   return agoraIso().slice(0, 10);
 }
 
+/** Usuário do login simulado até existir autenticação real. */
+export const ID_USUARIO_SESSAO = 1;
+
+export function saudacaoDoDia(agora = new Date()) {
+  const hora = agora.getHours();
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+export function iniciaisNome(nome: string) {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "—";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return `${partes[0][0] ?? ""}${partes[partes.length - 1][0] ?? ""}`.toUpperCase();
+}
+
+export function primeiroNome(nome: string) {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "—";
+  if (partes[0].endsWith(".") && partes.length > 1) return partes[1];
+  return partes[0];
+}
+
+export function tituloInicio(nomeCompleto: string, agora = new Date()) {
+  return `${saudacaoDoDia(agora)}, ${primeiroNome(nomeCompleto)}`;
+}
+
+export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }) {
+  const usuario = cadastros.usuarios.find((item) => item.id === ID_USUARIO_SESSAO) ?? cadastros.usuarios[0];
+  if (!usuario) {
+    return { name: "—", initials: "—", menuSubtitle: "" };
+  }
+  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
+  return {
+    name: usuario.nome,
+    initials: iniciaisNome(usuario.nome),
+    menuSubtitle: cargo?.nome ?? "",
+  };
+}
+
 export function debitoEmAberto(item: { status: string }) {
   return item.status === "Pendente" || item.status === "Vencido";
 }

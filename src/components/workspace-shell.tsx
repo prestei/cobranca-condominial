@@ -25,7 +25,7 @@ import {
   AppShellNavSection,
   AppShellSidebar,
 } from "@/components/app-shell";
-import { getCadastros, retornoPendente, subscribeCadastros } from "@/data/catalogo";
+import { getCadastros, retornoPendente, subscribeCadastros, usuarioSessaoApp } from "@/data/catalogo";
 
 const secoes: Array<{
   title: string;
@@ -65,6 +65,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
   const retornos = cadastros.atendimentos.filter(retornoPendente).length;
+  const usuario = usuarioSessaoApp(cadastros);
 
   return (
     <AppShell
@@ -90,7 +91,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           </AppShellNav>
         </AppShellSidebar>
       }
-      user={{ name: "Milena", initials: "MI", menuSubtitle: "Administradora" }}
+      user={usuario}
       notificationCount={retornos}
     >
       <AppShellMain>{children}</AppShellMain>

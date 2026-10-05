@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -60,7 +61,6 @@ import {
   formatarMoeda,
   getCadastros,
   grupoDebito,
-  gruposDebito,
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
   nomeCondominio,
@@ -73,7 +73,7 @@ import {
   type Debito,
 } from "@/data/catalogo";
 
-const etapas = ["Identificação", "Valores", "Acréscimos", "Pagamento"] as const;
+const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
 const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
   Pendente: "secondary",
   Pago: "success",
@@ -131,6 +131,7 @@ const dinheiro = /^\d+([.,]\d{1,2})?$/;
 const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 
 export default function DebitosPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const formId = useId();
   const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
@@ -239,18 +240,6 @@ export default function DebitosPage() {
     condominiosNoFiltro.some((condominio) => condominio.id === item.condominioId),
   ).length;
   const percentualUnidades = unidadesCarteira ? (unidadesDevedoras / unidadesCarteira) * 100 : null;
-  const porGrupo = gruposDebito.map((grupo) => {
-    const itens = emAbertoNaData.filter((item) => grupoDebito(item.descricao) === grupo);
-    const valor = somarAtualizado(itens);
-    return {
-      nome: grupo,
-      valor,
-      ate: somarAtualizado(itens.filter((item) => !acimaDoLimite(diasNaBase(item), limiteDias))),
-      acima: somarAtualizado(itens.filter((item) => acimaDoLimite(diasNaBase(item), limiteDias))),
-      percentual: totalAtualizado ? (valor / totalAtualizado) * 100 : 0,
-    };
-  });
-
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
   }
@@ -365,8 +354,18 @@ export default function DebitosPage() {
     setDeleteTarget(null);
   }
 
+  function iniciarAtendimento(item: Debito) {
+    const params = new URLSearchParams({
+      novo: "1",
+      condominio: String(item.condominioId),
+      unidade: String(item.unidadeId),
+    });
+    router.push(`/atendimentos?${params.toString()}`);
+  }
+
   function acoes(item: Debito) {
     return [
+      { label: "Iniciar atendimento", icon: ClipboardList, onSelect: () => iniciarAtendimento(item) },
       { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
       { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
     ];
@@ -405,7 +404,6 @@ export default function DebitosPage() {
       if (nextErrors.status) daEtapa.status = nextErrors.status;
       if (nextErrors.valor) daEtapa.valor = nextErrors.valor;
       if (nextErrors.valorOriginal) daEtapa.valorOriginal = nextErrors.valorOriginal;
-    } else if (step === 2) {
       if (nextErrors.multa) daEtapa.multa = nextErrors.multa;
       if (nextErrors.juros) daEtapa.juros = nextErrors.juros;
       if (nextErrors.correcao) daEtapa.correcao = nextErrors.correcao;
@@ -424,12 +422,17 @@ export default function DebitosPage() {
       setStep(0);
       return;
     }
-    if (nextErrors.dataVencimento || nextErrors.status || nextErrors.valor || nextErrors.valorOriginal) {
+    if (
+      nextErrors.dataVencimento ||
+      nextErrors.status ||
+      nextErrors.valor ||
+      nextErrors.valorOriginal ||
+      nextErrors.multa ||
+      nextErrors.juros ||
+      nextErrors.correcao ||
+      nextErrors.valorAtualizado
+    ) {
       setStep(1);
-      return;
-    }
-    if (nextErrors.multa || nextErrors.juros || nextErrors.correcao || nextErrors.valorAtualizado) {
-      setStep(2);
       return;
     }
     if (Object.keys(nextErrors).length > 0) return;
@@ -677,7 +680,7 @@ export default function DebitosPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
           <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Receipt} size="md" className="text-brass" />}>
             <p className="text-metric text-on-surface tabular-nums">{moeda(totalOriginal)}</p>
             <p className="mt-sm text-body-sm text-on-surface-variant">valor original</p>
@@ -694,67 +697,31 @@ export default function DebitosPage() {
             <p className="text-metric text-on-surface tabular-nums">{moeda(acimaLimite)}</p>
             <p className="mt-sm text-body-sm text-on-surface-variant">acima de {limiteDias} dias</p>
           </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{percentualUnidades === null ? "—" : percentual(percentualUnidades)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência das unidades</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">—</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência do valor</p>
-          </CardMetric>
         </div>
-        <p className="text-body-sm text-on-surface-variant">
-          Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias} dias.
-          O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas. O percentual do valor
-          emitido depende do total emitido no período, que a importação ainda não traz.
-        </p>
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Por tipo</h2>
-          <Table aria-label="Inadimplência por tipo">
-            <TableHeader>
-              <TableRow className="border-border-subtle/50 hover:bg-transparent">
-                <TableHead>Tipo</TableHead>
-                <TableHead align="right">Total atualizado</TableHead>
-                <TableHead align="right">% do total</TableHead>
-                <TableHead align="right">Até {limiteDias} dias</TableHead>
-                <TableHead align="right">Acima de {limiteDias} dias</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {porGrupo.map((linha) => (
-                <TableRow key={linha.nome}>
-                  <TableCell className="font-medium">{linha.nome}</TableCell>
-                  <TableCell align="right" className="tabular-nums">
-                    {moeda(linha.valor)}
-                  </TableCell>
-                  <TableCell align="right" className="tabular-nums">
-                    {percentual(linha.percentual)}
-                  </TableCell>
-                  <TableCell align="right" className="tabular-nums">
-                    {moeda(linha.ate)}
-                  </TableCell>
-                  <TableCell align="right" className="tabular-nums">
-                    {moeda(linha.acima)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              <TableRow>
-                <TableCell className="font-medium">Total</TableCell>
-                <TableCell align="right" className="font-medium tabular-nums">
-                  {moeda(totalAtualizado)}
-                </TableCell>
-                <TableCell align="right" className="font-medium tabular-nums">
-                  {totalAtualizado ? "100%" : percentual(0)}
-                </TableCell>
-                <TableCell align="right" className="font-medium tabular-nums">
-                  {moeda(ateLimite)} ({totalAtualizado ? percentual((ateLimite / totalAtualizado) * 100) : percentual(0)})
-                </TableCell>
-                <TableCell align="right" className="font-medium tabular-nums">
-                  {moeda(acimaLimite)} ({totalAtualizado ? percentual((acimaLimite / totalAtualizado) * 100) : percentual(0)})
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+          <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
+          <div className="grid grid-cols-1 gap-lg min-[640px]:grid-cols-2">
+            <div className="min-w-0">
+              <p className="text-metric text-on-surface tabular-nums">
+                {percentualUnidades === null ? "—" : percentual(percentualUnidades)}
+              </p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência das unidades</p>
+              {unidadesCarteira > 0 ? (
+                <p className="mt-xs text-body-sm text-on-surface-variant">
+                  {unidadesDevedoras} de {unidadesCarteira} unidades com débito vencido na data-base
+                </p>
+              ) : null}
+            </div>
+            <div className="min-w-0">
+              <p className="text-metric text-on-surface tabular-nums">—</p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência do valor emitido</p>
+              <p className="mt-xs text-body-sm text-on-surface-variant">Depende do total emitido no período filtrado (ainda não vem na importação).</p>
+            </div>
+          </div>
+          <p className="border-t border-border-subtle pt-md text-body-sm text-on-surface-variant">
+            Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias} dias.
+            O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte dos filtros.
+          </p>
         </section>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
@@ -902,9 +869,6 @@ export default function DebitosPage() {
                       onChange={(event) => setForm((current) => ({ ...current, valorOriginal: event.target.value }))}
                     />
                   </FormField>
-                </>
-              ) : step === 2 ? (
-                <>
                   <FormField label="Multa" htmlFor={`${formId}-multa`} error={errors.multa}>
                     <Input
                       id={`${formId}-multa`}

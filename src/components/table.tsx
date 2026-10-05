@@ -28,7 +28,9 @@ const formatosExportacao: Array<{ id: string; label: string; description: string
   },
 ];
 
-function TableExport() {
+export type TableExportFormat = "csv" | "xls" | "pdf";
+
+function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => void }) {
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -168,7 +170,10 @@ function TableExport() {
                   type="button"
                   role="menuitem"
                   className="flex w-full cursor-pointer items-center gap-sm px-md py-sm text-left hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    onExport?.(formato.id as TableExportFormat);
+                    setOpen(false);
+                  }}
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-primary-container">
                     <Icon icon={formato.icon} size="sm" />
@@ -187,22 +192,23 @@ function TableExport() {
   );
 }
 
-function TableExportBar() {
+function TableExportBar({ onExport }: { onExport?: (format: TableExportFormat) => void }) {
   return (
     <div className="flex justify-end">
-      <TableExport />
+      <TableExport onExport={onExport} />
     </div>
   );
 }
 
 type TableProps = TableHTMLAttributes<HTMLTableElement> & {
   containerClassName?: string;
+  showExport?: boolean;
 };
 
-export function Table({ className, containerClassName, children, ...props }: TableProps) {
+export function Table({ className, containerClassName, children, showExport = true, ...props }: TableProps) {
   return (
     <div className="flex flex-col gap-sm">
-      <TableExportBar />
+      {showExport ? <TableExportBar /> : null}
       <div
         className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
       >
@@ -216,6 +222,8 @@ export function Table({ className, containerClassName, children, ...props }: Tab
     </div>
   );
 }
+
+export { TableExport };
 
 export function TableCaption({ className, ...props }: HTMLAttributes<HTMLTableCaptionElement>) {
   return (

@@ -117,8 +117,25 @@ export default function AtendimentosPage() {
 
   useEffect(() => {
     if (!searchParams || searchParams.get("novo") !== "1") return;
+    const cadastrosAtuais = getCadastros();
+    const condominioQuery = searchParams.get("condominio");
+    const unidadeQuery = searchParams.get("unidade");
+    let condominioId = "";
+    let unidadeId = "";
+    if (unidadeQuery) {
+      const unidade = cadastrosAtuais.unidades.find((item) => String(item.id) === unidadeQuery);
+      if (unidade) {
+        unidadeId = unidadeQuery;
+        condominioId = String(unidade.condominioId);
+      }
+    } else if (
+      condominioQuery &&
+      cadastrosAtuais.condominios.some((item) => String(item.id) === condominioQuery)
+    ) {
+      condominioId = condominioQuery;
+    }
     setEditingId(null);
-    setForm(formularioVazio);
+    setForm({ ...formularioVazio, condominioId, unidadeId });
     setErrors({});
     setStep(0);
     setSheetOpen(true);

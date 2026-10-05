@@ -317,3 +317,76 @@ export function GraficoLinha({
     </div>
   );
 }
+
+function intensidadeCalor(valor: number, maximo: number) {
+  if (valor <= 0 || maximo <= 0) return 0.06;
+  return 0.18 + (valor / maximo) * 0.82;
+}
+
+export function GraficoCalor({
+  celulas,
+  dias,
+  horas,
+  vazio,
+  chave,
+}: {
+  celulas: Array<{ x: number; y: number; v: number }>;
+  dias: string[];
+  horas: number[];
+  vazio: ReactNode;
+  chave: string;
+}) {
+  const progresso = useProgresso(chave);
+  const mapa = new Map(celulas.map((celula) => [`${celula.y}-${celula.x}`, celula.v]));
+  const maximo = Math.max(...celulas.map((celula) => celula.v), 0);
+  if (maximo <= 0) return vazio;
+
+  return (
+    <div className="flex flex-col gap-md">
+      <div className="overflow-x-auto">
+        <div
+          className="inline-grid min-w-full gap-1"
+          style={{ gridTemplateColumns: `3.5rem repeat(${horas.length}, minmax(2.25rem, 1fr))` }}
+          aria-hidden="true"
+        >
+          <div />
+          {horas.map((hora) => (
+            <div key={`h-${hora}`} className="pb-xs text-center text-label-sm text-on-surface-variant">
+              {hora}h
+            </div>
+          ))}
+          {dias.map((dia, indiceDia) => (
+            <div key={dia} className="contents">
+              <div className="flex items-center pr-sm text-body-sm font-medium text-on-surface">{dia}</div>
+              {horas.map((hora) => {
+                const valor = mapa.get(`${indiceDia}-${hora}`) ?? 0;
+                const alpha = intensidadeCalor(valor, maximo) * progresso;
+                return (
+                  <div
+                    key={`${indiceDia}-${hora}`}
+                    title={`${dia}, ${hora}h — ${valor} atendimento${valor === 1 ? "" : "s"}`}
+                    className="aspect-square min-h-7 rounded-sm border border-border-subtle/40 bg-primary-container"
+                    style={{ opacity: Math.max(0.08, alpha) }}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="flex flex-wrap items-center gap-sm text-body-sm text-on-surface-variant">
+        <span>Menos contatos</span>
+        <span className="h-2.5 w-28 rounded-full bg-gradient-to-r from-surface-subtle via-primary-container/40 to-primary-container" />
+        <span>Mais contatos</span>
+      </p>
+      <ListaOculta
+        itens={celulas
+          .filter((celula) => celula.v > 0)
+          .map((celula) => ({
+            nome: `${dias[celula.y] ?? ""} ${celula.x}h`,
+            detalhe: String(celula.v),
+          }))}
+      />
+    </div>
+  );
+}

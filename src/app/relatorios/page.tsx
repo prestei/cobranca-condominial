@@ -1,29 +1,28 @@
 "use client";
 
-import { Suspense, useState, useSyncExternalStore } from "react";
-import type { LucideIcon } from "lucide-react";
+import { Suspense, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BarChart3, CalendarClock, Handshake, ArrowLeft, ArrowUpRight, Phone, Wallet } from "lucide-react";
 import {
-  ArrowLeft,
-  ArrowUpRight,
-  BarChart3,
-  FileSpreadsheet,
-  FileText,
-  Phone,
-  Wallet,
-} from "lucide-react";
+  GraficoBarras,
+  GraficoCalor,
+  GraficoColunas,
+  GraficoEmpilhado,
+  GraficoLinha,
+  GraficoRosca,
+  tomPorIndice,
+} from "@/components/charts";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
-import { GraficoBarras, GraficoCalor, GraficoColunas, GraficoEmpilhado, GraficoLinha, GraficoRosca, paleta } from "@/components/graficos";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
-import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from "@/components/table";
+import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow, TableExport, type TableExportFormat, type TableSortDirection } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
@@ -48,11 +47,27 @@ import {
   type Condominio,
   type Debito,
 } from "@/data/catalogo";
+import {
+  exemploCalorCompleto,
+  exemploCruzamento,
+  exemploListaAtendimentos,
+  exemploMeios,
+  exemploPorAdvogado,
+  exemploPorAtendente,
+  exemploPorMotivo,
+  exemploRespondeuGrupo,
+  exemploResumoCondominio,
+  exemploRetornosTabela,
+  exemploRetornosSituacao,
+  exemploRetornosPorAtendente,
+  exemploSerieAtendimentos,
+  exemploStatsPorUnidade,
+} from "@/data/relatorios-exemplo";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 
 const filtroInicial = {
   busca: "",
-  preset: "30" as PeriodPreset,
+  preset: "7" as PeriodPreset,
   de: "",
   ate: "",
   advogado: "todos",
@@ -65,98 +80,57 @@ const filtroInicial = {
 
 const rotuloRetorno = { atrasado: "Atrasado", hoje: "Hoje", semana: "Próximos 7 dias", agendado: "Agendado" } as const;
 
-const TOPICOS: Array<{
-  id: "cobranca" | "condominios" | "retornos" | "resultado" | "carteira" | "composicao" | "alertas";
-  grupo: "cobranca" | "inadimplencia";
-  selo: string;
-  seloVariante: "primary" | "secondary" | "error";
-  titulo: string;
-  descricao: string;
-  indicadores: string[];
-  icon: LucideIcon;
-}> = [
+const RELATORIOS = [
   {
-    id: "cobranca",
-    grupo: "cobranca",
-    selo: "Operação",
-    seloVariante: "primary",
-    titulo: "Cobrança da equipe",
-    descricao: "O ritmo dos contatos, quem respondeu, por qual meio e por qual motivo.",
-    indicadores: ["Atendimentos", "Taxa de resposta", "Por dia", "Motivos", "Meios", "Equipe"],
+    id: "equipe",
+    titulo: "Produtividade da equipe",
+    descricao: "Volume, resposta, motivos e comparativos — o relatório da palitagem para a administradora.",
     icon: Phone,
-  },
-  {
-    id: "condominios",
-    grupo: "cobranca",
-    selo: "Gestão",
-    seloVariante: "primary",
-    titulo: "Condomínios e advogados",
-    descricao: "Onde a equipe cobrou e qual advogado responde por cada condomínio.",
-    indicadores: ["Por condomínio", "Por advogado", "Resposta", "Último contato"],
-    icon: Building2,
+    selo: "Operação",
   },
   {
     id: "retornos",
-    grupo: "cobranca",
-    selo: "Agenda",
-    seloVariante: "secondary",
-    titulo: "Retornos",
-    descricao: "Combinados que ainda não tiveram baixa: atrasados, de hoje e da semana.",
-    indicadores: ["Atrasados", "Hoje", "Próximos 7 dias", "Por atendente"],
+    titulo: "Retornos pendentes",
+    descricao: "Atrasados, de hoje e da semana, por atendente e condomínio.",
     icon: CalendarClock,
+    selo: "Agenda",
   },
   {
-    id: "resultado",
-    grupo: "cobranca",
-    selo: "Efetividade",
-    seloVariante: "secondary",
-    titulo: "Resultado da cobrança",
+    id: "efetividade",
+    titulo: "Efetividade da cobrança",
     descricao: "Unidades contatadas que pagaram ou fizeram acordo no mês seguinte.",
-    indicadores: ["Pagou", "Acordo", "Sem resultado", "Unidades contatadas"],
     icon: Handshake,
+    selo: "Resultado",
   },
   {
     id: "carteira",
-    grupo: "inadimplencia",
-    selo: "Carteira",
-    seloVariante: "primary",
-    titulo: "Carteira em aberto",
-    descricao: "O total vencido, o que ainda é amigável e o que já pede encaminhamento jurídico.",
-    indicadores: ["Valor atualizado", "Até 60 dias", "Acima de 60 dias", "Ranking", "Advogados"],
+    titulo: "Carteira e unidades",
+    descricao: "Inadimplência da carteira, ranking, alertas e estatística unidade a unidade (contato x débito).",
     icon: Wallet,
+    selo: "Carteira",
   },
-  {
-    id: "composicao",
-    grupo: "inadimplencia",
-    selo: "Assembleia",
-    seloVariante: "secondary",
-    titulo: "Composição e atraso",
-    descricao: "Cota, taxa extra, acordo e multa, separados pelo tempo de atraso.",
-    indicadores: ["Cota ordinária", "Taxa extra", "Acordo", "Multa", "Faixas de atraso", "Competência"],
-    icon: Layers,
-  },
-  {
-    id: "alertas",
-    grupo: "inadimplencia",
-    selo: "Jurídico",
-    seloVariante: "primary",
-    titulo: "Alertas jurídicos",
-    descricao: "Prescrição, acordo descumprido e as unidades com maior valor em aberto.",
-    indicadores: ["Prescrição", "Acordos quebrados", "Passou de 60 dias", "Maiores devedores"],
-    icon: TriangleAlert,
-  },
-];
-
-type TopicoId = (typeof TOPICOS)[number]["id"];
-
-const GRUPOS = [
-  { id: "cobranca", titulo: "Cobrança", texto: "O que a equipe fez, com quem falou e o que aconteceu depois." },
-  { id: "inadimplencia", titulo: "Inadimplência", texto: "O que está em aberto, há quanto tempo e de que tipo de cobrança." },
 ] as const;
 
-function ehTopico(valor: string | null): valor is TopicoId {
-  return TOPICOS.some((item) => item.id === valor);
+type RelatorioId = (typeof RELATORIOS)[number]["id"];
+
+function ehRelatorio(valor: string | null): valor is RelatorioId {
+  return RELATORIOS.some((item) => item.id === valor);
 }
+
+function resolverRelatorio(abaLegado: string | null, relatorioPedido: string | null): RelatorioId | null {
+  if (relatorioPedido === "unidades") return "carteira";
+  if (relatorioPedido && ehRelatorio(relatorioPedido)) return relatorioPedido;
+  if (abaLegado === "cobranca") return "equipe";
+  if (abaLegado === "inadimplencia") return "carteira";
+  return null;
+}
+
+const COMPARATIVOS = [
+  { id: "condominio" as const, rotulo: "Condomínio" },
+  { id: "atendente" as const, rotulo: "Atendente" },
+  { id: "advogado" as const, rotulo: "Advogado" },
+  { id: "meio" as const, rotulo: "Meio" },
+];
 
 function dentro(data: string, inicio: string, fim: string) {
   const dia = data.slice(0, 10);
@@ -164,6 +138,13 @@ function dentro(data: string, inicio: string, fim: string) {
   if (inicio && dia < inicio) return false;
   if (fim && dia > fim) return false;
   return true;
+}
+
+function instanteAtendimento(dataHora: string) {
+  const bruto = dataHora.trim();
+  const normalizado = bruto.includes("T") ? bruto : bruto.replace(" ", "T");
+  const data = new Date(normalizado);
+  return Number.isNaN(data.getTime()) ? null : data;
 }
 
 function periodoLongo(inicio: string, fim: string) {
@@ -253,6 +234,17 @@ function Metrica({ valor, rotulo, destaque = false }: { valor: string; rotulo: s
   );
 }
 
+function valorOrdenavel(texto: string) {
+  const bruto = texto.trim();
+  if (!bruto || bruto === "—") return null;
+  const moeda = bruto.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+  const numero = Number(moeda);
+  if (!Number.isNaN(numero) && /[\d]/.test(bruto)) return numero;
+  const data = bruto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (data) return Number(`${data[3]}${data[2]}${data[1]}`);
+  return null;
+}
+
 function TabelaTexto({
   rotulo,
   colunas,
@@ -268,20 +260,66 @@ function TabelaTexto({
   onPagina: (pagina: number) => void;
   vazio: ReactNode;
 }) {
-  const recorte = linhas.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
+  const [colunaOrdenada, setColunaOrdenada] = useState<number | null>(null);
+  const [direcao, setDirecao] = useState<TableSortDirection>("none");
+
+  function direcaoColuna(indice: number): TableSortDirection {
+    return colunaOrdenada === indice ? direcao : "none";
+  }
+
+  function alternarOrdenacao(indice: number) {
+    if (colunaOrdenada !== indice) {
+      setColunaOrdenada(indice);
+      setDirecao("asc");
+      onPagina(1);
+      return;
+    }
+    if (direcao === "asc") {
+      setDirecao("desc");
+      onPagina(1);
+      return;
+    }
+    if (direcao === "desc") {
+      setColunaOrdenada(null);
+      setDirecao("none");
+      onPagina(1);
+      return;
+    }
+    setDirecao("asc");
+    onPagina(1);
+  }
+
+  const linhasOrdenadas = useMemo(() => {
+    if (colunaOrdenada === null || direcao === "none") return linhas;
+    return [...linhas].sort((a, b) => {
+      const va = a[colunaOrdenada] ?? "";
+      const vb = b[colunaOrdenada] ?? "";
+      const na = valorOrdenavel(va);
+      const nb = valorOrdenavel(vb);
+      const cmp =
+        na !== null && nb !== null
+          ? na - nb
+          : va.localeCompare(vb, "pt-BR", { numeric: true, sensitivity: "base" });
+      return direcao === "asc" ? cmp : -cmp;
+    });
+  }, [colunaOrdenada, direcao, linhas]);
+
+  const recorte = linhasOrdenadas.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
   return (
-    <section className="flex flex-col gap-md">
+    <section className="flex flex-col gap-xs">
       <h2 className="text-headline-sm text-on-surface">{rotulo}</h2>
-      <Table aria-label={rotulo}>
+      <Table showExport={false} aria-label={rotulo}>
         <TableHeader>
           <TableRow className="border-border-subtle/50 hover:bg-transparent">
-            {colunas.map((coluna) => (
-              <TableHead key={coluna}>{coluna}</TableHead>
+            {colunas.map((coluna, indice) => (
+              <TableHead key={coluna} sortable sortDirection={direcaoColuna(indice)} onSort={() => alternarOrdenacao(indice)}>
+                {coluna}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {linhas.length === 0 ? (
+          {linhasOrdenadas.length === 0 ? (
             <TableEmpty colSpan={colunas.length}>{vazio}</TableEmpty>
           ) : (
             recorte.map((linha, indice) => (
@@ -296,7 +334,7 @@ function TabelaTexto({
           )}
         </TableBody>
       </Table>
-      {linhas.length > PAGE_SIZE ? <Pagination page={pagina} total={linhas.length} onPageChange={onPagina} /> : null}
+      {linhasOrdenadas.length > PAGE_SIZE ? <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={onPagina} /> : null}
     </section>
   );
 }
@@ -305,27 +343,34 @@ function RelatoriosPage() {
   const { toast } = useToast();
   const router = useRouter();
   const params = useSearchParams();
-  const pedido = params?.get("topico") ?? null;
-  const topico = ehTopico(pedido) ? pedido : null;
-  const atual = TOPICOS.find((item) => item.id === topico);
+  const pedidoRelatorio = params?.get("relatorio") ?? null;
+  const pedidoAba = params?.get("aba");
+  const relatorio = resolverRelatorio(pedidoAba, pedidoRelatorio);
+  const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
   const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
   const [filtro, setFiltro] = useState(filtroInicial);
   const [aplicado, setAplicado] = useState(filtroInicial);
   const [pagina, setPagina] = useState(1);
+  const [comparativo, setComparativo] = useState<(typeof COMPARATIVOS)[number]["id"]>("condominio");
   const hoje = hojeIso();
   const periodo = resolverPeriodo(aplicado, hoje);
   const dataBase = periodo.fim || hoje;
   const busca = aplicado.busca.trim().toLocaleLowerCase("pt-BR");
-  const chave = `${topico ?? "hub"}|${periodo.inicio}|${periodo.fim}|${aplicado.advogado}|${aplicado.condominio}|${aplicado.atendente}|${aplicado.respondeu}|${aplicado.motivo}|${aplicado.canal}|${busca}`;
+  const chave = `${relatorio ?? "hub"}|${periodo.inicio}|${periodo.fim}|${aplicado.advogado}|${aplicado.condominio}|${aplicado.atendente}|${aplicado.respondeu}|${aplicado.motivo}|${aplicado.canal}|${busca}|${comparativo}`;
 
-  function abrir(id: TopicoId) {
+  function abrirRelatorio(id: RelatorioId) {
     setPagina(1);
-    router.push(`/relatorios?topico=${id}`);
+    router.push(`/relatorios?relatorio=${id}`);
   }
 
-  function voltar() {
+  function voltarHub() {
     setPagina(1);
     router.push("/relatorios");
+  }
+
+  function aoExportar(formato: TableExportFormat) {
+    if (formato === "pdf") imprimir();
+    else exportar();
   }
 
   function condominioDaUnidade(unidadeId: string) {
@@ -364,28 +409,27 @@ function RelatoriosPage() {
     const dia = serieLonga ? item.dataHora.slice(0, 7) : item.dataHora.slice(0, 10);
     serieMapa.set(dia, (serieMapa.get(dia) ?? 0) + 1);
   }
-  const serie = [...serieMapa.entries()]
+  let serie = [...serieMapa.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([dia, quantidade]) => ({
       nome: serieLonga ? mesCurto(dia) : diaCurto(dia),
       quantidade,
     }));
-  const pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
+  let pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
 
   const porCondominio = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.nome ?? "—"));
-  const porAtendente = agruparContagem(atendimentos.map((item) => nomeUsuario(item.usuarioId)));
-  const porAdvogado = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogado ?? "—"));
+  let porAtendente = agruparContagem(atendimentos.map((item) => nomeUsuario(item.usuarioId)));
+  let porAdvogado = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogado ?? "—"));
   const porMeio = agruparContagem(atendimentos.map((item) => item.canal || "—"));
-  const porMotivo = agruparContagem(atendimentos.filter((item) => item.respondeu === "Sim").map((item) => item.motivo || "Não informou o motivo"));
-  const respondeuGrupo = agruparContagem(atendimentos.map((item) => (item.respondeu === "Sim" || item.respondeu === "Não" ? item.respondeu : "—")));
-  const meios = porMeio.map((linha) => {
+  let porMotivo = agruparContagem(atendimentos.filter((item) => item.respondeu === "Sim").map((item) => item.motivo || "Não informou o motivo"));
+  let respondeuGrupo = agruparContagem(atendimentos.map((item) => (item.respondeu === "Sim" || item.respondeu === "Não" ? item.respondeu : "—")));
+  let meios = porMeio.map((linha) => {
     const itens = atendimentos.filter((item) => (item.canal || "—") === linha.nome);
     const sim = itens.filter((item) => item.respondeu === "Sim").length;
     return { ...linha, resposta: itens.length ? (sim / itens.length) * 100 : 0 };
   });
-  const melhorMeio = [...meios].sort((a, b) => b.resposta - a.resposta || b.quantidade - a.quantidade)[0];
 
-  const resumoCondominio = porCondominio.map((linha) => {
+  let resumoCondominio = porCondominio.map((linha) => {
     const doCondominio = atendimentos.filter((item) => (condominioDaUnidade(item.unidadeId)?.nome ?? "—") === linha.nome);
     const comResposta = doCondominio.filter((item) => item.respondeu === "Sim").length;
     const ultimo = [...doCondominio].sort((a, b) => b.dataHora.localeCompare(a.dataHora))[0];
@@ -398,7 +442,7 @@ function RelatoriosPage() {
     };
   });
 
-  const equipe = porAtendente.map((linha) => {
+  let equipe = porAtendente.map((linha) => {
     const itens = atendimentos.filter((item) => nomeUsuario(item.usuarioId) === linha.nome);
     const sim = itens.filter((item) => item.respondeu === "Sim").length;
     const atrasados = itens.filter((item) => item.status !== "Resolvido" && situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
@@ -424,7 +468,7 @@ function RelatoriosPage() {
   const retornosAtrasados = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
   const retornosHoje = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "hoje").length;
 
-  const cruzamento = [...new Set(atendimentos.map((item) => item.unidadeId))].map((unidadeId) => {
+  let cruzamento = [...new Set(atendimentos.map((item) => item.unidadeId))].map((unidadeId) => {
     const contatos = atendimentos.filter((item) => item.unidadeId === unidadeId);
     const meses = new Set(contatos.map((item) => mesSeguinte(item.dataHora)));
     const pagamento = cadastros.debitos.find(
@@ -440,7 +484,7 @@ function RelatoriosPage() {
       resultado: pagamento ? "Pagou no mês seguinte" : acordo ? "Acordo no mês seguinte" : "Sem resultado no mês seguinte",
     };
   });
-  const comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
+  let comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
 
   const debitos = cadastros.debitos.filter((item) => {
     const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
@@ -530,10 +574,6 @@ function RelatoriosPage() {
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
 
-  const evolucao = [...new Set(debitos.map((item) => item.referencia || "—"))]
-    .map((referencia) => ({ referencia, valor: somar(debitos.filter((item) => (item.referencia || "—") === referencia)) }))
-    .sort((a, b) => a.referencia.localeCompare(b.referencia, "pt-BR"));
-
   const prescricao = debitos.filter((item) => diasDeAtraso(item.dataVencimento, dataBase) >= 1643);
   const acordosQuebrados = debitos.filter((item) => grupoDebito(item.descricao) === "Acordo" && diasDeAtraso(item.dataVencimento, dataBase) > 0);
   const passaram60 = debitos.filter((item) => cruzou60NoMes(item.dataVencimento, dataBase));
@@ -546,7 +586,45 @@ function RelatoriosPage() {
   const listaAtendimentos = [...atendimentos].sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   const listaDebitos = [...debitos].sort((a, b) => Number(b.valorAtualizado) - Number(a.valorAtualizado));
 
+  const idsUnidadeRecorte = new Set([...atendimentos.map((item) => item.unidadeId), ...debitos.map((item) => item.unidadeId)]);
+  let statsPorUnidade = [...idsUnidadeRecorte]
+    .map((unidadeId) => {
+      const contatos = atendimentos.filter((item) => item.unidadeId === unidadeId);
+      const respostas = contatos.filter((item) => item.respondeu === "Sim").length;
+      const cobrancas = debitos.filter((item) => item.unidadeId === unidadeId);
+      const valorAberto = somar(cobrancas);
+      const dias =
+        cobrancas.length > 0 ? Math.max(...cobrancas.map((item) => diasDeAtraso(item.dataVencimento, dataBase))) : 0;
+      const ultimo = [...contatos].sort((a, b) => b.dataHora.localeCompare(a.dataHora))[0];
+      return {
+        unidadeId,
+        nome: nomeUnidade(unidadeId),
+        condominio: condominioDaUnidade(unidadeId)?.nome ?? "—",
+        contatos: contatos.length,
+        resposta: contatos.length ? (respostas / contatos.length) * 100 : 0,
+        valorAberto,
+        dias,
+        cobrancas: cobrancas.length,
+        ultimo: ultimo ? formatarData(ultimo.dataHora) : "—",
+      };
+    })
+    .sort((a, b) => b.valorAberto - a.valorAberto || b.contatos - a.contatos || a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const evolucaoReferencia = [...new Set(debitos.map((item) => item.referencia || "—"))]
+    .map((referencia) => {
+      const valor = somar(debitos.filter((item) => (item.referencia || "—") === referencia));
+      return { nome: referencia, valor, rotulo: dinheiro(valor) };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
   const vazio = <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Nenhum registro no recorte" description="Ajuste o período ou os filtros." />;
+  const vazioCalor = (
+    <EmptyState
+      icon={<Icon icon={BarChart3} size="lg" />}
+      title="Sem horários no recorte"
+      description="Não há atendimentos entre 7h e 19h no período filtrado."
+    />
+  );
 
   function linhaAtendimento(item: Atendimento) {
     const condominio = condominioDaUnidade(item.unidadeId);
@@ -586,94 +664,100 @@ function RelatoriosPage() {
   }
 
   function exportar() {
-    if (!topico) return;
-    const planilhas: Record<TopicoId, { arquivo: string; colunas: string[]; linhas: string[][] }> = {
-      cobranca: {
-        arquivo: "cobranca-da-equipe.xls",
-        colunas: ["Data", "Condomínio", "Unidade", "Atendente", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Descrição", "Retorno", "Próxima ação", "Situação"],
-        linhas: listaAtendimentos.map(linhaAtendimento),
-      },
-      condominios: {
-        arquivo: "condominios-advogados.xls",
-        colunas: ["Condomínio", "Atendimentos", "Resposta", "Unidades", "Último contato"],
-        linhas: resumoCondominio.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta), String(linha.unidades), linha.ultimo]),
-      },
-      retornos: {
-        arquivo: "retornos.xls",
-        colunas: ["Quando", "Unidade", "Atendente", "Ação", "Situação"],
-        linhas: retornos.map((item) => [formatarData(item.dataProximaAcao), nomeUnidade(item.unidadeId), nomeUsuario(item.usuarioId), item.proximaAcao || "—", rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]]),
-      },
-      resultado: {
-        arquivo: "resultado.xls",
-        colunas: ["Condomínio", "Unidade", "Contatos", "Resultado"],
-        linhas: cruzamento.map((linha) => [linha.condominio, linha.unidade, String(linha.contatos), linha.resultado]),
-      },
-      carteira: {
-        arquivo: "carteira.xls",
-        colunas: ["Condomínio", "Advogado", "Unidade", "Referência", "Descrição", "Grupo", "Vencimento", "Dias", "Original", "Atualizado", "Situação"],
-        linhas: listaDebitos.map(linhaDebito),
-      },
-      composicao: {
-        arquivo: "composicao.xls",
-        colunas: ["Grupo", "Atualizado", "Até 60 dias", "Acima de 60 dias", "Participação"],
-        linhas: porGrupo.map((linha) => [linha.nome, dinheiro(linha.valor), dinheiro(linha.ate), dinheiro(linha.acima), percentual(linha.percentual)]),
-      },
-      alertas: {
-        arquivo: "alertas.xls",
-        colunas: ["Alerta", "Unidade", "Descrição", "Dias", "Atualizado"],
-        linhas: alertas.map((linha) => [linha.tipo, nomeUnidade(linha.item.unidadeId), linha.item.descricao, String(diasDeAtraso(linha.item.dataVencimento, dataBase)), dinheiro(Number(linha.item.valorAtualizado) || 0)]),
-      },
-    };
-    const planilha = planilhas[topico];
-    exportarExcel(planilha.arquivo, planilha.colunas, planilha.linhas);
+    if (!relatorio) return;
+    if (relatorio === "retornos") {
+      exportarExcel(
+        "retornos-pendentes.xls",
+        ["Quando", "Condomínio", "Unidade", "Atendente", "Próxima ação", "Situação"],
+        retornos.map((item) => [
+          formatarData(item.dataProximaAcao),
+          condominioDaUnidade(item.unidadeId)?.nome ?? "—",
+          nomeUnidade(item.unidadeId),
+          nomeUsuario(item.usuarioId),
+          item.proximaAcao || "—",
+          rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"],
+        ]),
+      );
+      return;
+    }
+    if (relatorio === "efetividade") {
+      exportarExcel(
+        "efetividade-cobranca.xls",
+        ["Unidade", "Condomínio", "Contatos", "Resultado"],
+        cruzamento.map((linha) => [linha.unidade, linha.condominio, String(linha.contatos), linha.resultado]),
+      );
+      return;
+    }
+    if (relatorio === "equipe") {
+      exportarExcel(
+        "relatorio-cobranca.xls",
+        ["Data", "Condomínio", "Unidade", "Atendente", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Descrição", "Retorno", "Próxima ação", "Situação"],
+        listaAtendimentos.map(linhaAtendimento),
+      );
+      return;
+    }
+    exportarExcel(
+      "carteira-inadimplencia.xls",
+      ["Condomínio", "Advogado", "Unidade", "Referência", "Descrição", "Grupo", "Vencimento", "Dias", "Original", "Atualizado", "Situação"],
+      listaDebitos.map(linhaDebito),
+    );
+    exportarExcel(
+      "carteira-por-unidade.xls",
+      ["Unidade", "Condomínio", "Contatos", "Resposta", "Cobranças abertas", "Dias de atraso", "Valor atualizado", "Último contato"],
+      statsPorUnidade.map((linha) => [
+        linha.nome,
+        linha.condominio,
+        String(linha.contatos),
+        percentual(linha.resposta),
+        String(linha.cobrancas),
+        String(linha.dias),
+        dinheiro(linha.valorAberto),
+        linha.ultimo,
+      ]),
+    );
   }
 
   function imprimir() {
-    if (!topico || !atual) return;
-    const secoes: Record<TopicoId, Array<{ titulo: string; colunas: string[]; linhas: string[][] }>> = {
-      cobranca: [
-        { titulo: serieLonga ? "Por mês" : "Por dia", colunas: ["Período", "Quantidade"], linhas: serie.map((linha) => [linha.nome, String(linha.quantidade)]) },
-        { titulo: "Motivos", colunas: ["Motivo", "Quantidade", "Percentual"], linhas: porMotivo.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
-        { titulo: "Meios", colunas: ["Meio", "Atendimentos", "Resposta"], linhas: meios.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta)]) },
-        { titulo: "Equipe", colunas: ["Atendente", "Atendimentos", "Resposta"], linhas: equipe.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta)]) },
-      ],
-      condominios: [
-        { titulo: "Condomínios", colunas: ["Condomínio", "Atendimentos", "Resposta", "Unidades", "Último"], linhas: resumoCondominio.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta), String(linha.unidades), linha.ultimo]) },
-        { titulo: "Advogados", colunas: ["Advogado", "Atendimentos", "Percentual"], linhas: porAdvogado.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
-      ],
-      retornos: [
-        { titulo: "Agenda", colunas: ["Quando", "Unidade", "Atendente", "Ação", "Situação"], linhas: retornos.map((item) => [formatarData(item.dataProximaAcao), nomeUnidade(item.unidadeId), nomeUsuario(item.usuarioId), item.proximaAcao || "—", rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]]) },
-      ],
-      resultado: [
-        { titulo: "Resultado", colunas: ["Condomínio", "Unidade", "Contatos", "Resultado"], linhas: cruzamento.map((linha) => [linha.condominio, linha.unidade, String(linha.contatos), linha.resultado]) },
-      ],
-      carteira: [
-        { titulo: "Totais", colunas: ["Indicador", "Valor"], linhas: [["Original", dinheiro(totalOriginal)], ["Atualizado", dinheiro(totalAberto)], ["Até 60 dias", dinheiro(valorAte60)], ["Acima de 60 dias", dinheiro(valorAcima60)], ["Unidades", percentual(percentualUnidades)]] },
-        { titulo: "Ranking", colunas: ["Condomínio", "Em aberto", "Unidades", "% unidades"], linhas: rankingCondominio.map((linha) => [linha.nome, dinheiro(linha.valor), `${linha.devedoras}/${linha.unidades}`, percentual(linha.percentualUnidades)]) },
-        { titulo: "Advogados", colunas: ["Advogado", "Em aberto", "Até 60", "Acima de 60"], linhas: porAdvogadoDebito.map((linha) => [linha.nome, dinheiro(linha.valor), dinheiro(linha.ate), dinheiro(linha.acima)]) },
-      ],
-      composicao: [
-        { titulo: "Grupos", colunas: ["Grupo", "Atualizado", "Até 60", "Acima de 60", "Participação"], linhas: porGrupo.map((linha) => [linha.nome, dinheiro(linha.valor), dinheiro(linha.ate), dinheiro(linha.acima), percentual(linha.percentual)]) },
-        { titulo: "Faixas", colunas: ["Faixa", "Em aberto", "Participação"], linhas: porFaixa.map((linha) => [linha.nome, dinheiro(linha.valor), percentual(linha.percentual)]) },
-        { titulo: "Competência", colunas: ["Referência", "Em aberto"], linhas: evolucao.map((linha) => [linha.referencia, dinheiro(linha.valor)]) },
-      ],
-      alertas: [
-        { titulo: "Alertas", colunas: ["Alerta", "Unidade", "Dias", "Atualizado"], linhas: alertas.map((linha) => [linha.tipo, nomeUnidade(linha.item.unidadeId), String(diasDeAtraso(linha.item.dataVencimento, dataBase)), dinheiro(Number(linha.item.valorAtualizado) || 0)]) },
-        { titulo: "Maiores devedores", colunas: ["Unidade", "Condomínio", "Dias", "Em aberto"], linhas: maiores.map((linha) => [linha.unidade, linha.condominio, String(linha.dias), dinheiro(linha.valor)]) },
-      ],
-    };
-    const abriu = exportarPdf(atual.titulo, `${atual.id}.html`, secoes[topico]);
+    if (!relatorio || !atual) return;
+    const secoes =
+      relatorio === "carteira"
+        ? [
+            {
+              titulo: "Por unidade",
+              colunas: ["Unidade", "Condomínio", "Contatos", "Resposta", "Em aberto", "Dias", "Último"],
+              linhas: statsPorUnidade.map((linha) => [
+                linha.nome,
+                linha.condominio,
+                String(linha.contatos),
+                percentual(linha.resposta),
+                dinheiro(linha.valorAberto),
+                String(linha.dias),
+                linha.ultimo,
+              ]),
+            },
+            { titulo: "Totais da carteira", colunas: ["Indicador", "Valor"], linhas: [["Original", dinheiro(totalOriginal)], ["Atualizado", dinheiro(totalAberto)], ["Até 60 dias", dinheiro(valorAte60)], ["Acima de 60 dias", dinheiro(valorAcima60)], ["Unidades inadimplentes", percentual(percentualUnidades)]] },
+            { titulo: "Composição", colunas: ["Grupo", "Atualizado", "Até 60", "Acima de 60", "Participação"], linhas: porGrupo.map((linha) => [linha.nome, dinheiro(linha.valor), dinheiro(linha.ate), dinheiro(linha.acima), percentual(linha.percentual)]) },
+            { titulo: "Ranking de condomínios", colunas: ["Condomínio", "Em aberto", "Unidades", "% unidades"], linhas: rankingCondominio.map((linha) => [linha.nome, dinheiro(linha.valor), `${linha.devedoras}/${linha.unidades}`, percentual(linha.percentualUnidades)]) },
+            { titulo: "Faixas de atraso", colunas: ["Faixa", "Em aberto", "Participação"], linhas: porFaixa.map((linha) => [linha.nome, dinheiro(linha.valor), percentual(linha.percentual)]) },
+            { titulo: "Alertas jurídicos", colunas: ["Alerta", "Unidade", "Dias", "Atualizado"], linhas: alertas.map((linha) => [linha.tipo, nomeUnidade(linha.item.unidadeId), String(diasDeAtraso(linha.item.dataVencimento, dataBase)), dinheiro(Number(linha.item.valorAtualizado) || 0)]) },
+          ]
+        : [
+            { titulo: serieLonga ? "Atendimentos por mês" : "Atendimentos por dia", colunas: ["Período", "Quantidade"], linhas: serie.map((linha) => [linha.nome, String(linha.quantidade)]) },
+            { titulo: "Respondeu x não respondeu", colunas: ["Situação", "Quantidade", "Percentual"], linhas: respondeuGrupo.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
+            { titulo: "Motivos da pendência", colunas: ["Motivo", "Quantidade", "Percentual"], linhas: porMotivo.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
+            { titulo: "Resumo por condomínio", colunas: ["Condomínio", "Atendimentos", "Resposta", "Unidades", "Último"], linhas: resumoCondominio.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta), String(linha.unidades), linha.ultimo]) },
+            { titulo: "Retornos pendentes", colunas: ["Quando", "Unidade", "Atendente", "Ação", "Situação"], linhas: retornos.map((item) => [formatarData(item.dataProximaAcao), nomeUnidade(item.unidadeId), nomeUsuario(item.usuarioId), item.proximaAcao || "—", rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]]) },
+          ];
+    const abriu = exportarPdf(atual.titulo, `${relatorio}.html`, secoes);
     if (!abriu) {
       toast({ variant: "info", title: "Relatório baixado", description: "Abra o arquivo e use imprimir para salvar em PDF." });
     }
   }
 
-  const encargos = Math.max(0, totalAberto - totalOriginal);
-
-  const camposFiltro = [
+  const camposBase = [
     {
       id: "periodo",
-      label: "Período",
+      label: relatorio === "carteira" ? "Data-base" : "Período",
       type: "period" as const,
       value: { preset: filtro.preset, de: filtro.de, ate: filtro.ate },
       onChange: (periodoAtual: { preset: PeriodPreset; de: string; ate: string }) => setFiltro((atualFiltro) => ({ ...atualFiltro, ...periodoAtual })),
@@ -692,6 +776,10 @@ function RelatoriosPage() {
       onChange: (condominio: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, condominio })),
       options: [{ value: "todos", label: "Todos" }, ...cadastros.condominios.map((item) => ({ value: String(item.id), label: item.nome }))],
     },
+  ];
+
+  const camposCobranca = [
+    ...camposBase,
     {
       id: "atendente",
       label: "Atendente",
@@ -726,24 +814,156 @@ function RelatoriosPage() {
     },
   ];
 
+  const camposFiltro = relatorio === "carteira" ? camposBase : camposCobranca;
+
+  let dadosIlustrativos = false;
+  let metricAtendimentos = atendimentos.length;
+  let metricTaxaResposta = taxaResposta;
+  let metricUnidadesContatadas = unidadesContatadas;
+  let metricRetornosAbertos = retornosPeriodo.length;
+  let metricRetornosAtrasados = retornosAtrasados;
+  let metricRetornosHoje = retornosHoje;
+  let metricRetornosAgenda = retornos.length;
+  let linhasRetornosDemo = retornos.map((item) => [
+    formatarData(item.dataProximaAcao),
+    condominioDaUnidade(item.unidadeId)?.nome ?? "—",
+    nomeUnidade(item.unidadeId),
+    nomeUsuario(item.usuarioId),
+    item.proximaAcao || "—",
+    rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"],
+  ]);
+
+  const cobrancaSemGrafico =
+    atendimentos.length === 0 || serie.length < 2 || respondeuGrupo.every((linha) => linha.quantidade === 0);
+  if (cobrancaSemGrafico) {
+    dadosIlustrativos = true;
+    if (serie.length < 2) {
+      serie = exemploSerieAtendimentos();
+      pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
+    }
+    respondeuGrupo = exemploRespondeuGrupo();
+    porMotivo = exemploPorMotivo();
+    meios = exemploMeios();
+    resumoCondominio = exemploResumoCondominio();
+    equipe = exemploPorAtendente();
+    porAdvogado = exemploPorAdvogado();
+    if (atendimentos.length === 0) {
+      metricAtendimentos = 29;
+      metricTaxaResposta = 62;
+      metricUnidadesContatadas = 14;
+      metricRetornosAbertos = 5;
+    }
+  }
+
+  if (cruzamento.length === 0 || comResultado === 0) {
+    dadosIlustrativos = true;
+    cruzamento = exemploCruzamento();
+    comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
+  }
+
+  if (statsPorUnidade.length === 0) {
+    dadosIlustrativos = true;
+    statsPorUnidade = exemploStatsPorUnidade();
+  }
+
+  if (retornos.length === 0) {
+    dadosIlustrativos = true;
+    metricRetornosAtrasados = 2;
+    metricRetornosHoje = 1;
+    metricRetornosAgenda = 5;
+    linhasRetornosDemo = exemploRetornosTabela();
+  }
+
+  let linhasAtendimentosDetalhe = listaAtendimentos.map((item) => [
+    formatarData(item.dataHora),
+    condominioDaUnidade(item.unidadeId)?.nome ?? "—",
+    nomeUnidade(item.unidadeId),
+    nomeUsuario(item.usuarioId),
+    item.canal,
+    item.respondeu || "—",
+    item.motivo || "—",
+  ]);
+  if (atendimentos.length === 0) {
+    linhasAtendimentosDetalhe = exemploListaAtendimentos();
+  }
+
+  const comparativoBarras =
+    comparativo === "condominio"
+      ? resumoCondominio.map((linha) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${percentual(linha.resposta)} resposta · ${linha.unidades} un.` }))
+      : comparativo === "atendente"
+        ? equipe.map((linha) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${percentual(linha.resposta)} resposta` }))
+        : comparativo === "advogado"
+          ? porAdvogado.map((linha, indice) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${linha.quantidade} · ${percentual(linha.percentual)}`, tom: tomPorIndice(indice) }))
+          : meios.map((linha) => ({
+              nome: linha.nome,
+              valor: linha.quantidade,
+              detalhe: `${percentual(linha.resposta)} resposta`,
+              tom: (linha.resposta >= 50 ? "settled" : "pending") as const,
+            }));
+
+  const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const horasCalor = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+  const mapaCalor = new Map<string, number>();
+  for (const item of atendimentos) {
+    const data = instanteAtendimento(item.dataHora);
+    if (!data) continue;
+    const hora = data.getHours();
+    if (hora < horasCalor[0] || hora > horasCalor[horasCalor.length - 1]) continue;
+    const chaveCalor = `${data.getDay()}-${hora}`;
+    mapaCalor.set(chaveCalor, (mapaCalor.get(chaveCalor) ?? 0) + 1);
+  }
+  const celulasCalor: Array<{ x: number; y: number; v: number }> = [];
+  for (let dia = 0; dia < diasSemana.length; dia += 1) {
+    for (const hora of horasCalor) {
+      celulasCalor.push({ x: hora, y: dia, v: mapaCalor.get(`${dia}-${hora}`) ?? 0 });
+    }
+  }
+  const picoCalor = [...celulasCalor].sort((a, b) => b.v - a.v)[0];
+  let celulasCalorExibir = celulasCalor;
+  let picoCalorExibir = picoCalor;
+  if (celulasCalor.every((celula) => celula.v === 0)) {
+    dadosIlustrativos = true;
+    celulasCalorExibir = exemploCalorCompleto(horasCalor);
+    picoCalorExibir = [...celulasCalorExibir].sort((a, b) => b.v - a.v)[0];
+  }
+
   let corpo: ReactNode = null;
-  if (topico === "cobranca") {
+  if (relatorio === "equipe") {
     corpo = (
       <>
-        {atendimentos.length > 0 ? (
+        {(atendimentos.length > 0 || dadosIlustrativos) ? (
           <Leitura>
-            {pico ? `O dia mais movimentado foi ${pico.nome}, com ${pico.quantidade} atendimento${pico.quantidade === 1 ? "" : "s"}. ` : ""}
-            {percentual(taxaResposta)} dos contatos tiveram resposta.
-            {melhorMeio ? ` ${melhorMeio.nome} responde melhor: ${percentual(melhorMeio.resposta)}.` : ""}
-            {porMotivo[0] ? ` Motivo mais citado: ${porMotivo[0].nome}.` : ""}
+            {pico ? `No período, o pico foi ${pico.nome} (${pico.quantidade} atendimento${pico.quantidade === 1 ? "" : "s"}). ` : ""}
+            {percentual(metricTaxaResposta)} dos contatos tiveram resposta.
+            {cruzamento.length > 0
+              ? ` ${comResultado} de ${cruzamento.length} unidade${cruzamento.length === 1 ? "" : "s"} contatada${cruzamento.length === 1 ? "" : "s"} pagou ou fez acordo no mês seguinte.`
+              : ""}
+            {metricRetornosAtrasados > 0 ? ` Há ${metricRetornosAtrasados} retorno${metricRetornosAtrasados === 1 ? "" : "s"} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}.` : ""}
+            {dadosIlustrativos ? " Os gráficos usam números ilustrativos quando o recorte não traz dados suficientes." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <Metrica valor={String(atendimentos.length)} rotulo="atendimentos" destaque />
-          <Metrica valor={percentual(taxaResposta)} rotulo="responderam" />
-          <Metrica valor={String(unidadesContatadas)} rotulo="unidades contatadas" />
-          <Metrica valor={String(retornosPeriodo.length)} rotulo="retornos ainda abertos" />
+          <Metrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
+          <Metrica valor={percentual(metricTaxaResposta)} rotulo="responderam" />
+          <Metrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" />
+          <Metrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" />
         </div>
+        <Painel
+          titulo="Mapa de horário de atendimento"
+          nota={
+            picoCalorExibir && picoCalorExibir.v > 0
+              ? `Pico: ${diasSemana[picoCalorExibir.y]} às ${picoCalorExibir.x}h (${picoCalorExibir.v} contato${picoCalorExibir.v === 1 ? "" : "s"}).`
+              : "Cada quadrado é um dia da semana e um horário (7h–19h)."
+          }
+        >
+          <GraficoCalor
+            chave={`${chave}-calor`}
+            dias={diasSemana}
+            horas={horasCalor}
+            celulas={celulasCalorExibir}
+            vazio={vazioCalor}
+          />
+        </Painel>
         <Painel titulo={serieLonga ? "Atendimentos por mês" : "Atendimentos por dia"} nota="A coluna dourada é o pico. Acima de dois meses, o gráfico passa a ser mensal.">
           <GraficoColunas
             chave={chave}
@@ -761,8 +981,8 @@ function RelatoriosPage() {
             <GraficoRosca
               chave={`${chave}-resposta`}
               vazio={vazio}
-              centro={percentual(taxaResposta)}
-              legenda="efetivo"
+              centro={percentual(metricTaxaResposta)}
+              legenda="com resposta"
               fatias={respondeuGrupo.map((linha) => ({
                 nome: linha.nome,
                 valor: linha.quantidade,
@@ -771,57 +991,59 @@ function RelatoriosPage() {
               }))}
             />
           </Painel>
-          <Painel titulo="Resposta por meio" nota="A barra é o volume. O percentual é de quem respondeu naquele meio.">
+          <Painel titulo="Motivos da pendência" nota="Entram só os contatos em que o condômino respondeu.">
             <GraficoBarras
-              chave={`${chave}-meio`}
+              chave={`${chave}-motivos`}
               vazio={vazio}
-              itens={meios.map((linha) => ({
+              itens={porMotivo.slice(0, 8).map((linha, indice) => ({
                 nome: linha.nome,
                 valor: linha.quantidade,
-                detalhe: `${linha.quantidade} · ${percentual(linha.resposta)}`,
-                tom: linha.resposta >= 50 ? "settled" : "pending",
+                detalhe: `${percentual(linha.percentual)}`,
+                tom: tomPorIndice(indice),
               }))}
             />
           </Painel>
         </Grade>
+        <Painel
+          titulo="Comparativo de volume"
+          nota="Na palitagem os condomínios aparecem juntos; a divisão por advogado vale para a leitura da equipe."
+        >
+          <div className="mb-md flex flex-wrap gap-sm">
+            {COMPARATIVOS.map((item) => (
+              <Button key={item.id} size="sm" variant={comparativo === item.id ? "primary" : "outline"} onClick={() => setComparativo(item.id)}>
+                {item.rotulo}
+              </Button>
+            ))}
+          </div>
+          <GraficoBarras chave={`${chave}-${comparativo}`} vazio={vazio} itens={comparativoBarras} />
+        </Painel>
         <Grade>
-          <Painel titulo="Motivo da pendência" nota="Só entram conversas em que o condômino respondeu.">
-            <GraficoRosca
-              chave={`${chave}-motivos`}
-              vazio={vazio}
-              centro={porMotivo[0] ? percentual(porMotivo[0].percentual) : "—"}
-              legenda="principal"
-              fatias={porMotivo.map((linha, indice) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${linha.quantidade} · ${percentual(linha.percentual)}`, tom: tomPorIndice(indice) }))}
-            />
-          </Painel>
-          <Painel titulo="Volume da equipe">
+          <Painel titulo="Unidades com mais contatos" nota="Top 10 no período — o detalhe unidade a unidade está no relatório Carteira e unidades.">
             <GraficoBarras
-              chave={`${chave}-equipe`}
+              chave={`${chave}-unidades-top`}
               vazio={vazio}
-              itens={equipe.map((linha) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${linha.quantidade} · ${percentual(linha.resposta)} resposta` }))}
+              itens={statsPorUnidade
+                .filter((linha) => linha.contatos > 0)
+                .slice(0, 10)
+                .map((linha, indice) => ({
+                  nome: linha.nome,
+                  valor: linha.contatos,
+                  detalhe: `${linha.contatos} · ${percentual(linha.resposta)} resposta`,
+                  tom: tomPorIndice(indice),
+                }))}
             />
           </Painel>
-        </Grade>
-        <TabelaTexto
-          rotulo="Registros do período"
-          colunas={["Data", "Condomínio", "Unidade", "Atendente", "Meio", "Respondeu", "Motivo"]}
-          linhas={listaAtendimentos.map((item) => [formatarData(item.dataHora), condominioDaUnidade(item.unidadeId)?.nome ?? "—", nomeUnidade(item.unidadeId), nomeUsuario(item.usuarioId), item.canal, item.respondeu || "—", item.motivo || "—"])}
-          pagina={pagina}
-          onPagina={setPagina}
-          vazio={vazio}
-        />
-      </>
-    );
-  } else if (topico === "condominios") {
-    corpo = (
-      <>
-        {resumoCondominio[0] ? <Leitura>{`${resumoCondominio[0].nome} recebeu mais contatos (${resumoCondominio[0].quantidade}), com ${percentual(resumoCondominio[0].resposta)} de resposta.`}</Leitura> : null}
-        <Grade>
-          <Painel titulo="Atendimentos por condomínio">
-            <GraficoBarras chave={chave} vazio={vazio} itens={resumoCondominio.map((linha) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${percentual(linha.resposta)} de resposta` }))} />
-          </Painel>
-          <Painel titulo="Atendimentos por advogado" nota="Na palitagem os condomínios ficam juntos. A divisão por advogado aparece neste relatório.">
-            <GraficoBarras chave={`${chave}-adv`} vazio={vazio} itens={porAdvogado.map((linha, indice) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: `${linha.quantidade} · ${percentual(linha.percentual)}`, tom: tomPorIndice(indice) }))} />
+          <Painel titulo="Resposta por meio de cobrança">
+            <GraficoBarras
+              chave={`${chave}-meio-resposta`}
+              vazio={vazio}
+              itens={meios.map((linha) => ({
+                nome: linha.nome,
+                valor: linha.quantidade,
+                detalhe: `${percentual(linha.resposta)} resposta`,
+                tom: linha.resposta >= 50 ? "settled" : "pending",
+              }))}
+            />
           </Painel>
         </Grade>
         <TabelaTexto
@@ -832,29 +1054,45 @@ function RelatoriosPage() {
           onPagina={setPagina}
           vazio={vazio}
         />
+        <TabelaTexto
+          rotulo="Lista detalhada do período"
+          colunas={["Data", "Condomínio", "Unidade", "Atendente", "Meio", "Respondeu", "Motivo"]}
+          linhas={linhasAtendimentosDetalhe}
+          pagina={pagina}
+          onPagina={setPagina}
+          vazio={vazio}
+        />
       </>
     );
-  } else if (topico === "retornos") {
-    const porSituacao = agruparContagem(retornos.map((item) => rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]));
+  } else if (relatorio === "retornos") {
+    const porSituacao =
+      retornos.length > 0
+        ? agruparContagem(retornos.map((item) => rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]))
+        : exemploRetornosSituacao();
+    const porAtendenteRetorno =
+      retornos.length > 0 ? agruparContagem(retornos.map((item) => nomeUsuario(item.usuarioId))) : exemploRetornosPorAtendente();
     corpo = (
       <>
-        {retornos.length > 0 ? (
+        {metricRetornosAgenda > 0 ? (
           <Leitura>
-            {retornosAtrasados > 0 ? `${retornosAtrasados} retorno${retornosAtrasados === 1 ? "" : "s"} já passou da data combinada. ` : "Nenhum retorno atrasado. "}
-            Hoje há {retornosHoje}.
+            {metricRetornosAtrasados > 0
+              ? `${metricRetornosAtrasados} retorno${metricRetornosAtrasados === 1 ? "" : "s"} passou da data combinada. `
+              : "Nenhum retorno atrasado no recorte. "}
+            Hoje: {metricRetornosHoje}. Na agenda: {metricRetornosAgenda}.
+            {dadosIlustrativos && retornos.length === 0 ? " Números ilustrativos para demonstração." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(retornosAtrasados)} rotulo="atrasados" destaque />
-          <Metrica valor={String(retornosHoje)} rotulo="para hoje" />
-          <Metrica valor={String(retornos.length)} rotulo="na agenda" />
+          <Metrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque />
+          <Metrica valor={String(metricRetornosHoje)} rotulo="para hoje" />
+          <Metrica valor={String(metricRetornosAgenda)} rotulo="na agenda" />
         </div>
         <Grade>
-          <Painel titulo="Situação da agenda" nota="Atrasados entram sempre. A semana que vem permanece visível, mesmo fora do período.">
+          <Painel titulo="Situação da agenda">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
-              centro={String(retornos.length)}
+              centro={String(metricRetornosAgenda)}
               legenda="retornos"
               fatias={porSituacao.map((linha) => ({
                 nome: linha.nome,
@@ -868,56 +1106,34 @@ function RelatoriosPage() {
             <GraficoBarras
               chave={`${chave}-equipe`}
               vazio={vazio}
-              itens={agruparContagem(retornos.map((item) => nomeUsuario(item.usuarioId))).map((linha) => ({ nome: linha.nome, valor: linha.quantidade, detalhe: String(linha.quantidade) }))}
+              itens={porAtendenteRetorno.map((linha) => ({
+                nome: linha.nome,
+                valor: linha.quantidade,
+                detalhe: String(linha.quantidade),
+              }))}
             />
           </Painel>
         </Grade>
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Agenda</h2>
-          <Table aria-label="Retornos">
-            <TableHeader>
-              <TableRow className="border-border-subtle/50 hover:bg-transparent">
-                <TableHead>Quando</TableHead>
-                <TableHead>Unidade</TableHead>
-                <TableHead>Atendente</TableHead>
-                <TableHead>Próxima ação</TableHead>
-                <TableHead>Situação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {retornos.length === 0 ? (
-                <TableEmpty colSpan={5}>{vazio}</TableEmpty>
-              ) : (
-                retornos.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE).map((item) => {
-                  const situacao = situacaoRetorno(item.dataProximaAcao);
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>{formatarData(item.dataProximaAcao)}</TableCell>
-                      <TableCell className="font-medium">{nomeUnidade(item.unidadeId)}</TableCell>
-                      <TableCell>{nomeUsuario(item.usuarioId)}</TableCell>
-                      <TableCell>{item.proximaAcao || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={situacao === "atrasado" ? "error" : situacao === "hoje" ? "secondary" : "primary"}>{situacao ? rotuloRetorno[situacao] : "—"}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-          {retornos.length > PAGE_SIZE ? <Pagination page={pagina} total={retornos.length} onPageChange={setPagina} /> : null}
-        </section>
+        <TabelaTexto
+          rotulo="Retornos pendentes"
+          colunas={["Quando", "Condomínio", "Unidade", "Atendente", "Próxima ação", "Situação"]}
+          linhas={linhasRetornosDemo}
+          pagina={pagina}
+          onPagina={setPagina}
+          vazio={vazio}
+        />
       </>
     );
-  } else if (topico === "resultado") {
+  } else if (relatorio === "efetividade") {
     const gruposResultado = agruparContagem(cruzamento.map((linha) => linha.resultado));
     corpo = (
       <>
         {cruzamento.length > 0 ? (
           <Leitura>
-            {comResultado === 0
+            {comResultado === 0 && !dadosIlustrativos
               ? `Nenhuma das ${cruzamento.length} unidades contatadas pagou ou fez acordo no mês seguinte.`
-              : `${comResultado} de ${cruzamento.length} unidades contatadas pagou ou fez acordo no mês seguinte.`}
+              : `${comResultado} de ${cruzamento.length} unidades contatadas tiveram pagamento ou acordo no mês seguinte.`}
+            {dadosIlustrativos && comResultado > 0 ? " Exemplo ilustrativo de efetividade." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
@@ -926,7 +1142,7 @@ function RelatoriosPage() {
           <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
         </div>
         <Grade>
-          <Painel titulo="O que aconteceu no mês seguinte" nota="Pagamento usa a data da quitação. Acordo usa o vencimento da parcela classificada como acordo.">
+          <Painel titulo="O que aconteceu no mês seguinte">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
@@ -940,12 +1156,12 @@ function RelatoriosPage() {
               }))}
             />
           </Painel>
-          <Painel titulo="Contatos até o resultado">
+          <Painel titulo="Contatos por unidade">
             <GraficoBarras
               chave={`${chave}-unidades`}
               vazio={vazio}
-              itens={cruzamento.map((linha) => ({
-                nome: `${linha.unidade} · ${linha.condominio}`,
+              itens={cruzamento.slice(0, 12).map((linha) => ({
+                nome: linha.unidade,
                 valor: linha.contatos,
                 detalhe: linha.resultado,
                 tom: linha.resultado.startsWith("Pagou") ? "settled" : linha.resultado.startsWith("Acordo") ? "brass" : "mist",
@@ -953,126 +1169,273 @@ function RelatoriosPage() {
             />
           </Painel>
         </Grade>
+        <TabelaTexto
+          rotulo="Unidades contatadas e resultado"
+          colunas={["Unidade", "Condomínio", "Contatos", "Resultado"]}
+          linhas={cruzamento.map((linha) => [linha.unidade, linha.condominio, String(linha.contatos), linha.resultado])}
+          pagina={pagina}
+          onPagina={setPagina}
+          vazio={vazio}
+        />
       </>
     );
-  } else if (topico === "carteira") {
+  } else if (relatorio === "carteira") {
+    const comContato = statsPorUnidade.filter((linha) => linha.contatos > 0).length;
+    const maiorDebito = statsPorUnidade[0];
     corpo = (
       <>
-        {totalAberto > 0 ? (
+        {totalAberto > 0 || statsPorUnidade.length > 0 ? (
           <Leitura>
-            {percentual(parteJuridica)} do aberto já passou de {LIMITE_AMIGAVEL_DIAS} dias. Encargos somam {dinheiro(encargos)} sobre o valor original. Data-base {formatarData(dataBase)}.
+            {totalAberto > 0 ? (
+              <>
+                Carteira com {dinheiro(totalAberto)} atualizado em {formatarData(dataBase)} — {percentual(percentualUnidades)} das unidades com débito vencido.
+                {grupoLider && grupoLider.valor > 0 ? ` ${grupoLider.nome} responde por ${percentual(grupoLider.percentual)} do total.` : ""}
+                {percentual(parteJuridica)} já está acima de {LIMITE_AMIGAVEL_DIAS} dias (fase jurídica).
+                {alertas.length > 0 ? ` ${alertas.length} alerta${alertas.length === 1 ? "" : "s"} pedem atenção.` : ""}
+              </>
+            ) : null}
+            {comContato > 0 ? ` ${comContato} unidade${comContato === 1 ? "" : "s"} teve contato da equipe no mesmo recorte de filtros.` : ""}
+            {maiorDebito && maiorDebito.valorAberto > 0
+              ? ` Maior saldo: ${maiorDebito.nome} (${dinheiro(maiorDebito.valorAberto)}).`
+              : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
           <Metrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
-          <Metrica valor={dinheiro(valorAte60)} rotulo="até 60 dias" />
-          <Metrica valor={dinheiro(valorAcima60)} rotulo="acima de 60 dias" />
+          <Metrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} />
+          <Metrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} />
+          <Metrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" />
         </div>
         <Grade>
-          <Painel titulo="Fase amigável e fase jurídica" nota="O percentual sobre o valor emitido depende do total emitido no período, que a importação ainda não traz.">
+          <Painel titulo="Fase amigável e jurídica" nota="Corte configurável em 60 dias — cobrança recente x encaminhamento jurídico.">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
               centro={percentual(parteJuridica)}
               legenda="jurídico"
               fatias={[
-                { nome: "Até 60 dias", valor: valorAte60, detalhe: dinheiro(valorAte60), tom: "brass" },
-                { nome: "Acima de 60 dias", valor: valorAcima60, detalhe: dinheiro(valorAcima60), tom: "navy" },
+                { nome: `Até ${LIMITE_AMIGAVEL_DIAS} dias`, valor: valorAte60, detalhe: dinheiro(valorAte60), tom: "brass" },
+                { nome: `Acima de ${LIMITE_AMIGAVEL_DIAS} dias`, valor: valorAcima60, detalhe: dinheiro(valorAcima60), tom: "navy" },
               ]}
             />
           </Painel>
-          <Painel titulo="Original, encargos e atualizado">
-            <GraficoBarras
-              chave={`${chave}-valores`}
-              vazio={vazio}
-              itens={[
-                { nome: "Valor original", valor: totalOriginal, detalhe: dinheiro(totalOriginal), tom: "mist" },
-                { nome: "Encargos", valor: encargos, detalhe: dinheiro(encargos), tom: "brass" },
-                { nome: "Valor atualizado", valor: totalAberto, detalhe: dinheiro(totalAberto), tom: "navy" },
-              ]}
-            />
-          </Painel>
-        </Grade>
-        <Grade>
-          <Painel titulo="Ranking de condomínios">
-            <GraficoBarras chave={`${chave}-ranking`} vazio={vazio} itens={rankingCondominio.map((linha) => ({ nome: linha.nome, valor: linha.valor, detalhe: `${dinheiro(linha.valor)} · ${percentual(linha.percentualUnidades)} das unidades` }))} />
-          </Painel>
-          <Painel titulo="Por advogado responsável">
-            <GraficoEmpilhado chave={`${chave}-adv`} vazio={vazio} itens={porAdvogadoDebito.map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))} />
-          </Painel>
-        </Grade>
-      </>
-    );
-  } else if (topico === "composicao") {
-    corpo = (
-      <>
-        {grupoLider && grupoLider.valor > 0 ? (
-          <Leitura>
-            {grupoLider.nome} concentra {percentual(grupoLider.percentual)} do aberto. {faixaLider && faixaLider.valor > 0 ? `A faixa mais pesada é ${faixaLider.nome.toLocaleLowerCase("pt-BR")} (${percentual(faixaLider.percentual)}).` : ""} Taxa extra fica separada da cota: a obrigação e a prestação de contas são outras.
-          </Leitura>
-        ) : null}
-        <Grade>
-          <Painel titulo="De que tipo é o débito">
+          <Painel titulo="Composição do débito" nota="Cota ordinária, taxa extra, acordo e multa — como no relatório da administradora.">
             <GraficoRosca
-              chave={chave}
+              chave={`${chave}-grupos`}
               vazio={vazio}
               centro={grupoLider && grupoLider.valor > 0 ? percentual(grupoLider.percentual) : "—"}
-              legenda="maior grupo"
-              fatias={porGrupo.filter((linha) => linha.valor > 0).map((linha, indice) => ({ nome: linha.nome, valor: linha.valor, detalhe: `${dinheiro(linha.valor)} · ${percentual(linha.percentual)}`, tom: tomPorIndice(indice) }))}
+              legenda="principal"
+              fatias={porGrupo
+                .filter((linha) => linha.valor > 0)
+                .map((linha, indice) => ({
+                  nome: linha.nome,
+                  valor: linha.valor,
+                  detalhe: `${dinheiro(linha.valor)} · ${percentual(linha.percentual)}`,
+                  tom: tomPorIndice(indice),
+                }))}
             />
-          </Painel>
-          <Painel titulo="Cada grupo, em fase amigável e jurídica">
-            <GraficoEmpilhado chave={`${chave}-fase`} vazio={vazio} itens={porGrupo.filter((linha) => linha.valor > 0).map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))} />
           </Painel>
         </Grade>
         <Grade>
           <Painel titulo="Faixas de atraso">
-            <GraficoColunas chave={`${chave}-faixas`} vazio={vazio} itens={porFaixa.map((linha) => ({ nome: linha.nome, valor: linha.valor, rotulo: percentual(linha.percentual), tom: faixaLider && linha.nome === faixaLider.nome ? "brass" : "navy" }))} />
+            <GraficoColunas
+              chave={`${chave}-faixas`}
+              vazio={vazio}
+              itens={porFaixa.map((linha) => ({
+                nome: linha.nome,
+                valor: linha.valor,
+                rotulo: percentual(linha.percentual),
+                tom: faixaLider && linha.nome === faixaLider.nome ? "brass" : "navy",
+              }))}
+            />
           </Painel>
-          <Painel titulo="Competência das cobranças em aberto" nota="Cada ponto é o mês da cobrança que continua em aberto. Ainda não há fotografia salva mês a mês.">
-            <GraficoLinha chave={`${chave}-linha`} vazio={vazio} itens={evolucao.map((linha) => ({ nome: linha.referencia, valor: linha.valor, rotulo: dinheiro(linha.valor) }))} />
+          <Painel titulo="Ranking de condomínios">
+            <GraficoBarras
+              chave={`${chave}-ranking`}
+              vazio={vazio}
+              itens={rankingCondominio.slice(0, 10).map((linha) => ({
+                nome: linha.nome,
+                valor: linha.valor,
+                detalhe: `${dinheiro(linha.valor)} · ${linha.devedoras}/${linha.unidades} un.`,
+              }))}
+            />
           </Painel>
         </Grade>
-      </>
-    );
-  } else if (topico === "alertas") {
-    corpo = (
-      <>
-        {alertas.length > 0 || maiores[0] ? (
-          <Leitura>
-            {prescricao.length > 0 ? `${prescricao.length} cobrança${prescricao.length === 1 ? "" : "s"} está perto de 5 anos. ` : "Nenhuma cobrança perto da prescrição. "}
-            {maiores[0] ? `A maior devedora é ${maiores[0].unidade}, com ${dinheiro(maiores[0].valor)}.` : ""}
-          </Leitura>
-        ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(prescricao.length)} rotulo="perto de 5 anos" destaque />
-          <Metrica valor={String(acordosQuebrados.length)} rotulo="acordos em atraso" />
-          <Metrica valor={String(passaram60.length)} rotulo="passaram de 60 dias no mês" />
-        </div>
+        <Painel titulo="Saldo em aberto por competência" nota="Cada ponto é o mês de referência das cobranças ainda em aberto.">
+          <GraficoLinha chave={`${chave}-competencia`} vazio={vazio} itens={evolucaoReferencia} />
+        </Painel>
+        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+          <div className="flex flex-col gap-xs">
+            <h2 className="text-headline-sm text-on-surface">Por unidade</h2>
+            <p className="text-body-sm text-on-surface-variant">Contatos da equipe no período filtrado cruzados com o débito em aberto na data-base.</p>
+          </div>
+          <Grade>
+            <Painel titulo="Mais contatos no período">
+              <GraficoBarras
+                chave={`${chave}-contatos-unidade`}
+                vazio={vazio}
+                itens={statsPorUnidade
+                  .filter((linha) => linha.contatos > 0)
+                  .slice(0, 10)
+                  .map((linha, indice) => ({
+                    nome: linha.nome,
+                    valor: linha.contatos,
+                    detalhe: `${percentual(linha.resposta)} resposta`,
+                    tom: tomPorIndice(indice),
+                  }))}
+              />
+            </Painel>
+            <Painel titulo="Maior débito">
+              <GraficoBarras
+                chave={`${chave}-valor-unidade`}
+                vazio={vazio}
+                itens={statsPorUnidade
+                  .filter((linha) => linha.valorAberto > 0)
+                  .slice(0, 10)
+                  .map((linha, indice) => ({
+                    nome: linha.nome,
+                    valor: linha.valorAberto,
+                    detalhe: `${dinheiro(linha.valorAberto)} · ${linha.dias} dias`,
+                    tom: linha.dias > LIMITE_AMIGAVEL_DIAS ? "critical" : tomPorIndice(indice),
+                  }))}
+              />
+            </Painel>
+          </Grade>
+          <Grade>
+            <Painel titulo="Fase amigável x jurídica por unidade">
+              <GraficoEmpilhado
+                chave={`${chave}-unidade-fase`}
+                vazio={vazio}
+                itens={statsPorUnidade
+                  .filter((linha) => linha.valorAberto > 0)
+                  .slice(0, 8)
+                  .map((linha) => {
+                    const itens = debitos.filter((item) => item.unidadeId === linha.unidadeId);
+                    const ate = somar(itens.filter((item) => !acimaDoLimite(diasDeAtraso(item.dataVencimento, dataBase))));
+                    const acima = somar(itens.filter((item) => acimaDoLimite(diasDeAtraso(item.dataVencimento, dataBase))));
+                    return { nome: linha.nome, ate, acima, detalhe: dinheiro(linha.valorAberto) };
+                  })}
+              />
+            </Painel>
+            <Painel titulo="Contato e débito">
+              <GraficoRosca
+                chave={`${chave}-unidade-mix`}
+                vazio={vazio}
+                centro={String(statsPorUnidade.length)}
+                legenda="unidades"
+                fatias={[
+                  {
+                    nome: "Contato e débito",
+                    valor: statsPorUnidade.filter((linha) => linha.contatos > 0 && linha.valorAberto > 0).length,
+                    detalhe: String(statsPorUnidade.filter((linha) => linha.contatos > 0 && linha.valorAberto > 0).length),
+                    tom: "brass",
+                  },
+                  {
+                    nome: "Só contato",
+                    valor: statsPorUnidade.filter((linha) => linha.contatos > 0 && linha.valorAberto <= 0).length,
+                    detalhe: String(statsPorUnidade.filter((linha) => linha.contatos > 0 && linha.valorAberto <= 0).length),
+                    tom: "settled",
+                  },
+                  {
+                    nome: "Só débito",
+                    valor: statsPorUnidade.filter((linha) => linha.contatos === 0 && linha.valorAberto > 0).length,
+                    detalhe: String(statsPorUnidade.filter((linha) => linha.contatos === 0 && linha.valorAberto > 0).length),
+                    tom: "navy",
+                  },
+                ]}
+              />
+            </Painel>
+          </Grade>
+        </section>
         <Grade>
-          <Painel titulo="O que olhar primeiro">
-            <GraficoBarras
-              chave={chave}
+          <Painel titulo="Por advogado responsável">
+            <GraficoEmpilhado
+              chave={`${chave}-adv`}
               vazio={vazio}
-              itens={[
-                { nome: "Perto de 5 anos", valor: prescricao.length, detalhe: String(prescricao.length), tom: "critical" },
-                { nome: "Acordo descumprido", valor: acordosQuebrados.length, detalhe: String(acordosQuebrados.length), tom: "pending" },
-                { nome: "Passou de 60 dias no mês", valor: passaram60.length, detalhe: String(passaram60.length), tom: "brass" },
-              ]}
+              itens={porAdvogadoDebito.map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))}
             />
           </Painel>
-          <Painel titulo="Dez maiores devedores">
-            <GraficoBarras
-              chave={`${chave}-devedores`}
+          <Painel titulo="Grupos: amigável x jurídico">
+            <GraficoEmpilhado
+              chave={`${chave}-fase-grupo`}
               vazio={vazio}
-              itens={maiores.map((linha) => ({ nome: `${linha.unidade} · ${linha.condominio}`, valor: linha.valor, detalhe: `${dinheiro(linha.valor)} · ${linha.dias} dias` }))}
+              itens={porGrupo.filter((linha) => linha.valor > 0).map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))}
             />
           </Painel>
         </Grade>
+        {(alertas.length > 0 || maiores.length > 0) && (
+          <Grade>
+            <Painel titulo="Alertas jurídicos">
+              <GraficoBarras
+                chave={`${chave}-alertas`}
+                vazio={vazio}
+                itens={[
+                  { nome: "Perto de 5 anos", valor: prescricao.length, detalhe: String(prescricao.length), tom: "critical" },
+                  { nome: "Acordo descumprido", valor: acordosQuebrados.length, detalhe: String(acordosQuebrados.length), tom: "pending" },
+                  { nome: "Passou de 60 dias no mês", valor: passaram60.length, detalhe: String(passaram60.length), tom: "brass" },
+                ]}
+              />
+            </Painel>
+            <Painel titulo="Dez maiores devedores">
+              <GraficoBarras
+                chave={`${chave}-devedores`}
+                vazio={vazio}
+                itens={maiores.map((linha) => ({
+                  nome: `${linha.unidade}`,
+                  valor: linha.valor,
+                  detalhe: `${linha.condominio} · ${dinheiro(linha.valor)} · ${linha.dias} dias`,
+                }))}
+              />
+            </Painel>
+          </Grade>
+        )}
+        {alertas.length > 0 ? (
+          <TabelaTexto
+            rotulo="Alertas para acompanhamento"
+            colunas={["Alerta", "Unidade", "Descrição", "Dias", "Atualizado"]}
+            linhas={alertas.map((linha) => [
+              linha.tipo,
+              nomeUnidade(linha.item.unidadeId),
+              linha.item.descricao,
+              String(diasDeAtraso(linha.item.dataVencimento, dataBase)),
+              dinheiro(Number(linha.item.valorAtualizado) || 0),
+            ])}
+            pagina={pagina}
+            onPagina={setPagina}
+            vazio={vazio}
+          />
+        ) : null}
         <TabelaTexto
-          rotulo="Alertas"
-          colunas={["Alerta", "Unidade", "Descrição", "Dias", "Atualizado"]}
-          linhas={alertas.map((linha) => [linha.tipo, nomeUnidade(linha.item.unidadeId), linha.item.descricao, String(diasDeAtraso(linha.item.dataVencimento, dataBase)), dinheiro(Number(linha.item.valorAtualizado) || 0)])}
+          rotulo="Estatística por unidade"
+          colunas={["Unidade", "Condomínio", "Contatos", "Resposta", "Em aberto", "Dias", "Último contato"]}
+          linhas={statsPorUnidade.map((linha) => [
+            linha.nome,
+            linha.condominio,
+            String(linha.contatos),
+            percentual(linha.resposta),
+            dinheiro(linha.valorAberto),
+            String(linha.dias),
+            linha.ultimo,
+          ])}
+          pagina={pagina}
+          onPagina={setPagina}
+          vazio={vazio}
+        />
+        <TabelaTexto
+          rotulo="Débitos em aberto"
+          colunas={["Condomínio", "Unidade", "Grupo", "Vencimento", "Dias", "Atualizado"]}
+          linhas={listaDebitos.map((item) => {
+            const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
+            const dias = diasDeAtraso(item.dataVencimento, dataBase);
+            return [
+              condominio?.nome ?? "—",
+              nomeUnidade(item.unidadeId),
+              grupoDebito(item.descricao),
+              formatarData(item.dataVencimento),
+              String(dias),
+              dinheiro(Number(item.valorAtualizado) || 0),
+            ];
+          })}
           pagina={pagina}
           onPagina={setPagina}
           vazio={vazio}
@@ -1081,20 +1444,78 @@ function RelatoriosPage() {
     );
   }
 
+  function destaqueHub(id: RelatorioId) {
+    if (id === "equipe") return `${metricAtendimentos} atendimentos · ${percentual(metricTaxaResposta)} com resposta`;
+    if (id === "retornos") return `${metricRetornosAgenda} na agenda · ${metricRetornosAtrasados} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}`;
+    if (id === "efetividade") {
+      return cruzamento.length ? `${comResultado} de ${cruzamento.length} com efeito no mês seguinte` : "Sem unidades contatadas no período";
+    }
+    const aberto = statsPorUnidade.reduce((total, linha) => total + linha.valorAberto, 0);
+    return totalAberto > 0
+      ? `${dinheiro(totalAberto)} · ${statsPorUnidade.length} unidades`
+      : statsPorUnidade.length > 0
+        ? `${statsPorUnidade.length} unidades no recorte`
+        : "Nenhum débito no recorte";
+  }
+
   return (
     <WorkspaceShell>
       <PageHeader
         title={atual?.titulo ?? "Relatórios"}
-        description={atual?.descricao ?? "Escolha um relatório. Ele abre com os gráficos e a leitura do período."}
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Relatórios", href: topico ? "/relatorios" : undefined }, ...(atual ? [{ label: atual.titulo }] : [])]}
+        description={
+          atual?.descricao ??
+          "Quatro relatórios: produtividade, retornos, efetividade e carteira com visão por unidade. Filtre o período e exporte pelo menu no topo."
+        }
+        breadcrumbs={[
+          { label: "Início", href: "/" },
+          { label: "Relatórios", href: relatorio ? "/relatorios" : undefined },
+          ...(atual ? [{ label: atual.titulo }] : []),
+        ]}
+        actions={relatorio ? <TableExport onExport={aoExportar} /> : undefined}
       />
       <PageContent>
-        {topico ? (
-          <>
+        {!relatorio ? (
+          <div className="grid min-w-0 grid-cols-1 gap-lg min-[640px]:grid-cols-2 min-[1280px]:grid-cols-4">
+            {RELATORIOS.map((item) => {
+              const atencao = (item.id === "retornos" && retornosAtrasados > 0) || (item.id === "carteira" && alertas.length > 0);
+              return (
+                <article
+                  key={item.id}
+                  className="flex h-full min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card min-[640px]:p-md min-[1280px]:p-lg"
+                >
+                  <div className="flex items-start justify-between gap-sm">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-primary-container">
+                      <Icon icon={item.icon} size="md" />
+                    </span>
+                    <Badge variant={atencao ? "error" : "primary"} className="max-w-[55%] shrink truncate">
+                      {atencao ? "Atenção" : item.selo}
+                    </Badge>
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-xs">
+                    <h2 className="text-headline-sm text-on-surface">{item.titulo}</h2>
+                    <p className="text-body-sm text-on-surface-variant">{item.descricao}</p>
+                    <p className="text-body-sm font-medium text-primary-container min-[1280px]:text-body-md">{destaqueHub(item.id)}</p>
+                  </div>
+                  <Button className="mt-auto w-full" size="sm" onClick={() => abrirRelatorio(item.id)}>
+                    <Icon icon={ArrowUpRight} size="sm" />
+                    Abrir relatório
+                  </Button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-lg">
+            <Button size="sm" variant="ghost" className="self-start" onClick={voltarHub}>
+              <Icon icon={ArrowLeft} size="sm" />
+              Todos os relatórios
+            </Button>
             <FilterBar
               searchValue={filtro.busca}
               onSearchChange={(buscaAtual) => setFiltro((atualFiltro) => ({ ...atualFiltro, busca: buscaAtual }))}
-              searchPlaceholder="Buscar condomínio, unidade ou assunto..."
+              searchPlaceholder={
+                relatorio === "carteira" ? "Buscar condomínio, unidade ou cobrança..." : "Buscar condomínio, unidade ou assunto..."
+              }
               onApply={() => {
                 setAplicado(filtro);
                 setPagina(1);
@@ -1106,66 +1527,8 @@ function RelatoriosPage() {
               }}
               fields={camposFiltro}
             />
-            <div className="flex flex-wrap items-center justify-between gap-sm">
-              <Button size="sm" variant="ghost" onClick={voltar}>
-                <Icon icon={ArrowLeft} size="sm" />
-                Todos os relatórios
-              </Button>
-              <div className="flex flex-wrap gap-sm">
-                <Button size="sm" variant="outline" onClick={exportar}>
-                  <Icon icon={FileSpreadsheet} size="sm" />
-                  Excel
-                </Button>
-                <Button size="sm" variant="outline" onClick={imprimir}>
-                  <Icon icon={FileText} size="sm" />
-                  PDF
-                </Button>
-              </div>
-            </div>
-            {corpo}
-          </>
-        ) : (
-          GRUPOS.map((grupo) => (
-            <section key={grupo.id} className="flex flex-col gap-md">
-              <div className="flex flex-col gap-xs">
-                <h2 className="text-headline-sm text-on-surface">{grupo.titulo}</h2>
-                <p className="text-body-md text-on-surface-variant">{grupo.texto}</p>
-              </div>
-              <div className="grid grid-cols-1 items-stretch gap-lg min-[768px]:grid-cols-2 min-[1200px]:grid-cols-3">
-                {TOPICOS.filter((item) => item.grupo === grupo.id).map((item) => {
-                  const atencao = (item.id === "retornos" && retornosAtrasados > 0) || (item.id === "alertas" && alertas.length > 0);
-                  return (
-                    <article key={item.id} className="flex h-full flex-col gap-lg rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-                      <div className="flex items-start justify-between gap-md">
-                        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-primary-container">
-                          <Icon icon={item.icon} size="md" />
-                        </span>
-                        <Badge variant={atencao ? "error" : item.seloVariante}>{atencao ? "Atenção" : item.selo}</Badge>
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <h3 className="text-headline-sm text-on-surface">{item.titulo}</h3>
-                        <p className="text-body-sm text-on-surface-variant">{item.descricao}</p>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-sm">
-                        <p className="text-label-sm uppercase text-on-surface-variant">Indicadores</p>
-                        <ul className="flex flex-wrap gap-sm">
-                          {item.indicadores.map((nome) => (
-                            <li key={nome} className="rounded-full border border-border-subtle px-md py-xs text-body-sm text-primary-container">
-                              {nome}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <Button className="w-full" onClick={() => abrir(item.id)}>
-                        <Icon icon={ArrowUpRight} size="sm" />
-                        Acessar relatório
-                      </Button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))
+            <div className="flex flex-col gap-xl">{corpo}</div>
+          </div>
         )}
       </PageContent>
     </WorkspaceShell>
