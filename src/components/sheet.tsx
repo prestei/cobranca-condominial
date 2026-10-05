@@ -60,31 +60,67 @@ type SheetContentProps = HTMLAttributes<HTMLDialogElement> & {
 export function SheetContent({ children, className, ...props }: SheetContentProps) {
   const { open, onOpenChange } = useSheetContext();
   const ref = useRef<HTMLDialogElement>(null);
+  const ignoreCloseRef = useRef(false);
   const isClient = useIsClient();
 
   useLayoutEffect(() => {
     const dialog = ref.current;
-    if (!dialog || !open) return;
-    if (!dialog.open) dialog.showModal();
+    if (!dialog) return;
+    if (open) {
+      ignoreCloseRef.current = false;
+      if (!dialog.open) dialog.showModal();
+      return;
+    }
+    if (dialog.open) {
+      ignoreCloseRef.current = true;
+      dialog.close();
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previous;
+    };
   }, [open]);
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
 
-    const handleClose = () => onOpenChange(false);
+    const handleCancel = (event: Event) => {
+      event.preventDefault();
+      onOpenChange(false);
+    };
+    const handleClose = () => {
+      if (ignoreCloseRef.current) {
+        ignoreCloseRef.current = false;
+        return;
+      }
+      onOpenChange(false);
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
     dialog.addEventListener("close", handleClose);
-    return () => dialog.removeEventListener("close", handleClose);
-  }, [onOpenChange]);
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("close", handleClose);
+    };
+  }, [isClient, onOpenChange]);
 
   useEffect(() => {
     return () => {
       const dialog = ref.current;
-      if (dialog?.open) dialog.close();
+      if (!dialog?.open) return;
+      ignoreCloseRef.current = true;
+      dialog.close();
     };
   }, []);
 
-  if (!open || !isClient) return null;
+  if (!isClient) return null;
 
   return createPortal(
     <dialog
@@ -143,7 +179,7 @@ export function SheetDescription({ className, ...props }: HTMLAttributes<HTMLPar
 export function SheetBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col gap-lg overflow-y-auto px-lg py-md ${className ?? ""}`}
+      className={`flex min-h-0 flex-1 flex-col gap-[calc(var(--spacing-sm)+2px)] overflow-y-auto px-lg py-md ${className ?? ""}`}
       {...props}
     />
   );
@@ -233,6 +269,8 @@ type SheetFooterFormProps = HTMLAttributes<HTMLDivElement> & {
   closeLabel?: string;
   saveLabel?: string;
   saveDisabled?: boolean;
+  onBack?: () => void;
+  backLabel?: string;
 };
 
 export function SheetFooterForm({
@@ -240,16 +278,20 @@ export function SheetFooterForm({
   closeLabel = "Fechar",
   saveLabel = "Salvar",
   saveDisabled,
+  onBack,
+  backLabel = "Voltar",
   className,
   ...props
 }: SheetFooterFormProps) {
   return (
     <SheetFooter className={className} {...props}>
-      <Button type="button" variant="outline" onClick={onClose}>
-        {closeLabel}
+      <Button type="button" variant="outline" onClick={onBack ?? onClose}>
+        {onBack ? backLabel : closeLabel}
       </Button>
       <Button type="submit" disabled={saveDisabled}>
-        <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+        {saveLabel === "Salvar" ? (
+          <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+        ) : null}
         {saveLabel}
       </Button>
     </SheetFooter>

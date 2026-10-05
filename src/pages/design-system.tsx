@@ -1,11 +1,10 @@
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Building, FileBarChart, HelpCircle, Inbox, Plus, Settings, ShieldCheck, User } from "lucide-react";
+import { Building, FileBarChart, HelpCircle, Inbox, Pencil, Plus, Settings, ShieldCheck, Trash2, User } from "lucide-react";
 import { Alert } from "@/components/alert";
 import {
   AppShell,
   AppShellBrand,
-  AppShellCarteiraBadge,
   AppShellMain,
   AppShellNav,
   AppShellNavLink,
@@ -19,6 +18,7 @@ import { CardMetric } from "@/components/card-metric";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FormSteps } from "@/components/form-steps";
 import { Icon, iconSizes, iconStrokeWidths, type IconSize } from "@/components/icon";
 import {
   Checkbox,
@@ -32,6 +32,8 @@ import {
   SwitchField,
   Textarea,
 } from "@/components/input";
+import { Pagination } from "@/components/pagination";
+import { PeriodInput, type PeriodValue } from "@/components/period-input";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
   Sheet,
@@ -164,6 +166,16 @@ const buttonRows = [
       { size: "lg" as const, label: "Limpar filtros" },
     ],
   },
+  {
+    name: "Critical",
+    detail: "Ação destrutiva",
+    variant: "critical" as const,
+    samples: [
+      { size: "sm" as const, label: "Excluir" },
+      { size: "md" as const, label: "Sair" },
+      { size: "lg" as const, label: "Remover" },
+    ],
+  },
 ] as const;
 
 const badgeSamples = [
@@ -231,6 +243,11 @@ function SectionTitle({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
+function PaginationSample() {
+  const [page, setPage] = useState(1);
+  return <Pagination page={page} total={48} onPageChange={setPage} />;
+}
+
 function Showcase({
   id,
   title,
@@ -280,6 +297,7 @@ function FilterBarSample({
   const [situation, setSituation] = useState("todos");
   const [activity, setActivity] = useState("todos");
   const [order, setOrder] = useState("recentes");
+  const [periodo, setPeriodo] = useState<PeriodValue>({ preset: "mes", de: "", ate: "" });
   const [applied, setApplied] = useState("");
 
   function handleClear() {
@@ -287,6 +305,7 @@ function FilterBarSample({
     setSituation("todos");
     setActivity("todos");
     setOrder("recentes");
+    setPeriodo({ preset: "todos", de: "", ate: "" });
     setApplied("");
   }
 
@@ -305,6 +324,13 @@ function FilterBarSample({
         onApply={handleApply}
         onClear={handleClear}
         fields={[
+          {
+            id: `${idPrefix}-periodo`,
+            label: "Período",
+            type: "period",
+            value: periodo,
+            onChange: setPeriodo,
+          },
           {
             id: `${idPrefix}-situation`,
             label: "Situação",
@@ -550,6 +576,74 @@ function SheetSample() {
   );
 }
 
+function SheetStepsSample() {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const steps = ["Dados", "Endereço"] as const;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (step < steps.length - 1) {
+      setStep((current) => current + 1);
+      return;
+    }
+    setOpen(false);
+    setStep(0);
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => {
+          setStep(0);
+          setOpen(true);
+        }}
+      >
+        Abrir cadastro em etapas
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent aria-labelledby="sheet-steps-title" aria-describedby="sheet-steps-desc">
+          <SheetForm onSubmit={handleSubmit}>
+            <SheetHeader>
+              <SheetHeaderLead>
+                <SheetHeaderIcon>
+                  <Building className="size-5" strokeWidth={1.75} aria-hidden="true" />
+                </SheetHeaderIcon>
+                <SheetHeaderText>
+                  <SheetTitle id="sheet-steps-title">Novo condomínio</SheetTitle>
+                  <SheetDescription id="sheet-steps-desc">
+                    Formulário grande dividido em etapas no mesmo painel.
+                  </SheetDescription>
+                </SheetHeaderText>
+              </SheetHeaderLead>
+              <SheetClose />
+            </SheetHeader>
+            <SheetBody>
+              <FormSteps steps={steps} current={step} />
+              {step === 0 ? (
+                <FormField label="Nome" htmlFor="sheet-steps-nome" required>
+                  <Input id="sheet-steps-nome" name="nome" />
+                </FormField>
+              ) : (
+                <FormField label="Cidade" htmlFor="sheet-steps-cidade">
+                  <Input id="sheet-steps-cidade" name="cidade" />
+                </FormField>
+              )}
+            </SheetBody>
+            <SheetFooterForm
+              onClose={() => setOpen(false)}
+              onBack={step > 0 ? () => setStep((current) => current - 1) : undefined}
+              saveLabel={step < steps.length - 1 ? "Continuar" : "Salvar"}
+            />
+          </SheetForm>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
 function SelectAllCheckbox({
   checked,
   indeterminate,
@@ -689,7 +783,13 @@ function CondominiumsTable({ viewport = "auto" }: { viewport?: "auto" | "desktop
             <TableCell>
               <Badge variant={situationBadge[row.situation]}>{row.situation}</Badge>
             </TableCell>
-            <TableActionsCell label={`Ações para ${row.name}`} />
+            <TableActionsCell
+              label={`Ações para ${row.name}`}
+              actions={[
+                { label: "Editar", icon: Pencil, onSelect: () => undefined },
+                { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => undefined },
+              ]}
+            />
           </TableRow>
         ))}
       </TableBody>
@@ -711,7 +811,13 @@ function CondominiumsTable({ viewport = "auto" }: { viewport?: "auto" | "desktop
               onChange={(event) => toggleRow(row.name, event.target.checked)}
             />
             <TableMobileTitle>{row.name}</TableMobileTitle>
-            <TableActionsButton label={`Ações para ${row.name}`} />
+            <TableActionsButton
+              label={`Ações para ${row.name}`}
+              actions={[
+                { label: "Editar", icon: Pencil, onSelect: () => undefined },
+                { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => undefined },
+              ]}
+            />
           </TableMobileCardHeader>
           <TableMobileFields>
             <TableMobileField label="Unidades" valueClassName="tabular-nums">
@@ -776,7 +882,6 @@ function DemoSidebar() {
   return (
     <AppShellSidebar>
       <AppShellBrand title="Cobrança" />
-      <AppShellCarteiraBadge />
       <AppShellNav>
         <AppShellNavSection title="Carteira">
           <AppShellNavLink href="/design-system" icon={Building} active count={3}>
@@ -1024,7 +1129,7 @@ export default function DesignSystemPage() {
         <Showcase id="filtros" title="Filtros">
           <Panel>
             <p className="mb-lg text-body-sm text-on-surface-variant">
-              Barra padrão de listagem: busca, selects e ações Limpar e Filtrar. Os campos ficam sem ícone.
+              Barra padrão de listagem: rótulo acima de cada campo, busca, selects e ações Limpar e Filtrar. O período é um único campo: atalhos e intervalo personalizado abrem nele.
             </p>
             <FilterBarSample />
           </Panel>
@@ -1088,8 +1193,12 @@ export default function DesignSystemPage() {
           <Panel>
             <p className="mb-lg text-body-sm text-on-surface-variant">
               Formulários de cadastro em painel lateral fixo à direita, com rolagem no corpo e ações no rodapé.
+              Formulário grande abre em etapas, com <code className="text-body-sm text-on-surface">FormSteps</code>.
             </p>
-            <SheetSample />
+            <div className="flex flex-wrap gap-sm">
+              <SheetSample />
+              <SheetStepsSample />
+            </div>
           </Panel>
         </Showcase>
 
@@ -1114,6 +1223,15 @@ export default function DesignSystemPage() {
               <CondominiumsTable viewport="mobile" />
             </div>
           </div>
+        </Showcase>
+
+        <Showcase id="paginacao" title="Paginação">
+          <Panel>
+            <p className="mb-lg text-body-sm text-on-surface-variant">
+              Listagens paginam de 20 em 20. O exemplo abaixo tem 48 registros.
+            </p>
+            <PaginationSample />
+          </Panel>
         </Showcase>
 
         <Showcase id="vazio" title="Estado vazio">

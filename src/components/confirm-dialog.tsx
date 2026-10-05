@@ -18,6 +18,7 @@ type ConfirmDialogProps = {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "primary" | "critical";
   onConfirm: () => void;
 };
 
@@ -28,6 +29,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
+  confirmVariant = "primary",
   onConfirm,
 }: ConfirmDialogProps) {
   const titleId = useId();
@@ -46,12 +48,23 @@ export function ConfirmDialog({
           ) : null}
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {confirmVariant === "critical" ? (
+            <Button type="button" variant="critical" onClick={onConfirm}>
+              {confirmLabel}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant={confirmVariant === "critical" ? "primary" : "outline"}
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel}
           </Button>
-          <Button type="button" onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
+          {confirmVariant === "primary" ? (
+            <Button type="button" onClick={onConfirm}>
+              {confirmLabel}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

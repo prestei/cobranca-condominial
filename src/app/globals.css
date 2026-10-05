@@ -60,7 +60,7 @@
   --color-gold-subtle: #fdf6ea;
   --color-brass: #eaa015;
   --color-brass-hover: color-mix(in srgb, var(--color-brass) 85%, var(--color-primary-container));
-  --color-overlay: rgb(32 51 71 / 40%);
+  --color-overlay: rgb(9 30 49 / 68%);
 
   --font-sans: var(--font-open-sans), "Open Sans", sans-serif;
 

@@ -4,7 +4,7 @@
 
 Criar um controle de pagamento e dívidas de proprietários de vários condomínios, onde o escritório de advocacia é responsável por gerenciar e tratar, de forma judicial ou extrajudicial, os proprietários inadimplentes.
 
-O projeto será dividido em dois grandes módulos, incluindo o **painel de palitagem** (acompanhamento das cobranças).
+Palitagem e painel de inadimplência são **um único sistema**. Compartilham condomínio, unidade, colaborador e o débito da unidade. O atendimento é o registro da cobrança daquela unidade. Não existe um cadastro separado de processo de cobrança.
 
 ---
 
@@ -68,7 +68,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 - Login → resumo geral com métricas e KPIs importantes
 - Gerenciar os condomínios
-- Gerenciar usuários
+- Gerenciar colaboradores
 - Acompanhar cobranças
 - Acompanhar produtividade de atendentes
 - Acesso à auditoria do sistema
@@ -94,15 +94,15 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 ### Dashboard
 
 - Visão geral da inadimplência
-- Cobranças em andamento
+- Unidades com débito vencido
 - Valores em aberto
 - Acordos e pagamentos
 - Indicadores por condomínio
 - Indicadores por responsável
 
-### Usuários e permissões
+### Colaboradores e permissões
 
-- Cadastro de usuários
+- Cadastro de colaboradores
 - Cargos e permissões
 - Controle de acesso
 
@@ -124,24 +124,14 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Regra de entrada na cobrança
 - Atualização dos valores
 
-### Palitagem e distribuição
+### Palitagem
 
-- Fila de cobranças
-- Distribuição para atendentes
-- Distribuição manual ou automática
-- Redistribuição de cobranças
-- Controle da carteira de cada atendente
-- Histórico de responsáveis
-
-### Cobrança amigável
-
-- Cadastro de contatos
-- Histórico de contatos
+- Lista de unidades com débito vencido
+- Registro do atendimento pelo colaborador logado
+- Histórico de contatos da unidade
 - WhatsApp, telefone e e-mail
-- Registro de tentativas
 - Agendamento de retorno
-- Status da cobrança
-- Observações do atendimento
+- Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada
 
 ### Negociação e pagamentos
 

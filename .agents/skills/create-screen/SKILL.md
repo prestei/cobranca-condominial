@@ -24,7 +24,7 @@ Ao desenhar e implementar a tela, aplicar o que está nos documentos lidos:
 - **Perfis e permissões** (Administrador, Atendente, Advogado): o que cada um vê, edita e exporta.
 - **Fluxos e ações** da funcionalidade (registro, retorno, filtros, relatórios, etc.).
 - **Campos obrigatórios, estados e mensagens** descritos na proposta e nas regras.
-- **Escopo do módulo** (Projeto 1 — palitagem vs Projeto 2 — painel de inadimplência): não misturar comportamentos de outro módulo sem estar no escopo da tela.
+- **Um sistema só:** palitagem e inadimplência compartilham condomínio, unidade, colaborador e o débito da unidade. O atendimento registra a cobrança dessa unidade. Não criar um cadastro separado de processo de cobrança.
 - **Consistência** com o restante do sistema (nomenclatura de condomínio, unidade, cobrança, etc.).
 
 Dúvida entre duas interpretações de negócio: parar e confirmar com o usuário antes de codar.
@@ -55,7 +55,7 @@ Tela interna usa `AppShell` + `AppShellMain`. `PageHeader` fica fora de `PageCon
         </Button>
       }
     />
-    <PageContent>{/* FilterBar, métricas, tabela */}</PageContent>
+    <PageContent>{/* FilterBar, métricas, tabela, Pagination */}</PageContent>
   </AppShellMain>
 </AppShell>
 ```
@@ -68,14 +68,28 @@ Tela interna usa `AppShell` + `AppShellMain`. `PageHeader` fica fora de `PageCon
 
 ## Listagem
 
-Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela.
+Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela, `Pagination`.
 
 Usar `FilterBar`. Não remontar a barra com `Input`, `Select` e `Button` soltos.
 
-- Busca e selects na primeira linha, mesma largura, sem rótulo visível e sem ícone dentro do campo. `label` de cada field é só o nome acessível.
+- Busca e selects na primeira linha, mesma largura, com rótulo visível acima do campo e sem ícone dentro do campo. O rótulo da busca é `searchLabel` (padrão **Buscar**); o de cada select é `label`.
 - **Limpar** e **Filtrar** na linha de baixo, alinhados à direita, com Filtrar por último. Limpar é `outline` com `RotateCcw`; Filtrar é primário com `Search`.
 - Fundo `surface-subtle` e borda `border-subtle` vêm do componente. Não substituir por hex nem por outro token.
 - Não passar `applyLabel` nem `clearLabel`, a menos que a tela precise de outro texto.
+
+## Paginação
+
+Toda listagem pagina. O padrão é **20** registros por página, com o componente `Pagination`. Não inventar outro tamanho nem outro controle por tela.
+
+- Fica depois da tabela.
+- `pageSize` permanece 20. Não passar outro valor.
+- **Filtrar** e **Limpar** voltam para a página 1.
+- Métricas usam o conjunto filtrado inteiro, não só a página visível.
+- Com lista vazia, a tabela mostra `EmptyState` e a paginação não aparece.
+
+```tsx
+<Pagination page={page} total={total} onPageChange={setPage} />
+```
 
 ## Criação e edição
 
@@ -87,12 +101,25 @@ Montar com `Sheet`, `SheetContent`, `SheetForm`, `SheetHeader` (`SheetHeaderLead
 
 `Dialog` e `ConfirmDialog` ficam para confirmação, não para formulário de cadastro ou edição.
 
+### Formulário grande: etapas
+
+Formulário curto — até 6 campos e um único assunto — fica em uma etapa, com Fechar e Salvar.
+
+Formulário grande — mais de 6 campos, ou mais de um bloco (dados e endereço, por exemplo) — divide em etapas no mesmo `Sheet`. Não abrir página, `Dialog` nem outro assistente fora do painel.
+
+- Agrupar por assunto. Cada etapa cabe no painel, sem uma rolagem longa.
+- `FormSteps` no topo do `SheetBody`. Só a etapa atual aparece.
+- Validar a etapa atual antes de avançar. Erro mantém a pessoa na etapa.
+- Primeira etapa: Fechar e Continuar. As seguintes: Voltar e Continuar. A última: Voltar e Salvar (`SheetFooterForm` com `onBack` e `saveLabel`).
+- O estado do formulário permanece entre as etapas. Ao abrir o sheet de novo, a primeira etapa volta.
+- Não usar `Tabs` no lugar das etapas.
+
 ## Componentes (obrigatório)
 
 **Sempre montar a UI com os componentes globais existentes. Sempre.**
 
 1. Antes de qualquer markup, verificar `src/components/` e `docs/design-system.md`.
-2. Importar de `@/components/...` (`AppShell`, `PageHeader`, `PageContent`, `FilterBar`, `Sheet`, `Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, `Dialog`, `ConfirmDialog`, etc.).
+2. Importar de `@/components/...` (`AppShell`, `PageHeader`, `PageContent`, `FilterBar`, `Pagination`, `Sheet`, `FormSteps`, `Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, `Dialog`, `ConfirmDialog`, etc.).
 3. **Proibido** recriar botão, input, badge, abas, modal ou variantes locais com classes Tailwind equivalentes.
 4. **Proibido** copiar markup de `/design-system` para a página sem passar pelo componente.
 5. Se nenhum componente existente servir: **parar e perguntar ao usuário** antes de criar outro.
@@ -114,8 +141,9 @@ Padrão: poucas funções, sem muitas funções auxiliares.
 - `docs/proposta-oficial.md` e `docs/regra-negocio.md` foram lidos e a tela reflete perfis, fluxos e campos relevantes.
 - A página usa tokens do `@theme` via Tailwind; nenhum CSS novo fora de `@theme` em `globals.css`.
 - A tela interna usa `AppShell`, `PageHeader` e `PageContent`. A ação do cabeçalho é **Novo**, sem **Exportar**.
-- Listagem usa `FilterBar` (campos sem ícone e sem rótulo; Limpar e depois Filtrar, alinhados à direita), depois métricas e tabela.
+- Listagem usa `FilterBar` (rótulo acima de cada campo, sem ícone; Limpar e depois Filtrar, alinhados à direita), depois métricas, tabela e `Pagination` de 20.
 - Cadastro e edição abrem no mesmo `Sheet`. Formulário não vai para página nem para `Dialog`.
+- Formulário com mais de 6 campos, ou com mais de um bloco, usa `FormSteps` no mesmo `Sheet`.
 - Toda UI interativa passa por componentes de `src/components/`.
 - Nenhum botão/input/badge/aba/modal/filtro foi recriado fora do design system.
 - Não há função auxiliar de uso único.

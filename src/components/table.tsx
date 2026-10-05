@@ -1,9 +1,199 @@
 "use client";
 
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
-import { useEffect, useRef } from "react";
-import { EllipsisVertical } from "lucide-react";
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, Download, EllipsisVertical, FileSpreadsheet, FileText, Sheet, type LucideIcon } from "lucide-react";
+import { Icon } from "@/components/icon";
 import { Checkbox } from "@/components/input";
+
+const formatosExportacao: Array<{ id: string; label: string; description: string; icon: LucideIcon }> = [
+  {
+    id: "csv",
+    label: "CSV",
+    description: "Planilha com separador ; (Excel pt-BR)",
+    icon: FileSpreadsheet,
+  },
+  {
+    id: "xls",
+    label: "XLS",
+    description: "Arquivo Excel (.xlsx)",
+    icon: Sheet,
+  },
+  {
+    id: "pdf",
+    label: "PDF",
+    description: "Documento para impressão ou envio",
+    icon: FileText,
+  },
+];
+
+function TableExport() {
+  const menuId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const isClient = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const button = buttonRef.current;
+    const menu = menuRef.current;
+    if (!button || !menu) return;
+
+    function place() {
+      if (!button || !menu) return;
+      const buttonRect = button.getBoundingClientRect();
+      const menuHeight = menu.offsetHeight;
+      const menuWidth = menu.offsetWidth;
+      const gap = 4;
+      const spaceBelow = window.innerHeight - buttonRect.bottom;
+      const openUp = spaceBelow < menuHeight + gap && buttonRect.top > spaceBelow;
+      const top = openUp ? buttonRect.top - gap - menuHeight : buttonRect.bottom + gap;
+      let left = buttonRect.right - menuWidth;
+      const minLeft = 8;
+      const maxLeft = window.innerWidth - menuWidth - 8;
+      if (left < minLeft) left = minLeft;
+      if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+      menu.style.top = `${Math.max(8, top)}px`;
+      menu.style.left = `${left}px`;
+    }
+
+    place();
+    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeIfHidden() {
+      const button = buttonRef.current;
+      if (!button || button.getClientRects().length === 0) setOpen(false);
+    }
+
+    closeIfHidden();
+    window.addEventListener("resize", closeIfHidden);
+    return () => window.removeEventListener("resize", closeIfHidden);
+  }, [open]);
+
+  function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+    const current = items.findIndex((item) => item === document.activeElement);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(current + 1) % items.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[current <= 0 ? items.length - 1 : current - 1]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    } else if (event.key === "Tab") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        className="inline-flex h-control-sm cursor-pointer items-center gap-sm rounded-md border border-border-subtle bg-surface-card px-md text-label-md text-on-surface shadow-card transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          } else if (event.key === "Escape" && open) {
+            event.preventDefault();
+            setOpen(false);
+          }
+        }}
+      >
+        <Icon icon={Download} size="sm" />
+        Exportar
+        <Icon icon={ChevronDown} size="sm" className={open ? "rotate-180 transition-transform" : "transition-transform"} />
+      </button>
+      {open && isClient
+        ? createPortal(
+            <div
+              ref={menuRef}
+              id={menuId}
+              role="menu"
+              aria-label="Formato do arquivo"
+              onKeyDown={onMenuKeyDown}
+              className="fixed z-40 w-80 overflow-hidden rounded-lg border border-border-subtle bg-surface-card py-xs shadow-popover"
+            >
+              <p className="px-md pb-xs pt-sm text-label-md text-on-surface-variant">Formato do arquivo</p>
+              {formatosExportacao.map((formato) => (
+                <button
+                  key={formato.id}
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full cursor-pointer items-center gap-sm px-md py-sm text-left hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass"
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-primary-container">
+                    <Icon icon={formato.icon} size="sm" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-label-lg text-on-surface">{formato.label}</span>
+                    <span className="block text-body-sm text-on-surface-variant">{formato.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function TableExportBar() {
+  return (
+    <div className="flex justify-end">
+      <TableExport />
+    </div>
+  );
+}
 
 type TableProps = TableHTMLAttributes<HTMLTableElement> & {
   containerClassName?: string;
@@ -11,15 +201,18 @@ type TableProps = TableHTMLAttributes<HTMLTableElement> & {
 
 export function Table({ className, containerClassName, children, ...props }: TableProps) {
   return (
-    <div
-      className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
-    >
-      <table
-        className={`w-full min-w-[32rem] table-fixed border-collapse text-left text-body-md ${className ?? ""}`}
-        {...props}
+    <div className="flex flex-col gap-sm">
+      <TableExportBar />
+      <div
+        className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
       >
-        {children}
-      </table>
+        <table
+          className={`w-full min-w-[32rem] table-fixed border-collapse text-left text-body-md ${className ?? ""}`}
+          {...props}
+        >
+          {children}
+        </table>
+      </div>
     </div>
   );
 }
@@ -248,36 +441,189 @@ export function TableSelectCell({
   );
 }
 
-type TableActionsCellProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "children"> & {
+export type TableAction = {
+  label: string;
+  onSelect: () => void;
+  icon?: LucideIcon;
+  destructive?: boolean;
+};
+
+type TableActionsButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "children"> & {
   label?: string;
+  actions?: TableAction[];
 };
 
 export function TableActionsButton({
   className,
   label = "Abrir menu de ações",
+  actions,
+  onClick,
+  onKeyDown,
   ...props
-}: TableActionsCellProps) {
+}: TableActionsButtonProps) {
+  const menuId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const isClient = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const hasMenu = Boolean(actions?.length);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const button = buttonRef.current;
+    const menu = menuRef.current;
+    if (!button || !menu) return;
+
+    function place() {
+      if (!button || !menu) return;
+      const buttonRect = button.getBoundingClientRect();
+      const menuHeight = menu.offsetHeight;
+      const menuWidth = menu.offsetWidth;
+      const gap = 4;
+      const spaceBelow = window.innerHeight - buttonRect.bottom;
+      const openUp = spaceBelow < menuHeight + gap && buttonRect.top > spaceBelow;
+      const top = openUp ? buttonRect.top - gap - menuHeight : buttonRect.bottom + gap;
+      let left = buttonRect.right - menuWidth;
+      const minLeft = 8;
+      const maxLeft = window.innerWidth - menuWidth - 8;
+      if (left < minLeft) left = minLeft;
+      if (left > maxLeft) left = Math.max(minLeft, maxLeft);
+      menu.style.top = `${Math.max(8, top)}px`;
+      menu.style.left = `${left}px`;
+    }
+
+    place();
+    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+    const current = items.findIndex((item) => item === document.activeElement);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(current + 1) % items.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[current <= 0 ? items.length - 1 : current - 1]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    } else if (event.key === "Tab") {
+      setOpen(false);
+    }
+  }
+
   return (
-    <button
-      type="button"
-      aria-label={label}
-      className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
-      {...props}
-    >
-      <EllipsisVertical className="size-5" strokeWidth={2} aria-hidden="true" />
-    </button>
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={label}
+        aria-haspopup={hasMenu ? "menu" : undefined}
+        aria-expanded={hasMenu ? open : undefined}
+        aria-controls={hasMenu && open ? menuId : undefined}
+        className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
+        onClick={(event) => {
+          if (hasMenu) {
+            setOpen((current) => !current);
+            return;
+          }
+          onClick?.(event);
+        }}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.defaultPrevented || !hasMenu) return;
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          } else if (event.key === "Escape" && open) {
+            event.preventDefault();
+            setOpen(false);
+          }
+        }}
+        {...props}
+      >
+        <EllipsisVertical className="size-5" strokeWidth={2} aria-hidden="true" />
+      </button>
+      {hasMenu && open && isClient
+        ? createPortal(
+            <div
+              ref={menuRef}
+              id={menuId}
+              role="menu"
+              aria-label={label}
+              onKeyDown={onMenuKeyDown}
+              className="fixed z-40 min-w-40 overflow-hidden rounded-lg border border-border-subtle bg-surface-card py-xs shadow-popover"
+            >
+              {actions?.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  role="menuitem"
+                  className={`flex min-h-11 w-full cursor-pointer items-center gap-sm px-md text-left text-body-md hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass ${
+                    action.destructive ? "text-status-critical" : "text-on-surface"
+                  }`}
+                  onClick={() => {
+                    setOpen(false);
+                    action.onSelect();
+                  }}
+                >
+                  {action.icon ? <Icon icon={action.icon} size="sm" /> : null}
+                  {action.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
 export function TableActionsCell({
   className,
   label,
+  actions,
   ...props
-}: TableActionsCellProps) {
+}: TableActionsButtonProps) {
   return (
     <TableCell align="center" className={`w-14 px-sm ${className ?? ""}`}>
       <div className="flex justify-center">
-        <TableActionsButton label={label} {...props} />
+        <TableActionsButton label={label} actions={actions} {...props} />
       </div>
     </TableCell>
   );
@@ -313,7 +659,12 @@ export function ResponsiveTable({
   viewport = "auto",
 }: ResponsiveTableProps) {
   if (viewport === "mobile") {
-    return <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>{mobile}</div>;
+    return (
+      <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>
+        <TableExportBar />
+        {mobile}
+      </div>
+    );
   }
 
   if (viewport === "desktop") {
@@ -323,7 +674,10 @@ export function ResponsiveTable({
   return (
     <div className={className}>
       <div className="hidden min-[768px]:block">{desktop}</div>
-      <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">{mobile}</div>
+      <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">
+        <TableExportBar />
+        {mobile}
+      </div>
     </div>
   );
 }

@@ -138,6 +138,8 @@ Page
  └── Pagination
 ```
 
+Paginação padrão: **20** registros por página, com o componente `Pagination`. Não variar o tamanho por tela.
+
 Telas com função semelhante devem seguir o mesmo esqueleto (ex.: `app-layout`, sidebar, top bar do modelo).
 
 ---
