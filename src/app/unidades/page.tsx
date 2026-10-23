@@ -7,6 +7,7 @@ import { DoorOpen, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -415,7 +416,6 @@ export default function UnidadesPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.identificacao}</TableMobileTitle>
               <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -448,6 +448,20 @@ export default function UnidadesPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de unidades">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">unidades</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(ativas).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">ativas</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-status-critical text-on-primary" icon={<Icon icon={Receipt} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(devendo).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">devendo</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -488,20 +502,6 @@ export default function UnidadesPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">unidades</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(ativas).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">ativas</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-status-critical text-on-primary" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(devendo).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">devendo</p>
-          </CardMetric>
-        </div>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -994,7 +995,7 @@ export default function DesignSystemPage() {
                 />
                 <PageContent>
                   <FilterBarSample idPrefix="ds-layout-filter" showApplied={false} />
-                  <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+                  <CardMetricRow aria-label="Resumo de exemplo">
                     <CardMetric
                       iconClassName="bg-surface-subtle text-on-surface-variant"
                       icon={<Icon icon={Building} size="md" />}
@@ -1016,7 +1017,7 @@ export default function DesignSystemPage() {
                       <p className="text-metric text-on-surface tabular-nums">02</p>
                       <p className="mt-sm text-body-sm text-on-surface-variant">ativos</p>
                     </CardMetric>
-                  </div>
+                  </CardMetricRow>
                   <CondominiumsTable />
                 </PageContent>
               </AppShellMain>
@@ -1250,7 +1251,7 @@ export default function DesignSystemPage() {
         </Showcase>
 
         <Showcase id="cartoes" title="Cartão de métrica">
-          <div className="grid grid-cols-1 gap-md min-[961px]:grid-cols-3" aria-label="Resumo da carteira">
+          <CardMetricRow aria-label="Resumo da carteira">
             <CardMetric
               iconClassName="bg-surface-subtle text-on-surface-variant"
               icon={<Building className="size-5" strokeWidth={1.75} />}
@@ -1281,7 +1282,7 @@ export default function DesignSystemPage() {
               </span>
               <p className="mt-sm text-body-sm text-on-surface-variant">com situação ativa</p>
             </CardMetric>
-          </div>
+          </CardMetricRow>
         </Showcase>
       </div>
     </main>

@@ -333,7 +333,6 @@ export default function CargosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.nome}</TableMobileTitle>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -363,6 +362,20 @@ export default function CargosPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de cargos">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">cargos</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(comPermissao).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">com permissões</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Shield} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(emUso).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">em uso</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -383,20 +396,6 @@ export default function CargosPage() {
             },
           ]}
         />
-        <CardMetricRow aria-label="Resumo de cargos">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">cargos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comPermissao).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com permissões</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Shield} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(emUso).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">em uso</p>
-          </CardMetric>
-        </CardMetricRow>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

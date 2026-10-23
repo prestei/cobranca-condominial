@@ -16,9 +16,10 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
+| `BadgeCargo` | `badge-cargo.tsx` | Nome do cargo em listagens (ex.: coluna Cargo em `/usuarios`). Mesmo padrão dos badges de área em `/cargos` (`primary`, `font-normal`). |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
 | `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone (tamanho padrão: `p-lg`, ícone `size-11`). |
-| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão 3). Respeita `prefers-reduced-motion` (sem autoplay). |
+| `CardMetricRow` | `card-metric-row.tsx` | **Padrão obrigatório** para blocos de métricas em listagens, início e relatórios — não usar `grid` empilhado no mobile. Carrossel com snap (um card por vez, sem `gap` entre slides no mobile; `scroll-px-md` alinha o primeiro card); avanço automático a cada 5s e pontos na ordem 1→2→3. Grid no desktop (`desktopCols`, padrão 3). **Ordem:** métricas neutras primeiro; destaque `bg-gold-subtle` no **último** card (referência `/cargos`). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
@@ -58,7 +59,7 @@ Barras de rolagem finas e discretas em todo o sistema (`globals.css`, camada `ba
 - Altura `h-input` (`--spacing-input`, menor que botões).
 - Sem ícone embutido. Padding esquerda: `spacing-md` menos 5px. Padding direita: `spacing-md`.
 - Repouso: borda `border-strong`.
-- Foco: borda `brass` e anel suave.
+- Foco: borda `primary-container` e anel `primary-fixed`.
 - Erro: borda e label `status-critical`; a mensagem fica a `spacing-xs` abaixo do campo, via `FormField` com `error`.
 
 ### Texto e lista
@@ -103,6 +104,8 @@ Use `CheckboxField`, `RadioField` ou `SwitchField` para label clicável ao lado.
 ```
 
 ## Filtros
+
+Em listagens, o `CardMetricRow` vem **antes** do `FilterBar` (KPIs do recorte atual, depois filtros, depois tabela).
 
 `FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período ficam na primeira linha, cada um com rótulo acima do campo (`FormField`). Campo com `type: "date"` renderiza data; `type: "number"` renderiza número; `type: "period"` renderiza o `PeriodInput`; os demais são selects. No desktop (a partir de 768px), cada campo ocupa 1/4 da linha e a altura do controle sobe para `h-control`. O rótulo da busca é `searchLabel` (padrão **Buscar**); o de cada campo é `label`. Limpar e Filtrar ficam na linha de baixo, alinhados à direita, com Filtrar por último. Filtrar envia o formulário; Limpar chama `onClear`.
 
@@ -218,7 +221,9 @@ Use `ResponsiveTable` com a tabela desktop e a variante mobile em cards. Breakpo
 
 Estado vazio mobile: `TableMobileEmpty` com `EmptyState`. Prop `viewport="mobile"` em `ResponsiveTable` força cards no preview do design site.
 
-`TableMobileField`: rótulo em `text-label-sm uppercase text-on-surface-variant`; valor em `text-body-md text-on-surface`. Com `stacked`, rótulo acima do valor (`gap-sm`) — use para texto longo ou badges.
+`TableMobileCardHeader`: linha flex — título (`TableMobileTitle`, `flex-1`) à esquerda e menu de ações ou badge à direita, com `px-sm` (sem coluna fantasma nem `px-md` no cartão). Corpo em `TableMobileFields` com o mesmo recuo horizontal.
+
+`TableMobileField`: em linha, grid `auto` + `1fr` — rótulo à esquerda, valor alinhado à direita (como badge de cargo); e-mail longo trunca com reticências. Com `stacked`, rótulo acima do valor (`gap-sm`) — use para texto longo ou vários badges.
 
 ## Paginação
 
@@ -369,7 +374,7 @@ app-layout
     ├── header (busca, notificações, conta)
     └── main
         ├── PageHeader (breadcrumb, título e ações)
-        └── PageContent (FilterBar, métricas, tabela responsiva, etc.)
+        └── PageContent (métricas, FilterBar, tabela responsiva, etc.)
 ```
 
 Compor telas internas com `AppShell` + `PageHeader` + `PageContent`. Passe `user` e `notificationCount` ao `AppShell` para o header. No smartphone (&lt; 961px), a sidebar abre em drawer.

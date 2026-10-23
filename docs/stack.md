@@ -75,4 +75,4 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 
-Credenciais de demonstração usam os e-mails de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). Persistência em PostgreSQL para `user` será ligada em tarefa posterior; o login valida o catálogo em memória no servidor.
+Credenciais de demonstração usam os códigos de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). CRUD de colaboradores em `/api/usuarios` atualiza o catálogo em memória no servidor (login e permissões leem o mesmo estado). PostgreSQL para `user` será ligado em tarefa posterior.

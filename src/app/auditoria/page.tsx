@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ScrollText } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
@@ -188,9 +189,8 @@ export default function AuditoriaPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{rotuloEntidade[item.entidade] ?? item.entidade}</TableMobileTitle>
-              <Badge variant={badgeAcao[item.acao] ?? "secondary"}>{item.acao}</Badge>
+              <Badge className="shrink-0" variant={badgeAcao[item.acao] ?? "secondary"}>{item.acao}</Badge>
             </TableMobileCardHeader>
             <TableMobileFields>
               <TableMobileField label="Data">{formatarData(item.dataHora)}</TableMobileField>
@@ -210,6 +210,20 @@ export default function AuditoriaPage() {
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Auditoria" }]}
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de auditoria">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">registros</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(alteracoes).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">alterações</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ScrollText} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(exclusoes).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">exclusões</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -239,20 +253,6 @@ export default function AuditoriaPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">registros</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(alteracoes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">alterações</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ScrollText} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(exclusoes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">exclusões</p>
-          </CardMetric>
-        </div>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

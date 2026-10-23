@@ -6,6 +6,7 @@ import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -375,7 +376,6 @@ export default function ImportacoesPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.arquivo || rotuloTipo[item.tipo] || "Importação"}</TableMobileTitle>
               <TableActionsButton label={`Ações da importação ${item.arquivo || item.id}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -407,6 +407,20 @@ export default function ImportacoesPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de importações">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">importações</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(concluidas).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">concluídas</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={FileUp} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(comErro).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">com erro</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -436,20 +450,6 @@ export default function ImportacoesPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">importações</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(concluidas).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">concluídas</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={FileUp} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comErro).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com erro</p>
-          </CardMetric>
-        </div>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

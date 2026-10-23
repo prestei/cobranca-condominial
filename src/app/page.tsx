@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import {
   GraficoBarras,
   GraficoColunas,
@@ -313,7 +314,7 @@ export default function HomePage() {
           linkLabel="Mais detalhes"
           onLink={() => router.push("/relatorios?relatorio=carteira")}
         >
-          <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <CardMetricRow aria-label="Resumo de inadimplência" desktopCols={3}>
             <CardMetric
               iconClassName="bg-gold-subtle text-brass"
               icon={<Icon icon={Wallet} size="md" className="text-brass" />}
@@ -349,7 +350,7 @@ export default function HomePage() {
               valor={percentual(carteira.percentualUnidades)}
               detalhe={`${carteira.unidadesDevedoras} de ${carteira.unidadesCarteira} unidades.`}
             />
-          </div>
+          </CardMetricRow>
 
           <Grade>
             <SubPainel titulo="Atraso recente x antigo" nota={`Quanto está com até ou com mais de ${LIMITE_AMIGAVEL_DIAS} dias.`}>
@@ -436,7 +437,7 @@ export default function HomePage() {
           linkLabel="Mais detalhes"
           onLink={() => router.push("/relatorios?relatorio=equipe")}
         >
-          <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-2">
+          <CardMetricRow aria-label="Resumo da equipe" desktopCols={2}>
             <CardMetric
               iconClassName="bg-surface-subtle text-on-surface-variant"
               icon={<Icon icon={Phone} size="md" />}
@@ -469,7 +470,7 @@ export default function HomePage() {
               valor={operacao.retornosPendentes}
               detalhe="Atrasados, de hoje ou desta semana."
             />
-          </div>
+          </CardMetricRow>
 
           <Grade>
             <SubPainel titulo="Atendimentos por dia">

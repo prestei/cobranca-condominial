@@ -8,6 +8,7 @@ import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -424,7 +425,6 @@ export default function AtendimentosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.assunto || formatarData(item.dataHora)}</TableMobileTitle>
               <TableActionsButton label={`Ações do atendimento ${item.assunto || item.id}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -456,6 +456,20 @@ export default function AtendimentosPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de atendimentos">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">atendimentos</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(pendentes).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">pendentes</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ClipboardList} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(comRetorno).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">com retorno</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -485,20 +499,6 @@ export default function AtendimentosPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">atendimentos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(pendentes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">pendentes</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ClipboardList} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comRetorno).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com retorno</p>
-          </CardMetric>
-        </div>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

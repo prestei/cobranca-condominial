@@ -22,7 +22,7 @@ Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra
 
 ## Dados e persistência
 
-Modelo lógico em `docs/banco.md` (`user`, `role`). Hoje o login valida contra `getCadastros().usuarios` no servidor (mesmo seed que o protótipo). Senhas iniciais em bcrypt; novas senhas cadastradas na UI permanecem em texto no cliente até a migração para PostgreSQL.
+Modelo lógico em `docs/banco.md` (`user`, `role`). O catálogo em memória (`src/data/catalogo.ts`) é a fonte de persistência até PostgreSQL; mutações de colaboradores passam pela API no servidor para que login e permissões usem os mesmos dados. Senhas sempre hasheadas com bcrypt no servidor; a API nunca devolve o hash.
 
 ## API e contratos
 
@@ -31,6 +31,10 @@ Modelo lógico em `docs/banco.md` (`user`, `role`). Hoje o login valida contra `
 | POST | `/api/auth/login` | `{ codigo, password }` | `200` `{ user: { userId, email, nome, cargoId } }` ou `401` `{ error }` |
 | POST | `/api/auth/logout` | — | `200` `{ ok: true }` |
 | GET | `/api/auth/session` | — | `200` `{ user: SessionUser \| null }` (`cargoId` incluso) |
+| GET | `/api/usuarios` | — | `200` `{ usuarios: UsuarioPublico[] }` — exige permissão `usuarios.ler` |
+| POST | `/api/usuarios` | `{ codigo, cargoId, nome, telefone, email, senha }` | `201` `{ usuario }` ou `422` `{ error, fields }` — `usuarios.criar` |
+| PATCH | `/api/usuarios/:id` | mesmo body; `senha` opcional | `200` `{ usuario }` — `usuarios.editar` |
+| DELETE | `/api/usuarios/:id` | — | `200` `{ ok: true }` ou `409` se em uso / autoexclusão — `usuarios.excluir` |
 
 Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 
@@ -39,7 +43,7 @@ Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 1. **Login:** usuário envia código e senha → API valida no cadastro → cookie de sessão → redirecionamento para `/` ou `?from=`.
 2. **Sessão:** `AuthProvider` consulta `/api/auth/session` e expõe `useAuth()`; menu e atendimentos usam `userId` da sessão.
 3. **Logout:** menu **Sair** → `POST /api/auth/logout` → redireciona para `/login`.
-4. **CRUD colaboradores:** sheet em `/usuarios` (ainda em memória no cliente).
+4. **CRUD colaboradores:** sheet em `/usuarios` chama `/api/usuarios`; perfil de acesso via cargo selecionado no formulário (matriz em `/cargos`).
 
 ## Regras de negócio
 
@@ -56,9 +60,11 @@ Nenhuma.
 - Login: carregando, erro de credencial, envio.
 - Área autenticada: nome e cargo no header (`usuarioSessaoApp` + sessão).
 - Rotas internas bloqueadas sem sessão (`src/proxy.ts`).
+- **Sheet colaborador** (`/usuarios`): um painel para identificação (nome, código e cargo em grid), outro para contato (telefone e e-mail) e outro para senha (`type="password"`, obrigatória só na criação). `SheetHelpText` só na seção de senha. Confirmação ao sair com formulário preenchido.
+- **Filtros** (`FilterBar`): busca por nome, código, e-mail ou telefone; selects de cargo, telefone (com/sem) e e-mail (com/sem). Limpar e Filtrar voltam para a página 1.
+- **Listagem:** coluna Cargo com `BadgeCargo` (padrão visual de `/cargos`).
 
 ## Pendências e decisões
 
-- Persistir `user` e senhas hasheadas no PostgreSQL; alinhar CRUD de `/usuarios` à API.
-- API de usuários e sincronização servidor/cliente para permissões no `middleware`.
+- Persistir `user` no PostgreSQL (API já centraliza regras e hash de senha).
 - Recuperação de senha e política de bloqueio por tentativas.

@@ -31,8 +31,10 @@ export function CardMetricRow({
   const [carouselAtivo, setCarouselAtivo] = useState(false);
 
   const scrollToIndex = useCallback((index: number, behavior: ScrollBehavior = "smooth") => {
+    const root = scrollRef.current;
     const slide = slideRefs.current[index];
-    slide?.scrollIntoView({ behavior, inline: "start", block: "nearest" });
+    if (!root || !slide) return;
+    root.scrollTo({ left: slide.offsetLeft, behavior });
     setActiveIndex(index);
   }, []);
 
@@ -43,6 +45,14 @@ export function CardMetricRow({
     desktop.addEventListener("change", update);
     return () => desktop.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    if (!carouselAtivo) return;
+    const root = scrollRef.current;
+    if (!root) return;
+    root.scrollLeft = 0;
+    setActiveIndex(0);
+  }, [carouselAtivo, items.length]);
 
   useEffect(() => {
     if (!carouselAtivo || items.length <= 1) return;
@@ -86,9 +96,9 @@ export function CardMetricRow({
       <div
         ref={scrollRef}
         className={[
-          "-mx-md flex gap-md overflow-x-auto overscroll-x-contain px-md pb-px snap-x snap-mandatory",
+          "flex w-full gap-0 overflow-x-auto overscroll-x-contain pb-px snap-x snap-mandatory",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          "min-[768px]:mx-0 min-[768px]:grid min-[768px]:gap-md min-[768px]:overflow-visible min-[768px]:px-0 min-[768px]:pb-0",
+          "min-[768px]:grid min-[768px]:gap-md min-[768px]:overflow-visible min-[768px]:pb-0",
           desktopGridClass[desktopCols],
         ].join(" ")}
       >
@@ -98,7 +108,11 @@ export function CardMetricRow({
             ref={(node) => {
               slideRefs.current[index] = node;
             }}
-            className="min-w-full shrink-0 snap-start min-[768px]:min-w-0"
+            className={[
+              "box-border w-full shrink-0 basis-full snap-start",
+              index < items.length - 1 ? "pr-md" : "",
+              "min-[768px]:w-auto min-[768px]:max-w-none min-[768px]:basis-auto min-[768px]:min-w-0 min-[768px]:pr-0",
+            ].join(" ")}
           >
             {child}
           </div>

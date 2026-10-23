@@ -82,7 +82,7 @@ Referência visual: `docs/design-system.md` e `/design-system`.
 
 ## Listagem
 
-Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela, `Pagination`.
+Dentro de `PageContent`, nesta ordem: métricas (`CardMetricRow` / `CardMetric`) quando a tela tiver indicadores, `FilterBar`, tabela, `Pagination`.
 
 Usar `FilterBar`. Não remontar a barra com `Input`, `Select` e `Button` soltos.
 
@@ -151,7 +151,7 @@ Na mesma entrega do código:
 
 - `docs/proposta-oficial.md`, `docs/regra-negocio.md` e **`docs/modulos/<slug>.md`** refletem a tela entregue.
 - Tela usa `WorkspaceShell` + `PageHeader` + `PageContent` (ou padrão `(app)` documentado no módulo).
-- Listagem: `FilterBar`, métricas, tabela, `Pagination` de 20.
+- Listagem: métricas, `FilterBar`, tabela, `Pagination` de 20.
 - CRUD: mesmo `Sheet` para criar/editar; `FormSteps` quando formulário grande.
 - Tokens via `@theme`; nenhum CSS novo fora de `globals.css`.
 - Toda UI interativa passa por `src/components/`.

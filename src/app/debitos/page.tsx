@@ -7,6 +7,7 @@ import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -585,7 +586,6 @@ export default function DebitosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.referencia}</TableMobileTitle>
               <TableActionsButton label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -627,6 +627,24 @@ export default function DebitosPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de débitos" desktopCols={4}>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{moeda(totalOriginal)}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">valor original</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{moeda(totalAtualizado)}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">valor atualizado</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{moeda(ateLimite)}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">até {limiteDias} dias</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Receipt} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{moeda(acimaLimite)}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">acima de {limiteDias} dias</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -688,24 +706,6 @@ export default function DebitosPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Receipt} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(totalOriginal)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">valor original</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(totalAtualizado)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">valor atualizado</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(ateLimite)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">até {limiteDias} dias</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(acimaLimite)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">acima de {limiteDias} dias</p>
-          </CardMetric>
-        </div>
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
           <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
           <div className="grid grid-cols-1 gap-lg min-[640px]:grid-cols-2">

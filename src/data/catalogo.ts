@@ -720,13 +720,11 @@ export function getCadastrosServerSnapshot() {
   return cadastrosServerSnapshot;
 }
 
-/** Login: seed do servidor tem precedência (senha bcrypt correta no deploy / após alteração do seed). */
+/** Login: usa o cadastro mesclado (seed + alterações persistidas no servidor). */
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
-  const seed = usuariosIniciais.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
-  if (seed) return seed;
-  return state.usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  return getCadastros().usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
@@ -772,14 +770,19 @@ export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => 
   atualizar("importacoes", next);
 }
 
-export function registrarAuditoria(entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados">) {
+export function registrarAuditoria(
+  entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados"> & {
+    usuarioId?: string;
+  },
+) {
+  const { usuarioId: usuarioIdOverride, ...rest } = entry;
   const registro: Auditoria = {
     id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
-    usuarioId: String(getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
+    usuarioId: usuarioIdOverride ?? String(getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
     ip: "",
     userAgent: "",
     dataHora: agoraIso(),
-    ...entry,
+    ...rest,
   };
   state = { ...state, auditoria: [registro, ...state.auditoria] };
   emit();

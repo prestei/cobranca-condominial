@@ -724,7 +724,7 @@ type TableMobileCardProps = HTMLAttributes<HTMLElement> & {
 export function TableMobileCard({ children, className, ...props }: TableMobileCardProps) {
   return (
     <article
-      className={`w-full min-w-0 rounded-lg border border-border-subtle bg-surface-card px-md pb-md pt-sm shadow-card ${className ?? ""}`}
+      className={`w-full min-w-0 rounded-lg border border-border-subtle bg-surface-card pb-md pt-sm shadow-card ${className ?? ""}`}
       {...props}
     >
       {children}
@@ -739,7 +739,7 @@ type TableMobileCardHeaderProps = HTMLAttributes<HTMLDivElement> & {
 export function TableMobileCardHeader({ children, className, ...props }: TableMobileCardHeaderProps) {
   return (
     <div
-      className={`grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-sm ${className ?? ""}`}
+      className={`flex w-full min-w-0 items-center gap-x-xs px-sm [&>button:last-child]:-me-1.5 ${className ?? ""}`}
       {...props}
     >
       {children}
@@ -753,7 +753,7 @@ type TableMobileTitleProps = HTMLAttributes<HTMLParagraphElement> & {
 
 export function TableMobileTitle({ children, className, ...props }: TableMobileTitleProps) {
   return (
-    <p className={`min-w-0 text-label-lg leading-tight text-on-surface ${className ?? ""}`} {...props}>
+    <p className={`min-w-0 flex-1 text-label-lg leading-tight text-on-surface ${className ?? ""}`} {...props}>
       {children}
     </p>
   );
@@ -766,7 +766,7 @@ type TableMobileFieldsProps = HTMLAttributes<HTMLDListElement> & {
 export function TableMobileFields({ children, className, ...props }: TableMobileFieldsProps) {
   return (
     <dl
-      className={`mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm ${className ?? ""}`}
+      className={`mt-sm flex flex-col gap-sm border-t border-border-subtle/30 px-sm pb-px pt-sm ${className ?? ""}`}
       {...props}
     >
       {children}
@@ -793,10 +793,10 @@ export function TableMobileField({
   const labelClass = `text-label-sm uppercase text-on-surface-variant${stacked ? "" : " shrink-0"}`;
   const containerClass = stacked
     ? `flex min-w-0 flex-col items-stretch gap-sm ${className ?? ""}`
-    : `flex min-w-0 items-start justify-between gap-md ${className ?? ""}`;
+    : `grid min-w-0 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-sm ${className ?? ""}`;
   const valueClass = stacked
     ? `min-w-0 w-full text-body-md text-on-surface ${valueClassName ?? ""}`
-    : `ml-auto min-w-0 max-w-[70%] shrink text-end text-body-md text-on-surface ${valueClassName ?? ""}`;
+    : `min-w-0 max-w-full justify-self-end truncate text-end text-body-md text-on-surface ${valueClassName ?? ""}`;
 
   return (
     <div className={containerClass}>

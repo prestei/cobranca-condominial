@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
@@ -929,8 +930,17 @@ function RelatoriosPage() {
     picoCalorExibir = [...celulasCalorExibir].sort((a, b) => b.v - a.v)[0];
   }
 
+  let resumoMetricas: ReactNode = null;
   let corpo: ReactNode = null;
   if (relatorio === "equipe") {
+    resumoMetricas = (
+      <CardMetricRow aria-label="Resumo de produtividade" desktopCols={4}>
+        <Metrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
+        <Metrica valor={percentual(metricTaxaResposta)} rotulo="responderam" />
+        <Metrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" />
+        <Metrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" />
+      </CardMetricRow>
+    );
     corpo = (
       <>
         {(atendimentos.length > 0 || dadosIlustrativos) ? (
@@ -944,12 +954,6 @@ function RelatoriosPage() {
             {dadosIlustrativos ? " Os gráficos usam números ilustrativos quando o recorte não traz dados suficientes." : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <Metrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
-          <Metrica valor={percentual(metricTaxaResposta)} rotulo="responderam" />
-          <Metrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" />
-          <Metrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" />
-        </div>
         <Painel
           titulo="Mapa de horário de atendimento"
           nota={
@@ -1073,6 +1077,13 @@ function RelatoriosPage() {
         : exemploRetornosSituacao();
     const porAtendenteRetorno =
       retornos.length > 0 ? agruparContagem(retornos.map((item) => nomeUsuario(item.usuarioId))) : exemploRetornosPorAtendente();
+    resumoMetricas = (
+      <CardMetricRow aria-label="Resumo de retornos">
+        <Metrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque />
+        <Metrica valor={String(metricRetornosHoje)} rotulo="para hoje" />
+        <Metrica valor={String(metricRetornosAgenda)} rotulo="na agenda" />
+      </CardMetricRow>
+    );
     corpo = (
       <>
         {metricRetornosAgenda > 0 ? (
@@ -1084,11 +1095,6 @@ function RelatoriosPage() {
             {dadosIlustrativos && retornos.length === 0 ? " Números ilustrativos para demonstração." : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque />
-          <Metrica valor={String(metricRetornosHoje)} rotulo="para hoje" />
-          <Metrica valor={String(metricRetornosAgenda)} rotulo="na agenda" />
-        </div>
         <Grade>
           <Painel titulo="Situação da agenda">
             <GraficoRosca
@@ -1128,6 +1134,13 @@ function RelatoriosPage() {
     );
   } else if (relatorio === "efetividade") {
     const gruposResultado = agruparContagem(cruzamento.map((linha) => linha.resultado));
+    resumoMetricas = (
+      <CardMetricRow aria-label="Resumo de efetividade">
+        <Metrica valor={String(cruzamento.length)} rotulo="unidades contatadas" />
+        <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length)} rotulo="pagaram" destaque />
+        <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
+      </CardMetricRow>
+    );
     corpo = (
       <>
         {cruzamento.length > 0 ? (
@@ -1138,11 +1151,6 @@ function RelatoriosPage() {
             {dadosIlustrativos && comResultado > 0 ? " Exemplo ilustrativo de efetividade." : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(cruzamento.length)} rotulo="unidades contatadas" />
-          <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length)} rotulo="pagaram" destaque />
-          <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
-        </div>
         <Grade>
           <Painel titulo="O que aconteceu no mês seguinte">
             <GraficoRosca
@@ -1184,6 +1192,14 @@ function RelatoriosPage() {
   } else if (relatorio === "carteira") {
     const comContato = statsPorUnidade.filter((linha) => linha.contatos > 0).length;
     const maiorDebito = statsPorUnidade[0];
+    resumoMetricas = (
+      <CardMetricRow aria-label="Resumo da carteira" desktopCols={4}>
+        <Metrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
+        <Metrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} />
+        <Metrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} />
+        <Metrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" />
+      </CardMetricRow>
+    );
     corpo = (
       <>
         {totalAberto > 0 || statsPorUnidade.length > 0 ? (
@@ -1202,12 +1218,6 @@ function RelatoriosPage() {
               : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <Metrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
-          <Metrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} />
-          <Metrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} />
-          <Metrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" />
-        </div>
         <Grade>
           <Painel titulo="Fase amigável e jurídica" nota="Corte configurável em 60 dias — cobrança recente x encaminhamento jurídico.">
             <GraficoRosca
@@ -1512,6 +1522,7 @@ function RelatoriosPage() {
               <Icon icon={ArrowLeft} size="sm" />
               Todos os relatórios
             </Button>
+            {resumoMetricas}
             <FilterBar
               searchValue={filtro.busca}
               onSearchChange={(buscaAtual) => setFiltro((atualFiltro) => ({ ...atualFiltro, busca: buscaAtual }))}

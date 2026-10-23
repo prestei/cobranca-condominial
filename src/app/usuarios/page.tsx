@@ -1,11 +1,13 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
-import { Badge } from "@/components/badge";
+import type { LucideIcon } from "lucide-react";
+import { KeyRound, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
+import { BadgeCargo } from "@/components/badge-cargo";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -25,6 +27,8 @@ import {
   SheetHeaderIcon,
   SheetHeaderLead,
   SheetHeaderText,
+  SheetHelpText,
+  SheetPanel,
   SheetTitle,
 } from "@/components/sheet";
 import {
@@ -49,19 +53,32 @@ import {
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  getCadastros,
-  nomeCargo,
-  registrarAuditoria,
-  setUsuarios,
-  type Usuario,
-} from "@/data/catalogo";
+import { nomeCargo, type Usuario } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
+import {
+  carregarUsuariosDaApi,
+  excluirUsuarioNaApi,
+  salvarUsuarioNaApi,
+} from "@/lib/usuarios/client";
 
 type SortKey = "nome" | "codigo" | "email" | "cargo";
 const formularioVazio = { cargoId: "", codigo: "", nome: "", telefone: "", email: "", senha: "" };
+
+function TituloPainelSheet({ icon, title }: { icon: LucideIcon; title: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-sm">
+      <span
+        className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-card text-primary-container"
+        aria-hidden="true"
+      >
+        <Icon icon={icon} size="sm" />
+      </span>
+      <p className="text-label-lg text-on-surface">{title}</p>
+    </div>
+  );
+}
 
 export default function UsuariosPage() {
   const { toast } = useToast();
@@ -71,8 +88,12 @@ export default function UsuariosPage() {
   const usuarios = cadastros.usuarios;
   const [search, setSearch] = useState("");
   const [cargo, setCargo] = useState("todos");
+  const [telefone, setTelefone] = useState("todos");
+  const [email, setEmail] = useState("todos");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedCargo, setAppliedCargo] = useState("todos");
+  const [appliedTelefone, setAppliedTelefone] = useState("todos");
+  const [appliedEmail, setAppliedEmail] = useState("todos");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
@@ -81,14 +102,52 @@ export default function UsuariosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
+  const [baseline, setBaseline] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>>>({});
+  const [loadingList, setLoadingList] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const skipCloseGuardRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await carregarUsuariosDaApi();
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            variant: "error",
+            title: "Falha ao carregar",
+            description: error instanceof Error ? error.message : "Tente novamente.",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoadingList(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = usuarios
     .filter((item) => {
       const matchesCargo = appliedCargo === "todos" || String(item.cargoId) === appliedCargo;
+      const temTelefone = item.telefone.trim().length > 0;
+      const matchesTelefone =
+        appliedTelefone === "todos" ||
+        (appliedTelefone === "com" ? temTelefone : !temTelefone);
+      const temEmail = item.email.trim().length > 0;
+      const matchesEmail =
+        appliedEmail === "todos" || (appliedEmail === "com" ? temEmail : !temEmail);
       const haystack = `${item.nome} ${item.codigo} ${item.email} ${item.telefone}`.toLocaleLowerCase("pt-BR");
-      return matchesCargo && (query.length === 0 || haystack.includes(query));
+      return (
+        matchesCargo &&
+        matchesTelefone &&
+        matchesEmail &&
+        (query.length === 0 || haystack.includes(query))
+      );
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
@@ -138,80 +197,94 @@ export default function UsuariosPage() {
   function handleApply() {
     setAppliedSearch(search);
     setAppliedCargo(cargo);
+    setAppliedTelefone(telefone);
+    setAppliedEmail(email);
     setPage(1);
   }
 
   function handleClear() {
     setSearch("");
     setCargo("todos");
+    setTelefone("todos");
+    setEmail("todos");
     setAppliedSearch("");
     setAppliedCargo("todos");
+    setAppliedTelefone("todos");
+    setAppliedEmail("todos");
     setPage(1);
+  }
+
+  function dismissSheet() {
+    setLeaveConfirmOpen(false);
+    setSheetOpen(false);
+    setEditingId(null);
+    setForm(formularioVazio);
+    setBaseline(formularioVazio);
+    setErrors({});
+  }
+
+  function finalizeSheetClose() {
+    skipCloseGuardRef.current = true;
+    dismissSheet();
   }
 
   function openCreate() {
     setEditingId(null);
     setForm(formularioVazio);
+    setBaseline(formularioVazio);
     setErrors({});
     setSheetOpen(true);
   }
 
   function openEdit(item: Usuario) {
-    setEditingId(item.id);
-    setForm({
+    const preenchido = {
       cargoId: String(item.cargoId),
       codigo: item.codigo,
       nome: item.nome,
       telefone: item.telefone,
       email: item.email,
       senha: "",
-    });
+    };
+    setEditingId(item.id);
+    setForm(preenchido);
+    setBaseline(preenchido);
     setErrors({});
     setSheetOpen(true);
   }
 
   function closeSheet() {
-    const preenchido = Object.values(form).some((value) => value.trim() !== "");
-    if (preenchido) {
+    if (skipCloseGuardRef.current) {
+      skipCloseGuardRef.current = false;
+      return;
+    }
+    const dirty = (Object.keys(formularioVazio) as Array<keyof typeof formularioVazio>).some(
+      (key) => form[key] !== baseline[key],
+    );
+    if (dirty) {
       setLeaveConfirmOpen(true);
       return;
     }
-    setSheetOpen(false);
+    dismissSheet();
   }
 
   function confirmLeave() {
-    setLeaveConfirmOpen(false);
-    setSheetOpen(false);
+    finalizeSheetClose();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    const atuais = getCadastros();
-    const emUso =
-      atuais.atendimentos.some((item) => item.usuarioId === deleteTarget.id) ||
-      atuais.importacoes.some((item) => item.usuarioId === deleteTarget.id) ||
-      atuais.auditoria.some((item) => item.usuarioId === String(deleteTarget.id));
-    if (emUso) {
+    const result = await excluirUsuarioNaApi(deleteTarget.id);
+    if (!result.ok) {
       toast({
         variant: "error",
-        title: "Colaborador em uso",
-        description: "Existem atendimentos, importações ou auditoria ligados a esta pessoa.",
+        title: "Não foi possível excluir",
+        description: result.error,
       });
       setDeleteTarget(null);
       return;
     }
-    registrarAuditoria({
-      entidade: "user",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.nome,
-      dadosNovos: "",
-      camposAlterados: "nome",
-    });
-    setUsuarios((current) => current.filter((item) => item.id !== deleteTarget.id));
     if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setLeaveConfirmOpen(false);
+      finalizeSheetClose();
     }
     toast({ variant: "success", title: "Colaborador excluído" });
     setDeleteTarget(null);
@@ -225,8 +298,9 @@ export default function UsuariosPage() {
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     const nome = form.nome.trim();
     const codigo = normalizarCodigoUsuario(form.codigo);
     const email = form.email.trim();
@@ -260,42 +334,33 @@ export default function UsuariosPage() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const anterior = usuarios.find((item) => item.id === editingId);
-    const saved = {
+    setSaving(true);
+    const result = await salvarUsuarioNaApi({
+      editingId,
       codigo,
       cargoId: Number(form.cargoId),
       nome,
       telefone: form.telefone.trim(),
       email,
-      senha: senha || anterior?.senha || "",
-    };
+      senha: senha || undefined,
+    });
+    setSaving(false);
 
-    if (editingId === null) {
-      const nextId = usuarios.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setUsuarios((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "user",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.nome,
-        camposAlterados: "codigo, nome, cargo_id, email",
+    if (!result.ok) {
+      if (result.fields) setErrors(result.fields);
+      toast({
+        variant: "error",
+        title: "Não foi possível salvar",
+        description: result.error,
       });
-      toast({ variant: "success", title: "Colaborador cadastrado" });
-    } else {
-      setUsuarios((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "user",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: anterior?.nome ?? "",
-        dadosNovos: saved.nome,
-        camposAlterados: senha ? "codigo, nome, cargo_id, email, senha" : "codigo, nome, cargo_id, email",
-      });
-      toast({ variant: "success", title: "Colaborador atualizado" });
+      return;
     }
 
-    setSheetOpen(false);
+    toast({
+      variant: "success",
+      title: editingId === null ? "Colaborador cadastrado" : "Colaborador atualizado",
+    });
+    finalizeSheetClose();
   }
 
   const emptyState = (
@@ -348,7 +413,7 @@ export default function UsuariosPage() {
               <TableCell className="font-mono text-body-sm">{item.codigo}</TableCell>
               <TableCell>{item.email || "—"}</TableCell>
               <TableCell>
-                <Badge variant="secondary">{nomeCargo(item.cargoId)}</Badge>
+                <BadgeCargo cargoId={item.cargoId} />
               </TableCell>
               <TableCell>{item.telefone || "—"}</TableCell>
               <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
@@ -367,7 +432,6 @@ export default function UsuariosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.nome}</TableMobileTitle>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -375,7 +439,7 @@ export default function UsuariosPage() {
               <TableMobileField label="Código">{item.codigo}</TableMobileField>
               <TableMobileField label="E-mail">{item.email || "—"}</TableMobileField>
               <TableMobileField label="Cargo">
-                <Badge variant="secondary">{nomeCargo(item.cargoId)}</Badge>
+                <BadgeCargo cargoId={item.cargoId} />
               </TableMobileField>
               <TableMobileField label="Telefone">{item.telefone || "—"}</TableMobileField>
             </TableMobileFields>
@@ -399,6 +463,20 @@ export default function UsuariosPage() {
         }
       />
       <PageContent>
+        <CardMetricRow aria-label="Resumo de colaboradores">
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={UserRound} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">colaboradores</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={UserRound} size="md" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(cargosNaLista).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">cargos na lista</p>
+          </CardMetric>
+          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={UserRound} size="md" className="text-brass" />}>
+            <p className="text-metric text-on-surface tabular-nums">{String(comTelefone).padStart(2, "0")}</p>
+            <p className="mt-sm text-body-sm text-on-surface-variant">com telefone</p>
+          </CardMetric>
+        </CardMetricRow>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -416,23 +494,35 @@ export default function UsuariosPage() {
                 ...cadastros.cargos.map((item) => ({ value: String(item.id), label: item.nome })),
               ],
             },
+            {
+              id: "telefone",
+              label: "Telefone",
+              value: telefone,
+              onChange: setTelefone,
+              options: [
+                { value: "todos", label: "Todos" },
+                { value: "com", label: "Com telefone" },
+                { value: "sem", label: "Sem telefone" },
+              ],
+            },
+            {
+              id: "email",
+              label: "E-mail",
+              value: email,
+              onChange: setEmail,
+              options: [
+                { value: "todos", label: "Todos" },
+                { value: "com", label: "Com e-mail" },
+                { value: "sem", label: "Sem e-mail" },
+              ],
+            },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={UserRound} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">colaboradores</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={UserRound} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(cargosNaLista).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">cargos na lista</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={UserRound} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comTelefone).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com telefone</p>
-          </CardMetric>
-        </div>
-        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+        {loadingList ? (
+          <p className="text-body-sm text-on-surface-variant">Carregando colaboradores…</p>
+        ) : (
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+        )}
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
 
@@ -461,72 +551,101 @@ export default function UsuariosPage() {
               </SheetHeaderLead>
               <SheetClose />
             </SheetHeader>
-            <SheetBody>
-              <FormField label="Nome" htmlFor={`${formId}-nome`} required error={errors.nome}>
-                <Input
-                  id={`${formId}-nome`}
-                  value={form.nome}
-                  invalid={Boolean(errors.nome)}
-                  onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="Código de login" htmlFor={`${formId}-codigo`} required error={errors.codigo}>
-                <Input
-                  id={`${formId}-codigo`}
-                  value={form.codigo}
-                  invalid={Boolean(errors.codigo)}
-                  autoComplete="off"
-                  onChange={(event) => setForm((current) => ({ ...current, codigo: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="Cargo" htmlFor={`${formId}-cargo`} required error={errors.cargoId}>
-                <Select
-                  id={`${formId}-cargo`}
-                  value={form.cargoId}
-                  invalid={Boolean(errors.cargoId)}
-                  onChange={(event) => setForm((current) => ({ ...current, cargoId: event.target.value }))}
+            <SheetBody className="gap-md min-[768px]:gap-lg">
+              <SheetPanel className="flex flex-col gap-md">
+                <TituloPainelSheet icon={UserRound} title="Identificação" />
+                <FormField label="Nome" htmlFor={`${formId}-nome`} required error={errors.nome}>
+                  <Input
+                    id={`${formId}-nome`}
+                    autoComplete="name"
+                    placeholder="Nome completo do colaborador"
+                    value={form.nome}
+                    invalid={Boolean(errors.nome)}
+                    onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
+                  />
+                </FormField>
+                <div className="grid grid-cols-1 gap-md min-[480px]:grid-cols-2">
+                  <FormField label="Código de login" htmlFor={`${formId}-codigo`} required error={errors.codigo}>
+                    <Input
+                      id={`${formId}-codigo`}
+                      value={form.codigo}
+                      invalid={Boolean(errors.codigo)}
+                      autoComplete="username"
+                      placeholder="Ex.: MILENA"
+                      spellCheck={false}
+                      onChange={(event) => setForm((current) => ({ ...current, codigo: event.target.value }))}
+                    />
+                  </FormField>
+                  <FormField label="Cargo" htmlFor={`${formId}-cargo`} required error={errors.cargoId}>
+                    <Select
+                      id={`${formId}-cargo`}
+                      value={form.cargoId}
+                      invalid={Boolean(errors.cargoId)}
+                      onChange={(event) => setForm((current) => ({ ...current, cargoId: event.target.value }))}
+                    >
+                      <option value="">Selecione</option>
+                      {cadastros.cargos.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.nome}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                </div>
+              </SheetPanel>
+              <SheetPanel className="flex flex-col gap-md">
+                <TituloPainelSheet icon={Phone} title="Contato" />
+                <div className="grid grid-cols-1 gap-md min-[480px]:grid-cols-2">
+                  <FormField label="Telefone" htmlFor={`${formId}-telefone`}>
+                    <Input
+                      id={`${formId}-telefone`}
+                      type="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      placeholder="(00) 00000-0000"
+                      value={form.telefone}
+                      onChange={(event) => setForm((current) => ({ ...current, telefone: event.target.value }))}
+                    />
+                  </FormField>
+                  <FormField label="E-mail" htmlFor={`${formId}-email`} required error={errors.email}>
+                    <Input
+                      id={`${formId}-email`}
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nome@escritorio.example"
+                      value={form.email}
+                      invalid={Boolean(errors.email)}
+                      onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                    />
+                  </FormField>
+                </div>
+              </SheetPanel>
+              <SheetPanel className="flex flex-col gap-md">
+                <TituloPainelSheet icon={KeyRound} title="Senha de acesso" />
+                <FormField
+                  label={editingId === null ? "Senha" : "Nova senha"}
+                  htmlFor={`${formId}-senha`}
+                  required={editingId === null}
+                  error={errors.senha}
                 >
-                  <option value="">Selecione</option>
-                  {cadastros.cargos.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.nome}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-              <FormField label="Telefone" htmlFor={`${formId}-telefone`}>
-                <Input
-                  id={`${formId}-telefone`}
-                  value={form.telefone}
-                  onChange={(event) => setForm((current) => ({ ...current, telefone: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="E-mail" htmlFor={`${formId}-email`} required error={errors.email}>
-                <Input
-                  id={`${formId}-email`}
-                  type="email"
-                  value={form.email}
-                  invalid={Boolean(errors.email)}
-                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                />
-              </FormField>
-              <FormField
-                label={editingId === null ? "Senha" : "Nova senha"}
-                htmlFor={`${formId}-senha`}
-                required={editingId === null}
-                error={errors.senha}
-              >
-                <Input
-                  id={`${formId}-senha`}
-                  type="password"
-                  autoComplete="new-password"
-                  value={form.senha}
-                  invalid={Boolean(errors.senha)}
-                  onChange={(event) => setForm((current) => ({ ...current, senha: event.target.value }))}
-                />
-              </FormField>
+                  <Input
+                    id={`${formId}-senha`}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={editingId === null ? "Senha inicial" : "Preencha só para alterar"}
+                    value={form.senha}
+                    invalid={Boolean(errors.senha)}
+                    onChange={(event) => setForm((current) => ({ ...current, senha: event.target.value }))}
+                  />
+                  <SheetHelpText className="leading-snug">
+                    {editingId === null
+                      ? "O colaborador entra com o código e esta senha na tela de login."
+                      : "Deixe em branco para manter a senha atual."}
+                  </SheetHelpText>
+                </FormField>
+              </SheetPanel>
             </SheetBody>
-            <SheetFooterForm onClose={closeSheet} />
+            <SheetFooterForm onClose={closeSheet} saveDisabled={saving} saveLabel={saving ? "Salvando…" : "Salvar"} />
           </SheetForm>
         </SheetContent>
       </Sheet>

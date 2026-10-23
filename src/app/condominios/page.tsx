@@ -8,6 +8,7 @@ import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
@@ -572,7 +573,6 @@ export default function CondominiosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
               <TableMobileTitle>{item.nome}</TableMobileTitle>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -604,6 +604,30 @@ export default function CondominiosPage() {
           }
         />
         <PageContent>
+          <CardMetricRow aria-label="Resumo de condomínios">
+            <CardMetric
+              iconClassName="bg-surface-subtle text-on-surface-variant"
+              icon={<Icon icon={Building2} size="md" />}
+            >
+              <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">na carteira</p>
+            </CardMetric>
+            <CardMetric
+              iconClassName="bg-surface-subtle text-on-surface-variant"
+              icon={<Icon icon={Scale} size="md" />}
+            >
+              <p className="text-metric text-on-surface tabular-nums">{String(advogadosNaLista).padStart(2, "0")}</p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">advogados</p>
+            </CardMetric>
+            <CardMetric
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={MapPin} size="md" className="text-brass" />}
+            >
+              <p className="text-metric text-on-surface tabular-nums">{String(comEndereco).padStart(2, "0")}</p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">com endereço</p>
+            </CardMetric>
+          </CardMetricRow>
+
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -643,30 +667,6 @@ export default function CondominiosPage() {
               },
             ]}
           />
-
-          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={Building2} size="md" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">na carteira</p>
-            </CardMetric>
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={Scale} size="md" className="text-brass" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(advogadosNaLista).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">advogados</p>
-            </CardMetric>
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={MapPin} size="md" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(comEndereco).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">com endereço</p>
-            </CardMetric>
-          </div>
 
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
           {visible.length > 0 ? (

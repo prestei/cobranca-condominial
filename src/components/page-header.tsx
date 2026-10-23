@@ -53,7 +53,7 @@ export function PageHeader({
             </p>
           </nav>
         ) : null}
-        <h1 className="col-start-1 min-w-0 self-center text-[26px] font-bold leading-none text-[#12213A] min-[768px]:self-auto">
+        <h1 className="col-start-1 min-w-0 self-center text-[20px] font-bold leading-snug text-[#12213A] min-[768px]:self-auto min-[768px]:text-[26px] min-[768px]:leading-none">
           {title}
         </h1>
         {actions ? (
