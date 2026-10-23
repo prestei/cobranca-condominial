@@ -5,7 +5,12 @@ Registro de entregas do **Lex Condominial — Cobrança**. Detalhes por módulo 
 ## Em desenvolvimento
 
 - Persistência PostgreSQL para cadastros além de cargos e colaboradores (demais entidades ainda em `src/lib/catalog`).
-- Exportação CSV/XLS/PDF com geração real de arquivos (hoje parte do fluxo é visual no menu Exportar).
+- Exportação CSV/XLS/PDF com geração real de arquivos nas listagens que ainda não implementam `onExport` (referência em condomínios).
+
+## 2026-10-23 — Skill make-functional e login
+
+- Skill **make-functional**: filtros da `FilterBar`, menu **Exportar** (CSV/XLS/PDF) e importação de arquivos passam a ser critério de entrega funcional (recorte filtrado, `@/lib/export`, permissão `exportar`, processamento no PostgreSQL).
+- Login: campos vazios por padrão; removido texto de demonstração com credenciais na tela.
 
 ## 2026-10-23 — PostgreSQL, rotas em inglês e APIs de cadastro
 

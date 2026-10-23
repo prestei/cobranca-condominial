@@ -1,6 +1,6 @@
 ---
 name: make-functional
-description: Torna telas e módulos totalmente funcionais com PostgreSQL, APIs reais e regras no servidor — sem mocks, seeds em memória ou dados fictícios como fonte de verdade. Use ao implementar CRUD, migrations, auth, integração frontend-backend, substituir catalogo/arrays estáticos, ou corrigir fluxos que ainda não persistem de verdade.
+description: Torna telas e módulos totalmente funcionais com PostgreSQL, APIs reais e regras no servidor — sem mocks, seeds em memória ou dados fictícios como fonte de verdade. Inclui filtros de listagem, exportação (CSV/XLS/PDF) e importação de arquivos quando a tela ou módulo expõe esses controles. Use ao implementar CRUD, migrations, auth, integração frontend-backend, substituir catalogo/arrays estáticos, ou corrigir fluxos que ainda não persistem de verdade.
 disable-model-invocation: true
 ---
 
@@ -46,6 +46,9 @@ Atuar como desenvolvedor backend sênior: analisar o projeto existente, respeita
 - Conectar e configurar PostgreSQL
 - Autenticação e autorização com usuários reais no banco
 - Filtros, buscas, paginação e ordenação (no servidor quando a listagem for grande)
+- **Filtros** da `FilterBar` aplicando de verdade ao conjunto exibido (métricas, tabela e exportação)
+- **Exportação** pelos formatos do menu **Exportar** da tabela (`csv`, `xls`, `pdf`)
+- **Importação** de arquivos com processamento e persistência (módulo `/imports` ou fluxo equivalente)
 - Formulários com persistência real
 - **Eliminar** mocks, catálogo em memória e dados fictícios do módulo
 - Integrar serviços externos
@@ -69,8 +72,9 @@ Nunca recrie desnecessariamente uma estrutura que já existe, nunca substitua te
 7. Verificar padrões de autenticação, autorização e tratamento de erros
 8. Identificar componentes, telas e funcionalidades existentes
 9. **Inventariar e planejar remoção** de: mocks, `src/lib/catalog` (estado em memória), arrays estáticos, `useCatalog`/`set*` como persistência, merges de seed em memória, handlers que não tocam o banco
-10. Verificar dependências e bibliotecas instaladas
-11. Ler **`docs/modulos/<slug>.md`** do(s) módulo(s) afetado(s) e **`docs/banco.md`** / **`docs/regra-negocio.md`** quando existirem
+10. **Inventariar controles ainda decorativos:** `FilterBar` sem efeito, `Table`/`ResponsiveTable` com `onExport` vazio ou ausente, importação que só grava metadados sem ler o arquivo, exportação que ignora filtros ou permissão `exportar`
+11. Verificar dependências e bibliotecas instaladas
+12. Ler **`docs/modulos/<slug>.md`** do(s) módulo(s) afetado(s) e **`docs/banco.md`** / **`docs/regra-negocio.md`** quando existirem
 
 Examinar arquivos relacionados, entender o funcionamento atual, componentes afetados, riscos e dependências. Se o módulo ainda lê dados fictícios, tratar isso como **bloqueador**, não como pendência opcional.
 
@@ -111,6 +115,39 @@ Fluxo ponta a ponta para cada funcionalidade solicitada:
     - Atualizar **`docs/mapa-do-projeto.md`** (linha do módulo sem “mock em catalogo” como fonte)
 
 **Conclusão:** funcionalidade só está completa com **dados reais no PostgreSQL**, fluxo integrado, mocks eliminados do caminho do usuário **e** documentação alinhada.
+
+### Filtros, exportação e importação
+
+Quando a listagem ou o módulo já exibe `FilterBar`, menu **Exportar** na tabela ou fluxo de importação, **make-functional** exige que esses controles funcionem de ponta a ponta — não apenas CRUD em sheet.
+
+#### Filtros (`FilterBar`)
+
+- Seguir `docs/design-system.md` (seção **Filtros**) e o padrão de referência em **`src/app/condominiums/page.tsx`**: campos em estado de **rascunho**; **Filtrar** copia para estado **aplicado** e volta para a página 1; **Limpar** zera rascunho e aplicado e volta para a página 1.
+- Métricas (`CardMetricRow`) refletem o **conjunto filtrado inteiro**, não só a página visível.
+- Tabela e paginação operam sobre o mesmo conjunto filtrado; ordenação consistente com os filtros aplicados.
+- Ao migrar para API: os mesmos critérios vão em **query params** (ou body de busca) no servidor; paginação e ordenação no PostgreSQL quando o volume exigir — não carregar tudo só para filtrar no cliente (ver também skill `optimize-performance`).
+- `EmptyState` distingue “sem registros no sistema” de “nenhum resultado com estes filtros”.
+
+#### Exportação (`Table` / `ResponsiveTable`)
+
+- UI: prop `onExport` com tipo `TableExportFormat` (`"csv" | "xls" | "pdf"`) — menu **Exportar** em `@/components/table.tsx`.
+- Implementação no cliente: reutilizar **`@/lib/export`** — `exportarCsv` (separador **`;`**, BOM UTF-8, Excel pt-BR), `exportarExcel` (`.xls`), `exportarPdf` (impressão / salvar como PDF no navegador).
+- Exportar o **recorte filtrado completo** (todas as linhas que passam nos filtros aplicados), **não** só a página atual da paginação.
+- Colunas e rótulos alinhados à tabela e à proposta; nome de arquivo com data (`entidade-AAAA-MM-DD`).
+- Lista vazia após filtro: toast informativo (ex.: “Nada para exportar”), sem arquivo vazio enganoso.
+- **Permissão:** quando o módulo usa matriz de permissões, respeitar `exportar` (`usePermissao` / checagem no servidor em exportações via API). Sem permissão: ocultar exportação (`showExport={false}`) ou não expor endpoint.
+- Volume muito grande: endpoint de exportação assíncrona ou streaming no servidor, com os **mesmos filtros** da listagem — não duplicar regra de filtro só no frontend.
+
+Referência de comportamento (ainda que em catálogo): `aoExportar` e `linhasExportacao` em `src/app/condominiums/page.tsx`.
+
+#### Importação
+
+- Telas em **`/imports`** (`src/app/imports/page.tsx`) ou upload contextual no módulo: o arquivo enviado deve ser **lido, validado e processado**; efeito persistido no PostgreSQL (débitos, unidades, etc.), não apenas registro manual de nome/contadores no catálogo.
+- Fluxo mínimo: seleção/upload → validação (tipo, tamanho, colunas) → processamento (transação quando várias tabelas) → feedback (importados, atualizados, erros por linha ou resumo) → listagem/histórico refletindo o banco após reload.
+- Integrações com administradoras (Superlógica, etc.): skill **`create-integration`** + `docs/modulos/importacoes.md` / `integracao-*`.
+- Erros de linha não devem corromper lote inteiro sem regra de negócio explícita; registrar auditoria quando o projeto já usar trilha de auditoria.
+
+**Incompleto:** menu Exportar que só fecha; Filtrar que não altera métricas/tabela; importação que aceita arquivo mas não altera dados de negócio; exportação que ignora filtros ou permissão.
 
 ### PostgreSQL (banco principal — obrigatório)
 
@@ -183,6 +220,9 @@ Mensagens ao usuário claras, sem detalhes internos. Logs úteis para diagnósti
 - Compilação, lint e tipos quando aplicável
 - Testes existentes no projeto; integração API + PostgreSQL para o módulo
 - Cenários: CRUD, validação, auth/permissão, lista vazia, erro de rede/DB
+- **Filtros:** aplicar, limpar, métricas e paginação coerentes; recarregar e manter critérios quando vierem da API
+- **Exportação:** cada formato gera download ou fluxo PDF; conteúdo bate com filtros aplicados; sem permissão `exportar` não exporta
+- **Importação:** arquivo real altera dados esperados no banco; mensagens de sucesso/erro; histórico persistido
 - **Recarregar a página** ou repetir GET após mutação e confirmar dados no banco
 - Teste no navegador quando o fluxo for de UI (skill `test-browser` se disponível)
 - Não afirmar que testou sem executar; não usar produção em testes destrutivos
@@ -197,6 +237,7 @@ Resumo obrigatório:
 - Alterações no PostgreSQL (migrations, tabelas, seeds no banco se houver)
 - Endpoints criados ou alterados
 - **O que foi removido** de mocks/catálogo/arrays estáticos no módulo
+- **Filtros / exportação / importação** — o que passou a funcionar e como (API, `@/lib/export`, permissões)
 - Testes executados e resultados (incl. verificação no banco e, se couber, navegador)
 - Variáveis de ambiente necessárias (`DATABASE_URL`, etc.)
 - Comandos manuais pendentes (`migrate`, `seed`)
@@ -228,6 +269,7 @@ Legível, manutenível, tipado quando a linguagem permitir, seguro, testável, c
 | “Corrija esse erro” | Causa raiz; não mascarar com dado falso |
 | “Conecte com o banco” | Config, modelos, conexão, consultas; retirar fonte mock do fluxo |
 | “Implemente o backend” | Persistência real; frontend não mantém cópia autoritativa em memória |
+| “Faça exportar / importar / filtrar funcionar” | Filtros aplicados + export com `@/lib/export` (recorte filtrado) + import com processamento no PostgreSQL; permissão `exportar` quando couber |
 
 Se o escopo estiver claro, prosseguir sem perguntas desnecessárias. Perguntar quando faltar informação que altere significativamente arquitetura, segurança ou regras de negócio.
 
