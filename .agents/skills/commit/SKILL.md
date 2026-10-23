@@ -1,11 +1,11 @@
 ---
 name: commit
-description: Fecha entrega no repositório — build, validação, docs, release, commit, push opcional e PR fora da main. Use quando o usuário pedir commit, acomodar o projeto, concluir merge, atualizar release ou preparar entrega após implementação.
+description: Fecha entrega no repositório — build, validação, docs, release, commit e push automático em branches que não sejam main/master; PR opcional fora da main. Use quando o usuário pedir commit, acomodar o projeto, concluir merge, atualizar release ou preparar entrega após implementação.
 ---
 
 # Commit
 
-Deixar o repositório consistente: build ok, docs alinhadas, release atualizada, commit claro. **Sempre perguntar** antes de push e antes de abrir PR.
+Deixar o repositório consistente: build ok, docs alinhadas, release atualizada, commit claro. **Push automático** após commit em qualquer branch **exceto** `main` e `master`. **Perguntar** antes de abrir PR.
 
 **Convenções de código:** `.agents/skills/_shared/code-conventions.md` — código em **inglês**; mensagem de commit e `docs/` em **português**.
 
@@ -16,7 +16,9 @@ Deixar o repositório consistente: build ok, docs alinhadas, release atualizada,
 3. **Validação** — `.agents/skills/validate-implementation/SKILL.md` nos módulos tocados.
 4. **Release** — atualizar `docs/release.md` (seção datada + **Em desenvolvimento**).
 5. **Commit** — só com pedido explícito do usuário (ver mensagem abaixo).
-6. **Push** — perguntar: *“Quer que eu faça push para o remoto?”* Só executar `git push` se confirmar.
+6. **Push** — logo após commit bem-sucedido:
+   - Branch **diferente** de `main` e `master`: executar `git push -u origin HEAD` (ou `git push` se o upstream já existir). Informar a URL do remoto ou erros de autenticação.
+   - Branch **`main` ou `master`**: **não** fazer push automaticamente. Avisar que o commit ficou só local e que o push exige pedido explícito do usuário (evita publicar na principal sem intenção).
 7. **Pull request** — se a branch **não** for `main` nem `master`, perguntar: *“Quer que eu abra um PR?”* Se sim, usar `gh pr create` (regra do usuário) com título e corpo em português, concisos.
 
 ## Mensagem de commit
@@ -42,7 +44,9 @@ Deixar o repositório consistente: build ok, docs alinhadas, release atualizada,
 
 ## Não fazer
 
-- Commit, push ou PR sem confirmação do usuário (exceto quando ele já pediu na mesma mensagem).
+- Commit sem pedido explícito do usuário (exceto quando ele já pediu commit na mesma mensagem).
+- Push automático em `main` ou `master`.
+- Push ou PR na `main`/`master` sem pedido explícito do usuário.
 - Declarar entrega pronta sem `npm run build`.
 
 ## Skills relacionadas
