@@ -13,7 +13,7 @@ import {
   PointElement,
   Tooltip,
 } from "chart.js";
-import type { Plugin, ScriptableContext } from "chart.js";
+import type { ChartOptions, Plugin, ScriptableContext } from "chart.js";
 import { MatrixController, MatrixElement } from "chartjs-chart-matrix";
 import { Bar, Chart, Doughnut, Line } from "react-chartjs-2";
 
@@ -181,7 +181,7 @@ export function GraficoRosca({ fatias, centro, chave }: { fatias: PontoGrafico[]
             legend: { position: "bottom", labels: { color: texto, font: fonte, boxWidth: 10, padding: 12 } },
             tooltip: { bodyFont: fonte, titleFont: fonte },
             centroRelatorio: { texto: centro ?? "" },
-          },
+          } as ChartOptions<"doughnut">["plugins"],
         }}
       />
       <ListaOculta itens={visiveis.map((item) => ({ nome: item.nome, detalhe: String(item.valor) }))} />

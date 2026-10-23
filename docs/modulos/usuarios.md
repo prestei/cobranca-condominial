@@ -48,7 +48,7 @@ Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 ## Regras de negócio
 
 - Login individual com senha; autoria de atendimentos pelo colaborador logado (não escolhível manualmente).
-- Senha inicial de demonstração: `LexCondominial2026` para os usuários de exemplo (hash em `catalogo.ts`).
+- Senha inicial de demonstração: `12345` para os usuários de exemplo (hash em `catalogo.ts`); acesso rápido com código `12345`.
 - Cada colaborador tem **código único** de login (cadastro em `/usuarios`); comparação sem diferenciar maiúsculas/minúsculas; e-mail continua único no cadastro.
 
 ## Integrações

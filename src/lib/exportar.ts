@@ -15,6 +15,21 @@ function baixar(nome: string, conteudo: Blob) {
   URL.revokeObjectURL(url);
 }
 
+function escaparCsv(valor: string) {
+  const texto = valor ?? "";
+  if (/[;"\n\r]/.test(texto)) {
+    return `"${texto.replace(/"/g, '""')}"`;
+  }
+  return texto;
+}
+
+export function exportarCsv(nome: string, colunas: string[], linhas: string[][]) {
+  const cabecalho = colunas.map(escaparCsv).join(";");
+  const corpo = linhas.map((linha) => linha.map(escaparCsv).join(";")).join("\n");
+  const conteudo = `\uFEFF${cabecalho}\n${corpo}`;
+  baixar(nome.endsWith(".csv") ? nome : `${nome}.csv`, new Blob([conteudo], { type: "text/csv;charset=utf-8" }));
+}
+
 export function exportarExcel(nome: string, colunas: string[], linhas: string[][]) {
   const celula = (valor: string) => `<Cell><Data ss:Type="String">${escaparXml(valor)}</Data></Cell>`;
   const linha = (valores: string[]) => `<Row>${valores.map(celula).join("")}</Row>`;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { Suspense, useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { DoorOpen, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
@@ -69,7 +69,7 @@ const formularioVazio = { condominioId: "", identificacao: "", bloco: "", tipo: 
 
 const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Inativa: "error" };
 
-export default function UnidadesPage() {
+function UnidadesPageContent() {
   const { toast } = useToast();
   const { pode } = usePermissao();
   const router = useRouter();
@@ -97,6 +97,7 @@ export default function UnidadesPage() {
   const [errors, setErrors] = useState<Partial<Record<"condominioId" | "identificacao" | "tipo" | "status", string>>>({});
 
   useEffect(() => {
+    if (!searchParams) return;
     const condominioQuery = searchParams.get("condominio");
     if (!condominioQuery) return;
     const existe = getCadastros().condominios.some((item) => String(item.id) === condominioQuery);
@@ -621,5 +622,13 @@ export default function UnidadesPage() {
         onConfirm={confirmDelete}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function UnidadesPage() {
+  return (
+    <Suspense fallback={null}>
+      <UnidadesPageContent />
+    </Suspense>
   );
 }

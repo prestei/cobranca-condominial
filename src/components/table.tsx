@@ -203,12 +203,13 @@ function TableExportBar({ onExport }: { onExport?: (format: TableExportFormat) =
 type TableProps = TableHTMLAttributes<HTMLTableElement> & {
   containerClassName?: string;
   showExport?: boolean;
+  onExport?: (format: TableExportFormat) => void;
 };
 
-export function Table({ className, containerClassName, children, showExport = true, ...props }: TableProps) {
+export function Table({ className, containerClassName, children, showExport = true, onExport, ...props }: TableProps) {
   return (
     <div className="flex flex-col gap-sm">
-      {showExport ? <TableExportBar /> : null}
+      {showExport ? <TableExportBar onExport={onExport} /> : null}
       <div
         className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
       >
@@ -658,6 +659,8 @@ type ResponsiveTableProps = {
   mobile: ReactNode;
   className?: string;
   viewport?: "auto" | "desktop" | "mobile";
+  onExport?: (format: TableExportFormat) => void;
+  showExport?: boolean;
 };
 
 export function ResponsiveTable({
@@ -665,11 +668,13 @@ export function ResponsiveTable({
   mobile,
   className,
   viewport = "auto",
+  onExport,
+  showExport = true,
 }: ResponsiveTableProps) {
   if (viewport === "mobile") {
     return (
       <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>
-        <TableExportBar />
+        {showExport ? <TableExportBar onExport={onExport} /> : null}
         {mobile}
       </div>
     );
@@ -683,7 +688,7 @@ export function ResponsiveTable({
     <div className={className}>
       <div className="hidden min-[768px]:block">{desktop}</div>
       <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">
-        <TableExportBar />
+        {showExport ? <TableExportBar onExport={onExport} /> : null}
         {mobile}
       </div>
     </div>

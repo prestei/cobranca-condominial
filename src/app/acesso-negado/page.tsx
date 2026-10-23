@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ShieldOff } from "lucide-react";
 import { Button } from "@/components/button";
@@ -10,7 +11,7 @@ import { PageContent, PageHeader } from "@/components/page-header";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { MODULOS_PERMISSAO } from "@/lib/permissions/modulos";
 
-export default function AcessoNegadoPage() {
+function AcessoNegadoContent() {
   const params = useSearchParams();
   const moduloId = params?.get("modulo") ?? "";
   const modulo = MODULOS_PERMISSAO.find((item) => item.id === moduloId);
@@ -35,5 +36,13 @@ export default function AcessoNegadoPage() {
         />
       </PageContent>
     </WorkspaceShell>
+  );
+}
+
+export default function AcessoNegadoPage() {
+  return (
+    <Suspense fallback={null}>
+      <AcessoNegadoContent />
+    </Suspense>
   );
 }

@@ -348,7 +348,7 @@ function RelatoriosPage() {
   const params = useSearchParams();
   const pedidoRelatorio = params?.get("relatorio") ?? null;
   const pedidoAba = params?.get("aba");
-  const relatorio = resolverRelatorio(pedidoAba, pedidoRelatorio);
+  const relatorio = resolverRelatorio(pedidoAba ?? null, pedidoRelatorio);
   const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
   const cadastros = useCadastros();
   const [filtro, setFiltro] = useState(filtroInicial);
@@ -384,7 +384,7 @@ function RelatoriosPage() {
 
   function combinaCarteira(condominio: Condominio | undefined) {
     if (!condominio) return false;
-    if (aplicado.advogado !== "todos" && condominio.advogado !== aplicado.advogado) return false;
+    if (aplicado.advogado !== "todos" && !condominio.advogados.includes(aplicado.advogado)) return false;
     if (aplicado.condominio !== "todos" && String(condominio.id) !== aplicado.condominio) return false;
     return true;
   }
@@ -422,7 +422,9 @@ function RelatoriosPage() {
 
   const porCondominio = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.nome ?? "—"));
   let porAtendente = agruparContagem(atendimentos.map((item) => nomeUsuario(item.usuarioId)));
-  let porAdvogado = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogado ?? "—"));
+  let porAdvogado = agruparContagem(
+    atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogados[0] ?? "—"),
+  );
   const porMeio = agruparContagem(atendimentos.map((item) => item.canal || "—"));
   let porMotivo = agruparContagem(atendimentos.filter((item) => item.respondeu === "Sim").map((item) => item.motivo || "Não informou o motivo"));
   let respondeuGrupo = agruparContagem(atendimentos.map((item) => (item.respondeu === "Sim" || item.respondeu === "Não" ? item.respondeu : "—")));
@@ -527,7 +529,10 @@ function RelatoriosPage() {
 
   const porAdvogadoDebito = advogados
     .map((advogado) => {
-      const itens = debitos.filter((item) => cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId)?.advogado === advogado);
+      const itens = debitos.filter((item) => {
+        const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
+        return condominio ? condominio.advogados.includes(advogado) : false;
+      });
       return {
         nome: advogado,
         valor: somar(itens),
@@ -602,7 +607,7 @@ function RelatoriosPage() {
       return {
         unidadeId,
         nome: nomeUnidade(unidadeId),
-        condominio: condominioDaUnidade(unidadeId)?.nome ?? "—",
+        condominio: condominioDaUnidade(String(unidadeId))?.nome ?? "—",
         contatos: contatos.length,
         resposta: contatos.length ? (respostas / contatos.length) * 100 : 0,
         valorAberto,
@@ -636,7 +641,7 @@ function RelatoriosPage() {
       condominio?.nome ?? "—",
       nomeUnidade(item.unidadeId),
       nomeUsuario(item.usuarioId),
-      condominio?.advogado ?? "—",
+      condominio?.advogados[0] ?? "—",
       item.canal,
       item.respondeu || "—",
       item.motivo || "—",
@@ -653,7 +658,7 @@ function RelatoriosPage() {
     const dias = diasDeAtraso(item.dataVencimento, dataBase);
     return [
       condominio?.nome ?? "—",
-      condominio?.advogado ?? "—",
+      condominio?.advogados[0] ?? "—",
       nomeUnidade(item.unidadeId),
       item.referencia,
       item.descricao || "—",
@@ -901,7 +906,7 @@ function RelatoriosPage() {
               nome: linha.nome,
               valor: linha.quantidade,
               detalhe: `${percentual(linha.resposta)} resposta`,
-              tom: (linha.resposta >= 50 ? "settled" : "pending") as const,
+              tom: linha.resposta >= 50 ? "settled" : "pending",
             }));
 
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];

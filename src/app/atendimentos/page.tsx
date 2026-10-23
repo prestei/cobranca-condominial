@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { Suspense, useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
@@ -57,6 +57,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   agoraIso,
   canaisAtendimento,
+  condominioAtivo,
   debitoEmAberto,
   diasDeAtraso,
   formatarData,
@@ -92,7 +93,7 @@ const formularioVazio = {
   proximaAcao: "",
 };
 
-export default function AtendimentosPage() {
+function AtendimentosPageContent() {
   const { toast } = useToast();
   const { user: sessao } = useAuth();
   const { pode } = usePermissao();
@@ -170,7 +171,9 @@ export default function AtendimentosPage() {
   const debitosDaUnidade = cadastros.debitos.filter(
     (item) => String(item.unidadeId) === form.unidadeId && debitoEmAberto(item),
   );
-  const condominiosOrdenados = [...cadastros.condominios].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const condominiosOrdenados = [...cadastros.condominios]
+    .filter((item) => condominioAtivo(item))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const unidadesDoCondominio = cadastros.unidades.filter((item) => String(item.condominioId) === form.condominioId);
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -711,5 +714,13 @@ export default function AtendimentosPage() {
         onConfirm={confirmDelete}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function AtendimentosPage() {
+  return (
+    <Suspense fallback={null}>
+      <AtendimentosPageContent />
+    </Suspense>
   );
 }

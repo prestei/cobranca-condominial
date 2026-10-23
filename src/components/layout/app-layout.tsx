@@ -13,7 +13,6 @@ import { Building, FileBarChart, HelpCircle, Settings, ShieldCheck, User } from 
 import {
   AppShell,
   AppShellBrand,
-  AppShellCarteiraBadge,
   AppShellMain,
   AppShellNav,
   AppShellNavLink,
@@ -63,7 +62,7 @@ type AppLayoutProps = {
 };
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [counts, setCountsState] = useState<CarteiraNavCounts>(defaultCounts);
 
   const setCounts = useCallback((partial: Partial<CarteiraNavCounts>) => {
@@ -75,7 +74,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   const sidebar = (
     <AppShellSidebar>
       <AppShellBrand title="Cobrança" />
-      <AppShellCarteiraBadge />
       <AppShellNav>
         <AppShellNavSection title="Carteira">
           <AppShellNavLink
