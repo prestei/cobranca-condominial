@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -133,6 +133,7 @@ const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 
 export default function DebitosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { pode } = usePermissao();
   const formId = useId();
@@ -152,6 +153,8 @@ export default function DebitosPage() {
   const [appliedCondominioId, setAppliedCondominioId] = useState("todos");
   const [appliedCidade, setAppliedCidade] = useState("todas");
   const [appliedStatus, setAppliedStatus] = useState("todos");
+  const [unidadeId, setUnidadeId] = useState("todas");
+  const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -162,6 +165,17 @@ export default function DebitosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<ErroCampo, string>>>({});
+
+  useEffect(() => {
+    const unidadeQuery = searchParams?.get("unidade");
+    if (!unidadeQuery) return;
+    const existe = cadastros.unidades.some((item) => String(item.id) === unidadeQuery);
+    if (!existe) return;
+    setUnidadeId(unidadeQuery);
+    setAppliedUnidadeId(unidadeQuery);
+    setPage(1);
+    router.replace("/debitos");
+  }, [cadastros.unidades, router, searchParams]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const cidades = [...new Set(cadastros.condominios.map((item) => item.cidade.trim()).filter(Boolean))].sort((a, b) =>
@@ -178,12 +192,14 @@ export default function DebitosPage() {
       const matchesPeriodo =
         (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
         (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
+      const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
       const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeCondominio(item.condominioId)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesStatus &&
         matchesCondominio &&
         matchesCidade &&
         matchesPeriodo &&
+        matchesUnidade &&
         (query.length === 0 || haystack.includes(query))
       );
     })
@@ -268,6 +284,7 @@ export default function DebitosPage() {
     setAppliedCondominioId(condominioId);
     setAppliedCidade(cidade);
     setAppliedStatus(status);
+    setAppliedUnidadeId(unidadeId);
     setPage(1);
   }
 
@@ -287,6 +304,8 @@ export default function DebitosPage() {
     setAppliedCondominioId("todos");
     setAppliedCidade("todas");
     setAppliedStatus("todos");
+    setUnidadeId("todas");
+    setAppliedUnidadeId("todas");
     setPage(1);
   }
 
@@ -664,6 +683,19 @@ export default function DebitosPage() {
               options: [
                 { value: "todos", label: "Todos" },
                 ...condominiosOrdenados.map((item) => ({ value: String(item.id), label: item.nome })),
+              ],
+            },
+            {
+              id: "unidade",
+              label: "Unidade",
+              value: unidadeId,
+              onChange: setUnidadeId,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...cadastros.unidades.map((item) => ({
+                  value: String(item.id),
+                  label: `${nomeUnidade(item.id)}`,
+                })),
               ],
             },
             {

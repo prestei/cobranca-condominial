@@ -248,7 +248,7 @@ export function SheetHelpText({ className, ...props }: HTMLAttributes<HTMLParagr
 export function SheetFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`flex shrink-0 flex-nowrap items-center justify-end gap-sm border-t border-border-subtle px-md py-md min-[768px]:px-lg ${className ?? ""}`}
+      className={`flex w-full min-w-0 shrink-0 flex-col gap-sm border-t border-border-subtle px-md py-md min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:justify-end min-[768px]:px-lg [&>*]:w-full [&>*]:min-[480px]:w-auto ${className ?? ""}`}
       {...props}
     />
   );

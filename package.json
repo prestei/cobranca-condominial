@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "modelo": "vite"
+    "modelo": "vite",
+    "db:up": "bash scripts/db-up.sh",
+    "db:down": "bash scripts/db-down.sh",
+    "db:logs": "docker compose logs -f db"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

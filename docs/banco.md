@@ -88,7 +88,7 @@ Unidade de um condomínio: apartamento, casa, sala ou loja.
 | bloco | VARCHAR | sim | | Bloco ou torre |
 | tipo | VARCHAR | não | | Apartamento, Casa, Sala, Loja |
 | status | VARCHAR | não | padrão `Ativa` | Ativa, Inativa |
-| situacao | VARCHAR | não | padrão `Em cobrança` | Em cobrança, Em acordo, Notificada, Ajuizada, Quitada. Quitada quando não há débito vencido |
+| situacao | VARCHAR | não | padrão `Sem cobrança` | Sem cobrança (fora da fila), Em cobrança, Em acordo, Notificada, Ajuizada, Quitada |
 
 ## responsible_party
 

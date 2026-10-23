@@ -230,7 +230,9 @@ export function Select({
       fechar();
     }
     function fecharComEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") fechar();
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      fechar();
     }
     document.addEventListener("mousedown", fecharSeFora);
     document.addEventListener("keydown", fecharComEscape);
@@ -244,7 +246,7 @@ export function Select({
     <div
       ref={painelRef}
       id={listaId}
-      className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-popover"
+      className="fixed z-[200] flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-popover"
     >
       <div className="shrink-0 border-b border-border-subtle p-sm">
         <Input
