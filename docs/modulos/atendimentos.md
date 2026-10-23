@@ -9,7 +9,7 @@ Registro de tentativas de cobrança, retornos agendados e produtividade da equip
 - **Requisitos:** [proposta-oficial.md](../proposta-oficial.md) — §2 Palitagem
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `atendimentos`
 - **Módulos relacionados:** [condominios](condominios.md), [unidades](unidades.md), [debitos](debitos.md), [usuarios](usuarios.md), [relatorios](relatorios.md)
-- **Dados:** `service_ticket` em [banco.md](../banco.md); `Atendimento` em `catalogo.ts`
+- **Dados:** `service_ticket` em [banco.md](../banco.md); `Atendimento` em `src/lib/catalog`
 - **Regras globais:** [regra-negocio.md](../regra-negocio.md) — autoria pelo login
 
 ## Rotas e telas

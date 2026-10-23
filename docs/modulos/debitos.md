@@ -9,11 +9,11 @@ Visualização e gestão dos débitos das unidades (inadimplência).
 - **Requisitos:** [proposta-oficial.md](../proposta-oficial.md) — Projeto 2 (inadimplência)
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `debitos`
 - **Módulos relacionados:** [unidades](unidades.md), [importacoes](importacoes.md), [atendimentos](atendimentos.md), [relatorios](relatorios.md), [integracao-superlogica](integracao-superlogica.md)
-- **Dados:** `debt` em [banco.md](../banco.md); `Debito` em `catalogo.ts`
+- **Dados:** `debt` em [banco.md](../banco.md); `Debito` em `src/lib/catalog`
 
 ## Rotas e telas
 
-- `/debitos` — `src/app/debitos/page.tsx`
+- `/debts` — `src/app/debts/page.tsx`. Legado: `/debitos` → redirect.
 
 ## Perfis e permissões
 

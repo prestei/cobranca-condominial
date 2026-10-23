@@ -40,7 +40,7 @@ import {
 } from "@/components/table";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCatalog } from "@/hooks/use-catalog";
 import {
   acimaDoLimite,
   advogados,
@@ -58,7 +58,7 @@ import {
   situacaoRetorno,
   tituloInicio,
   usuarioSessaoApp,
-} from "@/data/catalogo";
+} from "@/lib/catalog";
 
 const rotuloRetorno = {
   atrasado: "Atrasado",
@@ -163,7 +163,7 @@ function diaCurto(iso: string) {
 export default function HomePage() {
   const router = useRouter();
   const { user: sessao } = useAuth();
-  const cadastros = useCadastros();
+  const cadastros = useCatalog();
   const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
   const hoje = hojeIso();
   const dataBase = hoje;
@@ -313,9 +313,9 @@ export default function HomePage() {
           selo="Carteira"
           titulo="Inadimplência"
           descricao={`Situação de ${formatarData(dataBase)}.`}
-          href="/relatorios?relatorio=carteira"
+          href="/reports?relatorio=carteira"
           linkLabel="Mais detalhes"
-          onLink={() => router.push("/relatorios?relatorio=carteira")}
+          onLink={() => router.push("/reports?relatorio=carteira")}
         >
           <CardMetricRow aria-label="Resumo de inadimplência" desktopCols={3}>
             <CardMetric
@@ -436,9 +436,9 @@ export default function HomePage() {
           selo="Equipe"
           titulo="Últimos 7 dias"
           descricao={`De ${formatarData(operacao.periodo.inicio)} a ${formatarData(operacao.periodo.fim)}.`}
-          href="/relatorios?relatorio=equipe"
+          href="/reports?relatorio=equipe"
           linkLabel="Mais detalhes"
-          onLink={() => router.push("/relatorios?relatorio=equipe")}
+          onLink={() => router.push("/reports?relatorio=equipe")}
         >
           <CardMetricRow aria-label="Resumo da equipe" desktopCols={2}>
             <CardMetric
@@ -498,9 +498,9 @@ export default function HomePage() {
           selo="Agenda"
           titulo="Retornos da equipe"
           descricao="O que precisa fazer ligação de novo."
-          href="/atendimentos"
+          href="/service-tickets"
           linkLabel="Abrir lista"
-          onLink={() => router.push("/atendimentos")}
+          onLink={() => router.push("/service-tickets")}
         >
           <div className="overflow-hidden rounded-lg border border-border-subtle">
             <Table aria-label="Retornos agendados">

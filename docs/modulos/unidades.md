@@ -8,7 +8,7 @@ Cadastro e consulta de unidades por condomínio.
 
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `unidades`
 - **Módulos relacionados:** [condominios](condominios.md), [debitos](debitos.md), [atendimentos](atendimentos.md)
-- **Dados:** `unit`, `responsible_party`, `unit_responsible_party` em [banco.md](../banco.md); `Unidade`, `Responsavel`, `Vinculo` em `catalogo.ts`
+- **Dados:** `unit`, `responsible_party`, `unit_responsible_party` em [banco.md](../banco.md); `Unidade`, `Responsavel`, `Vinculo` em `src/lib/catalog`
 - **Regras globais:** [regra-negocio.md](../regra-negocio.md)
 
 ## Rotas e telas

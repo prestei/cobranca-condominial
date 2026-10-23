@@ -9,6 +9,8 @@ Implementar ou corrigir **regras de negócio** no código (backend preferencialm
 
 **Documentação obrigatória:** `.agents/skills/_shared/documentacao-modulo.md`.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — serviços, validadores e nomes de regra no código em **inglês**; mensagens exibidas ao usuário e docs em **português**.
+
 ## Antes de implementar
 
 1. Ler **`docs/proposta-oficial.md`** e **`docs/regra-negocio.md`**.

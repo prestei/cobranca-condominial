@@ -16,10 +16,10 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
-| `BadgeCargo` | `badge-cargo.tsx` | Nome do cargo em listagens (ex.: coluna Cargo em `/usuarios`). Mesmo padrão dos badges de área em `/cargos` (`primary`, `font-normal`). |
+| `RoleBadge` | `role-badge.tsx` | Nome do cargo em listagens (ex.: coluna Cargo em `/users`). Mesmo padrão dos badges de área em `/roles` (`primary`, `font-normal`). |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
 | `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone (tamanho padrão: `p-lg`, ícone `size-11`). |
-| `CardMetricRow` | `card-metric-row.tsx` | **Padrão obrigatório** para blocos de métricas em listagens, início e relatórios — não usar `grid` empilhado no mobile. Carrossel com snap (um card por vez, sem `gap` entre slides no mobile; `scroll-px-md` alinha o primeiro card); avanço automático a cada 5s e pontos na ordem 1→2→3. Grid no desktop (`desktopCols`, padrão 3). **Ordem:** métricas neutras primeiro; destaque `bg-gold-subtle` no **último** card (referência `/cargos`). Respeita `prefers-reduced-motion` (sem autoplay). |
+| `CardMetricRow` | `card-metric-row.tsx` | **Padrão obrigatório** para blocos de métricas em listagens, início e relatórios — não usar `grid` empilhado no mobile. Carrossel com snap (um card por vez, sem `gap` entre slides no mobile; `scroll-px-md` alinha o primeiro card); avanço automático a cada 5s e pontos na ordem 1→2→3. Grid no desktop (`desktopCols`, padrão 3). **Ordem:** métricas neutras primeiro; destaque `bg-gold-subtle` no **último** card (referência `/roles`). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
@@ -29,8 +29,8 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
 | `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. padrão `max-w-sheet` (`calc(32rem + 150px)` em `@theme`); `SheetContent size="wide"` → 52rem somente quando documentado para a tela. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
-| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
-| `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: badges por área do sistema; `title` com o detalhe das ações. | 
+| `RolePermissionsMatrix` | `role-permissions-matrix.tsx` | Permissões do cargo no sheet `/roles`: cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
+| `RolePermissionsSummary` | `role-permissions-summary.tsx` | Listagem `/roles`: badges por área do sistema; `title` com o detalhe das ações. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |

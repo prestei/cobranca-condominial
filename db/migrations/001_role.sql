@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS role (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL,
+  descricao VARCHAR(255) NOT NULL DEFAULT '',
+  permissao_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS role_nome_unique ON role (LOWER(nome));

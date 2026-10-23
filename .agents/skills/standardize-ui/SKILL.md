@@ -13,6 +13,8 @@ Especialista sênior em UI/UX, design systems, design tokens, componentização,
 
 **Neste repositório:** a fonte dos componentes é `src/components/` (usáveis em qualquer página). Tokens em `src/app/globals.css` (`@theme`) e a documentação em `docs/design-system.md`. A rota `/design-system` é o arquivo `src/pages/design-system.tsx`, que só lista esses componentes. Alinhar padronização a esses tokens e componentes globais; reutilizar orientações da skill `create-screen` ao criar ou ajustar telas. Se caminhos ou arquivos não existirem, confirmar no repositório antes de inventar padrões paralelos.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — nomes de componentes/props em **inglês**; copy de interface em **português**.
+
 ---
 
 ## Filosofia

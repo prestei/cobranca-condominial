@@ -19,6 +19,8 @@ Não considerar funcionalidade concluída só porque o código parece correto, o
 
 Sempre que o fluxo puder ser executado no navegador, **testar no navegador**.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — ao registrar bugs ou sugerir fixes, citar símbolos em **inglês**; descrever comportamento esperado ao usuário em **português** (como na UI).
+
 ---
 
 ## Descoberta inicial do sistema

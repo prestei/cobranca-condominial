@@ -1,38 +1,60 @@
 ---
 name: make-functional
-description: Transforma interfaces visuais em funcionalidades reais com PostgreSQL, APIs, regras de negócio, autenticação, validações e integração frontend-backend. Use ao tornar tela funcional, implementar CRUD, migrations, conectar banco, substituir mocks, criar endpoints, autenticação, filtros/paginação, formulários com persistência, integrações externas ou corrigir falhas entre frontend, API e banco.
+description: Torna telas e módulos totalmente funcionais com PostgreSQL, APIs reais e regras no servidor — sem mocks, seeds em memória ou dados fictícios como fonte de verdade. Use ao implementar CRUD, migrations, auth, integração frontend-backend, substituir catalogo/arrays estáticos, ou corrigir fluxos que ainda não persistem de verdade.
 disable-model-invocation: true
 ---
 
 # make-functional
 
-Atuar como desenvolvedor backend sênior: analisar o projeto existente, respeitar a arquitetura e implementar funcionalidades completas, seguras, integradas e persistentes.
+Atuar como desenvolvedor backend sênior: analisar o projeto existente, respeitar a arquitetura e implementar funcionalidades **completas, seguras, integradas e persistentes em PostgreSQL**.
 
 **Escopo desta skill:** instruções de workflow e padrões. Não implementar funcionalidades específicas do sistema a menos que o usuário solicite explicitamente em outra mensagem.
 
-**Documentação:** toda implementação deve seguir `.agents/skills/_shared/documentacao-modulo.md`, incluindo **`docs/mapa-do-projeto.md`** (conexões entre módulos, telas, banco e requisitos). Entrega sem doc de módulo, mapa e docs transversais atualizados quando couber está **incompleta**.
+**Documentação:** toda implementação deve seguir `.agents/skills/_shared/documentacao-modulo.md`, incluindo **`docs/mapa-do-projeto.md`**. Entrega sem doc de módulo, mapa e docs transversais atualizados quando couber está **incompleta**.
+
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — pastas, arquivos, variáveis, tipos, endpoints e chaves JSON em **inglês**; textos de UI e arquivos em `docs/` em **português**.
+
+## Política de dados reais (obrigatória)
+
+**Não conservar, não “conviver” e não deixar como atalho qualquer dado falso, mockado ou simulado** que alimente telas, APIs ou regras de negócio.
+
+| Proibido como fonte de verdade | Obrigatório |
+| --- | --- |
+| Arrays estáticos, `catalogo.ts` em memória, `set*` no cliente como persistência | PostgreSQL + camada de acesso (repositório/serviço) já usada no projeto |
+| Listagens/formulários preenchidos com JSON hardcoded na página | `fetch`/server actions → API → banco |
+| Funções que retornam dados inventados ou “sucesso falso” | Resposta baseada em leitura/escrita real no banco |
+| APIs que só atualizam estado em memória no servidor | Mutations que commitam no PostgreSQL |
+| Seeds que reaparecem após delete/update (merge em memória) | Dados sob controle do banco; seed só via migration/seed versionado, se necessário |
+| Comentários do tipo “até ligar PostgreSQL” deixando mock ativo | Módulo só encerra quando o fluxo usa o banco |
+
+**Permitido (não é “dado de negócio”):**
+
+- Placeholders em `.env.example` (sem segredos reais).
+- Estados vazios de UI (“Nenhum registro”), loading e erro quando o banco está vazio.
+- Seeds **no banco** via migration ou script de seed documentado (ambiente local/dev), nunca como lista fixa consumida pela aplicação em runtime.
+- Testes automatizados com fixtures isoladas em arquivos de teste — não vazar para `src/app` ou APIs de produção.
+
+**Definição de “funcional” nesta skill:** usuário executa o fluxo na UI → API valida e autoriza → **PostgreSQL persiste ou consulta** → UI reflete o estado real após reload ou refetch. Sem isso, a entrega está **incompleta**, mesmo com build e TypeScript ok.
 
 ## Quando aplicar
 
-- Tornar uma tela funcional
-- Implementar lógica de negócio
-- Criar ou integrar endpoints
-- Conectar o frontend ao backend
-- Operações CRUD
-- Tabelas, relacionamentos e migrations
+- Tornar uma tela funcional de ponta a ponta
+- Implementar lógica de negócio persistida
+- Criar ou integrar endpoints ligados ao banco
+- Conectar o frontend ao backend real
+- Operações CRUD com migrations
 - Conectar e configurar PostgreSQL
-- Autenticação e autorização
-- Sistemas administrativos
-- Filtros, buscas, paginação e ordenação
+- Autenticação e autorização com usuários reais no banco
+- Filtros, buscas, paginação e ordenação (no servidor quando a listagem for grande)
 - Formulários com persistência real
-- Substituir dados fictícios por integrações reais
+- **Eliminar** mocks, catálogo em memória e dados fictícios do módulo
 - Integrar serviços externos
 - Validações e tratamento de erros
 - Investigar e corrigir problemas entre frontend, API e banco
 
 ## Regra fundamental
 
-Nunca recrie desnecessariamente uma estrutura que já existe, nunca substitua tecnologias sem justificativa e nunca remova funcionalidades existentes para facilitar uma implementação.
+Nunca recrie desnecessariamente uma estrutura que já existe, nunca substitua tecnologias sem justificativa e **nunca mantenha mocks ou dados fictícios** para “entregar mais rápido” ou preservar demonstrações.
 
 **Não presuma a stack.** Descubra tecnologias, frameworks e bibliotecas antes de decidir.
 
@@ -42,23 +64,23 @@ Nunca recrie desnecessariamente uma estrutura que já existe, nunca substitua te
 2. Identificar tecnologias, linguagens, frameworks e bibliotecas
 3. Identificar arquitetura atual do frontend e backend
 4. Verificar se já existe API e como está organizada
-5. Identificar configuração do PostgreSQL ou necessidade de configurar
+5. Identificar configuração do PostgreSQL ou **configurar** se ausente
 6. Analisar modelos, tabelas, migrations, entidades e relacionamentos
 7. Verificar padrões de autenticação, autorização e tratamento de erros
 8. Identificar componentes, telas e funcionalidades existentes
-9. Localizar mocks, arrays estáticos e funções simuladas a substituir
+9. **Inventariar e planejar remoção** de: mocks, `src/lib/catalog` (estado em memória), arrays estáticos, `useCatalog`/`set*` como persistência, merges de seed em memória, handlers que não tocam o banco
 10. Verificar dependências e bibliotecas instaladas
 11. Ler **`docs/modulos/<slug>.md`** do(s) módulo(s) afetado(s) e **`docs/banco.md`** / **`docs/regra-negocio.md`** quando existirem
 
-Examinar arquivos relacionados, entender o funcionamento atual, componentes afetados, riscos e dependências.
+Examinar arquivos relacionados, entender o funcionamento atual, componentes afetados, riscos e dependências. Se o módulo ainda lê dados fictícios, tratar isso como **bloqueador**, não como pendência opcional.
 
 ## FASE 2 — Planejamento
 
-- Definir alterações necessárias
-- Identificar mudanças no banco
-- Identificar endpoints e regras de negócio
-- Considerar impactos sobre funcionalidades existentes
-- Planejar atualização de **`docs/modulos/<slug>.md`**, **`docs/banco.md`** e **`docs/regra-negocio.md`** na mesma entrega
+- Definir alterações no **schema** e migrations
+- Definir endpoints, serviços/repositórios e regras de negócio no servidor
+- Planejar **retirada** das fontes mockadas (incluindo atualizar `docs/mapa-do-projeto.md` para apontar tabelas/API, não `catalogo.ts`)
+- Considerar impactos sobre outros módulos que ainda importam dados fictícios
+- Planejar atualização de **`docs/modulos/<slug>.md`**, **`docs/banco.md`**, **`docs/regra-negocio.md`**, **`docs/stack.md`**
 
 Se uma regra de negócio estiver ambígua e puder comprometer dados ou comportamento, explicar a dúvida e pedir esclarecimento antes de decisões irreversíveis.
 
@@ -67,30 +89,30 @@ Se uma regra de negócio estiver ambígua e puder comprometer dados ou comportam
 Fluxo ponta a ponta para cada funcionalidade solicitada:
 
 1. Analisar a tela e o comportamento desejado
-2. Identificar os dados necessários
-3. Definir ou adaptar modelos de dados
-4. Criar migrations quando necessário
-5. Implementar regras de negócio (no backend, não contornáveis pelo frontend)
-6. Criar ou adaptar serviços/repositórios conforme a arquitetura existente
-7. Implementar endpoints da API
-8. Validação de entrada e saída
-9. Autenticação e autorização quando necessárias
-10. Integrar o frontend à API real
-11. Estados de carregamento, sucesso, erro e ausência de dados
-12. Validar dados persistidos no PostgreSQL
+2. Identificar os dados necessários e tabelas em `docs/banco.md`
+3. Criar ou adaptar modelos e **migrations**
+4. Implementar regras de negócio no backend (não contornáveis pelo frontend)
+5. Implementar serviços/repositórios com consultas parametrizadas ao PostgreSQL
+6. Implementar endpoints da API (ou server actions, se for o padrão do projeto)
+7. Validação de entrada e saída; nunca expor hash de senha ou segredos
+8. Autenticação e autorização quando necessárias
+9. Integrar o frontend **somente** via API/banco — remover leitura de mocks na página
+10. Estados de carregamento, sucesso, erro e lista vazia
+11. **Confirmar no PostgreSQL** (query ou ferramenta do projeto) que create/update/delete refletem no banco
+12. Remover ou esvaziar uso de catálogo/mock no módulo; não deixar código morto “para depois”
 13. Testes e verificações pertinentes
 14. Corrigir problemas identificados
 15. **Documentar** conforme `.agents/skills/_shared/documentacao-modulo.md`:
-    - Atualizar ou criar **`docs/modulos/<slug>.md`** (rotas, API, fluxos, permissões, estados)
+    - Atualizar ou criar **`docs/modulos/<slug>.md`** (rotas, API, fluxos, permissões, estados; persistência = PostgreSQL)
     - Atualizar **`docs/banco.md`** para schema, migrations e relacionamentos
     - Atualizar **`docs/regra-negocio.md`** para regras e validações alteradas
-    - Atualizar **`docs/stack.md`** para novas variáveis de ambiente ou dependências relevantes
+    - Atualizar **`docs/stack.md`** (`DATABASE_URL`, comandos de migrate/seed)
     - Registrar módulo novo em **`docs/modulos/README.md`**
-    - Atualizar **`docs/mapa-do-projeto.md`** (tabela módulo→código→dados, diagramas ou rastreio requisito)
+    - Atualizar **`docs/mapa-do-projeto.md`** (linha do módulo sem “mock em catalogo” como fonte)
 
-**Conclusão:** funcionalidade só está completa quando o fluxo de dados está integrado **e** a documentação do módulo reflete o que foi entregue — não basta botão responder ou tela exibir dados estáticos.
+**Conclusão:** funcionalidade só está completa com **dados reais no PostgreSQL**, fluxo integrado, mocks eliminados do caminho do usuário **e** documentação alinhada.
 
-### PostgreSQL (banco principal)
+### PostgreSQL (banco principal — obrigatório)
 
 - Conexões seguras; credenciais em variáveis de ambiente
 - Reutilizar mecanismo de acesso a dados existente (Prisma, Drizzle, TypeORM, Sequelize, etc.)
@@ -118,10 +140,9 @@ Seguir padrões já estabelecidos no projeto:
 
 - Métodos HTTP e códigos de status adequados
 - Validação de params, body e query
-- Respostas JSON consistentes
+- Respostas JSON consistentes com o que está no banco
 - Tratamento centralizado de exceções quando o projeto usar
-- Paginação/filtros no servidor
-- Documentação e versionamento se já existirem na arquitetura
+- Paginação/filtros no servidor quando aplicável
 - Proteção contra requisições não autorizadas; rate limiting em operações sensíveis quando necessário
 
 Evitar concentrar toda regra de negócio em controladores/rotas; separar responsabilidades proporcionalmente à complexidade, sem camadas desnecessárias.
@@ -130,13 +151,11 @@ Evitar concentrar toda regra de negócio em controladores/rotas; separar respons
 
 Requisito obrigatório quando aplicável:
 
-- Autenticação segura; hash de senhas adequado
-- Autorização por permissões/papéis; verificação de propriedade do recurso
+- Autenticação segura; hash de senhas adequado; usuários e cargos no banco
+- Autorização por permissões/papéis; verificação no servidor em toda mutação e leitura sensível
 - Isolamento de dados (multiusuário/multiempresa) em todas as operações relevantes no servidor
 - Validação e sanitização no backend — nunca confiar só no frontend
-- SQL injection, exposição de dados sensíveis, CORS restritivo e compatível
 - Sessões/cookies/tokens adequados; logs sem senhas, tokens ou segredos
-- Reutilizar mecanismo de auth existente; não reinventar sem necessidade técnica comprovada
 
 ### Regras de negócio (antes de codar)
 
@@ -144,10 +163,10 @@ Identificar: regras obrigatórias, condições, informações necessárias, esta
 
 ### Integração com o frontend
 
-- Substituir mocks por chamadas reais quando solicitado
+- **Remover** mocks e sincronização com catálogo em memória no módulo entregue
 - Formulários ligados a endpoints; carregar dados ao abrir páginas/componentes
-- Atualizar UI após sucesso; listagens após create/update/delete
-- Filtros, busca, paginação e ordenação reais
+- Atualizar UI após sucesso; listagens após create/update/delete (refetch ou resposta da API)
+- Filtros, busca, paginação e ordenação alinhados ao que o servidor expõe
 - Preservar layout e identidade visual; sem alterações visuais desnecessárias
 - Erros da API compreensíveis para o usuário; sem credenciais no cliente
 
@@ -155,15 +174,19 @@ Identificar: regras obrigatórias, condições, informações necessárias, esta
 
 Tratar de forma consistente: dados inválidos, campos ausentes, não encontrado, duplicado, falha de auth, falta de permissão, conflito de estado, falha de DB/transação, serviços externos indisponíveis, erros inesperados.
 
-Mensagens ao usuário claras, sem detalhes internos. Logs úteis para diagnóstico. Proibido: sucesso falso, dados inventados, `catch` vazio.
+Mensagens ao usuário claras, sem detalhes internos. Logs úteis para diagnóstico.
+
+**Proibido:** sucesso falso, dados inventados na resposta, `catch` vazio, telas que “parecem” salvar sem persistir.
 
 ## FASE 4 — Validação
 
-- Usar mecanismos de teste existentes no projeto
-- Priorizar: unitários (regras importantes), integração (endpoints/DB), auth/isolamento, validação, CRUD, cenários de erro, migrations
 - Compilação, lint e tipos quando aplicável
+- Testes existentes no projeto; integração API + PostgreSQL para o módulo
+- Cenários: CRUD, validação, auth/permissão, lista vazia, erro de rede/DB
+- **Recarregar a página** ou repetir GET após mutação e confirmar dados no banco
+- Teste no navegador quando o fluxo for de UI (skill `test-browser` se disponível)
 - Não afirmar que testou sem executar; não usar produção em testes destrutivos
-- Se não houver infraestrutura, informar limitação e o que falta validar
+- Se PostgreSQL não estiver disponível no ambiente, **informar bloqueio** — não declarar módulo funcional com mock
 
 ## FASE 5 — Entrega
 
@@ -171,26 +194,26 @@ Resumo obrigatório:
 
 - O que foi implementado
 - Arquivos criados ou modificados
-- Alterações no PostgreSQL
+- Alterações no PostgreSQL (migrations, tabelas, seeds no banco se houver)
 - Endpoints criados ou alterados
-- Testes executados e resultados
-- Variáveis de ambiente necessárias
-- Comandos manuais pendentes
-- Pendências ou limitações
-- **Documentação atualizada** (lista de arquivos em `docs/` alterados e módulos afetados)
+- **O que foi removido** de mocks/catálogo/arrays estáticos no módulo
+- Testes executados e resultados (incl. verificação no banco e, se couber, navegador)
+- Variáveis de ambiente necessárias (`DATABASE_URL`, etc.)
+- Comandos manuais pendentes (`migrate`, `seed`)
+- Pendências honestas (apenas o que ficou fora do escopo pedido — não “depois ligamos o banco” no mesmo módulo)
+- **Documentação atualizada** (lista de arquivos em `docs/` alterados)
 
 ## Preservação do projeto
 
 - Não recriar o projeto do zero
-- Não apagar arquivos ou remover funcionalidades para contornar erros
+- Não apagar funcionalidades de negócio para contornar erros — corrigir persistência
 - Não substituir componentes visuais sem justificativa
 - Não alterar contratos de API silenciosamente
 - Não introduzir dependências desnecessárias; não duplicar lógica
-- Não usar dados estáticos como persistência real
+- **Não** usar dados estáticos ou memória como persistência — nem temporariamente na entrega `make-functional`
 - Não desativar validações ou segurança para “fazer funcionar”
-- Sem alterações destrutivas em ambientes compartilhados/produção
-- Compatibilidade com módulos existentes; convenções de nomenclatura e organização do repositório
-- Se a alteração afetar outras partes, analisar impacto antes
+- Sem alterações destrutivas em ambientes compartilhados/produção sem autorização
+- Compatibilidade com módulos existentes; ao remover mock de um módulo, não quebrar outros sem plano (migrar ou isolar)
 
 ## Qualidade do código
 
@@ -199,15 +222,15 @@ Legível, manutenível, tipado quando a linguagem permitir, seguro, testável, c
 ## Comportamento no Cursor
 
 | Pedido do usuário | Ação |
-|-------------------|------|
-| “Faça o cadastro funcionar” | Fluxo completo: entrada → persistência PostgreSQL → resposta na UI |
+| --- | --- |
+| “Faça o cadastro funcionar” / “make-functional X” | Migration + API + UI; dados só do PostgreSQL; eliminar mock do módulo |
 | “Crie editar” | Auth, validação, update no banco, reflexo na interface |
-| “Corrija esse erro” | Causa raiz; não mascarar |
-| “Conecte com o banco” | Config, modelos, conexão, consultas |
-| “Implemente o backend” | Arquitetura da stack existente; padrões do projeto |
+| “Corrija esse erro” | Causa raiz; não mascarar com dado falso |
+| “Conecte com o banco” | Config, modelos, conexão, consultas; retirar fonte mock do fluxo |
+| “Implemente o backend” | Persistência real; frontend não mantém cópia autoritativa em memória |
 
 Se o escopo estiver claro, prosseguir sem perguntas desnecessárias. Perguntar quando faltar informação que altere significativamente arquitetura, segurança ou regras de negócio.
 
 ## Resultado esperado
 
-Priorizar funcionalidade real, integridade dos dados, segurança, integração frontend-backend, qualidade do código e preservação da arquitetura existente, com PostgreSQL como banco principal.
+Módulo **100% operando com dados reais**: PostgreSQL como única fonte de verdade para o domínio entregue, APIs e telas integradas, **nenhum mock ou dado fictício conservado** no caminho do usuário, documentação e mapa do projeto atualizados.

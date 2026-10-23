@@ -9,6 +9,8 @@ Atuar como especialista em segurança de aplicações web (backend, APIs, Postgr
 
 **Escopo desta skill:** ao ser invocada para auditoria, seguir o processo abaixo e produzir relatório estruturado. **Não** alterar código, banco ou infraestrutura até o usuário solicitar correções explicitamente. **Não** executar testes destrutivos, invasivos ou fora das regras da seção «Regras durante a auditoria».
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — correções de segurança com identificadores em **inglês**; relatório e recomendações em **português**.
+
 ## Quando usar
 
 - Auditar a segurança do projeto.

@@ -60,7 +60,7 @@ function LoginForm() {
             <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-brass">Lex Condominial</p>
             <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
             <p className="text-body-sm text-on-surface-variant">
-              Por enquanto: código 12345 e senha 12345 (admin de teste). Demais colaboradores usam o próprio código com senha 12345.
+              Demonstração: código 12345 e senha 12345 (admin de teste). Demais colaboradores do seed usam o próprio código com senha 12345.
             </p>
           </div>
 

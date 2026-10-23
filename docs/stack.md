@@ -62,6 +62,26 @@ O gerador inclui no CSS só a classe escrita por extenso no fonte. O processamen
 
 O Next.js compila e entrega a aplicação React. O TypeScript verifica o código nessa compilação. O Tailwind, no mesmo build, transforma as classes em CSS.
 
+## PostgreSQL
+
+| Peça | Pacote | Função |
+| --- | --- | --- |
+| Driver | `pg` | Tabelas `role` e `user` (cargos, colaboradores, login) |
+
+| Variável | Obrigatória | Descrição |
+| --- | --- | --- |
+| `DATABASE_URL` | Sim (cargos e rotas autenticadas) | URL de conexão PostgreSQL. Ver `.env.example`. |
+
+| Comando | Função |
+| --- | --- |
+| `npm run db:up` | Sobe PostgreSQL no Docker (porta **5433**; exige Docker Desktop em execução) |
+| `npm run db:migrate` | Aplica SQL em `db/migrations/` (schema) |
+| `npm run db:seed` | Dados iniciais: 3 cargos + colaborador Prestei (código/senha `1234`) — ver `scripts/seed.ts` |
+
+**Windows com PostgreSQL instalado (ex.: porta 5432):** use no `.env` a senha definida na instalação, **ou** alinhe a senha local ao `.env` com PowerShell **como Administrador**: `npm run db:windows-bootstrap` (define senha `postgres` e cria o banco `cobranca_condominial`). Erro `28P01` = usuário ou senha incorretos na `DATABASE_URL`. Com Docker Desktop: `npm run db:up` e URL na porta **5433** (`.env.example`).
+
+Módulos que já usam o banco: **cargos** (`/api/roles`, permissões em `proxy`/`requirePermission`) e **usuários/colaboradores** (`/api/users`, `/api/auth/login`). Demais entidades seguem em `src/lib/catalog` até migração própria.
+
 ## Autenticação e sessão
 
 | Peça | Pacote | Função |
@@ -75,4 +95,4 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 
-Credenciais de demonstração usam os códigos de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). CRUD de colaboradores em `/api/usuarios` atualiza o catálogo em memória no servidor (login e permissões leem o mesmo estado). PostgreSQL para `user` será ligado em tarefa posterior.
+Credenciais iniciais vêm do `db:seed` (tabela `user`): código `1234`, senha `1234` — ver [usuarios](modulos/usuarios.md). Cargos e permissões de rota/API leem `role` no PostgreSQL.

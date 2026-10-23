@@ -41,7 +41,9 @@ Cargo do colaborador. As permissões ficam em JSON.
 | id | INT | não | PK, autoincremento | |
 | nome | VARCHAR(255) | sim | | Nome do cargo |
 | descricao | VARCHAR(255) | sim | | |
-| permissao_json | TEXT | sim | | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. |
+| permissao_json | TEXT | não | padrão `{}` | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. |
+
+Índice único em `LOWER(nome)`. Migration: `db/migrations/001_role.sql`. Seeds dos três cargos padrão: `npm run db:seed`.
 
 ## user
 
@@ -53,9 +55,13 @@ Colaborador que opera o sistema.
 | codigo | VARCHAR(32) | não | único | Código de login do colaborador |
 | cargo_id | INT | sim | FK → role.id | Cargo |
 | nome | VARCHAR(255) | sim | | |
+| cpf | VARCHAR(11) | sim | | Somente dígitos; vazio se não informado |
+| data_nascimento | VARCHAR(8) | sim | | DDMMAAAA; vazio se não informado |
 | telefone | VARCHAR(255) | sim | | |
 | email | VARCHAR(255) | sim | | |
-| senha | VARCHAR(255) | sim | | Senha |
+| senha | VARCHAR(255) | sim | | Hash bcrypt; nunca exposto na API |
+
+Índices únicos em `LOWER(codigo)` e `LOWER(email)` (e-mail só quando preenchido). Migration: `db/migrations/002_user.sql`. Colaborador inicial (Prestei, código `1234`): `npm run db:seed` após migrate.
 
 ## condominium
 

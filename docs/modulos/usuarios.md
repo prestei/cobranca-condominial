@@ -8,13 +8,13 @@ Gestão de colaboradores, login individual e vínculo com cargos. O nome exibido
 
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `usuarios`
 - **Módulos relacionados:** [cargos](cargos.md), [atendimentos](atendimentos.md), [auditoria](auditoria.md)
-- **Dados:** `user` em [banco.md](../banco.md); `Usuario` em `catalogo.ts` (protótipo em memória)
-- **Stack:** [stack.md](../stack.md) — `AUTH_SECRET`, cookies de sessão
+- **Dados:** `user` e `role` em [banco.md](../banco.md); repositório em `src/lib/users/repository.ts`
+- **Stack:** [stack.md](../stack.md) — `DATABASE_URL`, `AUTH_SECRET`, `npm run db:migrate`, `npm run db:seed`
 
 ## Rotas e telas
 
 - `/login` — `src/app/login/page.tsx` — entrada com código e senha
-- `/usuarios` — `src/app/usuarios/page.tsx` — CRUD de colaboradores (sheet)
+- `/users` — `src/app/users/page.tsx` — CRUD de colaboradores (sheet). Legado: `/usuarios` → redirect.
 
 ## Perfis e permissões
 
@@ -22,7 +22,9 @@ Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra
 
 ## Dados e persistência
 
-Modelo lógico em `docs/banco.md` (`user`, `role`). O catálogo em memória (`src/data/catalogo.ts`) é a fonte de persistência até PostgreSQL; mutações de colaboradores passam pela API no servidor para que login e permissões usem os mesmos dados. Senhas sempre hasheadas com bcrypt no servidor; a API nunca devolve o hash.
+Colaboradores persistem na tabela PostgreSQL `"user"` (`cargo_id` → `role`). Login (`POST /api/auth/login`) e CRUD (`/api/users`) leem e gravam no banco via `src/lib/users/service.ts`. Senhas sempre hasheadas com bcrypt no servidor; a API nunca devolve o hash.
+
+Após listar ou mutar colaboradores, o servidor sincroniza a lista pública (sem senha) em `src/lib/catalog` para telas que ainda exibem nomes a partir do estado em memória (atendimentos, etc.).
 
 ## API e contratos
 
@@ -31,25 +33,29 @@ Modelo lógico em `docs/banco.md` (`user`, `role`). O catálogo em memória (`sr
 | POST | `/api/auth/login` | `{ codigo, password }` | `200` `{ user: { userId, email, nome, cargoId } }` ou `401` `{ error }` |
 | POST | `/api/auth/logout` | — | `200` `{ ok: true }` |
 | GET | `/api/auth/session` | — | `200` `{ user: SessionUser \| null }` (`cargoId` incluso) |
-| GET | `/api/usuarios` | — | `200` `{ usuarios: UsuarioPublico[] }` — exige permissão `usuarios.ler` |
-| POST | `/api/usuarios` | `{ codigo, cargoId, nome, telefone, email, senha }` | `201` `{ usuario }` ou `422` `{ error, fields }` — `usuarios.criar` |
-| PATCH | `/api/usuarios/:id` | mesmo body; `senha` opcional | `200` `{ usuario }` — `usuarios.editar` |
-| DELETE | `/api/usuarios/:id` | — | `200` `{ ok: true }` ou `409` se em uso / autoexclusão — `usuarios.excluir` |
+| GET | `/api/users` | — | `200` `{ usuarios: UsuarioPublico[] }` — exige permissão `usuarios.ler` |
+| POST | `/api/users` | `{ codigo, cargoId, nome, cpf?, dataNascimento?, telefone, email, senha }` | `201` `{ usuario }` ou `422` `{ error, fields }` — `usuarios.criar` |
+| PATCH | `/api/users/:id` | mesmo body; `senha` opcional | `200` `{ usuario }` — `usuarios.editar` |
+| DELETE | `/api/users/:id` | — | `200` `{ ok: true }` ou `409` se em uso / autoexclusão — `usuarios.excluir` |
 
 Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 
+Erros de banco ou `DATABASE_URL` ausente: `503` com mensagem orientando migrate/seed (ver `src/lib/api/db-error.ts`).
+
 ## Fluxos principais
 
-1. **Login:** usuário envia código e senha → API valida no cadastro → cookie de sessão → redirecionamento para `/` ou `?from=`.
+1. **Login:** usuário envia código e senha → API valida na tabela `user` → cookie de sessão → redirecionamento para `/` ou `?from=`.
 2. **Sessão:** `AuthProvider` consulta `/api/auth/session` e expõe `useAuth()`; menu e atendimentos usam `userId` da sessão.
 3. **Logout:** menu **Sair** → `POST /api/auth/logout` → redireciona para `/login`.
-4. **CRUD colaboradores:** sheet em `/usuarios` chama `/api/usuarios`; perfil de acesso via cargo selecionado no formulário (matriz em `/cargos`).
+4. **CRUD colaboradores:** sheet em `/users` chama `/api/users`; perfil de acesso via cargo selecionado no formulário (matriz em `/roles`, dados em `role`).
 
 ## Regras de negócio
 
 - Login individual com senha; autoria de atendimentos pelo colaborador logado (não escolhível manualmente).
-- Senha inicial de demonstração: `12345` para os usuários de exemplo (hash em `catalogo.ts`); acesso rápido com código `12345`.
-- Cada colaborador tem **código único** de login (cadastro em `/usuarios`); comparação sem diferenciar maiúsculas/minúsculas; e-mail continua único no cadastro.
+- Colaborador inicial (`npm run db:seed`): **Prestei**, código de login `1234`, senha `1234`, cargo Administrador.
+- Cada colaborador tem **código único** de login (cadastro em `/users`); comparação sem diferenciar maiúsculas/minúsculas; e-mail continua único no cadastro.
+- CPF e data de nascimento são opcionais; quando informados, persistem só dígitos (11 e DDMMAAAA) e são exibidos com máscara na tela.
+- Exclusão bloqueada se houver atendimentos, importações ou auditoria no protótipo em memória referenciando o colaborador; bloqueio de autoexclusão com sessão ativa.
 
 ## Integrações
 
@@ -60,11 +66,11 @@ Nenhuma.
 - Login: carregando, erro de credencial, envio.
 - Área autenticada: nome e cargo no header (`usuarioSessaoApp` + sessão).
 - Rotas internas bloqueadas sem sessão (`src/proxy.ts`).
-- **Sheet colaborador** (`/usuarios`): um painel para identificação (nome, código e cargo em grid), outro para contato (telefone e e-mail) e outro para senha (`type="password"`, obrigatória só na criação). `SheetHelpText` só na seção de senha. Confirmação ao sair com formulário preenchido.
+- **Sheet colaborador** (`/users`): um painel para identificação (nome; CPF e data de nascimento opcionais com máscara; código e cargo em grid), outro para contato (telefone com máscara e e-mail) e outro para senha (`type="password"`, obrigatória só na criação). `SheetHelpText` só na seção de senha. Confirmação ao sair com formulário preenchido.
 - **Filtros** (`FilterBar`): busca por nome, código, e-mail ou telefone; selects de cargo, telefone (com/sem) e e-mail (com/sem). Limpar e Filtrar voltam para a página 1.
-- **Listagem:** coluna Cargo com `BadgeCargo` (padrão visual de `/cargos`).
+- **Listagem:** coluna Cargo com `RoleBadge` (padrão visual de `/roles`).
 
 ## Pendências e decisões
 
-- Persistir `user` no PostgreSQL (API já centraliza regras e hash de senha).
 - Recuperação de senha e política de bloqueio por tentativas.
+- Persistir atendimentos/importações/auditoria no PostgreSQL para checagem de exclusão de colaborador só no banco.

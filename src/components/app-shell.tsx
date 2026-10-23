@@ -126,7 +126,7 @@ export function AppShell({
           <div className="h-full">{sidebar}</div>
         </div>
 
-        <div className="app-main flex min-w-0 flex-1 flex-col">
+        <div className="app-main flex min-w-0 flex-1 flex-col overflow-visible">
           <AppShellHeader
             user={user}
             notificationCount={notificationCount}
@@ -318,7 +318,7 @@ function AppShellHeader({
   onToggleUser,
 }: AppShellHeaderProps) {
   return (
-    <header className="relative z-30 flex min-h-[4.5rem] shrink-0 items-center gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
+    <header className="relative z-30 flex min-h-[4.5rem] shrink-0 items-center gap-md overflow-visible border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
       <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
         <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
       </AppShellIconButton>
@@ -347,13 +347,16 @@ function AppShellHeader({
 
         {notifOpen ? (
           <div
-            className="absolute right-0 top-14 z-30 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
+            className="fixed right-4 top-[4.5rem] z-50 w-[min(380px,calc(100vw-2rem))] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
             role="dialog"
             aria-label="Notificações"
           >
-            <div className="flex items-center justify-between px-md py-sm">
-              <p className="text-body-lg font-bold text-on-surface">Notificações</p>
-              <button type="button" className="text-body-md font-semibold text-primary-container">
+            <div className="flex min-w-0 items-center justify-between gap-sm px-md py-sm">
+              <p className="min-w-0 truncate text-body-lg font-bold text-on-surface">Notificações</p>
+              <button
+                type="button"
+                className="shrink-0 text-body-md font-semibold text-primary-container"
+              >
                 Marcar como lidas
               </button>
             </div>
@@ -400,7 +403,7 @@ function AppShellHeader({
 
             {userOpen ? (
               <div
-                className="absolute right-0 top-14 z-30 w-[260px] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
+                className="fixed right-4 top-[4.5rem] z-50 w-[min(260px,calc(100vw-2rem))] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
                 role="menu"
                 aria-label="Conta"
               >

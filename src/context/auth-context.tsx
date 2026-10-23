@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/auth/types";
-import { setUsuarioLogadoId } from "@/lib/auth/usuario-logado";
+import { setUsuarioLogadoId } from "@/lib/auth/logged-in-user";
+import { carregarCargosDaApi } from "@/lib/roles/client";
 
 type AuthContextValue = {
   user: SessionUser | null;
@@ -34,6 +35,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sessionUser = await fetchSession();
     setUser(sessionUser);
     setUsuarioLogadoId(sessionUser?.userId ?? null);
+    if (sessionUser) {
+      try {
+        await carregarCargosDaApi();
+      } catch {
+        // Cargos serão recarregados ao abrir telas que dependem da lista.
+      }
+    }
   }, []);
 
   useEffect(() => {

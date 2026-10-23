@@ -7,6 +7,8 @@ description: Fecha entrega no repositório — build, validação, docs, release
 
 Deixar o repositório consistente: build ok, docs alinhadas, release atualizada, commit claro. **Sempre perguntar** antes de push e antes de abrir PR.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — código em **inglês**; mensagem de commit e `docs/` em **português**.
+
 ## Ordem
 
 1. **Git** — `git status` e branch atual (`git branch --show-current`). Resolver conflitos (sem `<<<<<<<`).

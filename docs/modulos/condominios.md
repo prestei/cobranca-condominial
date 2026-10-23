@@ -9,12 +9,12 @@ Cadastro e gestão dos condomínios da carteira do escritório, base compartilha
 - **Requisitos:** [proposta-oficial.md](../proposta-oficial.md) — cadastro compartilhado (Projeto 1 e 2)
 - **Regras globais:** [regra-negocio.md](../regra-negocio.md) — “um sistema só”; vínculo com advogado responsável
 - **Módulos relacionados:** [unidades](unidades.md), [debitos](debitos.md), [atendimentos](atendimentos.md), [relatorios](relatorios.md)
-- **Dados:** tabela `condominium` em [banco.md](../banco.md); tipo `Condominio` em `src/data/catalogo.ts`
+- **Dados:** tabela `condominium` em [banco.md](../banco.md); tipo `Condominio` em `src/lib/catalog`
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) (linha `condominios`)
 
 ## Rotas e telas
 
-- `/condominios` — `src/app/condominios/page.tsx` — listagem, filtros, métricas, criação e edição em `Sheet`.
+- `/condominiums` — `src/app/condominiums/page.tsx` — listagem, filtros, métricas, criação e edição em `Sheet`. Legado: `/condominios` → redirect.
 
 ## Perfis e permissões
 
@@ -26,7 +26,7 @@ Entidade condomínio — ver `docs/banco.md` quando o schema estiver definido.
 
 ## API e contratos
 
-A documentar quando o backend substituir dados em `src/data/catalogo.ts`.
+A documentar quando o backend substituir dados em `src/lib/catalog`.
 
 ## Fluxos principais
 

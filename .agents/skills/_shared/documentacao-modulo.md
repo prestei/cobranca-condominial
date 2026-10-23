@@ -2,6 +2,8 @@
 
 Toda entrega de implementação **deve** incluir documentação atualizada **e** manter o **mapa de conexões** do projeto. Código sem doc correspondente ou sem vínculos atualizados está **incompleto**.
 
+**Convenções de idioma:** ver `.agents/skills/_shared/code-conventions.md` — documentação em `docs/` sempre em **português**; ao citar caminhos de código, usar nomes reais em **inglês** (`src/lib/users/service.ts`, não traduzir pastas na doc técnica).
+
 ## Mapa central
 
 **[`docs/mapa-do-projeto.md`](../../../docs/mapa-do-projeto.md)** — hub que conecta:
@@ -10,7 +12,7 @@ Toda entrega de implementação **deve** incluir documentação atualizada **e**
 - Regras globais ([`docs/regra-negocio.md`](../../../docs/regra-negocio.md))
 - Módulos ([`docs/modulos/`](../../../docs/modulos/README.md))
 - Banco ([`docs/banco.md`](../../../docs/banco.md))
-- Telas (`src/app/...`) e dados (`src/data/catalogo.ts` ou API)
+- Telas (`src/app/...`) e dados (`src/lib/catalog` ou API/PostgreSQL)
 - Integrações externas
 
 Ao implementar: atualizar o módulo **e**, se mudou rota, dependência, tabela, endpoint ou fluxo entre áreas, a **tabela e diagramas** em `mapa-do-projeto.md`.
@@ -27,6 +29,7 @@ Ao implementar: atualizar o módulo **e**, se mudou rota, dependência, tabela, 
 | Tokens, componentes globais, padrões de UI | `docs/design-system.md` |
 | Stack, variáveis de ambiente, comandos | `docs/stack.md` |
 | Escopo comercial / requisitos de produto (só se o escopo mudou) | `docs/proposta-oficial.md` |
+| Idioma: código (EN) vs UI e docs (PT) | `.agents/skills/_shared/code-conventions.md` |
 
 **Cada módulo do produto tem um arquivo em `docs/modulos/`.** Se o módulo ainda não existir no índice, criar o arquivo e registrar em `docs/modulos/README.md` na mesma entrega.
 
@@ -35,15 +38,15 @@ Ao implementar: atualizar o módulo **e**, se mudou rota, dependência, tabela, 
 | Módulo | Slug | Rota principal (referência) |
 | --- | --- | --- |
 | Dashboard | `dashboard` | `/` |
-| Condomínios | `condominios` | `/condominios` |
-| Unidades | `unidades` | `/unidades` |
-| Débitos | `debitos` | `/debitos` |
-| Atendimentos (palitagem) | `atendimentos` | `/atendimentos` |
-| Importações | `importacoes` | `/importacoes` |
-| Relatórios | `relatorios` | `/relatorios` |
-| Usuários | `usuarios` | `/usuarios` |
-| Cargos / perfis | `cargos` | `/cargos` |
-| Auditoria | `auditoria` | `/auditoria` |
+| Condomínios | `condominios` | `/condominiums` |
+| Unidades | `unidades` | `/units` |
+| Débitos | `debitos` | `/debts` |
+| Atendimentos (palitagem) | `atendimentos` | `/service-tickets` |
+| Importações | `importacoes` | `/imports` |
+| Relatórios | `relatorios` | `/reports` |
+| Usuários | `usuarios` | `/users` |
+| Cargos / perfis | `cargos` | `/roles` |
+| Auditoria | `auditoria` | `/audit` |
 | Integração Superlógica / administradoras | `integracao-superlogica` | (serviços, jobs, webhooks) |
 
 Integrações externas adicionais: `docs/modulos/integracao-<nome>.md` (ex.: `integracao-superlogica.md`).

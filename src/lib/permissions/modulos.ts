@@ -78,16 +78,17 @@ export type PermissoesCargo = {
 };
 
 export const ROTAS_MODULO: Array<{ prefix: string; modulo: ModuloPermissao }> = [
-  { prefix: "/api/usuarios", modulo: "usuarios" },
-  { prefix: "/atendimentos", modulo: "atendimentos" },
-  { prefix: "/debitos", modulo: "debitos" },
-  { prefix: "/condominios", modulo: "condominios" },
-  { prefix: "/unidades", modulo: "unidades" },
-  { prefix: "/relatorios", modulo: "relatorios" },
-  { prefix: "/importacoes", modulo: "importacoes" },
-  { prefix: "/usuarios", modulo: "usuarios" },
-  { prefix: "/cargos", modulo: "cargos" },
-  { prefix: "/auditoria", modulo: "auditoria" },
+  { prefix: "/api/users", modulo: "usuarios" },
+  { prefix: "/api/roles", modulo: "cargos" },
+  { prefix: "/service-tickets", modulo: "atendimentos" },
+  { prefix: "/debts", modulo: "debitos" },
+  { prefix: "/condominiums", modulo: "condominios" },
+  { prefix: "/units", modulo: "unidades" },
+  { prefix: "/reports", modulo: "relatorios" },
+  { prefix: "/imports", modulo: "importacoes" },
+  { prefix: "/users", modulo: "usuarios" },
+  { prefix: "/roles", modulo: "cargos" },
+  { prefix: "/audit", modulo: "auditoria" },
 ];
 
 export function moduloDaRota(pathname: string): ModuloPermissao {

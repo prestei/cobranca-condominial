@@ -1,0 +1,16 @@
+# Banco de desenvolvimento (porta 5433 para não conflitar com PostgreSQL instalado no Windows na 5432).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cobranca_condominial_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cobranca_condominial
+    ports:
+      - "5433:5432"
+    volumes:
+      - cobranca_pg_data:/var/lib/postgresql/data
+
+volumes:
+  cobranca_pg_data:

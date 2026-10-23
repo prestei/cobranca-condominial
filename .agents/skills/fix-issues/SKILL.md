@@ -13,6 +13,8 @@ Especialista sênior em debugging, análise de causa raiz, correção de erros e
 
 **Documentação:** se a correção alterar comportamento, contrato de API, schema ou regra de negócio, atualizar na mesma entrega conforme `.agents/skills/_shared/documentacao-modulo.md` (`docs/modulos/<slug>.md`, `docs/banco.md`, `docs/regra-negocio.md`). Se a doc estava errada e o código estava certo, corrigir a doc.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — correções com identificadores em **inglês**; não introduzir nomes em português em código novo; UI e docs em **português**.
+
 ---
 
 ## Metodologia obrigatória

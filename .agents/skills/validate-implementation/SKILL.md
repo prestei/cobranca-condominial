@@ -9,12 +9,15 @@ Verificar se a implementação está **correta e completa**, incluindo documenta
 
 **Referência de documentação:** `.agents/skills/_shared/documentacao-modulo.md` e **`docs/mapa-do-projeto.md`**.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — validar idioma de identificadores vs textos de UI/docs.
+
 ## Escopo da validação
 
 ### Código e arquitetura
 
 - Compilação, tipos e lint (quando configurados).
 - Padrões do repositório (pastas, nomenclatura, componentes globais).
+- **Idioma:** código novo em inglês; strings visíveis e `docs/` em português (`code-conventions.md`).
 - Contratos de API (método, status, body) vs consumo no frontend.
 
 ### Banco e dados

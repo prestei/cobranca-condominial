@@ -2,7 +2,7 @@
 
 import { Inbox, Plus } from "lucide-react";
 import { Button } from "@/components/button";
-import { CondominiosTable, type CondominioRow } from "@/components/condominios-table";
+import { CondominiosTable, type CondominioRow } from "@/components/condominiums-table";
 import { EmptyState } from "@/components/empty-state";
 import {
   ResponsiveTable,

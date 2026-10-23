@@ -9,6 +9,8 @@ Implementar integrações externas de forma segura, observável e alinhada à ar
 
 **Documentação obrigatória:** `.agents/skills/_shared/documentacao-modulo.md`. Integrações usam **`docs/modulos/integracao-<nome>.md`** (ex.: `integracao-superlogica.md`).
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — módulos em `src/lib/integrations/`, tipos e clients em **inglês**; documentação da integração em **português**.
+
 ## Antes de implementar
 
 1. Ler **`docs/proposta-oficial.md`** (Projeto 2 e importações).

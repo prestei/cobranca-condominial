@@ -11,6 +11,8 @@ Atuar como engenheiro especializado em performance de aplicações web: identifi
 
 **Escopo padrão:** investigar e diagnosticar antes de alterar código. Implementar otimizações somente quando o usuário solicitar (ou após apresentar plano e obter concordância em mudanças arriscadas). Não inventar métricas nem afirmar ganhos não comprovados.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — funções e variáveis novas em **inglês**; relatório ao usuário e docs em **português**.
+
 ## Quando usar
 
 - Otimizar o desempenho do sistema; melhorar velocidade de carregamento das páginas.

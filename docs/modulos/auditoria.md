@@ -8,7 +8,7 @@ Histórico de alterações e trilha de auditoria para ações sensíveis.
 
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `auditoria`
 - **Módulos relacionados:** todos os módulos com mutação de dados; [usuarios](usuarios.md)
-- **Dados:** `audit_log` em [banco.md](../banco.md); `Auditoria` em `catalogo.ts`
+- **Dados:** `audit_log` em [banco.md](../banco.md); `Auditoria` em `src/lib/catalog`
 - **Regras globais:** [regra-negocio.md](../regra-negocio.md) — correções com histórico
 
 ## Rotas e telas

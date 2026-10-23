@@ -77,24 +77,24 @@ export function AppLayout({ children }: AppLayoutProps) {
       <AppShellNav>
         <AppShellNavSection title="Carteira">
           <AppShellNavLink
-            href="/condominios"
+            href="/condominiums"
             icon={Building}
-            active={isActivePath(pathname, "/condominios")}
+            active={isActivePath(pathname, "/condominiums")}
             count={counts.condominioCount}
           >
             Condomínios
           </AppShellNavLink>
           <AppShellNavLink
-            href="/unidades"
+            href="/units"
             icon={User}
-            active={isActivePath(pathname, "/unidades")}
+            active={isActivePath(pathname, "/units")}
             count={counts.unidadeCount}
           >
             Unidades
           </AppShellNavLink>
         </AppShellNavSection>
         <AppShellNavSection title="Análise">
-          <AppShellNavLink href="/relatorios" icon={FileBarChart} active={isActivePath(pathname, "/relatorios")}>
+          <AppShellNavLink href="/reports" icon={FileBarChart} active={isActivePath(pathname, "/reports")}>
             Relatórios
           </AppShellNavLink>
           <AppShellNavLink href="/indicadores" icon={ShieldCheck} active={isActivePath(pathname, "/indicadores")}>

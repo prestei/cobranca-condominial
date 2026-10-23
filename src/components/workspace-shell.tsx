@@ -25,8 +25,8 @@ import {
   AppShellSidebar,
 } from "@/components/app-shell";
 import { useAuth } from "@/context/auth-context";
-import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { retornoPendente, usuarioSessaoApp } from "@/lib/catalog";
+import { useCatalog } from "@/hooks/use-catalog";
 import { usePermissao } from "@/hooks/use-permissao";
 import type { ModuloPermissao } from "@/lib/permissions/modulos";
 
@@ -38,28 +38,28 @@ const secoes: Array<{
     title: "Cobrança",
     links: [
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
-      { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
-      { href: "/debitos", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
+      { href: "/service-tickets", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
+      { href: "/debts", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
     ],
   },
   {
     title: "Carteira",
     links: [
-      { href: "/condominios", label: "Condomínios", icon: Building2, modulo: "condominios" },
-      { href: "/unidades", label: "Unidades", icon: DoorOpen, modulo: "unidades" },
+      { href: "/condominiums", label: "Condomínios", icon: Building2, modulo: "condominios" },
+      { href: "/units", label: "Unidades", icon: DoorOpen, modulo: "unidades" },
     ],
   },
   {
     title: "Análise",
-    links: [{ href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
+    links: [{ href: "/reports", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
   },
   {
     title: "Operação",
     links: [
-      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
-      { href: "/usuarios", label: "Colaboradores", icon: UserRound, modulo: "usuarios" },
-      { href: "/cargos", label: "Cargos", icon: Shield, modulo: "cargos" },
-      { href: "/auditoria", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },
+      { href: "/imports", label: "Importações", icon: FileUp, modulo: "importacoes" },
+      { href: "/users", label: "Colaboradores", icon: UserRound, modulo: "usuarios" },
+      { href: "/roles", label: "Cargos", icon: Shield, modulo: "cargos" },
+      { href: "/audit", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },
     ],
   },
 ];
@@ -68,7 +68,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user: sessao, logout } = useAuth();
   const { pode } = usePermissao();
-  const cadastros = useCadastros();
+  const cadastros = useCatalog();
   const retornos = cadastros.atendimentos.filter(retornoPendente).length;
   const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
 

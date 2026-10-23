@@ -1,3 +1,4 @@
+import { respostaErroBanco } from "@/lib/api/db-error";
 import { findUsuarioPorCredenciais } from "@/lib/auth/credentials";
 import { createSession } from "@/lib/auth/session";
 
@@ -17,7 +18,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "Informe o código e a senha." }, { status: 400 });
   }
 
-  const usuario = await findUsuarioPorCredenciais(codigo, password);
+  let usuario;
+  try {
+    usuario = await findUsuarioPorCredenciais(codigo, password);
+  } catch (error) {
+    return respostaErroBanco(error);
+  }
   if (!usuario) {
     return Response.json({ error: "Código ou senha incorretos." }, { status: 401 });
   }

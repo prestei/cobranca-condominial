@@ -9,6 +9,8 @@ A tela nova segue o design system, a proposta do produto e as regras de negócio
 
 **Documentação:** seguir `.agents/skills/_shared/documentacao-modulo.md`. Ao criar ou alterar uma tela, atualizar `docs/modulos/<slug>.md` (rotas, campos, fluxos, **Conexões**, permissões), **`docs/mapa-do-projeto.md`** se mudar rota ou vínculo entre módulos, e `docs/regra-negocio.md` quando couber.
 
+**Convenções de código:** `.agents/skills/_shared/code-conventions.md` — componentes, hooks, estado e handlers em **inglês**; labels, placeholders, toasts, títulos e `aria-label` em **português**.
+
 ## Antes de escrever (obrigatório, nesta ordem)
 
 1. Ler **`docs/proposta-oficial.md`** — escopo, módulos, usuários, campos e comportamentos esperados.
@@ -17,7 +19,7 @@ A tela nova segue o design system, a proposta do produto e as regras de negócio
 4. Ler `docs/design-system.md` e a página `/design-system`.
 5. Ler tokens em `src/app/globals.css` (`@theme`) para classes Tailwind disponíveis.
 6. Listar os componentes em `src/components/` que a tela vai usar.
-7. Ler **`src/components/workspace-shell.tsx`** e a página de referência **`src/app/condominios/page.tsx`** — padrão de rota e esqueleto.
+7. Ler **`src/components/workspace-shell.tsx`** e a página de referência **`src/app/condominiums/page.tsx`** — padrão de rota e esqueleto.
 
 Se faltar referência visual, regra de negócio ou documentação, parar e pedir o caminho. Não prosseguir com visual ou fluxo próprios.
 
@@ -53,6 +55,8 @@ Telas internas do produto usam **`WorkspaceShell`** (`@/components/workspace-she
 | Grupo `(app)` (alternativo) | `src/app/(app)/<rota>/page.tsx` com layout `AppLayout` — só se o projeto já migrar a rota para esse grupo |
 
 O grupo `(app)` **não** aparece na URL.
+
+**Pastas e arquivos em `src/`:** inglês (`src/app/users/page.tsx`, `UserForm.tsx`). A URL espelha a pasta (`/users`, `/condominiums`).
 
 ### O que a página renderiza
 

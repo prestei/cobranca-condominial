@@ -9,7 +9,7 @@ Importar relatórios e dados das administradoras para alimentar débitos e carte
 - **Requisitos:** [proposta-oficial.md](../proposta-oficial.md) — Projeto 2
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `importacoes`
 - **Módulos relacionados:** [integracao-superlogica](integracao-superlogica.md), [debitos](debitos.md), [unidades](unidades.md)
-- **Dados:** `import` em [banco.md](../banco.md); `Importacao` em `catalogo.ts`
+- **Dados:** `import` em [banco.md](../banco.md); `Importacao` em `src/lib/catalog`
 
 ## Rotas e telas
 
