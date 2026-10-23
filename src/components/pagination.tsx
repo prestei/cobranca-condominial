@@ -45,7 +45,7 @@ export function Pagination({ page, total, onPageChange, pageSize = PAGE_SIZE }: 
   return (
     <nav
       aria-label="Paginação"
-      className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:items-center min-[768px]:justify-between"
+      className="flex flex-col items-end gap-sm min-[768px]:flex-row min-[768px]:items-center min-[768px]:justify-between"
     >
       <p className="text-body-sm text-on-surface-variant tabular-nums">
         {from}–{to} de {total}

@@ -5,11 +5,13 @@ import type { FormEvent } from "react";
 import { Pencil, Plus, Shield, Trash2 } from "lucide-react";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
+import { ResumoPermissoesCargo } from "@/components/resumo-permissoes-cargo";
 import { FormField, Input } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
@@ -62,17 +64,12 @@ import {
   cargoTemAlgumaPermissao,
   parsePermissoesJson,
   permissoesVazias,
-  resumoPermissoes,
   serializarPermissoes,
 } from "@/lib/permissions/parse";
 
 type SortKey = "nome" | "descricao";
 
 const formularioVazio = { nome: "", descricao: "", permissoes: permissoesVazias() };
-
-function rotuloPermissoes(json: string) {
-  return resumoPermissoes(parsePermissoesJson(json));
-}
 
 export default function CargosPage() {
   const { toast } = useToast();
@@ -303,7 +300,7 @@ export default function CargosPage() {
           <TableHead sortable sortDirection={directionFor("descricao")} onSort={() => handleSort("descricao")}>
             Descrição
           </TableHead>
-          <TableHead>Permissões</TableHead>
+          <TableHead>Áreas com acesso</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -313,9 +310,13 @@ export default function CargosPage() {
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.nome}</TableCell>
-              <TableCell>{item.descricao || "—"}</TableCell>
-              <TableCell>{rotuloPermissoes(item.permissaoJson) || "—"}</TableCell>
+              <TableCell className="align-middle font-medium">{item.nome}</TableCell>
+              <TableCell className="align-middle max-w-[16rem] text-on-surface-variant">
+                {item.descricao || "—"}
+              </TableCell>
+              <TableCell className="align-middle">
+                <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
+              </TableCell>
               <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableRow>
           ))
@@ -337,8 +338,10 @@ export default function CargosPage() {
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <TableMobileFields>
-              <TableMobileField label="Descrição">{item.descricao || "—"}</TableMobileField>
-              <TableMobileField label="Permissões">{rotuloPermissoes(item.permissaoJson) || "—"}</TableMobileField>
+              <TableMobileField label="Descrição" stacked>{item.descricao || "—"}</TableMobileField>
+              <TableMobileField label="Áreas com acesso" stacked>
+                <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
+              </TableMobileField>
             </TableMobileFields>
           </TableMobileCard>
         ))}
@@ -380,7 +383,7 @@ export default function CargosPage() {
             },
           ]}
         />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+        <CardMetricRow aria-label="Resumo de cargos">
           <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
             <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
             <p className="mt-sm text-body-sm text-on-surface-variant">cargos</p>
@@ -393,7 +396,7 @@ export default function CargosPage() {
             <p className="text-metric text-on-surface tabular-nums">{String(emUso).padStart(2, "0")}</p>
             <p className="mt-sm text-body-sm text-on-surface-variant">em uso</p>
           </CardMetric>
-        </div>
+        </CardMetricRow>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
@@ -424,7 +427,7 @@ export default function CargosPage() {
               </SheetHeaderLead>
               <SheetClose />
             </SheetHeader>
-            <SheetBody className="gap-lg">
+            <SheetBody className="gap-md min-[768px]:gap-lg">
               <SheetPanel className="flex flex-col gap-md">
                 <FormField label="Nome do cargo" htmlFor={`${formId}-nome`} required error={errors.nome}>
                   <Input

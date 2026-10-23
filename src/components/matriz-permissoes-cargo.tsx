@@ -90,12 +90,19 @@ export function MatrizPermissoesCargo({ formId, permissoes, onChange }: MatrizPe
                   </div>
                 </div>
 
-                <div className="flex w-full flex-wrap items-center gap-x-md gap-y-sm border-t border-border-subtle/70 pt-md">
+                <div
+                  className="grid w-full grid-cols-2 gap-x-md gap-y-sm border-t border-border-subtle/70 pt-md min-[768px]:grid-cols-4"
+                >
                     {acoesDisponiveis.map((acao) => {
                       const inputId = `${formId}-${modulo.id}-${acao}`;
                       const checked = permissoes[modulo.id]?.[acao] === true;
                       return (
-                        <CheckboxField key={acao} label={LABEL_ACAO_LEIGO[acao]} htmlFor={inputId}>
+                        <CheckboxField
+                          key={acao}
+                          className="min-w-0"
+                          label={LABEL_ACAO_LEIGO[acao]}
+                          htmlFor={inputId}
+                        >
                           <Checkbox
                             id={inputId}
                             checked={checked}

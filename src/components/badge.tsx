@@ -3,6 +3,7 @@ import type { HTMLAttributes } from "react";
 const variants = {
   primary: "bg-primary-container text-on-primary",
   secondary: "bg-brass text-primary-container",
+  neutral: "border border-border-subtle bg-surface-subtle text-on-surface",
   success: "bg-status-settled text-on-primary",
   error: "bg-status-critical text-on-primary",
 } as const;

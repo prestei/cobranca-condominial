@@ -779,13 +779,29 @@ type TableMobileFieldProps = {
   children: ReactNode;
   className?: string;
   valueClassName?: string;
+  /** Valor em bloco abaixo do rótulo (descrições longas, badges, chips). */
+  stacked?: boolean;
 };
 
-export function TableMobileField({ label, children, className, valueClassName }: TableMobileFieldProps) {
+export function TableMobileField({
+  label,
+  children,
+  className,
+  valueClassName,
+  stacked = false,
+}: TableMobileFieldProps) {
+  const labelClass = `text-label-sm uppercase text-on-surface-variant${stacked ? "" : " shrink-0"}`;
+  const containerClass = stacked
+    ? `flex min-w-0 flex-col items-stretch gap-sm ${className ?? ""}`
+    : `flex min-w-0 items-start justify-between gap-md ${className ?? ""}`;
+  const valueClass = stacked
+    ? `min-w-0 w-full text-body-md text-on-surface ${valueClassName ?? ""}`
+    : `ml-auto min-w-0 max-w-[70%] shrink text-end text-body-md text-on-surface ${valueClassName ?? ""}`;
+
   return (
-    <div className={`flex min-w-0 items-center justify-between gap-md ${className ?? ""}`}>
-      <dt className="min-w-0 text-label-md text-on-surface-variant">{label}</dt>
-      <dd className={`shrink-0 text-body-md text-on-surface ${valueClassName ?? ""}`}>{children}</dd>
+    <div className={containerClass}>
+      <dt className={labelClass}>{label}</dt>
+      <dd className={valueClass}>{children}</dd>
     </div>
   );
 }

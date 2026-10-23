@@ -60,6 +60,8 @@ Nenhuma.
 
 ## Estados de interface
 
+- Listagem: coluna **Áreas com acesso** com `ResumoPermissoesCargo` (badge por módulo; passe o mouse para ver ações).
+- Mobile: métricas em **carrossel** (`CardMetricRow` — um `CardMetric` por vez, deslize ou aguarde 5s; pontos indicam a posição); desktop em grid de 3 colunas. Cards de lista com **Descrição** e **Áreas com acesso** em `TableMobileField` com `stacked` (rótulo acima do valor; badges com `flex-wrap`).
 - Lista vazia / filtro sem resultado; sheet de cadastro com bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e lista `MatrizPermissoesCargo` (um cartão por área do sistema, checkboxes com rótulos em linguagem simples — Consultar, Cadastrar, Alterar, Excluir, Exportar dados); sheet no tamanho padrão do sistema (`max-w-sheet`); confirmação de exclusão e de saída com dados preenchidos.
 
 ## Pendências e decisões

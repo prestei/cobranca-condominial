@@ -138,3 +138,43 @@
   --shadow-popover: 0 4px 12px rgb(32 51 71 / 8%);
   --shadow-modal: 0 12px 32px rgb(32 51 71 / 16%);
 }
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-outline-variant) 38%, transparent) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--color-outline-variant) 32%, transparent);
+    border-radius: var(--radius-full);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--color-outline-variant) 52%, transparent);
+  }
+
+  :where(.overflow-y-auto, .overflow-auto, .overflow-x-auto) {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html,
+    :where(.overflow-y-auto, .overflow-auto, .overflow-x-auto) {
+      scroll-behavior: auto;
+    }
+  }
+}

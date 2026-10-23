@@ -144,7 +144,7 @@ export function SheetForm({ className, ...props }: FormHTMLAttributes<HTMLFormEl
 export function SheetHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`flex shrink-0 items-start justify-between gap-md border-b border-border-subtle px-lg py-md ${className ?? ""}`}
+      className={`flex shrink-0 items-start justify-between gap-md border-b border-border-subtle px-md py-md min-[768px]:px-lg ${className ?? ""}`}
       {...props}
     />
   );
@@ -176,13 +176,18 @@ export function SheetTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEl
 }
 
 export function SheetDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={`text-body-sm text-on-surface-variant ${className ?? ""}`} {...props} />;
+  return (
+    <p
+      className={`min-w-0 text-body-sm text-on-surface-variant line-clamp-1 min-[768px]:line-clamp-none ${className ?? ""}`}
+      {...props}
+    />
+  );
 }
 
 export function SheetBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col gap-[calc(var(--spacing-sm)+2px)] overflow-y-auto px-lg py-md ${className ?? ""}`}
+      className={`flex min-h-0 flex-1 flex-col gap-[calc(var(--spacing-sm)+2px)] overflow-y-auto px-md py-md min-[768px]:px-lg ${className ?? ""}`}
       {...props}
     />
   );
@@ -199,7 +204,10 @@ export function SheetPanel({ variant = "subtle", className, ...props }: SheetPan
       : "border-border-subtle bg-surface-subtle";
 
   return (
-    <div className={`rounded-lg border px-md py-md ${variantClass} ${className ?? ""}`} {...props} />
+    <div
+      className={`rounded-lg border px-sm py-sm min-[768px]:px-md min-[768px]:py-md ${variantClass} ${className ?? ""}`}
+      {...props}
+    />
   );
 }
 
@@ -240,7 +248,7 @@ export function SheetHelpText({ className, ...props }: HTMLAttributes<HTMLParagr
 export function SheetFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`flex shrink-0 flex-wrap justify-end gap-sm border-t border-border-subtle px-lg py-md ${className ?? ""}`}
+      className={`flex shrink-0 flex-nowrap items-center justify-end gap-sm border-t border-border-subtle px-md py-md min-[768px]:px-lg ${className ?? ""}`}
       {...props}
     />
   );

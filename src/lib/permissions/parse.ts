@@ -130,6 +130,25 @@ const ROTULO_ACAO: Record<AcaoPermissao, string> = {
   exportar: "exportar",
 };
 
+export type ResumoModuloPermissao = {
+  modulo: ModuloPermissao;
+  label: string;
+  acoes: AcaoPermissao[];
+};
+
+export function listarModulosPermitidos(permissoes: PermissoesCargo): ResumoModuloPermissao[] {
+  const out: ResumoModuloPermissao[] = [];
+  for (const modulo of MODULOS_PERMISSAO) {
+    const acoes = permissoes[modulo.id];
+    if (!acoes) continue;
+    const ativas = modulo.acoes.filter((acao) => acoes[acao] === true);
+    if (ativas.length > 0) {
+      out.push({ modulo: modulo.id, label: modulo.label, acoes: [...ativas] });
+    }
+  }
+  return out;
+}
+
 export function resumoPermissoes(permissoes: PermissoesCargo): string {
   const partes: string[] = [];
   for (const modulo of MODULOS_PERMISSAO) {

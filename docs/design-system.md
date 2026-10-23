@@ -15,9 +15,10 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
 | `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
-| `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `success`, `error`. |
+| `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
-| `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone. |
+| `CardMetric` | `card-metric.tsx` | Cartão de métrica com ícone (tamanho padrão: `p-lg`, ícone `size-11`). |
+| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão 3). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
@@ -27,16 +28,21 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
 | `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. padrão `max-w-sheet` (`calc(32rem + 150px)` em `@theme`); `SheetContent size="wide"` → 52rem somente quando documentado para a tela. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
-| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: cartão por área, checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados), atalhos de perfil e legenda. | 
+| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
+| `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: badges por área do sistema; `title` com o detalhe das ações. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
-| `PageHeader`, `PageContent` | `page-header.tsx` | Título, breadcrumb, descrição, ações e container da página. |
+| `PageHeader`, `PageContent` | `page-header.tsx` | Título, breadcrumb, descrição, ações e container da página. No mobile, título e ações na mesma linha; no desktop, ações à direita alinhadas à base do bloco. |
 
 ## Gráficos
 
 Use os componentes de `charts.tsx` dentro de um cartão da página (`rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card`). Passe `chave` com o recorte dos dados: o desenho cresce de novo quando o filtro muda. `TomGrafico`: `navy`, `brass`, `settled`, `pending`, `critical`, `mist`.
+
+## Scroll
+
+Barras de rolagem finas e discretas em todo o sistema (`globals.css`, camada `base`): trilho transparente, thumb em `outline-variant` com baixa opacidade (5px no WebKit, `scrollbar-width: thin` no Firefox). Áreas com `overflow-y-auto`, `overflow-auto` ou `overflow-x-auto` usam `scroll-behavior: smooth`; respeita `prefers-reduced-motion`. Carrosséis que escondem a barra (ex.: `CardMetricRow`) mantêm `[scrollbar-width:none]`.
 
 ## Botões
 
@@ -139,7 +145,7 @@ Modo controlado: `value` + `onValueChange`.
 
 ## Badges
 
-Pill com `text-label-sm` e variantes de status/marca. Conteúdo curto (uma ou duas palavras).
+Pill com `text-body-sm` e variantes de status/marca. Use `neutral` para etiquetas informativas em listagens (bom contraste). Conteúdo curto (uma ou duas palavras).
 
 ## Tabela
 
@@ -202,6 +208,7 @@ Use `ResponsiveTable` com a tabela desktop e a variante mobile em cards. Breakpo
         </TableMobileCardHeader>
         <TableMobileFields>
           <TableMobileField label="Unidades">84</TableMobileField>
+          <TableMobileField label="Descrição" stacked>Texto longo ou badges abaixo do rótulo</TableMobileField>
         </TableMobileFields>
       </TableMobileCard>
     </TableMobileList>
@@ -211,6 +218,8 @@ Use `ResponsiveTable` com a tabela desktop e a variante mobile em cards. Breakpo
 
 Estado vazio mobile: `TableMobileEmpty` com `EmptyState`. Prop `viewport="mobile"` em `ResponsiveTable` força cards no preview do design site.
 
+`TableMobileField`: rótulo em `text-label-sm uppercase text-on-surface-variant`; valor em `text-body-md text-on-surface`. Com `stacked`, rótulo acima do valor (`gap-sm`) — use para texto longo ou badges.
+
 ## Paginação
 
 Toda listagem usa `Pagination` depois da tabela, com **20** registros por página. Não passar outro `pageSize`.
@@ -219,7 +228,7 @@ Toda listagem usa `Pagination` depois da tabela, com **20** registros por págin
 <Pagination page={page} total={total} onPageChange={setPage} />
 ```
 
-O texto mostra o intervalo visível (`1–20 de 35`). As setas, sem rótulo, ficam desabilitadas nas pontas. A página atual é o único item preenchido. Com lista vazia, a paginação não aparece.
+O texto mostra o intervalo visível (`1–20 de 35`). As setas, sem rótulo, ficam desabilitadas nas pontas. A página atual é o único item preenchido. Com lista vazia, a paginação não aparece. No mobile, intervalo e controles alinhados à direita; a partir de 768px, intervalo à esquerda e controles à direita.
 
 ## Estado vazio
 
@@ -277,7 +286,7 @@ const [open, setOpen] = useState(false);
 
 ## Sheet (cadastro lateral)
 
-Painel fixo à direita, altura total da viewport, backdrop escuro e fechamento com Escape ou clique fora (comportamento nativo do `<dialog>`). **Padrão de formulário:** `SheetForm` envolvendo cabeçalho com ícone (`SheetHeaderLead` + `SheetHeaderIcon`), corpo rolável com `FormField`, blocos em `SheetPanel`, switches em `SheetToggleRow`, textos de apoio em `SheetHelpText` e rodapé com `SheetFooterForm` (Fechar + Salvar).
+Painel fixo à direita, altura total da viewport, backdrop escuro e fechamento com Escape ou clique fora (comportamento nativo do `<dialog>`). **Padrão de formulário:** `SheetForm` envolvendo cabeçalho com ícone (`SheetHeaderLead` + `SheetHeaderIcon`), corpo rolável com `FormField`, blocos em `SheetPanel`, switches em `SheetToggleRow`, textos de apoio em `SheetHelpText` e rodapé com `SheetFooterForm` (Fechar + Salvar). No mobile, `SheetHeader` / `SheetBody` / `SheetFooter` usam `px-md`; a partir de 768px, `px-lg`. `SheetPanel` usa `px-sm` / `py-sm` no mobile. `SheetDescription` fica em **uma linha** no mobile (`line-clamp-1`); no desktop o texto completo pode ocupar várias linhas.
 
 ```tsx
 const [open, setOpen] = useState(false);
@@ -313,7 +322,7 @@ const [open, setOpen] = useState(false);
 </Sheet>
 ```
 
-Rodapé customizado: use `SheetFooter` com `Button` manualmente em vez de `SheetFooterForm`.
+Rodapé customizado: use `SheetFooter` com `Button` manualmente em vez de `SheetFooterForm`. `SheetFooter` mantém os botões em **uma linha** no mobile (`flex-nowrap`).
 
 Formulário grande (mais de 6 campos, ou mais de um bloco) divide o mesmo sheet em etapas. `FormSteps` fica no topo do `SheetBody` e só a etapa atual é renderizada. A etapa atual usa círculo `primary-container` com halo `primary-fixed` e rótulo semibold. A concluída mostra o check. A próxima fica com círculo vazado em `border-strong`. A primeira etapa usa Fechar e Continuar; as seguintes, Voltar (`onBack`) e Continuar; a última, Voltar e Salvar.
 
