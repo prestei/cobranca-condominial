@@ -13,6 +13,7 @@ Registro de entregas do **Lex Condominial — Cobrança**. Detalhes por módulo 
 
 - Migrations em `db/migrations/` (`role`, `user`); `docker-compose.yml` e scripts `npm run db:up`, `db:migrate`, `db:seed`.
 - Login e CRUD de colaboradores e cargos no PostgreSQL (`DATABASE_URL`); erros de conexão orientam migrate/seed (`src/lib/api/db-error.ts`).
+- Desenvolvimento no Windows sem Docker: `DATABASE_URL` com **`127.0.0.1`** (evita `28P01` com `localhost`/IPv6); mensagens em `db:migrate`/`db:seed` e [stack.md](stack.md).
 - Ver [stack.md](stack.md), [banco.md](banco.md), [modulos/usuarios.md](modulos/usuarios.md) e [modulos/cargos.md](modulos/cargos.md).
 
 ### Rotas e código

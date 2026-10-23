@@ -78,7 +78,7 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 | `npm run db:migrate` | Aplica SQL em `db/migrations/` (schema) |
 | `npm run db:seed` | Dados iniciais: 3 cargos + colaborador Prestei (código/senha `1234`) — ver `scripts/seed.ts` |
 
-**Windows com PostgreSQL instalado (ex.: porta 5432):** use no `.env` a senha definida na instalação, **ou** alinhe a senha local ao `.env` com PowerShell **como Administrador**: `npm run db:windows-bootstrap` (define senha `postgres` e cria o banco `cobranca_condominial`). Erro `28P01` = usuário ou senha incorretos na `DATABASE_URL`. Com Docker Desktop: `npm run db:up` e URL na porta **5433** (`.env.example`).
+**Windows com PostgreSQL instalado (ex.: porta 5432):** use no `.env` a senha do usuário `postgres` (não confundir com o login do sistema `1234` após o seed). Prefira host **`127.0.0.1`** em vez de `localhost` — no Windows o Node costuma falhar com `28P01` em `localhost` por IPv6/`pg_hba`, mesmo com senha certa no DBeaver. Opcional: PowerShell **como Administrador** `npm run db:windows-bootstrap` (senha `postgres` + banco `cobranca_condominial`). Docker (opcional): `npm run db:up` e porta **5433**.
 
 Módulos que já usam o banco: **cargos** (`/api/roles`, permissões em `proxy`/`requirePermission`) e **usuários/colaboradores** (`/api/users`, `/api/auth/login`). Demais entidades seguem em `src/lib/catalog` até migração própria.
 

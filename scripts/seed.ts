@@ -71,8 +71,8 @@ main().catch((error: unknown) => {
   if (pgError.code === "28P01") {
     console.error(
       "Falha de autenticação no PostgreSQL (senha ou usuário incorretos em DATABASE_URL).\n" +
-        "Se você usa o Postgres do Windows na porta 5432, coloque a senha real no .env.\n" +
-        "Ou suba o banco do projeto: npm run db:up (Docker na porta 5433) e use a URL do .env.example.",
+        "No Windows, use host 127.0.0.1 (não localhost) e a senha do usuário postgres no .env.\n" +
+        "Ou alinhe o Postgres local: npm run db:windows-bootstrap (Admin). Docker opcional: npm run db:up (porta 5433).",
     );
   } else {
     console.error(error);

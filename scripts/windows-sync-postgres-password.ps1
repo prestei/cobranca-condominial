@@ -1,7 +1,7 @@
 #Requires -RunAsAdministrator
 <#
   Ajusta o PostgreSQL instalado no Windows para aceitar a URL do .env de desenvolvimento:
-  postgresql://postgres:postgres@localhost:5432/cobranca_condominial
+  postgresql://postgres:postgres@127.0.0.1:5432/cobranca_condominial
 
   Uso (PowerShell como Administrador, na raiz do projeto):
     npm run db:windows-bootstrap
@@ -66,6 +66,6 @@ try {
 
 Write-Host ""
 Write-Host "Pronto. No .env use:"
-Write-Host "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/$DatabaseName"
+Write-Host "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/$DatabaseName"
 Write-Host ""
 Write-Host "Depois: npm run db:migrate && npm run db:seed"
