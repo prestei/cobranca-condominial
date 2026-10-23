@@ -26,7 +26,8 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Alert` | `alert.tsx` | Feedback inline. Variantes: `info`, `success`, `warning`, `error` (ícone Lucide por variante). |
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
-| `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. 32rem. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. | 
+| `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. padrão `max-w-sheet` (`calc(32rem + 150px)` em `@theme`); `SheetContent size="wide"` → 52rem somente quando documentado para a tela. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
+| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: cartão por área, checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados), atalhos de perfil e legenda. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |

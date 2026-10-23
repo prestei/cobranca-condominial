@@ -383,9 +383,9 @@ type ChoiceFieldProps = {
 export function CheckboxField({ label, htmlFor, description, children, className }: ChoiceFieldProps) {
   return (
     <div className={`flex flex-col gap-xs ${className ?? ""}`}>
-      <label htmlFor={htmlFor} className="inline-flex cursor-pointer items-start gap-sm">
+      <label htmlFor={htmlFor} className="inline-flex cursor-pointer items-center gap-sm">
         {children}
-        <span className="text-body-md text-on-surface">{label}</span>
+        <span className="text-body-md leading-none text-on-surface">{label}</span>
       </label>
       {description ? <p className="pl-[calc(0.875rem+var(--spacing-sm))] text-body-sm text-on-surface-variant">{description}</p> : null}
     </div>

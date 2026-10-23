@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -54,17 +54,20 @@ import {
   nomeCargo,
   registrarAuditoria,
   setUsuarios,
-  subscribeCadastros,
   type Usuario,
 } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
+import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 
-type SortKey = "nome" | "email" | "cargo";
-const formularioVazio = { cargoId: "", nome: "", telefone: "", email: "", senha: "" };
+type SortKey = "nome" | "codigo" | "email" | "cargo";
+const formularioVazio = { cargoId: "", codigo: "", nome: "", telefone: "", email: "", senha: "" };
 
 export default function UsuariosPage() {
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const usuarios = cadastros.usuarios;
   const [search, setSearch] = useState("");
   const [cargo, setCargo] = useState("todos");
@@ -78,19 +81,33 @@ export default function UsuariosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
-  const [errors, setErrors] = useState<Partial<Record<"nome" | "cargoId" | "email" | "senha", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>>>({});
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = usuarios
     .filter((item) => {
       const matchesCargo = appliedCargo === "todos" || String(item.cargoId) === appliedCargo;
-      const haystack = `${item.nome} ${item.email} ${item.telefone}`.toLocaleLowerCase("pt-BR");
+      const haystack = `${item.nome} ${item.codigo} ${item.email} ${item.telefone}`.toLocaleLowerCase("pt-BR");
       return matchesCargo && (query.length === 0 || haystack.includes(query));
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
-      const left = sortKey === "email" ? a.email : sortKey === "cargo" ? nomeCargo(a.cargoId) : a.nome;
-      const right = sortKey === "email" ? b.email : sortKey === "cargo" ? nomeCargo(b.cargoId) : b.nome;
+      const left =
+        sortKey === "email"
+          ? a.email
+          : sortKey === "cargo"
+            ? nomeCargo(a.cargoId)
+            : sortKey === "codigo"
+              ? a.codigo
+              : a.nome;
+      const right =
+        sortKey === "email"
+          ? b.email
+          : sortKey === "cargo"
+            ? nomeCargo(b.cargoId)
+            : sortKey === "codigo"
+              ? b.codigo
+              : b.nome;
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
@@ -141,7 +158,14 @@ export default function UsuariosPage() {
 
   function openEdit(item: Usuario) {
     setEditingId(item.id);
-    setForm({ cargoId: String(item.cargoId), nome: item.nome, telefone: item.telefone, email: item.email, senha: "" });
+    setForm({
+      cargoId: String(item.cargoId),
+      codigo: item.codigo,
+      nome: item.nome,
+      telefone: item.telefone,
+      email: item.email,
+      senha: "",
+    });
     setErrors({});
     setSheetOpen(true);
   }
@@ -194,20 +218,33 @@ export default function UsuariosPage() {
   }
 
   function acoes(item: Usuario) {
-    return [
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("usuarios", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("usuarios", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nome = form.nome.trim();
+    const codigo = normalizarCodigoUsuario(form.codigo);
     const email = form.email.trim();
     const senha = form.senha.trim();
-    const nextErrors: Partial<Record<"nome" | "cargoId" | "email" | "senha", string>> = {};
+    const nextErrors: Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>> = {};
 
     if (!nome) nextErrors.nome = "Informe o nome.";
+    if (!codigo) nextErrors.codigo = "Informe o código de login.";
+    else if (!codigoUsuarioValido(codigo)) {
+      nextErrors.codigo = "Use de 2 a 32 caracteres (letras, números, ponto, hífen ou sublinhado).";
+    } else if (
+      usuarios.some(
+        (item) =>
+          item.id !== editingId && normalizarCodigoUsuario(item.codigo) === codigo,
+      )
+    ) {
+      nextErrors.codigo = "Já existe um colaborador com este código.";
+    }
     if (!form.cargoId) nextErrors.cargoId = "Selecione o cargo.";
     if (!email) nextErrors.email = "Informe o e-mail de acesso.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) nextErrors.email = "Informe um e-mail válido.";
@@ -225,6 +262,7 @@ export default function UsuariosPage() {
 
     const anterior = usuarios.find((item) => item.id === editingId);
     const saved = {
+      codigo,
       cargoId: Number(form.cargoId),
       nome,
       telefone: form.telefone.trim(),
@@ -241,7 +279,7 @@ export default function UsuariosPage() {
         acao: "INSERT",
         dadosAnteriores: "",
         dadosNovos: saved.nome,
-        camposAlterados: "nome, cargo_id, email",
+        camposAlterados: "codigo, nome, cargo_id, email",
       });
       toast({ variant: "success", title: "Colaborador cadastrado" });
     } else {
@@ -252,7 +290,7 @@ export default function UsuariosPage() {
         acao: "UPDATE",
         dadosAnteriores: anterior?.nome ?? "",
         dadosNovos: saved.nome,
-        camposAlterados: senha ? "nome, cargo_id, email, senha" : "nome, cargo_id, email",
+        camposAlterados: senha ? "codigo, nome, cargo_id, email, senha" : "codigo, nome, cargo_id, email",
       });
       toast({ variant: "success", title: "Colaborador atualizado" });
     }
@@ -270,10 +308,12 @@ export default function UsuariosPage() {
           : "Ajuste a busca ou o cargo."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("usuarios", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -284,6 +324,9 @@ export default function UsuariosPage() {
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Nome
+          </TableHead>
+          <TableHead sortable sortDirection={directionFor("codigo")} onSort={() => handleSort("codigo")}>
+            Código
           </TableHead>
           <TableHead sortable sortDirection={directionFor("email")} onSort={() => handleSort("email")}>
             E-mail
@@ -297,11 +340,12 @@ export default function UsuariosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{item.nome}</TableCell>
+              <TableCell className="font-mono text-body-sm">{item.codigo}</TableCell>
               <TableCell>{item.email || "—"}</TableCell>
               <TableCell>
                 <Badge variant="secondary">{nomeCargo(item.cargoId)}</Badge>
@@ -328,6 +372,7 @@ export default function UsuariosPage() {
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <TableMobileFields>
+              <TableMobileField label="Código">{item.codigo}</TableMobileField>
               <TableMobileField label="E-mail">{item.email || "—"}</TableMobileField>
               <TableMobileField label="Cargo">
                 <Badge variant="secondary">{nomeCargo(item.cargoId)}</Badge>
@@ -345,10 +390,12 @@ export default function UsuariosPage() {
         title="Colaboradores"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Colaboradores" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("usuarios", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>
@@ -408,7 +455,7 @@ export default function UsuariosPage() {
                     {editingId === null ? "Novo colaborador" : "Editar colaborador"}
                   </SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Cada pessoa entra com o próprio login. A senha não aparece na listagem.
+                    O código é o login de cada pessoa. A senha não aparece na listagem.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -421,6 +468,15 @@ export default function UsuariosPage() {
                   value={form.nome}
                   invalid={Boolean(errors.nome)}
                   onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
+                />
+              </FormField>
+              <FormField label="Código de login" htmlFor={`${formId}-codigo`} required error={errors.codigo}>
+                <Input
+                  id={`${formId}-codigo`}
+                  value={form.codigo}
+                  invalid={Boolean(errors.codigo)}
+                  autoComplete="off"
+                  onChange={(event) => setForm((current) => ({ ...current, codigo: event.target.value }))}
                 />
               </FormField>
               <FormField label="Cargo" htmlFor={`${formId}-cargo`} required error={errors.cargoId}>

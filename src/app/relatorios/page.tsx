@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, useSyncExternalStore } from "react";
+import { Suspense, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, CalendarClock, Handshake, ArrowLeft, ArrowUpRight, Phone, Wallet } from "lucide-react";
@@ -25,6 +25,8 @@ import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow, TableExport, type TableExportFormat, type TableSortDirection } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 import {
   acimaDoLimite,
   advogados,
@@ -42,7 +44,6 @@ import {
   nomeUnidade,
   nomeUsuario,
   situacaoRetorno,
-  subscribeCadastros,
   type Atendimento,
   type Condominio,
   type Debito,
@@ -341,13 +342,14 @@ function TabelaTexto({
 
 function RelatoriosPage() {
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const router = useRouter();
   const params = useSearchParams();
   const pedidoRelatorio = params?.get("relatorio") ?? null;
   const pedidoAba = params?.get("aba");
   const relatorio = resolverRelatorio(pedidoAba, pedidoRelatorio);
   const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const [filtro, setFiltro] = useState(filtroInicial);
   const [aplicado, setAplicado] = useState(filtroInicial);
   const [pagina, setPagina] = useState(1);
@@ -1471,7 +1473,7 @@ function RelatoriosPage() {
           { label: "Relatórios", href: relatorio ? "/relatorios" : undefined },
           ...(atual ? [{ label: atual.titulo }] : []),
         ]}
-        actions={relatorio ? <TableExport onExport={aoExportar} /> : undefined}
+        actions={relatorio && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
       />
       <PageContent>
         {!relatorio ? (

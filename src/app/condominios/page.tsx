@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, DoorOpen, Eye, MapPin, Pencil, Plus, Scale, Trash2 } from "lucide-react";
@@ -58,10 +58,11 @@ import {
   getCadastros,
   registrarAuditoria,
   setCondominios,
-  subscribeCadastros,
   type Condominio,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 
 const etapasCondominio = ["Dados", "Endereço", "Observação"] as const;
 
@@ -121,10 +122,10 @@ const formularioVazio: Omit<Condominio, "id"> = {
 
 export default function CondominiosPage() {
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const router = useRouter();
   const formId = useId();
-  const condominios = useSyncExternalStore(subscribeCadastros, () => getCadastros().condominios, () => getCadastros().condominios);
-  const unidades = useSyncExternalStore(subscribeCadastros, () => getCadastros().unidades, () => getCadastros().unidades);
+  const { condominios, unidades } = useCadastros();
   const unidadesPorCondominio = new Map<number, number>();
   for (const unidade of unidades) {
     unidadesPorCondominio.set(unidade.condominioId, (unidadesPorCondominio.get(unidade.condominioId) ?? 0) + 1);
@@ -403,13 +404,17 @@ export default function CondominiosPage() {
   }
 
   function acoes(item: Condominio) {
-    return [
-      { label: "Ver detalhes", icon: Eye, onSelect: () => setDetalheId(item.id) },
-      { label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) },
-      { label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(item) },
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("condominios", "ler")) {
+      lista.push({ label: "Ver detalhes", icon: Eye, onSelect: () => setDetalheId(item.id) });
+      if (pode("unidades", "ler")) lista.push({ label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) });
+    }
+    if (pode("unidades", "criar"))
+      lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(item) });
+    if (pode("condominios", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("condominios", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -500,10 +505,12 @@ export default function CondominiosPage() {
           : "Ajuste os filtros ou cadastre um condomínio."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("condominios", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -588,10 +595,12 @@ export default function CondominiosPage() {
           title="Condomínios"
           breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
           actions={
-            <Button size="md" onClick={openCreate}>
-              <Icon icon={Plus} size="sm" />
-              Novo
-            </Button>
+            pode("condominios", "criar") ? (
+              <Button size="md" onClick={openCreate}>
+                <Icon icon={Plus} size="sm" />
+                Novo
+              </Button>
+            ) : undefined
           }
         />
         <PageContent>

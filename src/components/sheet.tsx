@@ -55,9 +55,12 @@ export function Sheet({ open, onOpenChange, children }: SheetProps) {
 
 type SheetContentProps = HTMLAttributes<HTMLDialogElement> & {
   children: ReactNode;
+  /** Padrão `max-w-sheet` (32rem + 150px); `wide` só onde a tela documentar. */
+  size?: "default" | "wide";
 };
 
-export function SheetContent({ children, className, ...props }: SheetContentProps) {
+export function SheetContent({ children, className, size = "default", ...props }: SheetContentProps) {
+  const maxWidthClass = size === "wide" ? "open:max-w-[52rem]" : "open:max-w-sheet";
   const { open, onOpenChange } = useSheetContext();
   const ref = useRef<HTMLDialogElement>(null);
   const ignoreCloseRef = useRef(false);
@@ -125,7 +128,7 @@ export function SheetContent({ children, className, ...props }: SheetContentProp
   return createPortal(
     <dialog
       ref={ref}
-      className={`open:m-0 open:ml-auto open:flex open:h-full open:max-h-none open:w-full open:max-w-[32rem] open:min-h-0 flex-col rounded-tl-xl rounded-bl-xl border border-border-subtle border-r-0 bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
+      className={`open:m-0 open:ml-auto open:flex open:h-full open:max-h-none open:w-full ${maxWidthClass} open:min-h-0 flex-col rounded-tl-xl rounded-bl-xl border border-border-subtle border-r-0 bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
       {...props}
     >
       {children}

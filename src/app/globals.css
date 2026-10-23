@@ -124,6 +124,8 @@
   --spacing-xl: 2.5rem;
   /* Larguras de conteúdo (use max-w-[24rem] ou container-*; max-w-sm/md ligam ao spacing neste tema). */
   --container-sm: 24rem;
+  /* Largura máx. do Sheet padrão (32rem + 150px). */
+  --spacing-sheet: calc(32rem + 150px);
   --spacing-control-sm: 2rem;
   --spacing-control: 2.25rem;
   --spacing-control-lg: 2.75rem;

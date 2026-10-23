@@ -41,7 +41,7 @@ Cargo do colaborador. As permissões ficam em JSON.
 | id | INT | não | PK, autoincremento | |
 | nome | VARCHAR(255) | sim | | Nome do cargo |
 | descricao | VARCHAR(255) | sim | | |
-| permissao_json | TEXT | sim | | Permissões em JSON |
+| permissao_json | TEXT | sim | | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. |
 
 ## user
 
@@ -50,6 +50,7 @@ Colaborador que opera o sistema.
 | Coluna | Tipo | Nulo | Restrição | Descrição |
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
+| codigo | VARCHAR(32) | não | único | Código de login do colaborador |
 | cargo_id | INT | sim | FK → role.id | Cargo |
 | nome | VARCHAR(255) | sim | | |
 | telefone | VARCHAR(255) | sim | | |

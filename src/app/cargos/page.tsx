@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { Pencil, Plus, Shield, Trash2 } from "lucide-react";
 import { Button } from "@/components/button";
@@ -9,7 +9,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Switch } from "@/components/input";
+import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
+import { FormField, Input } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
@@ -26,7 +27,6 @@ import {
   SheetHeaderText,
   SheetPanel,
   SheetTitle,
-  SheetToggleRow,
 } from "@/components/sheet";
 import {
   ResponsiveTable,
@@ -54,104 +54,31 @@ import {
   getCadastros,
   registrarAuditoria,
   setCargos,
-  subscribeCadastros,
   type Cargo,
 } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
+import {
+  cargoTemAlgumaPermissao,
+  parsePermissoesJson,
+  permissoesVazias,
+  resumoPermissoes,
+  serializarPermissoes,
+} from "@/lib/permissions/parse";
 
 type SortKey = "nome" | "descricao";
 
-const permissoesCargo = [
-  {
-    key: "cadastros",
-    label: "Cadastros",
-    description: "Condomínios, unidades, colaboradores e cargos.",
-  },
-  {
-    key: "atendimentos",
-    label: "Atendimentos",
-    description: "Registrar atendimentos e consultar os do dia.",
-  },
-  {
-    key: "retornos",
-    label: "Retornos",
-    description: "Ver a agenda e marcar o retorno como feito.",
-  },
-  {
-    key: "relatorios",
-    label: "Relatórios",
-    description: "Consultar relatórios da equipe e dos condomínios.",
-  },
-  {
-    key: "historico",
-    label: "Histórico",
-    description: "Consultar o histórico dos condomínios sob sua responsabilidade.",
-  },
-  {
-    key: "exportacoes",
-    label: "Exportações",
-    description: "Exportar planilhas e relatórios.",
-  },
-  {
-    key: "correcoes",
-    label: "Correções",
-    description: "Corrigir registros, com histórico da alteração.",
-  },
-  {
-    key: "auditoria",
-    label: "Auditoria",
-    description: "Ver quem alterou o quê no sistema.",
-  },
-] as const;
-
-type PermissaoKey = (typeof permissoesCargo)[number]["key"];
-
-function permissoesVazias(): Record<PermissaoKey, boolean> {
-  return {
-    cadastros: false,
-    atendimentos: false,
-    retornos: false,
-    relatorios: false,
-    historico: false,
-    exportacoes: false,
-    correcoes: false,
-    auditoria: false,
-  };
-}
-
-function lerPermissoes(json: string): Record<PermissaoKey, boolean> {
-  const flags = permissoesVazias();
-  if (!json.trim()) return flags;
-
-  try {
-    const parsed: unknown = JSON.parse(json);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return flags;
-    const record = parsed as Record<string, unknown>;
-    for (const item of permissoesCargo) flags[item.key] = record[item.key] === true;
-  } catch {
-    return flags;
-  }
-
-  return flags;
-}
-
-function gravarPermissoes(flags: Record<PermissaoKey, boolean>) {
-  const ativas = permissoesCargo.filter((item) => flags[item.key]);
-  if (ativas.length === 0) return "";
-  return JSON.stringify(Object.fromEntries(ativas.map((item) => [item.key, true])));
-}
+const formularioVazio = { nome: "", descricao: "", permissoes: permissoesVazias() };
 
 function rotuloPermissoes(json: string) {
-  const flags = lerPermissoes(json);
-  const labels = permissoesCargo.filter((item) => flags[item.key]).map((item) => item.label);
-  return labels.length > 0 ? labels.join(", ") : "";
+  return resumoPermissoes(parsePermissoesJson(json));
 }
-
-const formularioVazio = { nome: "", descricao: "", permissoes: permissoesVazias() };
 
 export default function CargosPage() {
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const cargos = cadastros.cargos;
   const [search, setSearch] = useState("");
   const [permissao, setPermissao] = useState("todas");
@@ -170,7 +97,7 @@ export default function CargosPage() {
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = cargos
     .filter((item) => {
-      const temPermissao = rotuloPermissoes(item.permissaoJson).length > 0;
+      const temPermissao = cargoTemAlgumaPermissao(parsePermissoesJson(item.permissaoJson));
       const matchesPermissao =
         appliedPermissao === "todas" ||
         (appliedPermissao === "com" && temPermissao) ||
@@ -188,7 +115,7 @@ export default function CargosPage() {
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const comPermissao = visible.filter((item) => rotuloPermissoes(item.permissaoJson).length > 0).length;
+  const comPermissao = visible.filter((item) => cargoTemAlgumaPermissao(parsePermissoesJson(item.permissaoJson))).length;
   const emUso = visible.filter((item) => cadastros.usuarios.some((usuario) => usuario.cargoId === item.id)).length;
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -232,7 +159,7 @@ export default function CargosPage() {
 
   function openEdit(item: Cargo) {
     setEditingId(item.id);
-    setForm({ nome: item.nome, descricao: item.descricao, permissoes: lerPermissoes(item.permissaoJson) });
+    setForm({ nome: item.nome, descricao: item.descricao, permissoes: parsePermissoesJson(item.permissaoJson) });
     setErrors({});
     setSheetOpen(true);
   }
@@ -241,7 +168,7 @@ export default function CargosPage() {
     const preenchido =
       form.nome.trim() !== "" ||
       form.descricao.trim() !== "" ||
-      permissoesCargo.some((item) => form.permissoes[item.key]);
+      cargoTemAlgumaPermissao(form.permissoes);
     if (preenchido) {
       setLeaveConfirmOpen(true);
       return;
@@ -283,10 +210,11 @@ export default function CargosPage() {
   }
 
   function acoes(item: Cargo) {
-    return [
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("cargos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("cargos", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -303,10 +231,19 @@ export default function CargosPage() {
       nextErrors.nome = "Já existe um cargo com este nome.";
     }
 
+    if (!cargoTemAlgumaPermissao(form.permissoes)) {
+      toast({
+        variant: "error",
+        title: "Falta marcar permissões",
+        description: "Escolha pelo menos uma opção em alguma área do sistema.",
+      });
+      return;
+    }
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const saved = { nome, descricao: form.descricao.trim(), permissaoJson: gravarPermissoes(form.permissoes) };
+    const saved = { nome, descricao: form.descricao.trim(), permissaoJson: serializarPermissoes(form.permissoes) };
 
     if (editingId === null) {
       const nextId = cargos.reduce((max, item) => Math.max(max, item.id), 0) + 1;
@@ -346,10 +283,12 @@ export default function CargosPage() {
           : "Ajuste a busca ou o filtro de permissões."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("cargos", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -412,10 +351,12 @@ export default function CargosPage() {
         title="Cargos"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Cargos" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("cargos", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>
@@ -464,7 +405,10 @@ export default function CargosPage() {
           else closeSheet();
         }}
       >
-        <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
+        <SheetContent
+          aria-labelledby={`${formId}-title`}
+          aria-describedby={`${formId}-desc`}
+        >
           <SheetForm onSubmit={handleSave}>
             <SheetHeader>
               <SheetHeaderLead>
@@ -474,52 +418,37 @@ export default function CargosPage() {
                 <SheetHeaderText>
                   <SheetTitle id={`${formId}-title`}>{editingId === null ? "Novo cargo" : "Editar cargo"}</SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    O cargo define o que administrador, atendente e advogado podem ver e alterar.
+                    Defina o nome e marque o que este cargo pode fazer no sistema.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
               <SheetClose />
             </SheetHeader>
-            <SheetBody>
-              <FormField label="Nome" htmlFor={`${formId}-nome`} required error={errors.nome}>
-                <Input
-                  id={`${formId}-nome`}
-                  value={form.nome}
-                  invalid={Boolean(errors.nome)}
-                  onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="Descrição" htmlFor={`${formId}-descricao`}>
-                <Input
-                  id={`${formId}-descricao`}
-                  value={form.descricao}
-                  onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}
-                />
-              </FormField>
-              <div className="flex flex-col gap-xs">
-                <p className="text-label-lg text-primary-container">Permissões</p>
-                <SheetPanel className="flex flex-col gap-md">
-                  {permissoesCargo.map((item) => (
-                    <SheetToggleRow
-                      key={item.key}
-                      label={item.label}
-                      htmlFor={`${formId}-${item.key}`}
-                      description={item.description}
-                    >
-                      <Switch
-                        id={`${formId}-${item.key}`}
-                        checked={form.permissoes[item.key]}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            permissoes: { ...current.permissoes, [item.key]: event.target.checked },
-                          }))
-                        }
-                      />
-                    </SheetToggleRow>
-                  ))}
-                </SheetPanel>
-              </div>
+            <SheetBody className="gap-lg">
+              <SheetPanel className="flex flex-col gap-md">
+                <FormField label="Nome do cargo" htmlFor={`${formId}-nome`} required error={errors.nome}>
+                  <Input
+                    id={`${formId}-nome`}
+                    placeholder="Ex.: Atendente, Advogado, Administrador"
+                    value={form.nome}
+                    invalid={Boolean(errors.nome)}
+                    onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
+                  />
+                </FormField>
+                <FormField label="Para que serve" htmlFor={`${formId}-descricao`}>
+                  <Input
+                    id={`${formId}-descricao`}
+                    placeholder="Ex.: Quem registra atendimentos e acompanha retornos"
+                    value={form.descricao}
+                    onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}
+                  />
+                </FormField>
+              </SheetPanel>
+              <MatrizPermissoesCargo
+                formId={formId}
+                permissoes={form.permissoes}
+                onChange={(permissoes) => setForm((current) => ({ ...current, permissoes }))}
+              />
             </SheetBody>
             <SheetFooterForm onClose={closeSheet} />
           </SheetForm>

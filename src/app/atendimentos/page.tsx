@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
@@ -67,11 +67,13 @@ import {
   registrarAuditoria,
   setAtendimentos,
   statusAtendimento,
-  subscribeCadastros,
   type Atendimento,
 } from "@/data/catalogo";
 
-const USUARIO_LOGADO = 1;
+import { useAuth } from "@/context/auth-context";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
+
 const etapas = ["Registro", "Retorno"] as const;
 const badgeStatus: Record<string, "success" | "secondary"> = { Resolvido: "success", Pendente: "secondary" };
 type SortKey = "data" | "assunto" | "status";
@@ -91,10 +93,12 @@ const formularioVazio = {
 
 export default function AtendimentosPage() {
   const { toast } = useToast();
+  const { user: sessao } = useAuth();
+  const { pode } = usePermissao();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const atendimentos = cadastros.atendimentos;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
@@ -266,10 +270,11 @@ export default function AtendimentosPage() {
   }
 
   function acoes(item: Atendimento) {
-    return [
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("atendimentos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("atendimentos", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function escolherCondominio(condominioId: string) {
@@ -312,7 +317,7 @@ export default function AtendimentosPage() {
     const saved = {
       unidadeId: form.unidadeId,
       responsavelId: form.responsavelId,
-      usuarioId: anterior?.usuarioId ?? USUARIO_LOGADO,
+      usuarioId: anterior?.usuarioId ?? sessao?.userId ?? 1,
       dataHora: anterior?.dataHora ?? agoraIso(),
       canal: form.canal,
       respondeu: form.respondeu,
@@ -362,10 +367,12 @@ export default function AtendimentosPage() {
           : "Ajuste a busca, a situação ou o canal."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("atendimentos", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -440,10 +447,12 @@ export default function AtendimentosPage() {
         title="Atendimentos"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Atendimentos" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("atendimentos", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { ScrollText } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { CardMetric } from "@/components/card-metric";
@@ -31,10 +31,9 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   acoesAuditoria,
   formatarData,
-  getCadastros,
   nomeUsuario,
-  subscribeCadastros,
 } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
 
 const rotuloEntidade: Record<string, string> = {
   role: "Cargo",
@@ -58,7 +57,7 @@ const badgeAcao: Record<string, "primary" | "secondary" | "error"> = {
 type SortKey = "data" | "entidade" | "acao";
 
 export default function AuditoriaPage() {
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const auditoria = cadastros.auditoria;
   const [search, setSearch] = useState("");
   const [entidade, setEntidade] = useState("todas");

@@ -61,3 +61,18 @@ O gerador inclui no CSS só a classe escrita por extenso no fonte. O processamen
 ## Encaixe
 
 O Next.js compila e entrega a aplicação React. O TypeScript verifica o código nessa compilação. O Tailwind, no mesmo build, transforma as classes em CSS.
+
+## Autenticação e sessão
+
+| Peça | Pacote | Função |
+| --- | --- | --- |
+| Sessão assinada | `jose` | JWT em cookie HTTP-only `lc_session` |
+| Senha | `bcryptjs` | Hash e verificação de senha de colaboradores |
+
+| Variável | Obrigatória | Descrição |
+| --- | --- | --- |
+| `AUTH_SECRET` | Produção | Segredo com pelo menos 32 caracteres para assinar a sessão. Em desenvolvimento, há fallback local documentado em `.env.example`. |
+
+Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
+
+Credenciais de demonstração usam os e-mails de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). Persistência em PostgreSQL para `user` será ligada em tarefa posterior; o login valida o catálogo em memória no servidor.

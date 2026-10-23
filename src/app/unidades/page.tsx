@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { DoorOpen, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
@@ -57,10 +57,11 @@ import {
   registrarAuditoria,
   setUnidades,
   statusUnidade,
-  subscribeCadastros,
   tiposUnidade,
   type Unidade,
 } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
 const formularioVazio = { condominioId: "", identificacao: "", bloco: "", tipo: "", status: "Ativa" };
@@ -69,10 +70,11 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 
 export default function UnidadesPage() {
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const unidades = cadastros.unidades;
   const [search, setSearch] = useState("");
   const [condominio, setCondominio] = useState("todos");
@@ -275,10 +277,11 @@ export default function UnidadesPage() {
   }
 
   function acoes(item: Unidade) {
-    return [
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("unidades", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("unidades", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -349,10 +352,12 @@ export default function UnidadesPage() {
           : "Ajuste a busca, o condomínio, a situação ou o débito."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("unidades", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -434,10 +439,12 @@ export default function UnidadesPage() {
         title="Unidades"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Unidades" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("unidades", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>

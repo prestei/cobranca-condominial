@@ -95,12 +95,14 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | unidades | `/unidades` | `unidades/page.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo` | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos |
 | importacoes | `/importacoes` | `importacoes/page.tsx` | [importacoes.md](modulos/importacoes.md) | `Importacao` | `import` | integracao-superlogica, debitos, unidades |
 | relatorios | `/relatorios` | `relatorios/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
-| usuarios | `/usuarios` | `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | `Usuario` | `user` | cargos, atendimentos, auditoria |
-| cargos | `/cargos` | `cargos/page.tsx` | [cargos.md](modulos/cargos.md) | `Cargo` | `role` | usuarios, regra-negocio (permissões) |
+| usuarios | `/login`, `/usuarios` | `login/page.tsx`, `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | `Usuario`; sessão `useAuth` | `user` | cargos, atendimentos, auditoria |
+| cargos | `/cargos`, `/acesso-negado` | `cargos/page.tsx`, `lib/permissions/*`, `middleware.ts` | [cargos.md](modulos/cargos.md) | `Cargo` | `role` | usuarios, regra-negocio (permissões), todas as rotas autenticadas |
 | auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` | todos os módulos com mutação |
 | integracao-superlogica | — | (a definir em `src/lib` / API) | [integracao-superlogica.md](modulos/integracao-superlogica.md) | `origensDebito` | `debt`, `import` | importacoes, debitos |
 
 **Shell de navegação:** menu lateral em `src/components/workspace-shell.tsx` (rotas acima).
+
+**Autenticação:** `src/proxy.ts`, `src/lib/auth/*`, `src/app/api/auth/*`, `src/context/auth-context.tsx`. Rotas da aplicação exigem cookie `lc_session`, exceto `/login` e `/api/auth/*`.
 
 **Estado em memória (protótipo):** `getCadastros` / `set*` em `src/data/catalogo.ts` — substituir por API/PostgreSQL conforme [stack.md](stack.md) e skill `make-functional`.
 

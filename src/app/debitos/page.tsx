@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
@@ -69,9 +69,10 @@ import {
   registrarAuditoria,
   setDebitos,
   statusDebito,
-  subscribeCadastros,
   type Debito,
 } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 
 const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
 const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
@@ -133,8 +134,9 @@ const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 export default function DebitosPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { pode } = usePermissao();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const debitos = cadastros.debitos;
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState(periodoTodos);
@@ -364,11 +366,13 @@ export default function DebitosPage() {
   }
 
   function acoes(item: Debito) {
-    return [
-      { label: "Iniciar atendimento", icon: ClipboardList, onSelect: () => iniciarAtendimento(item) },
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("atendimentos", "criar"))
+      lista.push({ label: "Iniciar atendimento", icon: ClipboardList, onSelect: () => iniciarAtendimento(item) });
+    if (pode("debitos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("debitos", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -497,10 +501,12 @@ export default function DebitosPage() {
           : "Ajuste a busca ou os filtros."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("debitos", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -612,10 +618,12 @@ export default function DebitosPage() {
         description="Débitos em aberto na data-base, com valor original, valor atualizado e o corte entre a fase amigável e o jurídico."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Inadimplência" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("debitos", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>

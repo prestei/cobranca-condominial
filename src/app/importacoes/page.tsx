@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -50,6 +50,9 @@ import {
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { useAuth } from "@/context/auth-context";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 import {
   agoraIso,
   formatarData,
@@ -58,12 +61,10 @@ import {
   registrarAuditoria,
   setImportacoes,
   statusImportacao,
-  subscribeCadastros,
   tiposImportacao,
   type Importacao,
 } from "@/data/catalogo";
 
-const USUARIO_LOGADO = 1;
 const etapas = ["Arquivo", "Resultado"] as const;
 const rotuloTipo: Record<string, string> = { debitos: "Débitos", responsaveis: "Responsáveis", unidades: "Unidades" };
 const rotuloStatus: Record<string, string> = { Processando: "Processando", Concluida: "Concluída", Erro: "Erro", Cancelada: "Cancelada" };
@@ -89,8 +90,10 @@ const formularioVazio = {
 
 export default function ImportacoesPage() {
   const { toast } = useToast();
+  const { user: sessao } = useAuth();
+  const { pode } = usePermissao();
   const formId = useId();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
+  const cadastros = useCadastros();
   const importacoes = cadastros.importacoes;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
@@ -225,10 +228,11 @@ export default function ImportacoesPage() {
   }
 
   function acoes(item: Importacao) {
-    return [
-      { label: "Editar", icon: Pencil, onSelect: () => openEdit(item) },
-      { label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) },
-    ];
+    const lista = [];
+    if (pode("importacoes", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("importacoes", "excluir"))
+      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -270,7 +274,7 @@ export default function ImportacoesPage() {
       quantidadeAtualizados: form.quantidadeAtualizados.trim(),
       quantidadeErros: form.quantidadeErros.trim(),
       observacaoInterna: form.observacaoInterna.trim(),
-      usuarioId: anterior?.usuarioId ?? USUARIO_LOGADO,
+      usuarioId: anterior?.usuarioId ?? sessao?.userId ?? 1,
       dataImportacao: anterior?.dataImportacao ?? agoraIso(),
     };
 
@@ -312,10 +316,12 @@ export default function ImportacoesPage() {
           : "Ajuste a busca, o tipo ou a situação."
       }
       action={
-        <Button size="sm" onClick={openCreate}>
-          <Icon icon={Plus} size="sm" />
-          Novo
-        </Button>
+        pode("importacoes", "criar") ? (
+          <Button size="sm" onClick={openCreate}>
+            <Icon icon={Plus} size="sm" />
+            Novo
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -392,10 +398,12 @@ export default function ImportacoesPage() {
         title="Importações"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Importações" }]}
         actions={
-          <Button size="md" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
+          pode("importacoes", "criar") ? (
+            <Button size="md" onClick={openCreate}>
+              <Icon icon={Plus} size="sm" />
+              Novo
+            </Button>
+          ) : undefined
         }
       />
       <PageContent>

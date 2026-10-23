@@ -14,6 +14,12 @@ Palitagem e painel de inadimplência são **um único sistema**. Compartilham co
 
 Automatiza e organiza o processo do escritório de advocacia responsável pela cobrança extrajudicial/judicial de proprietários de imóveis inadimplentes de um grupo de **35 condomínios** atendidos pelo escritório. O objetivo principal é ter **controle e rastreabilidade** sobre todo o fluxo de cobrança, levantar dados de atendimentos e gerar relatórios completos com dados externos e internos.
 
+### Acesso e sessão
+
+- Cada colaborador entra com **código e senha** próprios (`/login`).
+- A sessão é mantida em cookie HTTP-only assinado no servidor (7 dias); sem sessão válida, as telas internas redirecionam para o login.
+- Atendimentos, importações e auditoria registram o **ID do colaborador logado**, não um atendente escolhido na tela.
+
 ### Quem vai usar o sistema?
 
 O sistema é voltado para colaboradores do escritório, divididos por permissões:
@@ -103,8 +109,8 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 ### Colaboradores e permissões
 
 - Cadastro de colaboradores
-- Cargos e permissões
-- Controle de acesso
+- Cargos e permissões configuráveis pelo administrador: para cada módulo do sistema, o cargo define se pode **ver**, **criar**, **editar**, **excluir** e, em relatórios, **exportar** (matriz em `/cargos`, persistida em `role.permissao_json`).
+- Controle de acesso: menu e rotas respeitam permissão de **ver**; botões de mutação respeitam criar/editar/excluir/exportar. Sem permissão de ver → página `/acesso-negado`.
 
 ### Condomínios e unidades
 

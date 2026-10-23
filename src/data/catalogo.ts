@@ -1,3 +1,11 @@
+import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
+import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
+import {
+  PERMISSAO_JSON_ADMIN,
+  PERMISSAO_JSON_ADVOGADO,
+  PERMISSAO_JSON_ATENDENTE,
+} from "@/lib/permissions/seeds";
+
 export const advogados = ["Dra. Thamires", "Dra. Jullyane", "Dr. João"] as const;
 
 const carteiraInicial: Array<[string, (typeof advogados)[number]]> = [
@@ -61,6 +69,8 @@ export type Cargo = {
 
 export type Usuario = {
   id: number;
+  /** Código único de login do colaborador. */
+  codigo: string;
   cargoId: number;
   nome: string;
   telefone: string;
@@ -233,28 +243,40 @@ const cargosIniciais: Cargo[] = [
     id: 1,
     nome: "Administrador",
     descricao: "Cadastros, relatórios, exportações e correção de registros.",
-    permissaoJson: '{"cadastros":true,"relatorios":true,"exportacoes":true,"correcoes":true,"auditoria":true}',
+    permissaoJson: PERMISSAO_JSON_ADMIN,
   },
   {
     id: 2,
     nome: "Atendente",
     descricao: "Registra atendimentos e acompanha os próprios retornos.",
-    permissaoJson: '{"atendimentos":true,"retornos":true}',
+    permissaoJson: PERMISSAO_JSON_ATENDENTE,
   },
   {
     id: 3,
     nome: "Advogado",
     descricao: "Consulta relatórios e o histórico dos condomínios sob sua responsabilidade.",
-    permissaoJson: '{"relatorios":true,"historico":true}',
+    permissaoJson: PERMISSAO_JSON_ADVOGADO,
   },
 ];
 
+const SENHA_INICIAL_HASH = "$2b$12$Vjl2iG9BDuemM0yhRw2tQ.EwY0epCeoUKK9TgELg6WEXtKGRmyX4S";
+const SENHA_TESTE_HASH = "$2b$12$79G7TsCmJPX.XAaF/1ZFhOMIKJqHlRvpuhKbV5WqrQObVCx.2SBAe";
+
 const usuariosIniciais: Usuario[] = [
-  { id: 1, cargoId: 1, nome: "Milena", telefone: "71999990001", email: "milena@escritorio.example", senha: "definida" },
-  { id: 2, cargoId: 2, nome: "Raquel", telefone: "71999990002", email: "raquel@escritorio.example", senha: "definida" },
-  { id: 3, cargoId: 2, nome: "Tássia", telefone: "71999990003", email: "tassia@escritorio.example", senha: "definida" },
-  { id: 4, cargoId: 2, nome: "Atendente 3", telefone: "", email: "atendente3@escritorio.example", senha: "definida" },
-  { id: 5, cargoId: 3, nome: "Dra. Adryelle", telefone: "71999990005", email: "adryelle@escritorio.example", senha: "definida" },
+  { id: 1, codigo: "MILENA", cargoId: 1, nome: "Milena", telefone: "71999990001", email: "milena@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 2, codigo: "RAQUEL", cargoId: 2, nome: "Raquel", telefone: "71999990002", email: "raquel@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 3, codigo: "TASSIA", cargoId: 2, nome: "Tássia", telefone: "71999990003", email: "tassia@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 4, codigo: "ATD003", cargoId: 2, nome: "Atendente 3", telefone: "", email: "atendente3@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 5, codigo: "ADRYELLE", cargoId: 3, nome: "Dra. Adryelle", telefone: "71999990005", email: "adryelle@escritorio.example", senha: SENHA_INICIAL_HASH },
+  {
+    id: 6,
+    codigo: "12345",
+    cargoId: 1,
+    nome: "Usuário Teste",
+    telefone: "",
+    email: "teste@escritorio.example",
+    senha: SENHA_TESTE_HASH,
+  },
 ];
 
 const unidadesIniciais: Unidade[] = [
@@ -667,13 +689,50 @@ export function subscribeCadastros(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+function usuariosComSeed() {
+  const map = new Map(state.usuarios.map((item) => [item.id, item]));
+  for (const seed of usuariosIniciais) {
+    if (!map.has(seed.id)) {
+      map.set(seed.id, seed);
+    }
+  }
+  return [...map.values()].sort((a, b) => a.id - b.id);
+}
+
+function montarCadastros(): Cadastros {
+  return { ...state, usuarios: usuariosComSeed() };
+}
+
+/** Referência estável para SSR/hidratação (`useSyncExternalStore`). */
+export const cadastrosServerSnapshot: Cadastros = montarCadastros();
+
+let cadastrosClientSnapshot: Cadastros = cadastrosServerSnapshot;
+
+function atualizarCadastrosSnapshot() {
+  cadastrosClientSnapshot = montarCadastros();
+}
+
 export function getCadastros() {
-  return state;
+  return cadastrosClientSnapshot;
+}
+
+export function getCadastrosServerSnapshot() {
+  return cadastrosServerSnapshot;
+}
+
+/** Login: seed do servidor tem precedência (senha bcrypt correta no deploy / após alteração do seed). */
+export function buscarUsuarioPorCodigoLogin(codigo: string) {
+  const chave = normalizarCodigoUsuario(codigo);
+  if (!chave) return undefined;
+  const seed = usuariosIniciais.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  if (seed) return seed;
+  return state.usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
   const value = typeof next === "function" ? next(state[key]) : next;
   state = { ...state, [key]: value };
+  atualizarCadastrosSnapshot();
   emit();
 }
 
@@ -716,7 +775,7 @@ export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => 
 export function registrarAuditoria(entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados">) {
   const registro: Auditoria = {
     id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
-    usuarioId: "1",
+    usuarioId: String(getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
     ip: "",
     userAgent: "",
     dataHora: agoraIso(),
@@ -753,7 +812,7 @@ export function hojeIso() {
   return agoraIso().slice(0, 10);
 }
 
-/** Usuário do login simulado até existir autenticação real. */
+/** @deprecated Use o ID da sessão autenticada (`useAuth` / `getUsuarioLogadoId`). */
 export const ID_USUARIO_SESSAO = 1;
 
 export function saudacaoDoDia(agora = new Date()) {
@@ -781,8 +840,9 @@ export function tituloInicio(nomeCompleto: string, agora = new Date()) {
   return `${saudacaoDoDia(agora)}, ${primeiroNome(nomeCompleto)}`;
 }
 
-export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }) {
-  const usuario = cadastros.usuarios.find((item) => item.id === ID_USUARIO_SESSAO) ?? cadastros.usuarios[0];
+export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }, userId?: number) {
+  const sessaoId = userId ?? ID_USUARIO_SESSAO;
+  const usuario = cadastros.usuarios.find((item) => item.id === sessaoId) ?? cadastros.usuarios[0];
   if (!usuario) {
     return { name: "—", initials: "—", menuSubtitle: "" };
   }

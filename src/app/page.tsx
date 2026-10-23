@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -38,6 +38,8 @@ import {
   TableRow,
 } from "@/components/table";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { useAuth } from "@/context/auth-context";
+import { useCadastros } from "@/hooks/use-cadastros";
 import {
   acimaDoLimite,
   advogados,
@@ -45,7 +47,6 @@ import {
   diasDeAtraso,
   faixasAtraso,
   formatarData,
-  getCadastros,
   grupoDebito,
   gruposDebito,
   hojeIso,
@@ -54,7 +55,6 @@ import {
   nomeUsuario,
   retornoPendente,
   situacaoRetorno,
-  subscribeCadastros,
   tituloInicio,
   usuarioSessaoApp,
 } from "@/data/catalogo";
@@ -161,8 +161,9 @@ function diaCurto(iso: string) {
 
 export default function HomePage() {
   const router = useRouter();
-  const cadastros = useSyncExternalStore(subscribeCadastros, getCadastros, getCadastros);
-  const usuario = usuarioSessaoApp(cadastros);
+  const { user: sessao } = useAuth();
+  const cadastros = useCadastros();
+  const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
   const hoje = hojeIso();
   const dataBase = hoje;
   const chave = `home|${dataBase}`;

@@ -40,6 +40,7 @@ type AppShellProps = {
   children: ReactNode;
   user?: AppShellUser;
   notificationCount?: number;
+  onLogout?: () => void;
   className?: string;
 };
 
@@ -48,6 +49,7 @@ export function AppShell({
   children,
   user,
   notificationCount = 0,
+  onLogout,
   className,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -130,6 +132,7 @@ export function AppShell({
             notificationCount={notificationCount}
             notifOpen={notifOpen}
             userOpen={userOpen}
+            onLogout={onLogout}
             onToggleSidebar={toggleMobileNav}
             toggleLabel={toggleLabel}
             onToggleNotif={() => {
@@ -297,6 +300,7 @@ type AppShellHeaderProps = {
   notifOpen: boolean;
   userOpen: boolean;
   toggleLabel: string;
+  onLogout?: () => void;
   onToggleSidebar: () => void;
   onToggleNotif: () => void;
   onToggleUser: () => void;
@@ -308,6 +312,7 @@ function AppShellHeader({
   notifOpen,
   userOpen,
   toggleLabel,
+  onLogout,
   onToggleSidebar,
   onToggleNotif,
   onToggleUser,
@@ -408,9 +413,17 @@ function AppShellHeader({
                 <AppShellMenuLink href="#">Meu perfil</AppShellMenuLink>
                 <AppShellMenuLink href="#">Preferências</AppShellMenuLink>
                 <AppShellMenuLink href="#">Ajuda e suporte</AppShellMenuLink>
-                <AppShellMenuLink href="#" className="border-t border-[#EEF1F6] font-semibold text-status-critical">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex min-h-11 w-full items-center border-t border-[#EEF1F6] px-md text-left text-[15px] font-semibold text-status-critical hover:bg-[#F3F6FA] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass"
+                  onClick={() => {
+                    onToggleUser();
+                    onLogout?.();
+                  }}
+                >
                   Sair
-                </AppShellMenuLink>
+                </button>
               </div>
             ) : null}
           </div>
