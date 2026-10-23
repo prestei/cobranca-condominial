@@ -431,11 +431,11 @@ export default function CondominiosPage() {
   }
 
   function verUnidades(item: Condominio) {
-    router.push(`/units?condominio=${item.id}`);
+    router.push(`/unidades?condominio=${item.id}`);
   }
 
   function adicionarUnidade(item: Condominio) {
-    router.push(`/units?condominio=${item.id}&novo=1`);
+    router.push(`/unidades?condominio=${item.id}&novo=1`);
   }
 
   function acoes(item: Condominio) {

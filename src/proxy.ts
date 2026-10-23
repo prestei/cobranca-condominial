@@ -6,7 +6,7 @@ import { moduloDaRota } from "@/lib/permissions/modulos";
 import { podeAcessarRota } from "@/lib/permissions/check";
 import { permissoesDaSessao } from "@/lib/roles/server-permissions";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/access-denied"];
+const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/acesso-negado"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
@@ -51,12 +51,12 @@ export async function proxy(request: NextRequest) {
   try {
     permissoes = await permissoesDaSessao(session);
   } catch {
-    const destino = new URL("/access-denied", request.url);
+    const destino = new URL("/acesso-negado", request.url);
     destino.searchParams.set("modulo", modulo);
     return NextResponse.redirect(destino);
   }
   if (!podeAcessarRota(permissoes, modulo)) {
-    const destino = new URL("/access-denied", request.url);
+    const destino = new URL("/acesso-negado", request.url);
     destino.searchParams.set("modulo", modulo);
     if (pathname !== "/") {
       destino.searchParams.set("from", pathname);

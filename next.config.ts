@@ -1,16 +1,17 @@
 import type { NextConfig } from "next";
 
+/** URLs antigas em inglês → rotas em português. */
 const legacyRedirects = [
-  ["/acesso-negado", "/access-denied"],
-  ["/atendimentos", "/service-tickets"],
-  ["/auditoria", "/audit"],
-  ["/cargos", "/roles"],
-  ["/condominios", "/condominiums"],
-  ["/debitos", "/debts"],
-  ["/importacoes", "/imports"],
-  ["/relatorios", "/reports"],
-  ["/unidades", "/units"],
-  ["/usuarios", "/users"],
+  ["/access-denied", "/acesso-negado"],
+  ["/service-tickets", "/atendimentos"],
+  ["/audit", "/auditoria"],
+  ["/roles", "/cargos"],
+  ["/condominiums", "/condominios"],
+  ["/debts", "/debitos"],
+  ["/imports", "/importacoes"],
+  ["/reports", "/relatorios"],
+  ["/units", "/unidades"],
+  ["/users", "/usuarios"],
 ] as const;
 
 const nextConfig: NextConfig = {

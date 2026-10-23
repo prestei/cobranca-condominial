@@ -4,8 +4,13 @@ Registro de entregas do **Lex Condominial — Cobrança**. Detalhes por módulo 
 
 ## Em desenvolvimento
 
-- Persistência PostgreSQL para cadastros além de cargos e colaboradores (demais entidades ainda em `src/lib/catalog`).
+- Persistência PostgreSQL para cadastros além de cargos, colaboradores e unidades (demais entidades ainda em `src/lib/catalog`).
 - Exportação CSV/XLS/PDF com geração real de arquivos nas listagens que ainda não implementam `onExport` (referência em condomínios).
+
+## 2026-10-23 — Rotas em português e PostgreSQL local
+
+- Rotas de app em português (`/condominios`, `/unidades`, `/usuarios`, …); URLs antigas em inglês redirecionam via `next.config.ts`. Mapa atualizado em [mapa-do-projeto.md](mapa-do-projeto.md).
+- Removido suporte a Docker no repositório; desenvolvimento com PostgreSQL local (`DATABASE_URL`, `db:migrate`, `db:seed`) — [stack.md](stack.md).
 
 ## 2026-10-23 — Skill make-functional e login
 
@@ -16,9 +21,9 @@ Registro de entregas do **Lex Condominial — Cobrança**. Detalhes por módulo 
 
 ### Banco e autenticação
 
-- Migrations em `db/migrations/` (`role`, `user`); `docker-compose.yml` e scripts `npm run db:up`, `db:migrate`, `db:seed`.
+- Migrations em `db/migrations/` (`role`, `user`); scripts `npm run db:migrate`, `db:seed` e `db:windows-bootstrap`.
 - Login e CRUD de colaboradores e cargos no PostgreSQL (`DATABASE_URL`); erros de conexão orientam migrate/seed (`src/lib/api/db-error.ts`).
-- Desenvolvimento no Windows sem Docker: `DATABASE_URL` com **`127.0.0.1`** (evita `28P01` com `localhost`/IPv6); mensagens em `db:migrate`/`db:seed` e [stack.md](stack.md).
+- Windows: `DATABASE_URL` com **`127.0.0.1`** (evita `28P01` com `localhost`/IPv6); mensagens em `db:migrate`/`db:seed` e [stack.md](stack.md).
 - Ver [stack.md](stack.md), [banco.md](banco.md), [modulos/usuarios.md](modulos/usuarios.md) e [modulos/cargos.md](modulos/cargos.md).
 
 ### Rotas e código

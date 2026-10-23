@@ -147,7 +147,7 @@ function AtendimentosPageContent() {
     setErrors({});
     setStep(0);
     setSheetOpen(true);
-    router.replace("/service-tickets");
+    router.replace("/atendimentos");
   }, [router, searchParams]);
 
   useEffect(() => {

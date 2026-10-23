@@ -38,28 +38,28 @@ const secoes: Array<{
     title: "Cobrança",
     links: [
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
-      { href: "/service-tickets", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
-      { href: "/debts", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
+      { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
+      { href: "/debitos", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
     ],
   },
   {
     title: "Carteira",
     links: [
-      { href: "/condominiums", label: "Condomínios", icon: Building2, modulo: "condominios" },
-      { href: "/units", label: "Unidades", icon: DoorOpen, modulo: "unidades" },
+      { href: "/condominios", label: "Condomínios", icon: Building2, modulo: "condominios" },
+      { href: "/unidades", label: "Unidades", icon: DoorOpen, modulo: "unidades" },
     ],
   },
   {
     title: "Análise",
-    links: [{ href: "/reports", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
+    links: [{ href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
   },
   {
     title: "Operação",
     links: [
-      { href: "/imports", label: "Importações", icon: FileUp, modulo: "importacoes" },
-      { href: "/users", label: "Colaboradores", icon: UserRound, modulo: "usuarios" },
-      { href: "/roles", label: "Cargos", icon: Shield, modulo: "cargos" },
-      { href: "/audit", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },
+      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
+      { href: "/usuarios", label: "Colaboradores", icon: UserRound, modulo: "usuarios" },
+      { href: "/cargos", label: "Cargos", icon: Shield, modulo: "cargos" },
+      { href: "/auditoria", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },
     ],
   },
 ];

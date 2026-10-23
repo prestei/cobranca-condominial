@@ -20,7 +20,7 @@ $DevPassword = "postgres"
 $DatabaseName = "cobranca_condominial"
 
 if (-not (Test-Path $Psql)) {
-  Write-Error "psql não encontrado em $Psql. Ajuste a versão do PostgreSQL no script ou use Docker (npm run db:up)."
+  Write-Error "psql não encontrado em $Psql. Ajuste a versão do PostgreSQL no script ou instale o PostgreSQL no Windows."
 }
 
 if (-not (Test-Path $HbaPath)) {

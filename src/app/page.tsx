@@ -313,9 +313,9 @@ export default function HomePage() {
           selo="Carteira"
           titulo="Inadimplência"
           descricao={`Situação de ${formatarData(dataBase)}.`}
-          href="/reports?relatorio=carteira"
+          href="/relatorios?relatorio=carteira"
           linkLabel="Mais detalhes"
-          onLink={() => router.push("/reports?relatorio=carteira")}
+          onLink={() => router.push("/relatorios?relatorio=carteira")}
         >
           <CardMetricRow aria-label="Resumo de inadimplência" desktopCols={3}>
             <CardMetric
@@ -436,9 +436,9 @@ export default function HomePage() {
           selo="Equipe"
           titulo="Últimos 7 dias"
           descricao={`De ${formatarData(operacao.periodo.inicio)} a ${formatarData(operacao.periodo.fim)}.`}
-          href="/reports?relatorio=equipe"
+          href="/relatorios?relatorio=equipe"
           linkLabel="Mais detalhes"
-          onLink={() => router.push("/reports?relatorio=equipe")}
+          onLink={() => router.push("/relatorios?relatorio=equipe")}
         >
           <CardMetricRow aria-label="Resumo da equipe" desktopCols={2}>
             <CardMetric
@@ -498,9 +498,9 @@ export default function HomePage() {
           selo="Agenda"
           titulo="Retornos da equipe"
           descricao="O que precisa fazer ligação de novo."
-          href="/service-tickets"
+          href="/atendimentos"
           linkLabel="Abrir lista"
-          onLink={() => router.push("/service-tickets")}
+          onLink={() => router.push("/atendimentos")}
         >
           <div className="overflow-hidden rounded-lg border border-border-subtle">
             <Table aria-label="Retornos agendados">

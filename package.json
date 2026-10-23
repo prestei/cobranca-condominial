@@ -7,9 +7,6 @@
     "build": "next build",
     "start": "next start",
     "modelo": "vite",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f db",
     "db:windows-bootstrap": "powershell -ExecutionPolicy Bypass -File scripts/windows-sync-postgres-password.ps1",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts"

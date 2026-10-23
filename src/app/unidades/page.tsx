@@ -208,7 +208,7 @@ function UnidadesPageContent() {
     setErrors({});
     setErrorsResponsavel({});
     setSheetOpen(true);
-    router.replace(`/units?condominio=${condominioQuery}`);
+    router.replace(`/unidades?condominio=${condominioQuery}`);
   }, [router, searchParams, user?.userId]);
 
   const debitosAbertos = new Map<number, number>();

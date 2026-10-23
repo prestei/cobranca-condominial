@@ -72,7 +72,7 @@ main().catch((error: unknown) => {
     console.error(
       "Falha de autenticação no PostgreSQL (senha ou usuário incorretos em DATABASE_URL).\n" +
         "No Windows, use host 127.0.0.1 (não localhost) e a senha do usuário postgres no .env.\n" +
-        "Ou alinhe o Postgres local: npm run db:windows-bootstrap (Admin). Docker opcional: npm run db:up (porta 5433).",
+        "Ou alinhe o Postgres local: npm run db:windows-bootstrap (PowerShell como Administrador).",
     );
   } else {
     console.error(error);

@@ -89,15 +89,15 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | Slug | Rota | Tela (`src/app`) | Doc módulo | Estado cliente (`src/lib/catalog`) | Tabelas (`docs/banco.md`) | Módulos relacionados |
 | --- | --- | --- | --- | --- | --- | --- |
 | dashboard | `/` | `page.tsx` | [dashboard.md](modulos/dashboard.md) | agregados de várias entidades | — | atendimentos, debitos, relatorios |
-| atendimentos | `/service-tickets` | `service-tickets/page.tsx` | [atendimentos.md](modulos/atendimentos.md) | `Atendimento` | `service_ticket`, `user`, `unit` | condominios, unidades, debitos, usuarios |
-| debitos | `/debts` | `debts/page.tsx` | [debitos.md](modulos/debitos.md) | `Debito` | `debt`, `unit`, `condominium` | unidades, importacoes, atendimentos, relatorios |
-| condominios | `/condominiums` | `condominiums/page.tsx` | [condominios.md](modulos/condominios.md) | `Condominio` | `condominium` | unidades, debitos, atendimentos |
-| unidades | `/units` | `units/page.tsx`, `components/unidade-detalhe-sheet.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo`; sync via API | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos, auditoria; API `/api/unidades` |
-| importacoes | `/imports` | `imports/page.tsx` | [importacoes.md](modulos/importacoes.md) | `Importacao` | `import` | integracao-superlogica, debitos, unidades |
-| relatorios | `/reports` | `reports/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
-| usuarios | `/login`, `/users` | `login/page.tsx`, `users/page.tsx` | [usuarios.md](modulos/usuarios.md) | cache em `catalog` (sem senha); API `/api/users`, `/api/auth/login` | `user`, `role` | cargos, atendimentos, auditoria |
-| cargos | `/roles`, `/access-denied` | `roles/page.tsx`, `lib/roles/*`, `lib/permissions/*`, `proxy.ts` | [cargos.md](modulos/cargos.md) | API `/api/roles`; cache `Cargo` no cliente | `role` | usuarios, regra-negocio (permissões), todas as rotas autenticadas |
-| auditoria | `/audit` | `audit/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` | todos os módulos com mutação |
+| atendimentos | `/atendimentos` | `atendimentos/page.tsx` | [atendimentos.md](modulos/atendimentos.md) | `Atendimento` | `service_ticket`, `user`, `unit` | condominios, unidades, debitos, usuarios |
+| debitos | `/debitos` | `debitos/page.tsx` | [debitos.md](modulos/debitos.md) | `Debito` | `debt`, `unit`, `condominium` | unidades, importacoes, atendimentos, relatorios |
+| condominios | `/condominios` | `condominios/page.tsx` | [condominios.md](modulos/condominios.md) | `Condominio` | `condominium` | unidades, debitos, atendimentos |
+| unidades | `/unidades` | `unidades/page.tsx`, `components/unidade-detalhe-sheet.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo`; sync via API | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos, auditoria; API `/api/unidades` |
+| importacoes | `/importacoes` | `importacoes/page.tsx` | [importacoes.md](modulos/importacoes.md) | `Importacao` | `import` | integracao-superlogica, debitos, unidades |
+| relatorios | `/relatorios` | `relatorios/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
+| usuarios | `/login`, `/usuarios` | `login/page.tsx`, `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | cache em `catalog` (sem senha); API `/api/users`, `/api/auth/login` | `user`, `role` | cargos, atendimentos, auditoria |
+| cargos | `/cargos`, `/acesso-negado` | `cargos/page.tsx`, `lib/roles/*`, `lib/permissions/*`, `proxy.ts` | [cargos.md](modulos/cargos.md) | API `/api/roles`; cache `Cargo` no cliente | `role` | usuarios, regra-negocio (permissões), todas as rotas autenticadas |
+| auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` | todos os módulos com mutação |
 | integracao-superlogica | — | (a definir em `src/lib` / API) | [integracao-superlogica.md](modulos/integracao-superlogica.md) | `origensDebito` | `debt`, `import` | importacoes, debitos |
 
 **Shell de navegação:** menu lateral em `src/components/workspace-shell.tsx` (rotas acima).
@@ -106,7 +106,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 
 **Estado em memória (protótipo):** `getCadastros` / `set*` em `src/lib/catalog` — substituir por API/PostgreSQL conforme [stack.md](stack.md) e skill `make-functional`.
 
-**URLs legadas em português:** redirecionam para as rotas em inglês via `next.config.ts` (ex.: `/usuarios` → `/users`).
+**URLs legadas em inglês:** redirecionam para as rotas em português via `next.config.ts` (ex.: `/users` → `/usuarios`).
 
 ---
 

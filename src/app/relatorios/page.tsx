@@ -363,12 +363,12 @@ function RelatoriosPage() {
 
   function abrirRelatorio(id: RelatorioId) {
     setPagina(1);
-    router.push(`/reports?relatorio=${id}`);
+    router.push(`/relatorios?relatorio=${id}`);
   }
 
   function voltarHub() {
     setPagina(1);
-    router.push("/reports");
+    router.push("/relatorios");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -1485,7 +1485,7 @@ function RelatoriosPage() {
         }
         breadcrumbs={[
           { label: "Início", href: "/" },
-          { label: "Relatórios", href: relatorio ? "/reports" : undefined },
+          { label: "Relatórios", href: relatorio ? "/relatorios" : undefined },
           ...(atual ? [{ label: atual.titulo }] : []),
         ]}
         actions={relatorio && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}

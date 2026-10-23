@@ -382,7 +382,7 @@ function DebitosPageContent() {
       condominio: String(item.condominioId),
       unidade: String(item.unidadeId),
     });
-    router.push(`/service-tickets?${params.toString()}`);
+    router.push(`/atendimentos?${params.toString()}`);
   }
 
   function acoes(item: Debito) {
