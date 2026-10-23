@@ -23,46 +23,39 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <section
-      className={`border-b border-[#E3E8EF] bg-surface-card px-md py-lg min-[768px]:px-8 min-[768px]:pb-[22px] min-[768px]:pt-5 ${className ?? ""}`}
+      className={`px-md py-md min-[768px]:px-8 ${className ?? ""}`}
     >
-      {breadcrumbs && breadcrumbs.length > 0 ? (
-        <nav aria-label="Breadcrumb">
-          <p className="text-body-md text-[#1B2A41]">
-            {breadcrumbs.map((item, index) => {
-              const isLast = index === breadcrumbs.length - 1;
+      <div className="flex flex-col gap-md min-[768px]:flex-row min-[768px]:items-end min-[768px]:justify-between">
+        <div className="flex min-w-0 flex-col gap-xs">
+          {breadcrumbs && breadcrumbs.length > 0 ? (
+            <nav aria-label="Breadcrumb">
+              <p className="text-body-md leading-none text-[#1B2A41]">
+                {breadcrumbs.map((item, index) => {
+                  const isLast = index === breadcrumbs.length - 1;
 
-              return (
-                <span key={`${item.label}-${index}`}>
-                  {index > 0 ? <span className="text-[#1B2A41]"> / </span> : null}
-                  {item.href && !isLast ? (
-                    <Link
-                      href={item.href}
-                      className="transition-colors hover:text-primary-container focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
-                    >
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <span className={isLast ? "font-semibold" : undefined} aria-current={isLast ? "page" : undefined}>
-                      {item.label}
+                  return (
+                    <span key={`${item.label}-${index}`}>
+                      {index > 0 ? <span className="text-[#1B2A41]"> / </span> : null}
+                      {item.href && !isLast ? (
+                        <Link
+                          href={item.href}
+                          className="transition-colors hover:text-primary-container focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+                        >
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <span className={isLast ? "font-semibold" : undefined} aria-current={isLast ? "page" : undefined}>
+                          {item.label}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-              );
-            })}
-          </p>
-        </nav>
-      ) : null}
-
-      <div
-        className={`flex flex-col gap-md min-[768px]:flex-row min-[768px]:items-end min-[768px]:justify-between ${
-          breadcrumbs && breadcrumbs.length > 0 ? "mt-sm" : ""
-        }`}
-      >
-        <div className="min-w-0">
-          <h1 className="text-[26px] font-bold leading-tight text-[#12213A]">{title}</h1>
-          {description ? (
-            <p className="mt-[6px] max-w-3xl text-[15px] text-[#33415C]">{description}</p>
+                  );
+                })}
+              </p>
+            </nav>
           ) : null}
+          <h1 className="text-[26px] font-bold leading-none text-[#12213A]">{title}</h1>
+          {description ? <p className="max-w-3xl text-[15px] leading-none text-[#33415C]">{description}</p> : null}
         </div>
         {actions ? (
           <div className="flex shrink-0 flex-wrap items-center gap-md min-[768px]:justify-end">{actions}</div>

@@ -23,6 +23,9 @@ export function EmptyState({ title, description, icon, action, className }: Empt
         </div>
       ) : null}
       <p className="text-label-lg text-on-surface">{title}</p>
+      {description ? (
+        <p className="mt-sm w-full max-w-[var(--container-sm)] text-body-md text-on-surface-variant">{description}</p>
+      ) : null}
       {action ? <div className="mt-lg">{action}</div> : null}
     </div>
   );

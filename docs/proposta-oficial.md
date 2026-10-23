@@ -28,7 +28,7 @@ Por isso, o escritório precisa de **duas ferramentas que conversam entre si**:
 1. **Projeto 1:** registrar cada cobrança feita pela equipe (a "palitagem"), com alertas de retorno e relatórios de produtividade.
 2. **Projeto 2:** puxar automaticamente os débitos das administradoras e mostrar a inadimplência de cada condomínio, separada por tempo de atraso e por tipo de cobrança.
 
-Os dois podem ser contratados em fases separadas, mas devem compartilhar o mesmo cadastro de condomínios, unidades e usuários.
+Os dois podem ser entregues em fases separadas, mas formam **um único sistema**: o mesmo cadastro de condomínios, unidades e colaboradores, e o atendimento sempre parte do débito em aberto da unidade. Não há um cadastro separado de processo de cobrança.
 
 ---
 
@@ -40,7 +40,7 @@ Sistema web, acessível pelo computador e pelo celular, em que cada atendente re
 
 > **Protótipo de referência:** O escritório já tem um protótipo funcional desta tela, usado para validar os campos e o fluxo. Ele deve ser usado como referência visual e de comportamento. O programador pode pedir acesso para demonstração.
 
-### 2.2 Usuários e permissões
+### 2.2 Colaboradores e permissões
 
 | Perfil | Quem | O que pode fazer |
 |--------|------|------------------|
@@ -56,7 +56,7 @@ A tela deve ser feita para **escolher, não para digitar**. As opções aparecem
 
 | Campo | Tipo | Opções e regras | Obrig. |
 |-------|------|-----------------|--------|
-| Atendente | Automático | Usuário logado | Sim |
+| Atendente | Automático | Colaborador logado | Sim |
 | Data, horário e mês | Automático | Gravados no momento em que o registro é salvo. Não editáveis pela atendente | Sim |
 | Condomínio | Botões | Os 35 condomínios em ordem alfabética, sem separação por advogado. Cada condomínio fica vinculado internamente ao advogado responsável, para os relatórios | Sim |
 | Unidade | Texto | Ex.: 104, B-203. Depois do Projeto 2: lista das unidades inadimplentes do condomínio | Sim |

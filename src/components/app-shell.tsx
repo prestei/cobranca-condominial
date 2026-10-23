@@ -6,8 +6,6 @@ import Link from "next/link";
 import {
   Bell,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   HelpCircle,
   Menu,
   X,
@@ -23,8 +21,7 @@ import {
 } from "react";
 import { Icon } from "@/components/icon";
 
-const SIDEBAR_WIDTH_EXPANDED = "264px";
-const SIDEBAR_WIDTH_COLLAPSED = "84px";
+const SIDEBAR_WIDTH = "264px";
 
 type AppShellUser = {
   name: string;
@@ -34,9 +31,6 @@ type AppShellUser = {
 
 type AppShellContextValue = {
   closeMobileNav: () => void;
-  sidebarCollapsed: boolean;
-  showSidebarLabels: boolean;
-  toggleSidebar: () => void;
 };
 
 const AppShellContext = createContext<AppShellContextValue | null>(null);
@@ -57,7 +51,6 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const mobileNavId = useId();
@@ -86,32 +79,19 @@ export function AppShell({
 
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
 
-  const toggleSidebar = useCallback(() => {
+  const toggleMobileNav = useCallback(() => {
     closeMenus();
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 960px)").matches) {
-      setMobileNavOpen((open) => !open);
-      return;
-    }
-    setSidebarCollapsed((collapsed) => !collapsed);
+    setMobileNavOpen((open) => !open);
   }, [closeMenus]);
-
-  const showSidebarLabels = !sidebarCollapsed || mobileNavOpen;
 
   const shellContext = useMemo(
     () => ({
       closeMobileNav,
-      sidebarCollapsed: sidebarCollapsed && !mobileNavOpen,
-      showSidebarLabels,
-      toggleSidebar,
     }),
-    [closeMobileNav, mobileNavOpen, showSidebarLabels, sidebarCollapsed, toggleSidebar],
+    [closeMobileNav],
   );
 
-  const sidebarWidth =
-    sidebarCollapsed && !mobileNavOpen ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
-
-  const toggleLabel =
-    sidebarCollapsed && !mobileNavOpen ? "Expandir menu lateral" : "Recolher menu lateral";
+  const toggleLabel = mobileNavOpen ? "Fechar menu" : "Abrir menu";
 
   return (
     <AppShellContext.Provider value={shellContext}>
@@ -136,16 +116,12 @@ export function AppShell({
 
         <div
           id={mobileNavId}
-          className="fixed inset-y-0 left-0 z-50 shrink-0 transition-[width,transform] duration-200 ease-out min-[961px]:static min-[961px]:z-auto min-[961px]:translate-x-0"
-          style={{ width: mobileNavOpen ? SIDEBAR_WIDTH_EXPANDED : sidebarWidth }}
+          className={`fixed inset-y-0 left-0 z-50 shrink-0 overflow-hidden transition-[width,transform] duration-200 ease-out min-[961px]:sticky min-[961px]:bottom-auto min-[961px]:h-screen min-[961px]:translate-x-0 min-[961px]:self-start ${
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{ width: SIDEBAR_WIDTH }}
         >
-          <div
-            className={`h-full min-[961px]:h-screen ${
-              mobileNavOpen ? "translate-x-0" : "-translate-x-full min-[961px]:translate-x-0"
-            }`}
-          >
-            {sidebar}
-          </div>
+          <div className="h-full">{sidebar}</div>
         </div>
 
         <div className="app-main flex min-w-0 flex-1 flex-col">
@@ -154,7 +130,7 @@ export function AppShell({
             notificationCount={notificationCount}
             notifOpen={notifOpen}
             userOpen={userOpen}
-            onToggleSidebar={toggleSidebar}
+            onToggleSidebar={toggleMobileNav}
             toggleLabel={toggleLabel}
             onToggleNotif={() => {
               setUserOpen(false);
@@ -179,11 +155,10 @@ type AppShellSidebarProps = HTMLAttributes<HTMLElement> & {
 export function AppShellSidebar({ children, className, ...props }: AppShellSidebarProps) {
   return (
     <aside
-      className={`flex h-full min-h-screen w-full flex-col bg-primary-container text-on-primary-container ${className ?? ""}`}
+      className={`flex h-full min-h-0 w-full flex-col overflow-hidden bg-primary-container text-on-primary-container ${className ?? ""}`}
       {...props}
     >
       {children}
-      <AppShellSidebarCollapseFooter />
     </aside>
   );
 }
@@ -201,15 +176,9 @@ export function AppShellBrand({
   eyebrow = "Lex Condominial",
   className,
 }: AppShellBrandProps) {
-  const shell = useContext(AppShellContext);
-  const showLabels = shell?.showSidebarLabels ?? true;
-  const collapsed = shell?.sidebarCollapsed ?? false;
-
   return (
     <div
-      className={`flex min-h-[4.5rem] items-center gap-md border-b border-[#31496C] px-md py-lg ${
-        collapsed && !showLabels ? "justify-center" : ""
-      } ${className ?? ""}`}
+      className={`flex min-h-[4.5rem] items-center gap-md border-b border-[#31496C] px-md py-lg ${className ?? ""}`}
     >
       <span
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-brass text-label-lg font-bold text-[#1A1300]"
@@ -217,26 +186,10 @@ export function AppShellBrand({
       >
         {initials}
       </span>
-      {showLabels ? (
-        <div className="min-w-0">
-          <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">{eyebrow}</p>
-          <p className="text-headline-sm font-bold text-on-primary">{title}</p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-export function AppShellCarteiraBadge({ className }: { className?: string }) {
-  const shell = useContext(AppShellContext);
-  if (!shell?.showSidebarLabels) return null;
-
-  return (
-    <div
-      className={`mx-[14px] mt-md flex items-center gap-sm rounded-[10px] bg-primary-hover px-md py-sm text-body-sm text-[#C3CFDF] ${className ?? ""}`}
-    >
-      <span className="size-2 shrink-0 rounded-full bg-[#4FC38A]" aria-hidden="true" />
-      Carteira ativa
+      <div className="min-w-0">
+        <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">{eyebrow}</p>
+        <p className="text-headline-sm font-bold text-on-primary">{title}</p>
+      </div>
     </div>
   );
 }
@@ -244,29 +197,19 @@ export function AppShellCarteiraBadge({ className }: { className?: string }) {
 type AppShellNavSectionProps = HTMLAttributes<HTMLDivElement> & {
   title: string;
   children: ReactNode;
-  showDividerWhenCollapsed?: boolean;
 };
 
 export function AppShellNavSection({
   title,
   children,
-  showDividerWhenCollapsed = true,
   className,
   ...props
 }: AppShellNavSectionProps) {
-  const shell = useContext(AppShellContext);
-  const showLabels = shell?.showSidebarLabels ?? true;
-  const collapsed = shell?.sidebarCollapsed ?? false;
-
   return (
     <div className={`flex flex-col ${className ?? ""}`} {...props}>
-      {showLabels ? (
-        <p className="px-[14px] pb-xs pt-[18px] text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">
-          {title}
-        </p>
-      ) : showDividerWhenCollapsed && collapsed ? (
-        <div className="mx-[14px] mb-sm h-4 border-b border-[#31496C]" aria-hidden="true" />
-      ) : null}
+      <p className="px-[14px] pb-xs pt-[18px] text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">
+        {title}
+      </p>
       {children}
     </div>
   );
@@ -280,7 +223,7 @@ type AppShellNavProps = HTMLAttributes<HTMLElement> & {
 export function AppShellNav({ children, className, label = "Principal", ...props }: AppShellNavProps) {
   return (
     <nav
-      className={`flex flex-1 flex-col px-[14px] py-xs ${className ?? ""}`}
+      className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-[14px] py-xs ${className ?? ""}`}
       aria-label={label}
       {...props}
     >
@@ -309,13 +252,10 @@ export function AppShellNavLink({
   onNavigate,
 }: AppShellNavLinkProps) {
   const shell = useContext(AppShellContext);
-  const showLabels = shell?.showSidebarLabels ?? true;
-  const collapsed = shell?.sidebarCollapsed ?? false;
 
   return (
     <Link
       href={href}
-      title={typeof children === "string" ? children : undefined}
       onClick={() => {
         onNavigate?.();
         shell?.closeMobileNav();
@@ -323,18 +263,14 @@ export function AppShellNavLink({
       aria-current={active ? "page" : undefined}
       className={`relative flex min-h-11 items-center gap-md rounded-[10px] px-[14px] text-[15px] font-medium text-[#C3CFDF] transition-colors hover:bg-[#26395A] hover:text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
         active ? "bg-primary-hover font-semibold text-on-primary before:absolute before:bottom-[10px] before:left-[-14px] before:top-[10px] before:w-1 before:rounded-r before:bg-brass before:content-['']" : ""
-      } ${collapsed && !showLabels ? "justify-center px-0" : ""} ${className ?? ""}`}
+      } ${className ?? ""}`}
     >
       {icon ? <Icon icon={icon} size="md" className="text-current" /> : null}
-      {showLabels ? (
-        <>
-          <span className="min-w-0 flex-1">{children}</span>
-          {count !== undefined ? (
-            <span className="ml-auto rounded-full bg-[#2C4166] px-sm py-[2px] text-label-md font-bold text-[#E6EDF7]">
-              {count}
-            </span>
-          ) : null}
-        </>
+      <span className="min-w-0 flex-1">{children}</span>
+      {count !== undefined ? (
+        <span className="ml-auto rounded-full bg-[#2C4166] px-sm py-[2px] text-label-md font-bold text-[#E6EDF7]">
+          {count}
+        </span>
       ) : null}
     </Link>
   );
@@ -351,32 +287,6 @@ export function AppShellSidebarFooter({ children, className, ...props }: AppShel
       {...props}
     >
       {children}
-    </div>
-  );
-}
-
-function AppShellSidebarCollapseFooter() {
-  const shell = useContext(AppShellContext);
-  const collapsed = shell?.sidebarCollapsed ?? false;
-  const showLabels = shell?.showSidebarLabels ?? true;
-
-  return (
-    <div className="px-[14px] pb-md pt-xs">
-      <button
-        type="button"
-        onClick={() => shell?.toggleSidebar()}
-        className={`flex min-h-11 w-full cursor-pointer items-center gap-md rounded-[10px] border-0 bg-[#2A3F61] px-[14px] text-[15px] font-semibold text-on-primary transition-colors hover:bg-[#31496C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
-          collapsed && !showLabels ? "justify-center px-0" : ""
-        }`}
-        aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-      >
-        {collapsed ? (
-          <ChevronRight className="size-5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-        ) : (
-          <ChevronLeft className="size-5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-        )}
-        {showLabels ? <span>Recolher menu</span> : null}
-      </button>
     </div>
   );
 }
@@ -404,7 +314,7 @@ function AppShellHeader({
 }: AppShellHeaderProps) {
   return (
     <header className="relative z-30 flex min-h-[4.5rem] shrink-0 items-center gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
-      <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar}>
+      <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
         <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
       </AppShellIconButton>
 
@@ -554,11 +464,13 @@ function AppShellIconButton({
   label,
   children,
   onClick,
+  className,
   "aria-expanded": ariaExpanded,
 }: {
   label: string;
   children: ReactNode;
   onClick?: () => void;
+  className?: string;
   "aria-expanded"?: boolean;
 }) {
   return (
@@ -567,7 +479,7 @@ function AppShellIconButton({
       aria-label={label}
       aria-expanded={ariaExpanded}
       onClick={onClick}
-      className="relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 bg-transparent text-[#33415C] hover:bg-[#EDF1F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+      className={`relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 bg-transparent text-[#33415C] hover:bg-[#EDF1F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
     >
       {children}
     </button>

@@ -14,7 +14,7 @@ type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 export function Badge({ variant = "primary", className, ...props }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-label-sm uppercase tracking-wide ${variants[variant]} ${className ?? ""}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-body-sm ${variants[variant]} ${className ?? ""}`}
       {...props}
     />
   );

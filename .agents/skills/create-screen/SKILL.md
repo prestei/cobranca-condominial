@@ -1,20 +1,23 @@
 ---
 name: create-screen
-description: Cria telas e páginas com Tailwind e componentes globais do design system, sempre sob src/app/(app) com AppLayout (PageHeader + PageContent), incluindo sheet de criação e edição, alinhadas à proposta oficial e às regras de negócio. Use ao criar tela, página ou componente de interface.
+description: Cria telas e páginas com Tailwind e componentes globais do design system, alinhadas à proposta oficial e às regras de negócio. Cadastro e edição abrem em Sheet. Atualiza a documentação do módulo em docs/modulos/. Use ao criar tela, página ou componente de interface.
 ---
 
 # Criar tela
 
 A tela nova segue o design system, a proposta do produto e as regras de negócio do projeto. Não inventar layout, token, componente, fluxo ou permissão paralelos.
 
+**Documentação:** seguir `.agents/skills/_shared/documentacao-modulo.md`. Ao criar ou alterar uma tela, atualizar `docs/modulos/<slug>.md` (rotas, campos, fluxos, **Conexões**, permissões), **`docs/mapa-do-projeto.md`** se mudar rota ou vínculo entre módulos, e `docs/regra-negocio.md` quando couber.
+
 ## Antes de escrever (obrigatório, nesta ordem)
 
 1. Ler **`docs/proposta-oficial.md`** — escopo, módulos, usuários, campos e comportamentos esperados.
 2. Ler **`docs/regra-negocio.md`** — perfis, permissões, fluxos, validações e regras que a tela deve respeitar.
-3. Ler `docs/design-system.md` e a página `/design-system`.
-4. Ler tokens em `src/app/globals.css` (`@theme`) para classes Tailwind disponíveis.
-5. Listar os componentes em `src/components/` que a tela vai usar.
-6. Ler **`src/components/layout/app-layout.tsx`** e a página de referência **`src/app/(app)/condominios/page.tsx`** — padrão obrigatório de rota e esqueleto.
+3. Ler **`docs/modulos/<slug>.md`** do módulo da tela (criar esboço se não existir — ver `docs/modulos/README.md`).
+4. Ler `docs/design-system.md` e a página `/design-system`.
+5. Ler tokens em `src/app/globals.css` (`@theme`) para classes Tailwind disponíveis.
+6. Listar os componentes em `src/components/` que a tela vai usar.
+7. Ler **`src/components/workspace-shell.tsx`** e a página de referência **`src/app/condominios/page.tsx`** — padrão de rota e esqueleto.
 
 Se faltar referência visual, regra de negócio ou documentação, parar e pedir o caminho. Não prosseguir com visual ou fluxo próprios.
 
@@ -25,7 +28,7 @@ Ao desenhar e implementar a tela, aplicar o que está nos documentos lidos:
 - **Perfis e permissões** (Administrador, Atendente, Advogado): o que cada um vê, edita e exporta.
 - **Fluxos e ações** da funcionalidade (registro, retorno, filtros, relatórios, etc.).
 - **Campos obrigatórios, estados e mensagens** descritos na proposta e nas regras.
-- **Escopo do módulo** (Projeto 1 — palitagem vs Projeto 2 — painel de inadimplência): não misturar comportamentos de outro módulo sem estar no escopo da tela.
+- **Um sistema só:** palitagem e inadimplência compartilham condomínio, unidade, colaborador e o débito da unidade. O atendimento registra a cobrança dessa unidade. Não criar um cadastro separado de processo de cobrança.
 - **Consistência** com o restante do sistema (nomenclatura de condomínio, unidade, cobrança, etc.).
 
 Dúvida entre duas interpretações de negócio: parar e confirmar com o usuário antes de codar.
@@ -40,100 +43,116 @@ Dúvida entre duas interpretações de negócio: parar e confirmar com o usuári
 
 ## Layout da aplicação (obrigatório)
 
-Telas internas do produto (carteira, cadastros, relatórios, palitagem, etc.) **sempre** usam o layout compartilhado. Não montar `AppShell`, sidebar ou header global na página.
+Telas internas do produto usam **`WorkspaceShell`** (`@/components/workspace-shell`), que já monta sidebar, marca e header global. **Não** duplicar `AppShell` ou menu na página.
 
 ### Onde criar a rota
 
-| Tipo de tela | Caminho | Layout |
-|--------------|---------|--------|
-| App autenticada (padrão) | `src/app/(app)/<rota>/page.tsx` | Herda `src/app/(app)/layout.tsx` → `AppLayout` |
-| Pública / marketing / catálogo | `src/app/<rota>/page.tsx` (fora de `(app)`) | Só `src/app/layout.tsx` (sem sidebar) |
+| Tipo de tela | Caminho |
+|--------------|---------|
+| App autenticada (padrão) | `src/app/<rota>/page.tsx` |
+| Grupo `(app)` (alternativo) | `src/app/(app)/<rota>/page.tsx` com layout `AppLayout` — só se o projeto já migrar a rota para esse grupo |
 
-O grupo `(app)` **não** aparece na URL: `(app)/condominios/page.tsx` → `/condominios`.
+O grupo `(app)` **não** aparece na URL.
 
 ### O que a página renderiza
 
-A `page.tsx` sob `(app)` contém **apenas** o conteúdo da tela:
+```tsx
+<WorkspaceShell>
+  <PageHeader ... />
+  <PageContent>{/* filtros, métricas, tabela */}</PageContent>
+  {/* Sheet(s) da entidade, fora de PageContent se ocupar viewport */}
+</WorkspaceShell>
+```
 
-1. **`PageHeader`** (`@/components/page-header`) — breadcrumb, título, descrição, ações.
-2. **`PageContent`** — métricas, tabelas, filtros, formulários inline, etc.
-3. **Overlays da tela** (ex.: `Sheet` de CRUD) como filhos do fragmento da página, **fora** de `PageContent` se ocuparem a viewport inteira.
+- **`PageHeader`** — breadcrumb, título, descrição, ações.
+- **`PageContent`** — métricas, tabelas, filtros inline, etc.
+- **Overlays** (`Sheet`, confirmações) como filhos de `WorkspaceShell`, em geral fora de `PageContent`.
 
-**Proibido** na página:
+**Proibido:** montar sidebar/header de conta manualmente; criar `layout.tsx` por rota só para repetir o shell.
 
-- Importar e usar `AppShell`, `AppShellMain`, `AppShellSidebar` ou montar sidebar/header de conta manualmente.
-- Duplicar menu lateral, marca “Lex Condominial” ou header com notificações/usuário.
-- Criar `layout.tsx` por rota só para repetir o shell (usar o de `(app)`).
+Rotas em `src/app/(app)/` que usam `AppLayout`: contadores do menu com **`useCarteiraNav()`** de `@/components/layout/app-layout` quando aplicável.
 
-### Onde vive o shell
+Referência visual: `docs/design-system.md` e `/design-system`.
 
-- **`src/components/layout/app-layout.tsx`** — `AppShell`, sidebar, header global, usuário mock, notificações.
-- **`src/app/(app)/layout.tsx`** — envolve todas as rotas do grupo com `<AppLayout>`.
+## Cabeçalho da página
 
-Novos itens de menu, badges da sidebar ou comportamento global do shell: alterar **`app-layout.tsx`**, não cada página.
+- A ação principal do `PageHeader` se chama **Novo** e abre o `Sheet` de cadastro. Não acrescentar o nome da entidade no rótulo.
+- Não colocar **Exportar** no cabeçalho, salvo exigência da proposta ou regra de negócio.
+- Uma ação principal. Outra ação só entra se a proposta ou a regra de negócio pedir.
 
-### Contadores do menu (Carteira)
+## Listagem
 
-Quando a tela altera totais exibidos na sidebar (ex.: quantidade de condomínios ou unidades), usar **`useCarteiraNav()`** exportado de `@/components/layout/app-layout` e atualizar com `setCounts` (em geral `useEffect` quando os dados da página mudam). Não passar props ad hoc para sidebar na página.
+Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela, `Pagination`.
 
-### Referência
+Usar `FilterBar`. Não remontar a barra com `Input`, `Select` e `Button` soltos.
 
-Copiar o esqueleto de **`src/app/(app)/condominios/page.tsx`**: `PageHeader` + `PageContent` + sheet da entidade. Detalhes visuais em `docs/design-system.md` (seção **Layout da aplicação**) e `/design-system`.
+- Busca e selects na primeira linha, mesma largura, com rótulo visível acima do campo e sem ícone dentro do campo. O rótulo da busca é `searchLabel` (padrão **Buscar**); o de cada select é `label`.
+- **Limpar** e **Filtrar** na linha de baixo, alinhados à direita, com Filtrar por último. Limpar é `outline` com `RotateCcw`; Filtrar é primário com `Search`.
+- Fundo `surface-subtle` e borda `border-subtle` vêm do componente.
+- Não passar `applyLabel` nem `clearLabel`, a menos que a tela precise de outro texto.
 
-## Esqueleto (conteúdo da tela)
+## Paginação
 
-- Mesma hierarquia do design system: faixa de página (`PageHeader`) → área (`PageContent`) → blocos (métricas, tabela, etc.).
-- O que se repete entre telas vira componente em `src/components/` (ex.: tabela ou sheet da entidade).
-- Lógica e estado específicos da tela ficam na `page.tsx` ou em componentes co-localizados só se a tela for grande — o shell continua no layout.
+Toda listagem pagina. O padrão é **20** registros por página, com o componente `Pagination`.
+
+- Fica depois da tabela.
+- `pageSize` permanece 20. Não passar outro valor.
+- **Filtrar** e **Limpar** voltam para a página 1.
+- Métricas usam o conjunto filtrado inteiro, não só a página visível.
+- Com lista vazia, a tabela mostra `EmptyState` e a paginação não aparece.
 
 ## Sheet de criação e edição (obrigatório)
 
-Quando a página lista ou gerencia entidades cadastráveis (CRUD, cadastros, registros editáveis), **sempre** entregar o fluxo completo na mesma entrega:
+Quando a página lista ou gerencia entidades cadastráveis (CRUD), entregar na mesma entrega:
 
-1. **Listagem / conteúdo principal** na área da página (tabela, cards, filtros, etc.).
-2. **Sheet de criação** — aberto por ação explícita (ex.: botão “Novo”, “Adicionar”); formulário com os campos da proposta e das regras de negócio.
-3. **Sheet de edição** — aberto a partir da linha/item (ex.: “Editar”); mesmos campos da criação, com valores preenchidos e título/descrição de edição.
+1. Listagem / conteúdo principal.
+2. **Sheet de criação** — botão **Novo**.
+3. **Sheet de edição** — ação na linha; preferir **um sheet** com modo `create` | `edit`.
 
-Implementação:
+- Usar **`Sheet`** e subcomponentes de `@/components/sheet`.
+- Seguir `docs/design-system.md` (seção **Sheet**) e exemplos em `/design-system`.
+- **Proibido** `Dialog` ou página separada para criar/editar, exceto se a proposta ou o usuário exigir.
+- Estados: `open`, `onOpenChange`, fechar ao salvar + `useToast`.
+- Tela só leitura: não exige sheet; registrar em `docs/modulos/<slug>.md` que não há CRUD.
 
-- Usar **`Sheet`** e subcomponentes de `@/components/sheet` (`SheetContent`, `SheetForm`, `SheetHeader`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetHeaderText`, `SheetTitle`, `SheetDescription`, `SheetClose`, `SheetBody`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText`, `SheetFooterForm`, etc.).
-- Seguir o padrão documentado em `docs/design-system.md` (seção **Sheet**) e o exemplo em `src/design-system/sheet-demo.tsx`.
-- **Proibido** usar `Dialog` ou página separada para criar/editar quando o padrão do projeto é sheet lateral — exceto se a proposta ou o usuário exigir outro padrão.
-- Preferir **um componente de sheet reutilizável** por entidade (ex.: `CondominioFormSheet`) com modo `create` | `edit` e registro selecionado, em vez de duplicar markup; criar/editar podem ser dois arquivos só se a UX for muito diferente.
-- Estados: `open`, `onOpenChange`, e ao salvar fechar o sheet + feedback (`useToast`) conforme o design system.
-- Tela só de leitura/consulta (sem cadastro nem edição): não exige sheet; documentar na entrega que não há CRUD.
+Cadastro e edição **sempre** no `Sheet` lateral à direita. Montar com `SheetForm`, `SheetHeader`, `SheetBody`, `SheetFooterForm` (Fechar + Salvar).
+
+`Dialog` e `ConfirmDialog` ficam para confirmação, não para formulário de cadastro ou edição.
+
+### Formulário grande: etapas
+
+- Até 6 campos e um assunto: uma etapa.
+- Mais de 6 campos ou mais de um bloco: **`FormSteps`** no mesmo `Sheet` — validar etapa antes de avançar; primeira etapa Fechar + Continuar; última Voltar + Salvar.
 
 ## Componentes (obrigatório)
 
-**Sempre montar a UI com os componentes globais existentes. Sempre.**
+**Sempre montar a UI com os componentes globais existentes.**
 
-1. Antes de qualquer markup, verificar `src/components/` e `docs/design-system.md`.
-2. Importar de `@/components/...` (`Button`, `Input`, `Textarea`, `Select`, `FormField`, `Badge`, `Tabs`, `Table`, `TableEmpty`, `EmptyState`, `CardMetric`, `Sheet`, `Dialog`, etc.).
-3. **Proibido** recriar botão, input, badge, abas, modal ou variantes locais com classes Tailwind equivalentes.
-4. **Proibido** copiar markup de `/design-system` para a página sem passar pelo componente.
-5. Se nenhum componente existente servir: **parar e perguntar ao usuário** antes de criar outro.
-6. Ao criar componente novo (com aprovação): implementar em `src/components/` **somente com Tailwind** (sem arquivo `.css`), adicionar showcase em `src/design-system/`, atualizar `docs/design-system.md` se necessário.
-
-Bloco usado em mais de uma tela vira componente global. Uso único permanece na tela, mas ainda usando os primitivos globais (`Button`, `Input`, etc.).
+1. Verificar `src/components/` e `docs/design-system.md`.
+2. Importar de `@/components/...` (`WorkspaceShell`, `PageHeader`, `PageContent`, `FilterBar`, `Pagination`, `Sheet`, `FormSteps`, `Button`, `Input`, etc.).
+3. **Proibido** recriar botão, input, badge, abas, modal ou variantes locais.
+4. Se nenhum componente servir: **parar e perguntar** antes de criar outro.
+5. Componente novo (com aprovação): em `src/components/`, só Tailwind; exemplo em `src/pages/design-system.tsx`; atualizar `docs/design-system.md`.
 
 ## Funções
 
-Padrão: poucas funções, sem muitas funções auxiliares.
+Padrão: poucas funções, sem auxiliares de uso único.
 
-- Uma função por ação da tela (renderizar a lista, filtrar, abrir o modal, salvar).
-- Formatação, condição e atualização do DOM ficam dentro dessa função.
-- Extrair função só quando o mesmo trecho é chamado em mais de um ponto.
-- Não criar auxiliar de uma linha, wrapper ou getter usado uma vez só.
+## Documentação na entrega (obrigatório)
+
+Na mesma entrega do código:
+
+1. Atualizar **`docs/modulos/<slug>.md`**: rotas, arquivos, campos, fluxos de sheet/filtro, permissões, estados de UI.
+2. Atualizar **`docs/regra-negocio.md`** se a tela introduz ou altera regra de negócio.
+3. Atualizar **`docs/modulos/README.md`** se for módulo novo.
+4. Atualizar **`docs/mapa-do-projeto.md`** (linha do módulo na tabela e diagramas, se necessário).
 
 ## Conferir
 
-- `docs/proposta-oficial.md` e `docs/regra-negocio.md` foram lidos e a tela reflete perfis, fluxos e campos relevantes.
-- Tela interna está em **`src/app/(app)/...`** e **não** repete `AppShell`/sidebar/header na página.
-- `PageHeader` + `PageContent` usados conforme `condominios/page.tsx`.
-- Contadores da sidebar atualizados com `useCarteiraNav()` quando aplicável.
-- Páginas com cadastro/edição incluem sheet de **criação** e **edição** (ou um sheet com os dois modos), usando `@/components/sheet` e o padrão do design system.
-- A página usa tokens do `@theme` via Tailwind; nenhum CSS novo fora de `@theme` em `globals.css`.
-- Toda UI interativa passa por componentes de `src/components/`.
-- Nenhum botão/input/badge/aba/modal foi recriado fora do design system.
-- Não há função auxiliar de uso único.
-- Se algo novo foi criado, documentação e `/design-system` foram atualizados.
+- `docs/proposta-oficial.md`, `docs/regra-negocio.md` e **`docs/modulos/<slug>.md`** refletem a tela entregue.
+- Tela usa `WorkspaceShell` + `PageHeader` + `PageContent` (ou padrão `(app)` documentado no módulo).
+- Listagem: `FilterBar`, métricas, tabela, `Pagination` de 20.
+- CRUD: mesmo `Sheet` para criar/editar; `FormSteps` quando formulário grande.
+- Tokens via `@theme`; nenhum CSS novo fora de `globals.css`.
+- Toda UI interativa passa por `src/components/`.
+- Documentação do módulo e design system atualizados quando aplicável.

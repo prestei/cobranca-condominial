@@ -1,5 +1,16 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { forwardRef } from "react";
+"use client";
+
+import type {
+  ChangeEvent,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
+import { forwardRef, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, isValidElement, Children } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown } from "lucide-react";
+import { Icon } from "@/components/icon";
 
 const checkboxClassName = [
   "size-3.5 shrink-0 cursor-pointer appearance-none rounded-sm border border-border-strong bg-surface-card bg-center bg-no-repeat",
@@ -40,12 +51,12 @@ const switchThumbClassName = [
 ].join(" ");
 
 export const formControlClassName =
-  "h-input w-full rounded-md border bg-surface-card px-md text-body-md text-on-surface transition-colors duration-150 placeholder:text-on-surface-variant focus-visible:border-brass focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brass/20 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-input w-full rounded-md border bg-surface-card pl-[calc(var(--spacing-md)-5px)] text-body-md text-on-surface transition-colors duration-150 placeholder:text-on-surface-variant focus-visible:border-brass focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brass/20 disabled:cursor-not-allowed disabled:opacity-60";
 
 function controlStateClass(invalid?: boolean) {
   return invalid
     ? "border-status-critical focus-visible:border-status-critical focus-visible:ring-status-critical/20"
-    : "border-border-subtle";
+    : "border-border-strong";
 }
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
@@ -55,7 +66,7 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 export function Input({ className, invalid, ...props }: InputProps) {
   return (
     <input
-      className={`${formControlClassName} ${controlStateClass(invalid)} ${className ?? ""}`}
+      className={`${formControlClassName} pr-md ${controlStateClass(invalid)} ${className ?? ""}`}
       aria-invalid={invalid || undefined}
       {...props}
     />
@@ -70,7 +81,7 @@ export function Textarea({ className, invalid, rows = 3, ...props }: TextareaPro
   return (
     <textarea
       rows={rows}
-      className={`${formControlClassName} min-h-[calc(var(--spacing-input)*2)] resize-y py-sm ${controlStateClass(invalid)} ${className ?? ""}`}
+      className={`${formControlClassName} min-h-[calc(var(--spacing-input)*2)] resize-y py-sm pr-md ${controlStateClass(invalid)} ${className ?? ""}`}
       aria-invalid={invalid || undefined}
       {...props}
     />
@@ -81,15 +92,222 @@ type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
 };
 
-export function Select({ className, invalid, children, ...props }: SelectProps) {
-  return (
-    <select
-      className={`${formControlClassName} ${controlStateClass(invalid)} ${className ?? ""}`}
-      aria-invalid={invalid || undefined}
-      {...props}
+type OpcaoSelect = {
+  value: string;
+  label: string;
+  disabled: boolean;
+};
+
+function textoDoNo(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textoDoNo).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) return textoDoNo(node.props.children);
+  return "";
+}
+
+function opcoesDoSelect(children: ReactNode) {
+  const opcoes: OpcaoSelect[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement<{ value?: string | number; disabled?: boolean; children?: ReactNode }>(child)) return;
+    if (child.type === "optgroup") {
+      opcoes.push(...opcoesDoSelect(child.props.children));
+      return;
+    }
+    if (child.type !== "option") return;
+    opcoes.push({
+      value: child.props.value === undefined ? textoDoNo(child.props.children) : String(child.props.value),
+      label: textoDoNo(child.props.children),
+      disabled: Boolean(child.props.disabled),
+    });
+  });
+  return opcoes;
+}
+
+function useCliente() {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+}
+
+export function Select({
+  className,
+  invalid,
+  children,
+  value,
+  defaultValue,
+  onChange,
+  disabled,
+  id,
+  name,
+  required,
+}: SelectProps) {
+  const gerado = useId();
+  const listaId = `${id ?? gerado}-lista`;
+  const buscaId = `${id ?? gerado}-busca`;
+  const raizRef = useRef<HTMLSpanElement>(null);
+  const botaoRef = useRef<HTMLButtonElement>(null);
+  const painelRef = useRef<HTMLDivElement>(null);
+  const cliente = useCliente();
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [interno, setInterno] = useState(defaultValue === undefined ? "" : String(defaultValue));
+  const [painelPai, setPainelPai] = useState<HTMLElement | null>(null);
+  const valor = value === undefined ? interno : String(value);
+  const opcoes = opcoesDoSelect(children);
+  const selecionada = opcoes.find((item) => item.value === valor);
+  const consulta = busca.trim().toLocaleLowerCase("pt-BR");
+  const visiveis = consulta
+    ? opcoes.filter((item) => item.label.toLocaleLowerCase("pt-BR").includes(consulta))
+    : opcoes;
+
+  function fechar() {
+    setAberto(false);
+    setBusca("");
+  }
+
+  function escolher(opcao: OpcaoSelect) {
+    if (opcao.disabled) return;
+    if (value === undefined) setInterno(opcao.value);
+    onChange?.({
+      target: { value: opcao.value, name: name ?? "" },
+      currentTarget: { value: opcao.value, name: name ?? "" },
+    } as ChangeEvent<HTMLSelectElement>);
+    fechar();
+  }
+
+  function abrir() {
+    if (disabled) return;
+    setPainelPai((botaoRef.current?.closest("dialog") as HTMLElement | null) ?? document.body);
+    setAberto(true);
+  }
+
+  useLayoutEffect(() => {
+    if (!aberto) return;
+    const botao = botaoRef.current;
+    const painel = painelRef.current;
+    if (!botao || !painel) return;
+
+    function posicionar() {
+      if (!botao || !painel) return;
+      const rect = botao.getBoundingClientRect();
+      const folga = 4;
+      const espacoAbaixo = window.innerHeight - rect.bottom;
+      const abrirParaCima = espacoAbaixo < 220 && rect.top > espacoAbaixo;
+      const altura = Math.min(320, (abrirParaCima ? rect.top : espacoAbaixo) - 16);
+      painel.style.width = `${rect.width}px`;
+      painel.style.left = `${rect.left}px`;
+      painel.style.maxHeight = `${Math.max(160, altura)}px`;
+      if (abrirParaCima) {
+        painel.style.top = "auto";
+        painel.style.bottom = `${window.innerHeight - rect.top + folga}px`;
+      } else {
+        painel.style.bottom = "auto";
+        painel.style.top = `${rect.bottom + folga}px`;
+      }
+    }
+
+    posicionar();
+    window.addEventListener("resize", posicionar);
+    window.addEventListener("scroll", posicionar, true);
+    return () => {
+      window.removeEventListener("resize", posicionar);
+      window.removeEventListener("scroll", posicionar, true);
+    };
+  }, [aberto]);
+
+  useLayoutEffect(() => {
+    if (!aberto) return;
+    painelRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [aberto]);
+
+  useLayoutEffect(() => {
+    if (!aberto) return;
+    function fecharSeFora(event: MouseEvent) {
+      const alvo = event.target as Node;
+      if (raizRef.current?.contains(alvo) || painelRef.current?.contains(alvo)) return;
+      fechar();
+    }
+    function fecharComEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") fechar();
+    }
+    document.addEventListener("mousedown", fecharSeFora);
+    document.addEventListener("keydown", fecharComEscape);
+    return () => {
+      document.removeEventListener("mousedown", fecharSeFora);
+      document.removeEventListener("keydown", fecharComEscape);
+    };
+  }, [aberto]);
+
+  const painel = (
+    <div
+      ref={painelRef}
+      id={listaId}
+      className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-popover"
     >
-      {children}
-    </select>
+      <div className="shrink-0 border-b border-border-subtle p-sm">
+        <Input
+          id={buscaId}
+          value={busca}
+          placeholder="Buscar"
+          aria-label="Buscar"
+          onChange={(event) => setBusca(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            const primeira = visiveis.find((item) => !item.disabled);
+            if (primeira) escolher(primeira);
+          }}
+        />
+      </div>
+      <div role="listbox" aria-label="Opções" className="min-h-0 flex-1 overflow-y-auto py-xs">
+        {visiveis.length === 0 ? (
+          <p className="px-md py-sm text-body-sm text-on-surface-variant">Nenhum resultado</p>
+        ) : (
+          visiveis.map((item) => (
+            <button
+              key={`${item.value}-${item.label}`}
+              type="button"
+              role="option"
+              aria-selected={item.value === valor}
+              disabled={item.disabled}
+              className={`block w-full px-md py-sm text-left text-body-md text-on-surface hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-60 ${item.value === valor ? "bg-surface-subtle font-semibold" : ""}`}
+              onClick={() => escolher(item)}
+            >
+              {item.label}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <span ref={raizRef} className="relative block w-full">
+      <button
+        ref={botaoRef}
+        type="button"
+        id={id}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        aria-controls={aberto ? listaId : undefined}
+        aria-required={required || undefined}
+        aria-invalid={invalid || undefined}
+        className={`${formControlClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${controlStateClass(invalid)} ${className ?? ""}`}
+        onClick={() => (aberto ? fechar() : abrir())}
+      >
+        <span className={`truncate ${selecionada ? "" : "text-on-surface-variant"}`}>{selecionada?.label ?? "Selecione"}</span>
+      </button>
+      {name ? <input type="hidden" name={name} value={valor} /> : null}
+      <Icon
+        icon={ChevronDown}
+        size="sm"
+        className="pointer-events-none absolute top-1/2 right-md -translate-y-1/2 text-on-surface-variant peer-disabled:opacity-60"
+      />
+      {aberto && cliente && painelPai ? createPortal(painel, painelPai) : null}
+    </span>
   );
 }
 
@@ -211,18 +429,16 @@ export function FormField({ label, htmlFor, required, error, children, className
   const invalid = Boolean(error);
 
   return (
-    <div className={`flex flex-col gap-sm ${className ?? ""}`}>
-      <div className="flex flex-col gap-xs">
-        <label
-          htmlFor={htmlFor}
-          className={`text-label-lg ${invalid ? "text-status-critical" : "text-primary-container"}`}
-        >
-          {label}
-          {required ? <span className="text-status-critical"> *</span> : null}
-        </label>
-        {children}
-      </div>
-      {error ? <p className="text-body-sm text-status-critical">{error}</p> : null}
+    <div className={`flex flex-col gap-xs ${className ?? ""}`}>
+      <label
+        htmlFor={htmlFor}
+        className={`text-label-lg ${invalid ? "text-status-critical" : "text-primary-container"}`}
+      >
+        {label}
+        {required ? <span className="text-status-critical"> *</span> : null}
+      </label>
+      {children}
+      {error ? <p className="text-body-sm leading-none text-status-critical">{error}</p> : null}
     </div>
   );
 }

@@ -11,6 +11,8 @@ Especialista sênior em debugging, análise de causa raiz, correção de erros e
 
 **Ao ser acionada para corrigir:** investigar no código, implementar quando possível e validar. Não limitar-se a sugerir hipóteses quando o repositório está acessível.
 
+**Documentação:** se a correção alterar comportamento, contrato de API, schema ou regra de negócio, atualizar na mesma entrega conforme `.agents/skills/_shared/documentacao-modulo.md` (`docs/modulos/<slug>.md`, `docs/banco.md`, `docs/regra-negocio.md`). Se a doc estava errada e o código estava certo, corrigir a doc.
+
 ---
 
 ## Metodologia obrigatória
@@ -81,7 +83,15 @@ Alterar somente arquivos necessários.
 
 Vários módulos envolvidos: corrigir todos os pontos necessários para restabelecer o fluxo completo.
 
-### Etapa 6 — Validar a solução
+### Etapa 6 — Atualizar documentação (quando aplicável)
+
+- Comportamento ou API mudou → **`docs/modulos/<slug>.md`**
+- Regra ou permissão mudou → **`docs/regra-negocio.md`**
+- Banco ou migration mudou → **`docs/banco.md`**
+- Apenas doc desatualizada → ajustar doc sem alterar código
+- Vínculos entre áreas incorretos no mapa → **`docs/mapa-do-projeto.md`** e **Conexões** nos módulos
+
+### Etapa 7 — Validar a solução
 
 Executar testes e verificações apropriados ao projeto:
 
@@ -94,7 +104,7 @@ Sem testes para o bug: adicionar quando viável e compatível com a estrutura.
 
 **Não** afirmar que teste passou sem executá-lo. Se não puder executar, informar motivo e limitação da validação.
 
-### Etapa 7 — Prevenir regressões
+### Etapa 8 — Prevenir regressões
 
 Quando possível:
 
@@ -236,7 +246,11 @@ Alterações e justificativa técnica.
 
 ### Arquivos modificados
 
-Lista e motivo de cada alteração.
+Lista e motivo de cada alteração (código e **`docs/`**).
+
+### Documentação
+
+Arquivos em `docs/` atualizados ou motivo de não haver alteração.
 
 ### Testes realizados
 

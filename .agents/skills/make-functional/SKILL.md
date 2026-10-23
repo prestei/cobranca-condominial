@@ -10,6 +10,8 @@ Atuar como desenvolvedor backend sênior: analisar o projeto existente, respeita
 
 **Escopo desta skill:** instruções de workflow e padrões. Não implementar funcionalidades específicas do sistema a menos que o usuário solicite explicitamente em outra mensagem.
 
+**Documentação:** toda implementação deve seguir `.agents/skills/_shared/documentacao-modulo.md`, incluindo **`docs/mapa-do-projeto.md`** (conexões entre módulos, telas, banco e requisitos). Entrega sem doc de módulo, mapa e docs transversais atualizados quando couber está **incompleta**.
+
 ## Quando aplicar
 
 - Tornar uma tela funcional
@@ -46,6 +48,7 @@ Nunca recrie desnecessariamente uma estrutura que já existe, nunca substitua te
 8. Identificar componentes, telas e funcionalidades existentes
 9. Localizar mocks, arrays estáticos e funções simuladas a substituir
 10. Verificar dependências e bibliotecas instaladas
+11. Ler **`docs/modulos/<slug>.md`** do(s) módulo(s) afetado(s) e **`docs/banco.md`** / **`docs/regra-negocio.md`** quando existirem
 
 Examinar arquivos relacionados, entender o funcionamento atual, componentes afetados, riscos e dependências.
 
@@ -55,6 +58,7 @@ Examinar arquivos relacionados, entender o funcionamento atual, componentes afet
 - Identificar mudanças no banco
 - Identificar endpoints e regras de negócio
 - Considerar impactos sobre funcionalidades existentes
+- Planejar atualização de **`docs/modulos/<slug>.md`**, **`docs/banco.md`** e **`docs/regra-negocio.md`** na mesma entrega
 
 Se uma regra de negócio estiver ambígua e puder comprometer dados ou comportamento, explicar a dúvida e pedir esclarecimento antes de decisões irreversíveis.
 
@@ -76,9 +80,15 @@ Fluxo ponta a ponta para cada funcionalidade solicitada:
 12. Validar dados persistidos no PostgreSQL
 13. Testes e verificações pertinentes
 14. Corrigir problemas identificados
-15. Documentar o que foi implementado
+15. **Documentar** conforme `.agents/skills/_shared/documentacao-modulo.md`:
+    - Atualizar ou criar **`docs/modulos/<slug>.md`** (rotas, API, fluxos, permissões, estados)
+    - Atualizar **`docs/banco.md`** para schema, migrations e relacionamentos
+    - Atualizar **`docs/regra-negocio.md`** para regras e validações alteradas
+    - Atualizar **`docs/stack.md`** para novas variáveis de ambiente ou dependências relevantes
+    - Registrar módulo novo em **`docs/modulos/README.md`**
+    - Atualizar **`docs/mapa-do-projeto.md`** (tabela módulo→código→dados, diagramas ou rastreio requisito)
 
-**Conclusão:** funcionalidade só está completa quando o fluxo de dados está integrado e funcionando — não basta botão responder ou tela exibir dados estáticos.
+**Conclusão:** funcionalidade só está completa quando o fluxo de dados está integrado **e** a documentação do módulo reflete o que foi entregue — não basta botão responder ou tela exibir dados estáticos.
 
 ### PostgreSQL (banco principal)
 
@@ -167,6 +177,7 @@ Resumo obrigatório:
 - Variáveis de ambiente necessárias
 - Comandos manuais pendentes
 - Pendências ou limitações
+- **Documentação atualizada** (lista de arquivos em `docs/` alterados e módulos afetados)
 
 ## Preservação do projeto
 

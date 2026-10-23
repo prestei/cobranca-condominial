@@ -5,14 +5,13 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | Tabela | Papel |
 | --- | --- |
 | [role](#role) | Cargo e permissões |
-| [user](#user) | Usuário do sistema |
+| [user](#user) | Colaborador do sistema |
 | [condominium](#condominium) | Condomínio |
 | [unit](#unit) | Unidade do condomínio |
 | [responsible_party](#responsible_party) | Pessoa ou empresa responsável |
 | [unit_responsible_party](#unit_responsible_party) | Vínculo entre unidade e responsável |
 | [debt](#debt) | Débito da unidade |
-| [collection](#collection) | Processo de cobrança |
-| [service_ticket](#service_ticket) | Atendimento |
+| [service_ticket](#service_ticket) | Atendimento da unidade |
 | [import](#import) | Importação de arquivo |
 | [audit_log](#audit_log) | Auditoria de alteração |
 
@@ -26,11 +25,6 @@ erDiagram
 	responsible_party ||--o{ unit_responsible_party : vincula
 	condominium ||--o{ debt : possui
 	unit ||--o{ debt : possui
-	condominium ||--o{ collection : possui
-	unit ||--o{ collection : possui
-	responsible_party ||--o{ collection : devedor
-	user ||--o{ collection : atendente
-	collection ||--o{ service_ticket : gera
 	unit ||--o{ service_ticket : refere
 	responsible_party ||--o{ service_ticket : refere
 	user ||--o{ service_ticket : atende
@@ -40,7 +34,7 @@ erDiagram
 
 ## role
 
-Cargo do usuário. As permissões ficam em JSON.
+Cargo do colaborador. As permissões ficam em JSON.
 
 | Coluna | Tipo | Nulo | Restrição | Descrição |
 | --- | --- | --- | --- | --- |
@@ -51,7 +45,7 @@ Cargo do usuário. As permissões ficam em JSON.
 
 ## user
 
-Usuário que opera o sistema.
+Colaborador que opera o sistema.
 
 | Coluna | Tipo | Nulo | Restrição | Descrição |
 | --- | --- | --- | --- | --- |
@@ -90,6 +84,7 @@ Unidade de um condomínio: apartamento, casa, sala ou loja.
 | bloco | VARCHAR | sim | | Bloco ou torre |
 | tipo | VARCHAR | não | | Apartamento, Casa, Sala, Loja |
 | status | VARCHAR | não | padrão `Ativa` | Ativa, Inativa |
+| situacao | VARCHAR | não | padrão `Em cobrança` | Em cobrança, Em acordo, Notificada, Ajuizada, Quitada. Quitada quando não há débito vencido |
 
 ## responsible_party
 
@@ -144,33 +139,14 @@ Débito ou encargo de uma unidade.
 | origem | VARCHAR | sim | | Superlógica, PDF ou outra administradora |
 | identificador_externo | VARCHAR | sim | | ID ou código vindo da administradora |
 
-## collection
-
-Processo de cobrança de um condomínio, de uma unidade ou de um responsável.
-
-| Coluna | Tipo | Nulo | Restrição | Descrição |
-| --- | --- | --- | --- | --- |
-| id | UUID | não | PK | |
-| condominio_id | INT | não | FK → condominium.id | |
-| unidade_id | INT | sim | FK → unit.id | |
-| responsavel_id | INT | sim | FK → responsible_party.id | Devedor |
-| usuario_id | INT | sim | FK → user.id | Atendente responsável |
-| status | VARCHAR | não | | Em cobranca, Negociacao, Acordo, Pago, Cancelado |
-| data_entrada | DATE | sim | | Data em que entrou na cobrança |
-| data_ultima_interacao | TIMESTAMP | sim | | Último atendimento registrado |
-| acompanhamento | TEXT | sim | | Histórico ou resumo do acompanhamento |
-| observacoes | TEXT | sim | | |
-
 ## service_ticket
 
-Atendimento feito por um usuário. Pode ser geral ou ligado a um processo de cobrança.
+Atendimento (palitagem) de uma unidade. Quem registra é o colaborador logado.
 
 | Coluna | Tipo | Nulo | Restrição | Descrição |
 | --- | --- | --- | --- | --- |
 | id | UUID | não | PK | |
-| tipo | VARCHAR | não | | casual, cobranca |
-| cobranca_id | UUID | sim | FK → collection.id | Preenchido quando `tipo` é `cobranca` |
-| unidade_id | INT | sim | FK → unit.id | |
+| unidade_id | INT | não | FK → unit.id | |
 | responsavel_id | INT | sim | FK → responsible_party.id | |
 | usuario_id | INT | não | FK → user.id | Atendente |
 | data_hora | TIMESTAMP | não | | |
@@ -207,7 +183,7 @@ Registro de cada alteração feita no sistema.
 | Coluna | Tipo | Nulo | Restrição | Descrição |
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
-| usuario_id | INT | sim | FK → user.id | Usuário que realizou a ação |
+| usuario_id | INT | sim | FK → user.id | Colaborador que realizou a ação |
 | entidade | VARCHAR | não | | Tabela afetada. Ex.: debt, unit |
 | registro_id | VARCHAR | sim | | ID do registro afetado |
 | acao | VARCHAR | não | | INSERT, UPDATE, DELETE |
@@ -228,11 +204,6 @@ Registro de cada alteração feita no sistema.
 | unit_responsible_party | responsible_party | muitos para um | responsavel_id |
 | debt | condominium | muitos para um | condominio_id |
 | debt | unit | muitos para um | unidade_id |
-| collection | condominium | muitos para um | condominio_id |
-| collection | unit | muitos para um | unidade_id |
-| collection | responsible_party | muitos para um | responsavel_id |
-| collection | user | muitos para um | usuario_id |
-| service_ticket | collection | muitos para um | cobranca_id |
 | service_ticket | unit | muitos para um | unidade_id |
 | service_ticket | responsible_party | muitos para um | responsavel_id |
 | service_ticket | user | muitos para um | usuario_id |
