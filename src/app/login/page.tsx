@@ -11,8 +11,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuthOptional();
-  const [codigo, setCodigo] = useState("");
-  const [password, setPassword] = useState("");
+  const [codigo, setCodigo] = useState("12345");
+  const [password, setPassword] = useState("12345");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -59,7 +59,9 @@ function LoginForm() {
           <div className="mb-lg flex flex-col gap-xs border-b border-border-subtle pb-md">
             <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-brass">Lex Condominial</p>
             <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
-            <p className="text-body-sm text-on-surface-variant">Use o código e a senha do seu cadastro de colaborador.</p>
+            <p className="text-body-sm text-on-surface-variant">
+              Por enquanto: código 12345 e senha 12345 (admin de teste). Demais colaboradores usam o próprio código com senha 12345.
+            </p>
           </div>
 
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>

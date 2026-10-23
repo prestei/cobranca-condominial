@@ -198,7 +198,10 @@ export default function HomePage() {
     const porAdvogado = advogados
       .map((advogado) => {
         const itens = debitos.filter(
-          (item) => cadastros.condominios.find((condominio) => condominio.id === item.condominioId)?.advogado === advogado,
+          (item) => {
+            const condominio = cadastros.condominios.find((atual) => atual.id === item.condominioId);
+            return condominio ? condominio.advogados.includes(advogado) : false;
+          },
         );
         return {
           nome: advogado,

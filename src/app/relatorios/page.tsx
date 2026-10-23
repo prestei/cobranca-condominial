@@ -383,7 +383,7 @@ function RelatoriosPage() {
 
   function combinaCarteira(condominio: Condominio | undefined) {
     if (!condominio) return false;
-    if (aplicado.advogado !== "todos" && condominio.advogado !== aplicado.advogado) return false;
+    if (aplicado.advogado !== "todos" && !condominio.advogados.includes(aplicado.advogado)) return false;
     if (aplicado.condominio !== "todos" && String(condominio.id) !== aplicado.condominio) return false;
     return true;
   }
@@ -421,7 +421,9 @@ function RelatoriosPage() {
 
   const porCondominio = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.nome ?? "—"));
   let porAtendente = agruparContagem(atendimentos.map((item) => nomeUsuario(item.usuarioId)));
-  let porAdvogado = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogado ?? "—"));
+  let porAdvogado = agruparContagem(
+    atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogados[0] ?? "—"),
+  );
   const porMeio = agruparContagem(atendimentos.map((item) => item.canal || "—"));
   let porMotivo = agruparContagem(atendimentos.filter((item) => item.respondeu === "Sim").map((item) => item.motivo || "Não informou o motivo"));
   let respondeuGrupo = agruparContagem(atendimentos.map((item) => (item.respondeu === "Sim" || item.respondeu === "Não" ? item.respondeu : "—")));
@@ -526,7 +528,10 @@ function RelatoriosPage() {
 
   const porAdvogadoDebito = advogados
     .map((advogado) => {
-      const itens = debitos.filter((item) => cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId)?.advogado === advogado);
+      const itens = debitos.filter((item) => {
+        const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
+        return condominio ? condominio.advogados.includes(advogado) : false;
+      });
       return {
         nome: advogado,
         valor: somar(itens),
@@ -635,7 +640,7 @@ function RelatoriosPage() {
       condominio?.nome ?? "—",
       nomeUnidade(item.unidadeId),
       nomeUsuario(item.usuarioId),
-      condominio?.advogado ?? "—",
+      condominio?.advogados[0] ?? "—",
       item.canal,
       item.respondeu || "—",
       item.motivo || "—",
@@ -652,7 +657,7 @@ function RelatoriosPage() {
     const dias = diasDeAtraso(item.dataVencimento, dataBase);
     return [
       condominio?.nome ?? "—",
-      condominio?.advogado ?? "—",
+      condominio?.advogados[0] ?? "—",
       nomeUnidade(item.unidadeId),
       item.referencia,
       item.descricao || "—",

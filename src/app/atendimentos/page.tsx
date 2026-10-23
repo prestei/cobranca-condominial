@@ -56,6 +56,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   agoraIso,
   canaisAtendimento,
+  condominioAtivo,
   debitoEmAberto,
   diasDeAtraso,
   formatarData,
@@ -169,7 +170,9 @@ export default function AtendimentosPage() {
   const debitosDaUnidade = cadastros.debitos.filter(
     (item) => String(item.unidadeId) === form.unidadeId && debitoEmAberto(item),
   );
-  const condominiosOrdenados = [...cadastros.condominios].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const condominiosOrdenados = [...cadastros.condominios]
+    .filter((item) => condominioAtivo(item))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const unidadesDoCondominio = cadastros.unidades.filter((item) => String(item.condominioId) === form.condominioId);
 
   function directionFor(key: SortKey): TableSortDirection {

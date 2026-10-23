@@ -1,55 +1,24 @@
 import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
 import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
+import { temPermissao } from "@/lib/permissions/check";
 import {
   PERMISSAO_JSON_ADMIN,
   PERMISSAO_JSON_ADVOGADO,
   PERMISSAO_JSON_ATENDENTE,
 } from "@/lib/permissions/seeds";
+import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export const advogados = ["Dra. Thamires", "Dra. Jullyane", "Dr. João"] as const;
 
-const carteiraInicial: Array<[string, (typeof advogados)[number]]> = [
-  ["Francisca Perea", "Dra. Thamires"],
-  ["Jardins do Vale", "Dra. Thamires"],
-  ["Parque dos Pássaros", "Dra. Thamires"],
-  ["Residencial do Mar", "Dra. Thamires"],
-  ["Acqua Ville", "Dra. Thamires"],
-  ["Azaleias", "Dra. Thamires"],
-  ["Reserva Sim", "Dra. Thamires"],
-  ["Moradas Ville", "Dra. Thamires"],
-  ["Mariglória", "Dra. Thamires"],
-  ["Madrid", "Dra. Thamires"],
-  ["Solar Ondina", "Dra. Thamires"],
-  ["Lisboa", "Dra. Thamires"],
-  ["Salvador Life III", "Dra. Thamires"],
-  ["Ideale", "Dra. Jullyane"],
-  ["Floratta", "Dra. Jullyane"],
-  ["Gardênia", "Dra. Jullyane"],
-  ["Arbol", "Dra. Jullyane"],
-  ["Parque das Orquídeas", "Dra. Jullyane"],
-  ["Solar das Mangueiras", "Dra. Jullyane"],
-  ["Casas de Turim", "Dra. Jullyane"],
-  ["Reserva Humaitá", "Dra. Jullyane"],
-  ["Esplanada do Sol", "Dra. Jullyane"],
-  ["Moradas do Parque II", "Dra. Jullyane"],
-  ["Morada Imperial", "Dra. Jullyane"],
-  ["Alameda das Flores", "Dra. Jullyane"],
-  ["Green Village", "Dra. Jullyane"],
-  ["Quintas do Sol I", "Dra. Jullyane"],
-  ["Recanto dos Pássaros", "Dra. Jullyane"],
-  ["Pedra de Aleluia", "Dr. João"],
-  ["Santa Brígida", "Dr. João"],
-  ["Villa Vina", "Dr. João"],
-  ["Itapema", "Dr. João"],
-  ["Vila Rica", "Dr. João"],
-  ["Principado de Mônaco", "Dr. João"],
-  ["Victória", "Dr. João"],
-];
+export const statusCondominio = ["Ativo", "Inativo"] as const;
+export type StatusCondominio = (typeof statusCondominio)[number];
 
 export type Condominio = {
   id: number;
   nome: string;
-  advogado: string;
+  identificadorExterno: string;
+  status: StatusCondominio;
+  advogados: string[];
   administradora: string;
   cep: string;
   logradouro: string;
@@ -212,31 +181,83 @@ export const tiposImportacao = ["debitos", "responsaveis", "unidades"] as const;
 export const statusImportacao = ["Processando", "Concluida", "Erro", "Cancelada"] as const;
 export const acoesAuditoria = ["INSERT", "UPDATE", "DELETE"] as const;
 
-const condominioVazio: Omit<Condominio, "id" | "nome" | "advogado"> = {
-  administradora: "",
-  cep: "",
-  logradouro: "",
-  numero: "",
-  complemento: "",
-  cidade: "",
-  estado: "",
-  observacao: "",
-};
-
-const cidadeInicial: Record<string, string> = {
-  Azaleias: "Salvador",
-  Ideale: "Lauro de Freitas",
-};
-
-function criarCondominios(): Condominio[] {
-  return carteiraInicial.map(([nome, advogado], index) => ({
-    id: index + 1,
-    nome,
-    advogado,
-    ...condominioVazio,
-    cidade: cidadeInicial[nome] ?? "",
-  }));
-}
+const condominiosIniciais: Condominio[] = [
+  {
+    id: 1,
+    nome: "Condomínio Teste Alpha",
+    identificadorExterno: "TEST-001",
+    status: "Ativo",
+    advogados: ["Dra. Thamires"],
+    administradora: "Administradora Exemplo",
+    cep: "41820-020",
+    logradouro: "Rua das Palmeiras",
+    numero: "100",
+    complemento: "Bloco A",
+    cidade: "Salvador",
+    estado: "BA",
+    observacao: "Cadastro fictício para desenvolvimento.",
+  },
+  {
+    id: 2,
+    nome: "Condomínio Teste Beta",
+    identificadorExterno: "TEST-002",
+    status: "Ativo",
+    advogados: ["Dra. Jullyane"],
+    administradora: "Superlógica Demo",
+    cep: "42700-000",
+    logradouro: "Av. Central",
+    numero: "250",
+    complemento: "",
+    cidade: "Lauro de Freitas",
+    estado: "BA",
+    observacao: "",
+  },
+  {
+    id: 3,
+    nome: "Condomínio Teste Gamma",
+    identificadorExterno: "TEST-003",
+    status: "Ativo",
+    advogados: ["Dr. João", "Dra. Thamires"],
+    administradora: "Administradora Exemplo",
+    cep: "40070-110",
+    logradouro: "Largo do Pelourinho",
+    numero: "12",
+    complemento: "Ed. Comercial",
+    cidade: "Salvador",
+    estado: "BA",
+    observacao: "Dois advogados vinculados para teste.",
+  },
+  {
+    id: 4,
+    nome: "Condomínio Teste Delta",
+    identificadorExterno: "TEST-004",
+    status: "Inativo",
+    advogados: ["Dra. Jullyane"],
+    administradora: "PDF Importações",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    cidade: "Camaçari",
+    estado: "BA",
+    observacao: "Inativo — histórico deve permanecer consultável.",
+  },
+  {
+    id: 5,
+    nome: "Condomínio Teste Épsilon",
+    identificadorExterno: "TEST-005",
+    status: "Ativo",
+    advogados: ["Dr. João"],
+    administradora: "",
+    cep: "41650-010",
+    logradouro: "Rua do Sol",
+    numero: "45",
+    complemento: "",
+    cidade: "Salvador",
+    estado: "BA",
+    observacao: "",
+  },
+];
 
 const cargosIniciais: Cargo[] = [
   {
@@ -259,8 +280,9 @@ const cargosIniciais: Cargo[] = [
   },
 ];
 
-const SENHA_INICIAL_HASH = "$2b$12$Vjl2iG9BDuemM0yhRw2tQ.EwY0epCeoUKK9TgELg6WEXtKGRmyX4S";
-const SENHA_TESTE_HASH = "$2b$12$79G7TsCmJPX.XAaF/1ZFhOMIKJqHlRvpuhKbV5WqrQObVCx.2SBAe";
+/** bcrypt de `12345` — senha padrão de demonstração (ver SENHA_DEMONSTRACAO). */
+const SENHA_INICIAL_HASH = "$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie";
+const SENHA_TESTE_HASH = SENHA_INICIAL_HASH;
 
 const usuariosIniciais: Usuario[] = [
   { id: 1, codigo: "MILENA", cargoId: 1, nome: "Milena", telefone: "71999990001", email: "milena@escritorio.example", senha: SENHA_INICIAL_HASH },
@@ -666,7 +688,7 @@ type Cadastros = {
 };
 
 let state: Cadastros = {
-  condominios: criarCondominios(),
+  condominios: condominiosIniciais,
   cargos: cargosIniciais,
   usuarios: usuariosIniciais,
   unidades: unidadesIniciais,
@@ -840,8 +862,59 @@ export function tituloInicio(nomeCompleto: string, agora = new Date()) {
   return `${saudacaoDoDia(agora)}, ${primeiroNome(nomeCompleto)}`;
 }
 
+function idUsuarioEscopo(usuarioId?: number) {
+  return usuarioId ?? getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO;
+}
+
+export function rotuloAdvogadosCondominio(item: Condominio) {
+  if (item.advogados.length === 0) return "—";
+  return item.advogados.join(", ");
+}
+
+export function advogadoPrincipalCondominio(item: Condominio) {
+  return item.advogados[0] ?? "";
+}
+
+export function condominioAtendeAdvogado(item: Condominio, advogado: string) {
+  if (!advogado) return false;
+  return item.advogados.includes(advogado);
+}
+
+export function condominioAtivo(item: Condominio) {
+  return item.status === "Ativo";
+}
+
+/** Advogados que podem ser vinculados ao condomínio (carteira + colaboradores com cargo Advogado). */
+export function opcoesAdvogadosResponsaveis(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }) {
+  const idsAdvogado = new Set(
+    cadastros.cargos.filter((item) => item.nome === "Advogado").map((item) => item.id),
+  );
+  const nomesUsuarios = cadastros.usuarios
+    .filter((item) => idsAdvogado.has(item.cargoId))
+    .map((item) => item.nome.trim())
+    .filter(Boolean);
+  return [...new Set([...advogados, ...nomesUsuarios])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Condominio[] {
+  const id = idUsuarioEscopo(usuarioId);
+  const usuario = cadastros.usuarios.find((item) => item.id === id);
+  if (!usuario) return [];
+  const perm = permissoesDoUsuarioId(id, cadastros);
+  if (temPermissao(perm, "condominios", "editar") || temPermissao(perm, "condominios", "criar")) {
+    return cadastros.condominios;
+  }
+  if (temPermissao(perm, "condominios", "ler")) {
+    return cadastros.condominios.filter((item) => item.advogados.includes(usuario.nome));
+  }
+  if (temPermissao(perm, "atendimentos", "ler")) {
+    return cadastros.condominios.filter((item) => item.status === "Ativo");
+  }
+  return [];
+}
+
 export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }, userId?: number) {
-  const sessaoId = userId ?? ID_USUARIO_SESSAO;
+  const sessaoId = idUsuarioEscopo(userId);
   const usuario = cadastros.usuarios.find((item) => item.id === sessaoId) ?? cadastros.usuarios[0];
   if (!usuario) {
     return { name: "—", initials: "—", menuSubtitle: "" };

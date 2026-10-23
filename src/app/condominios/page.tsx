@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, DoorOpen, Eye, MapPin, Pencil, Plus, Scale, Trash2 } from "lucide-react";
+import { Building2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, RotateCcw, Scale } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Select, Textarea } from "@/components/input";
+import { FormField, Input, Select, Switch, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
@@ -26,6 +26,8 @@ import {
   SheetForm,
   SheetHeader,
   SheetPanel,
+  SheetHelpText,
+  SheetToggleRow,
   SheetHeaderIcon,
   SheetHeaderLead,
   SheetHeaderText,
@@ -49,18 +51,24 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
+  type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
+import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
-  advogados,
-  getCadastros,
+  condominioAtendeAdvogado,
+  escopoCondominios,
+  opcoesAdvogadosResponsaveis,
   registrarAuditoria,
+  rotuloAdvogadosCondominio,
   setCondominios,
+  statusCondominio,
   type Condominio,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
+import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
@@ -96,7 +104,7 @@ const estados = [
   "TO",
 ] as const;
 
-type SortKey = "nome" | "administradora" | "cidade" | "advogado" | "unidades";
+type SortKey = "nome" | "administradora" | "cidade" | "advogado" | "unidades" | "status";
 
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
@@ -109,7 +117,9 @@ function DetalheCampo({ label, value }: { label: string; value: string }) {
 
 const formularioVazio: Omit<Condominio, "id"> = {
   nome: "",
-  advogado: "",
+  identificadorExterno: "",
+  status: "Ativo",
+  advogados: [],
   administradora: "",
   cep: "",
   logradouro: "",
@@ -123,9 +133,13 @@ const formularioVazio: Omit<Condominio, "id"> = {
 export default function CondominiosPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
+  const { user } = useAuth();
   const router = useRouter();
   const formId = useId();
-  const { condominios, unidades } = useCadastros();
+  const cadastros = useCadastros();
+  const opcoesAdvogados = opcoesAdvogadosResponsaveis(cadastros);
+  const condominios = escopoCondominios(cadastros, user?.userId);
+  const unidades = cadastros.unidades;
   const unidadesPorCondominio = new Map<number, number>();
   for (const unidade of unidades) {
     unidadesPorCondominio.set(unidade.condominioId, (unidadesPorCondominio.get(unidade.condominioId) ?? 0) + 1);
@@ -135,21 +149,23 @@ export default function CondominiosPage() {
   const [administradora, setAdministradora] = useState("todas");
   const [cidade, setCidade] = useState("todas");
   const [lawyer, setLawyer] = useState("todos");
+  const [situacao, setSituacao] = useState("Ativo");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedAdministradora, setAppliedAdministradora] = useState("todas");
   const [appliedCidade, setAppliedCidade] = useState("todas");
   const [appliedLawyer, setAppliedLawyer] = useState("todos");
+  const [appliedSituacao, setAppliedSituacao] = useState("Ativo");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Condominio | null>(null);
+  const [statusTarget, setStatusTarget] = useState<Condominio | null>(null);
   const [step, setStep] = useState(0);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
-  const [errors, setErrors] = useState<Partial<Record<"nome" | "advogado", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"nome" | "advogados" | "identificadorExterno", string>>>({});
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [cepErro, setCepErro] = useState("");
   const [enderecoLiberado, setEnderecoLiberado] = useState(false);
@@ -232,9 +248,17 @@ export default function CondominiosPage() {
     .filter((item) => {
       const matchesAdministradora = appliedAdministradora === "todas" || item.administradora.trim() === appliedAdministradora;
       const matchesCidade = appliedCidade === "todas" || item.cidade.trim() === appliedCidade;
-      const matchesLawyer = appliedLawyer === "todos" || item.advogado === appliedLawyer;
-      const haystack = `${item.nome} ${item.cidade} ${item.administradora}`.toLocaleLowerCase("pt-BR");
-      return matchesAdministradora && matchesCidade && matchesLawyer && (query.length === 0 || haystack.includes(query));
+      const matchesLawyer = appliedLawyer === "todos" || condominioAtendeAdvogado(item, appliedLawyer);
+      const matchesSituacao = appliedSituacao === "todos" || item.status === appliedSituacao;
+      const haystack =
+        `${item.nome} ${item.identificadorExterno} ${item.cidade} ${item.administradora}`.toLocaleLowerCase("pt-BR");
+      return (
+        matchesAdministradora &&
+        matchesCidade &&
+        matchesLawyer &&
+        matchesSituacao &&
+        (query.length === 0 || haystack.includes(query))
+      );
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
@@ -247,16 +271,20 @@ export default function CondominiosPage() {
           : sortKey === "cidade"
             ? a.cidade
             : sortKey === "advogado"
-              ? a.advogado
-              : a.nome;
+              ? rotuloAdvogadosCondominio(a)
+              : sortKey === "status"
+                ? a.status
+                : a.nome;
       const right =
         sortKey === "administradora"
           ? b.administradora
           : sortKey === "cidade"
             ? b.cidade
             : sortKey === "advogado"
-              ? b.advogado
-              : b.nome;
+              ? rotuloAdvogadosCondominio(b)
+              : sortKey === "status"
+                ? b.status
+                : b.nome;
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
@@ -264,7 +292,7 @@ export default function CondominiosPage() {
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const advogadosNaLista = new Set(visible.map((item) => item.advogado)).size;
+  const advogadosNaLista = new Set(visible.flatMap((item) => item.advogados)).size;
   const comEndereco = visible.filter((item) => item.cidade.trim().length > 0).length;
   const detalhe = detalheId === null ? null : (condominios.find((item) => item.id === detalheId) ?? null);
   const unidadesDoDetalhe = detalhe ? unidades.filter((item) => item.condominioId === detalhe.id) : [];
@@ -292,6 +320,7 @@ export default function CondominiosPage() {
     setAppliedAdministradora(administradora);
     setAppliedCidade(cidade);
     setAppliedLawyer(lawyer);
+    setAppliedSituacao(situacao);
     setPage(1);
   }
 
@@ -300,10 +329,12 @@ export default function CondominiosPage() {
     setAdministradora("todas");
     setCidade("todas");
     setLawyer("todos");
+    setSituacao("Ativo");
     setAppliedSearch("");
     setAppliedAdministradora("todas");
     setAppliedCidade("todas");
     setAppliedLawyer("todos");
+    setAppliedSituacao("Ativo");
     setPage(1);
   }
 
@@ -329,7 +360,9 @@ export default function CondominiosPage() {
     setEditingId(item.id);
     setForm({
       nome: item.nome,
-      advogado: item.advogado,
+      identificadorExterno: item.identificadorExterno,
+      status: item.status,
+      advogados: [...item.advogados],
       administradora: item.administradora,
       cep: formatarCep(item.cep),
       logradouro: item.logradouro,
@@ -345,7 +378,12 @@ export default function CondominiosPage() {
   }
 
   function closeSheet() {
-    const preenchido = Object.values(form).some((value) => value.trim() !== "");
+    const preenchido =
+      form.advogados.length > 0 ||
+      Object.entries(form).some(([key, value]) => {
+        if (key === "advogados" || key === "status") return false;
+        return String(value).trim() !== "";
+      });
     if (preenchido) {
       setLeaveConfirmOpen(true);
       return;
@@ -358,41 +396,32 @@ export default function CondominiosPage() {
     setSheetOpen(false);
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    const cadastros = getCadastros();
-    const emUso =
-      cadastros.unidades.some((item) => item.condominioId === deleteTarget.id) ||
-      cadastros.debitos.some((item) => item.condominioId === deleteTarget.id) ||
-      cadastros.atendimentos.some((item) => {
-        const unidade = cadastros.unidades.find((atual) => String(atual.id) === item.unidadeId);
-        return unidade?.condominioId === deleteTarget.id;
-      });
-    if (emUso) {
-      toast({
-        variant: "error",
-        title: "Condomínio em uso",
-        description: "Existem unidades, débitos ou atendimentos ligados a este condomínio.",
-      });
-      setDeleteTarget(null);
-      return;
-    }
+  function confirmStatusChange() {
+    if (!statusTarget) return;
+    const proximoStatus = statusTarget.status === "Ativo" ? "Inativo" : "Ativo";
+    setCondominios((current) =>
+      current.map((item) => (item.id === statusTarget.id ? { ...item, status: proximoStatus } : item)),
+    );
     registrarAuditoria({
       entidade: "condominium",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.nome,
-      dadosNovos: "",
-      camposAlterados: "nome",
+      registroId: String(statusTarget.id),
+      acao: "UPDATE",
+      dadosAnteriores: JSON.stringify({ status: statusTarget.status }),
+      dadosNovos: JSON.stringify({ status: proximoStatus }),
+      camposAlterados: "status",
     });
-    setCondominios((current) => current.filter((item) => item.id !== deleteTarget.id));
-    if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setLeaveConfirmOpen(false);
+    if (editingId === statusTarget.id) {
+      setForm((current) => ({ ...current, status: proximoStatus }));
     }
-    if (detalheId === deleteTarget.id) setDetalheId(null);
-    toast({ variant: "success", title: "Condomínio excluído" });
-    setDeleteTarget(null);
+    toast({
+      variant: "success",
+      title: proximoStatus === "Inativo" ? "Condomínio inativado" : "Condomínio reativado",
+      description:
+        proximoStatus === "Inativo"
+          ? "Unidades, débitos e atendimentos permanecem consultáveis."
+          : "O condomínio volta a aparecer nas rotinas operacionais ativas.",
+    });
+    setStatusTarget(null);
   }
 
   function verUnidades(item: Condominio) {
@@ -407,34 +436,54 @@ export default function CondominiosPage() {
     const lista = [];
     if (pode("condominios", "ler")) {
       lista.push({ label: "Ver detalhes", icon: Eye, onSelect: () => setDetalheId(item.id) });
-      if (pode("unidades", "ler")) lista.push({ label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) });
+      if (pode("unidades", "ler")) {
+        lista.push({ label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) });
+      }
     }
-    if (pode("unidades", "criar"))
+    if (pode("unidades", "criar") && item.status === "Ativo") {
       lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(item) });
-    if (pode("condominios", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
-    if (pode("condominios", "excluir"))
-      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
+    }
+    if (pode("condominios", "editar")) {
+      lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+      if (item.status === "Ativo") {
+        lista.push({
+          label: "Inativar",
+          icon: CircleOff,
+          destructive: true,
+          onSelect: () => setStatusTarget(item),
+        });
+      } else {
+        lista.push({ label: "Reativar", icon: RotateCcw, onSelect: () => setStatusTarget(item) });
+      }
+    }
     return lista;
   }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!pode("condominios", editingId === null ? "criar" : "editar")) return;
     const nome = form.nome.trim();
-    const nextErrors: Partial<Record<"nome" | "advogado", string>> = {};
+    const identificadorExterno = form.identificadorExterno.trim();
+    const nextErrors: Partial<Record<"nome" | "advogados" | "identificadorExterno", string>> = {};
 
     if (!nome) {
       nextErrors.nome = "Informe o nome do condomínio.";
-    } else if (
-      condominios.some(
-        (item) =>
-          item.id !== editingId && item.nome.localeCompare(nome, "pt-BR", { sensitivity: "base" }) === 0,
-      )
-    ) {
-      nextErrors.nome = "Já existe um condomínio com este nome.";
     }
 
-    if (!form.advogado) {
-      nextErrors.advogado = "Selecione o advogado responsável.";
+    if (form.advogados.length === 0) {
+      nextErrors.advogados = "Selecione ao menos um advogado responsável.";
+    }
+
+    if (identificadorExterno) {
+      const duplicado = cadastros.condominios.some(
+        (item) =>
+          item.id !== editingId &&
+          item.identificadorExterno.trim().toLocaleLowerCase("pt-BR") ===
+            identificadorExterno.toLocaleLowerCase("pt-BR"),
+      );
+      if (duplicado) {
+        nextErrors.identificadorExterno = "Já existe um condomínio com este identificador.";
+      }
     }
 
     if (step < etapasCondominio.length - 1) {
@@ -455,6 +504,8 @@ export default function CondominiosPage() {
     const saved: Omit<Condominio, "id"> = {
       ...form,
       nome,
+      identificadorExterno,
+      advogados: [...form.advogados],
       administradora: form.administradora.trim(),
       cep: form.cep.trim(),
       logradouro: form.logradouro.trim(),
@@ -466,8 +517,8 @@ export default function CondominiosPage() {
     };
 
     if (editingId === null) {
-      const nextId = condominios.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setCondominios((current) => [...current, { id: nextId, ...saved }]);
+      const nextId = cadastros.condominios.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+      setCondominios((current) => [...current, { id: nextId, ...saved, status: "Ativo" }]);
       registrarAuditoria({
         entidade: "condominium",
         registroId: String(nextId),
@@ -495,6 +546,76 @@ export default function CondominiosPage() {
     setSheetOpen(false);
   }
 
+  const colunasExportacao = [
+    "Nome",
+    "Identificador",
+    "Situação",
+    "Cidade",
+    "Estado",
+    "Administradora",
+    "Advogados",
+    "Unidades",
+    "CEP",
+    "Logradouro",
+    "Número",
+    "Complemento",
+    "Observação",
+  ] as const;
+
+  function linhasExportacao() {
+    return visible.map((item) => [
+      item.nome,
+      item.identificadorExterno,
+      item.status,
+      item.cidade,
+      item.estado,
+      item.administradora,
+      rotuloAdvogadosCondominio(item),
+      String(contarUnidades(item.id)),
+      item.cep,
+      item.logradouro,
+      item.numero,
+      item.complemento,
+      item.observacao,
+    ]);
+  }
+
+  function aoExportar(formato: TableExportFormat) {
+    if (visible.length === 0) {
+      toast({
+        variant: "info",
+        title: "Nada para exportar",
+        description: "Ajuste os filtros ou cadastre condomínios na carteira.",
+      });
+      return;
+    }
+    const linhas = linhasExportacao();
+    const colunas = [...colunasExportacao];
+    const arquivoBase = `condominios-${new Date().toISOString().slice(0, 10)}`;
+    if (formato === "csv") {
+      exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
+      toast({ variant: "success", title: "CSV baixado" });
+      return;
+    }
+    if (formato === "xls") {
+      exportarExcel(`${arquivoBase}.xls`, colunas, linhas);
+      toast({ variant: "success", title: "Planilha baixada" });
+      return;
+    }
+    const abriu = exportarPdf("Condomínios", `${arquivoBase}.html`, [
+      { titulo: "Carteira (filtros aplicados)", colunas, linhas },
+    ]);
+    if (abriu) {
+      toast({ variant: "success", title: "PDF", description: "Use imprimir ou salvar como PDF no navegador." });
+    } else {
+      toast({
+        variant: "info",
+        title: "Relatório baixado",
+        description: "Abra o arquivo HTML e use imprimir para salvar em PDF.",
+      });
+    }
+  }
+
   const emptyState = (
     <EmptyState
       icon={<Icon icon={Building2} size="lg" />}
@@ -516,11 +637,14 @@ export default function CondominiosPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Condomínios">
+    <Table aria-label="Condomínios" onExport={aoExportar}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Condomínio
+          </TableHead>
+          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+            Situação
           </TableHead>
           <TableHead sortable sortDirection={directionFor("cidade")} onSort={() => handleSort("cidade")}>
             Cidade
@@ -545,14 +669,24 @@ export default function CondominiosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.nome}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex flex-col gap-xs">
+                  <span>{item.nome}</span>
+                  {item.identificadorExterno ? (
+                    <span className="text-body-sm text-on-surface-variant">{item.identificadorExterno}</span>
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
+              </TableCell>
               <TableCell>{item.cidade || "—"}</TableCell>
               <TableCell>{item.administradora || "—"}</TableCell>
-              <TableCell>{item.advogado}</TableCell>
+              <TableCell>{rotuloAdvogadosCondominio(item)}</TableCell>
               <TableCell align="right" className="tabular-nums">
                 {contarUnidades(item.id)}
               </TableCell>
@@ -577,9 +711,12 @@ export default function CondominiosPage() {
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <TableMobileFields>
+              <TableMobileField label="Situação">
+                <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
+              </TableMobileField>
               <TableMobileField label="Cidade">{item.cidade || "—"}</TableMobileField>
               <TableMobileField label="Administradora">{item.administradora || "—"}</TableMobileField>
-              <TableMobileField label="Advogado">{item.advogado}</TableMobileField>
+              <TableMobileField label="Advogados">{rotuloAdvogadosCondominio(item)}</TableMobileField>
               <TableMobileField label="Unidades" valueClassName="tabular-nums">
                 {contarUnidades(item.id)}
               </TableMobileField>
@@ -638,7 +775,17 @@ export default function CondominiosPage() {
                 onChange: setLawyer,
                 options: [
                   { value: "todos", label: "Todos os advogados" },
-                  ...advogados.map((nome) => ({ value: nome, label: nome })),
+                  ...opcoesAdvogados.map((nome) => ({ value: nome, label: nome })),
+                ],
+              },
+              {
+                id: "situacao",
+                label: "Situação",
+                value: situacao,
+                onChange: setSituacao,
+                options: [
+                  { value: "todos", label: "Todos" },
+                  ...statusCondominio.map((item) => ({ value: item, label: item })),
                 ],
               },
             ]}
@@ -668,7 +815,7 @@ export default function CondominiosPage() {
             </CardMetric>
           </div>
 
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
           {visible.length > 0 ? (
             <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
           ) : null}
@@ -712,24 +859,46 @@ export default function CondominiosPage() {
                     />
                   </FormField>
                   <FormField
-                    label="Advogado responsável"
-                    htmlFor={`${formId}-advogado`}
-                    required
-                    error={errors.advogado}
+                    label="Identificador externo"
+                    htmlFor={`${formId}-identificador`}
+                    error={errors.identificadorExterno}
                   >
-                    <Select
-                      id={`${formId}-advogado`}
-                      value={form.advogado}
-                      invalid={Boolean(errors.advogado)}
-                      onChange={(event) => setForm((current) => ({ ...current, advogado: event.target.value }))}
-                    >
-                      <option value="">Selecione</option>
-                      {advogados.map((nome) => (
-                        <option key={nome} value={nome}>
-                          {nome}
-                        </option>
+                    <Input
+                      id={`${formId}-identificador`}
+                      value={form.identificadorExterno}
+                      invalid={Boolean(errors.identificadorExterno)}
+                      placeholder="Código da administradora ou integração"
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, identificadorExterno: event.target.value }))
+                      }
+                    />
+                    <SheetHelpText>
+                      Opcional. Quando preenchido, deve ser único. Não use só o nome como identificador confiável.
+                    </SheetHelpText>
+                  </FormField>
+                  <FormField label="Advogados responsáveis" required error={errors.advogados}>
+                    <SheetPanel className="flex flex-col gap-md">
+                      {opcoesAdvogados.map((nome) => (
+                        <SheetToggleRow
+                          key={nome}
+                          label={nome}
+                          htmlFor={`${formId}-adv-${nome}`}
+                        >
+                          <Switch
+                            id={`${formId}-adv-${nome}`}
+                            checked={form.advogados.includes(nome)}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                advogados: event.target.checked
+                                  ? [...current.advogados, nome]
+                                  : current.advogados.filter((item) => item !== nome),
+                              }))
+                            }
+                          />
+                        </SheetToggleRow>
                       ))}
-                    </Select>
+                    </SheetPanel>
                   </FormField>
                   <FormField label="Administradora do condomínio" htmlFor={`${formId}-administradora`}>
                     <Input
@@ -859,7 +1028,9 @@ export default function CondominiosPage() {
               <SheetBody>
                 <SheetPanel variant="tint">
                   <div className="grid grid-cols-2 gap-md">
-                    <DetalheCampo label="Advogado responsável" value={detalhe.advogado} />
+                    <DetalheCampo label="Situação" value={detalhe.status} />
+                    <DetalheCampo label="Identificador" value={detalhe.identificadorExterno} />
+                    <DetalheCampo label="Advogados responsáveis" value={rotuloAdvogadosCondominio(detalhe)} />
                     <DetalheCampo label="Administradora" value={detalhe.administradora} />
                   </div>
                 </SheetPanel>
@@ -905,10 +1076,12 @@ export default function CondominiosPage() {
                   <Icon icon={DoorOpen} size="sm" />
                   Ver unidades
                 </Button>
-                <Button type="button" onClick={() => adicionarUnidade(detalhe)}>
-                  <Icon icon={Plus} size="sm" />
-                  Adicionar unidade
-                </Button>
+                {pode("unidades", "criar") && detalhe.status === "Ativo" ? (
+                  <Button type="button" onClick={() => adicionarUnidade(detalhe)}>
+                    <Icon icon={Plus} size="sm" />
+                    Adicionar unidade
+                  </Button>
+                ) : null}
               </SheetFooter>
             </>
           ) : null}
@@ -926,15 +1099,22 @@ export default function CondominiosPage() {
         onConfirm={confirmLeave}
       />
       <ConfirmDialog
-        open={deleteTarget !== null}
+        open={statusTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) setStatusTarget(null);
         }}
-        title="Excluir condomínio?"
-        description={deleteTarget ? `${deleteTarget.nome} será removido da carteira.` : undefined}
-        confirmLabel="Excluir"
+        title={statusTarget?.status === "Ativo" ? "Inativar condomínio?" : "Reativar condomínio?"}
+        description={
+          statusTarget
+            ? statusTarget.status === "Ativo"
+              ? `${statusTarget.nome} deixa de aparecer nas rotinas ativas. Débitos, atendimentos e relatórios históricos permanecem.`
+              : `${statusTarget.nome} volta a ficar disponível para operação.`
+            : undefined
+        }
+        confirmLabel={statusTarget?.status === "Ativo" ? "Inativar" : "Reativar"}
         cancelLabel="Cancelar"
-        onConfirm={confirmDelete}
+        confirmVariant={statusTarget?.status === "Ativo" ? "critical" : "primary"}
+        onConfirm={confirmStatusChange}
       />
     </WorkspaceShell>
   );
