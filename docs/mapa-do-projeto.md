@@ -92,7 +92,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | atendimentos | `/service-tickets` | `service-tickets/page.tsx` | [atendimentos.md](modulos/atendimentos.md) | `Atendimento` | `service_ticket`, `user`, `unit` | condominios, unidades, debitos, usuarios |
 | debitos | `/debts` | `debts/page.tsx` | [debitos.md](modulos/debitos.md) | `Debito` | `debt`, `unit`, `condominium` | unidades, importacoes, atendimentos, relatorios |
 | condominios | `/condominiums` | `condominiums/page.tsx` | [condominios.md](modulos/condominios.md) | `Condominio` | `condominium` | unidades, debitos, atendimentos |
-| unidades | `/units` | `units/page.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo` | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos |
+| unidades | `/units` | `units/page.tsx`, `components/unidade-detalhe-sheet.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo`; sync via API | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos, auditoria; API `/api/unidades` |
 | importacoes | `/imports` | `imports/page.tsx` | [importacoes.md](modulos/importacoes.md) | `Importacao` | `import` | integracao-superlogica, debitos, unidades |
 | relatorios | `/reports` | `reports/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
 | usuarios | `/login`, `/users` | `login/page.tsx`, `users/page.tsx` | [usuarios.md](modulos/usuarios.md) | cache em `catalog` (sem senha); API `/api/users`, `/api/auth/login` | `user`, `role` | cargos, atendimentos, auditoria |

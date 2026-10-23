@@ -92,7 +92,21 @@ Módulos que já usam o banco: **cargos** (`/api/roles`, permissões em `proxy`/
 | Variável | Obrigatória | Descrição |
 | --- | --- | --- |
 | `AUTH_SECRET` | Produção | Segredo com pelo menos 32 caracteres para assinar a sessão. Em desenvolvimento, há fallback local documentado em `.env.example`. |
+| `DATABASE_URL` | Quando usar PostgreSQL | URL `postgresql://…` do banco do projeto. Copie `.env.example` → `.env`. |
 
-Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
+## PostgreSQL (desenvolvimento)
+
+Banco dedicado via Docker na porta **5433** (não usa a instância do sistema na 5432):
+
+```bash
+cp .env.example .env   # se ainda não existir
+npm run db:up
+npm run db:logs        # opcional
+npm run db:down        # parar container
+```
+
+Credenciais padrão do compose: usuário `cobranca`, senha `cobranca_dev`, banco `cobranca_condominial`. A aplicação ainda persiste cadastros em memória (`catalogo.ts`) até a entrega da T02 (migrations + repositórios); a URL já fica pronta no `.env`.
+
+Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 
 Credenciais iniciais vêm do `db:seed` (tabela `user`): código `1234`, senha `1234` — ver [usuarios](modulos/usuarios.md). Cargos e permissões de rota/API leem `role` no PostgreSQL.

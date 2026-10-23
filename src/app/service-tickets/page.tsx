@@ -108,6 +108,8 @@ function AtendimentosPageContent() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedStatus, setAppliedStatus] = useState("todos");
   const [appliedCanal, setAppliedCanal] = useState("todos");
+  const [unidadeFiltro, setUnidadeFiltro] = useState("todas");
+  const [appliedUnidadeFiltro, setAppliedUnidadeFiltro] = useState("todas");
   const [sortKey, setSortKey] = useState<SortKey>("data");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -148,13 +150,25 @@ function AtendimentosPageContent() {
     router.replace("/service-tickets");
   }, [router, searchParams]);
 
+  useEffect(() => {
+    const unidadeQuery = searchParams?.get("unidade");
+    if (!unidadeQuery || searchParams?.get("novo") === "1") return;
+    const existe = getCadastros().unidades.some((item) => String(item.id) === unidadeQuery);
+    if (!existe) return;
+    setUnidadeFiltro(unidadeQuery);
+    setAppliedUnidadeFiltro(unidadeQuery);
+    setPage(1);
+    router.replace("/atendimentos");
+  }, [router, searchParams]);
+
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = atendimentos
     .filter((item) => {
       const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
       const matchesCanal = appliedCanal === "todos" || item.canal === appliedCanal;
+      const matchesUnidade = appliedUnidadeFiltro === "todas" || item.unidadeId === appliedUnidadeFiltro;
       const haystack = `${item.assunto} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeUsuario(item.usuarioId)}`.toLocaleLowerCase("pt-BR");
-      return matchesStatus && matchesCanal && (query.length === 0 || haystack.includes(query));
+      return matchesStatus && matchesCanal && matchesUnidade && (query.length === 0 || haystack.includes(query));
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
@@ -198,6 +212,7 @@ function AtendimentosPageContent() {
     setAppliedSearch(search);
     setAppliedStatus(status);
     setAppliedCanal(canal);
+    setAppliedUnidadeFiltro(unidadeFiltro);
     setPage(1);
   }
 
@@ -205,9 +220,11 @@ function AtendimentosPageContent() {
     setSearch("");
     setStatus("todos");
     setCanal("todos");
+    setUnidadeFiltro("todas");
     setAppliedSearch("");
     setAppliedStatus("todos");
     setAppliedCanal("todos");
+    setAppliedUnidadeFiltro("todas");
     setPage(1);
   }
 
@@ -498,6 +515,19 @@ function AtendimentosPageContent() {
               options: [
                 { value: "todos", label: "Todos os canais" },
                 ...canaisAtendimento.map((item) => ({ value: item, label: item })),
+              ],
+            },
+            {
+              id: "unidade",
+              label: "Unidade",
+              value: unidadeFiltro,
+              onChange: setUnidadeFiltro,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...cadastros.unidades.map((item) => ({
+                  value: String(item.id),
+                  label: nomeUnidade(item.id),
+                })),
               ],
             },
           ]}

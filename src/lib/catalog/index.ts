@@ -53,6 +53,7 @@ export type Unidade = {
   bloco: string;
   tipo: string;
   status: string;
+  situacao: string;
 };
 
 export type Responsavel = {
@@ -143,6 +144,9 @@ export type Auditoria = {
 
 export const tiposUnidade = ["Apartamento", "Casa", "Sala", "Loja"] as const;
 export const statusUnidade = ["Ativa", "Inativa"] as const;
+/** Sem cobrança = fora da fila de inadimplência; demais estados entram com débito/importação ou movimentação operacional. */
+export const situacoesUnidade = ["Sem cobrança", "Em cobrança", "Em acordo", "Notificada", "Ajuizada", "Quitada"] as const;
+export const SITUACAO_COBRANCA_PADRAO: (typeof situacoesUnidade)[number] = "Sem cobrança";
 export const tiposPessoa = ["Fisica", "Juridica"] as const;
 export const tiposVinculo = ["Proprietario", "Inquilino", "Administrador", "Sindico"] as const;
 export const statusDebito = ["Pendente", "Pago", "Vencido", "Cancelado"] as const;
@@ -332,12 +336,12 @@ const usuariosIniciais: Usuario[] = [
 ];
 
 const unidadesIniciais: Unidade[] = [
-  { id: 1, condominioId: 6, identificacao: "101", bloco: "A", tipo: "Apartamento", status: "Ativa" },
-  { id: 2, condominioId: 6, identificacao: "102", bloco: "A", tipo: "Apartamento", status: "Ativa" },
-  { id: 3, condominioId: 6, identificacao: "201", bloco: "B", tipo: "Apartamento", status: "Inativa" },
-  { id: 4, condominioId: 14, identificacao: "B-203", bloco: "B", tipo: "Apartamento", status: "Ativa" },
-  { id: 5, condominioId: 26, identificacao: "Sala 3", bloco: "Torre 1", tipo: "Sala", status: "Ativa" },
-  { id: 6, condominioId: 29, identificacao: "12", bloco: "", tipo: "Casa", status: "Ativa" },
+  { id: 1, condominioId: 1, identificacao: "101", bloco: "A", tipo: "Apartamento", status: "Ativa", situacao: "Em cobrança" },
+  { id: 2, condominioId: 1, identificacao: "102", bloco: "A", tipo: "Apartamento", status: "Ativa", situacao: "Em cobrança" },
+  { id: 3, condominioId: 1, identificacao: "201", bloco: "B", tipo: "Apartamento", status: "Inativa", situacao: "Quitada" },
+  { id: 4, condominioId: 2, identificacao: "B-203", bloco: "B", tipo: "Apartamento", status: "Ativa", situacao: "Em acordo" },
+  { id: 5, condominioId: 3, identificacao: "Sala 3", bloco: "Torre 1", tipo: "Sala", status: "Ativa", situacao: "Em cobrança" },
+  { id: 6, condominioId: 4, identificacao: "12", bloco: "", tipo: "Casa", status: "Ativa", situacao: "Notificada" },
 ];
 
 const responsaveisIniciais: Responsavel[] = [
@@ -386,7 +390,7 @@ const vinculosIniciais: Vinculo[] = [
 const debitosIniciais: Debito[] = [
   {
     id: 1,
-    condominioId: 6,
+    condominioId: 1,
     unidadeId: 1,
     referencia: "09/2026",
     descricao: "Cotas do Mês",
@@ -405,7 +409,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 2,
-    condominioId: 6,
+    condominioId: 1,
     unidadeId: 2,
     referencia: "05/2026",
     descricao: "Taxa Extra",
@@ -424,7 +428,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 3,
-    condominioId: 14,
+    condominioId: 2,
     unidadeId: 4,
     referencia: "07/2026",
     descricao: "Acordo",
@@ -443,7 +447,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 4,
-    condominioId: 6,
+    condominioId: 1,
     unidadeId: 1,
     referencia: "11/2021",
     descricao: "Cotas do Mês",
@@ -462,7 +466,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 5,
-    condominioId: 6,
+    condominioId: 1,
     unidadeId: 2,
     referencia: "09/2026",
     descricao: "Cotas do Mês",
@@ -481,7 +485,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 6,
-    condominioId: 26,
+    condominioId: 3,
     unidadeId: 5,
     referencia: "08/2026",
     descricao: "Cotas do Mês",
@@ -500,7 +504,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 7,
-    condominioId: 29,
+    condominioId: 4,
     unidadeId: 6,
     referencia: "06/2026",
     descricao: "Acordo",
@@ -519,7 +523,7 @@ const debitosIniciais: Debito[] = [
   },
   {
     id: 8,
-    condominioId: 6,
+    condominioId: 1,
     unidadeId: 1,
     referencia: "03/2026",
     descricao: "Multas Infrações",
@@ -741,10 +745,29 @@ export function subscribeCadastros(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+function usuariosComSeed() {
+  const map = new Map(state.usuarios.map((item) => [item.id, item]));
+  for (const seed of usuariosIniciais) {
+    if (!map.has(seed.id)) {
+      map.set(seed.id, seed);
+    }
+  }
+  return [...map.values()].sort((a, b) => a.id - b.id);
+}
+
+function normalizarUnidade(item: Unidade): Unidade {
+  return {
+    ...item,
+    bloco: item.bloco ?? "",
+    situacao: situacaoCobrancaUnidade(item),
+  };
+}
+
 function montarCadastros(): Cadastros {
   return {
     ...state,
-    usuarios: [...state.usuarios].sort((a, b) => a.id - b.id),
+    usuarios: usuariosComSeed(),
+    unidades: state.unidades.map(normalizarUnidade),
   };
 }
 
@@ -819,17 +842,20 @@ export function registrarAuditoria(
   entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados"> & {
     usuarioId?: string;
   },
+  usuarioId?: number,
+  meta?: { ip?: string; userAgent?: string },
 ) {
-  const { usuarioId: usuarioIdOverride, ...rest } = entry;
+  const { usuarioId: usuarioIdFromEntry, ...rest } = entry;
   const registro: Auditoria = {
     id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
-    usuarioId: usuarioIdOverride ?? String(getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
-    ip: "",
-    userAgent: "",
+    usuarioId: String(usuarioId ?? usuarioIdFromEntry ?? getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
+    ip: meta?.ip ?? "",
+    userAgent: meta?.userAgent ?? "",
     dataHora: agoraIso(),
     ...rest,
   };
   state = { ...state, auditoria: [registro, ...state.auditoria] };
+  atualizarCadastrosSnapshot();
   emit();
 }
 
@@ -922,6 +948,11 @@ export function opcoesAdvogadosResponsaveis(cadastros: { usuarios: Usuario[]; ca
   return [...new Set([...advogados, ...nomesUsuarios])].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
+export function escopoUnidades(cadastros: Cadastros, usuarioId?: number): Unidade[] {
+  const ids = new Set(escopoCondominios(cadastros, usuarioId).map((item) => item.id));
+  return cadastros.unidades.filter((item) => ids.has(item.condominioId));
+}
+
 export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Condominio[] {
   const id = idUsuarioEscopo(usuarioId);
   const usuario = cadastros.usuarios.find((item) => item.id === id);
@@ -955,6 +986,25 @@ export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo
 
 export function debitoEmAberto(item: { status: string }) {
   return item.status === "Pendente" || item.status === "Vencido";
+}
+
+/** Unidade quitada permanece consultável, mas não entra na fila operacional de cobrança. */
+const SITUACOES_FILA_COBRANCA_ATIVA = new Set<string>(["Em cobrança", "Em acordo", "Notificada", "Ajuizada"]);
+
+export function unidadeNaFilaCobrancaAtiva(item: { situacao?: string }) {
+  return SITUACOES_FILA_COBRANCA_ATIVA.has(situacaoCobrancaUnidade(item));
+}
+
+/** Indica se a listagem deve tratar a unidade como inadimplente (débito vencido em aberto). */
+export function unidadeComDebitoOperacional(item: { situacao?: string }, temDebitoVencidoAberto: boolean) {
+  if (!unidadeNaFilaCobrancaAtiva(item)) return false;
+  return temDebitoVencidoAberto;
+}
+
+export function situacaoCobrancaUnidade(item: { situacao?: string }) {
+  const raw = item.situacao?.trim();
+  if (!raw || raw === "Regular") return SITUACAO_COBRANCA_PADRAO;
+  return raw;
 }
 
 export function debitoAbertoNaData(

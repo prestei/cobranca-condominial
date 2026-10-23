@@ -120,6 +120,8 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Proprietários e responsáveis financeiros
 - Histórico da unidade
 
+**Unidades (T06):** identificação única por condomínio (`identificacao` + condomínio); inativação preserva débitos, atendimentos e vínculos; exclusão só sem histórico. Responsável financeiro principal marcado no vínculo (`principal`). Situação de cobrança **Sem cobrança** é o padrão ao criar unidade (fora da fila de inadimplência; badge neutro na coluna Cobrança). **Em cobrança**, **Em acordo**, **Notificada** e **Ajuizada** entram na fila operacional. **Quitada** tira a unidade da fila: na listagem, coluna Débito exibe **Em dia** (verde) mesmo que existam débitos históricos consultáveis. A transição automática Sem cobrança → Em cobrança ao importar débitos vencidos fica para integração/importação (T13). API `/api/unidades` valida permissão e escopo de condomínio no servidor. Dados pessoais de responsáveis mascarados para perfis sem necessidade operacional (ex.: advogado em consulta).
+
 ### Inadimplência
 
 - Importação de dados

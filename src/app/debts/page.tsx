@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -132,8 +132,9 @@ const formularioVazio = {
 const dinheiro = /^\d+([.,]\d{1,2})?$/;
 const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 
-export default function DebitosPage() {
+function DebitosPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { pode } = usePermissao();
   const formId = useId();
@@ -153,6 +154,8 @@ export default function DebitosPage() {
   const [appliedCondominioId, setAppliedCondominioId] = useState("todos");
   const [appliedCidade, setAppliedCidade] = useState("todas");
   const [appliedStatus, setAppliedStatus] = useState("todos");
+  const [unidadeId, setUnidadeId] = useState("todas");
+  const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -163,6 +166,17 @@ export default function DebitosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<ErroCampo, string>>>({});
+
+  useEffect(() => {
+    const unidadeQuery = searchParams?.get("unidade");
+    if (!unidadeQuery) return;
+    const existe = cadastros.unidades.some((item) => String(item.id) === unidadeQuery);
+    if (!existe) return;
+    setUnidadeId(unidadeQuery);
+    setAppliedUnidadeId(unidadeQuery);
+    setPage(1);
+    router.replace("/debitos");
+  }, [cadastros.unidades, router, searchParams]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const cidades = [...new Set(cadastros.condominios.map((item) => item.cidade.trim()).filter(Boolean))].sort((a, b) =>
@@ -179,12 +193,14 @@ export default function DebitosPage() {
       const matchesPeriodo =
         (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
         (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
+      const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
       const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeCondominio(item.condominioId)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesStatus &&
         matchesCondominio &&
         matchesCidade &&
         matchesPeriodo &&
+        matchesUnidade &&
         (query.length === 0 || haystack.includes(query))
       );
     })
@@ -269,6 +285,7 @@ export default function DebitosPage() {
     setAppliedCondominioId(condominioId);
     setAppliedCidade(cidade);
     setAppliedStatus(status);
+    setAppliedUnidadeId(unidadeId);
     setPage(1);
   }
 
@@ -288,6 +305,8 @@ export default function DebitosPage() {
     setAppliedCondominioId("todos");
     setAppliedCidade("todas");
     setAppliedStatus("todos");
+    setUnidadeId("todas");
+    setAppliedUnidadeId("todas");
     setPage(1);
   }
 
@@ -685,6 +704,19 @@ export default function DebitosPage() {
               ],
             },
             {
+              id: "unidade",
+              label: "Unidade",
+              value: unidadeId,
+              onChange: setUnidadeId,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...cadastros.unidades.map((item) => ({
+                  value: String(item.id),
+                  label: `${nomeUnidade(item.id)}`,
+                })),
+              ],
+            },
+            {
               id: "cidade",
               label: "Cidade",
               value: cidade,
@@ -967,5 +999,13 @@ export default function DebitosPage() {
         onConfirm={confirmDelete}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function DebitosPage() {
+  return (
+    <Suspense fallback={null}>
+      <DebitosPageContent />
+    </Suspense>
   );
 }

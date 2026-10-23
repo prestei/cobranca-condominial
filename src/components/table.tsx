@@ -3,7 +3,16 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Download, EllipsisVertical, FileSpreadsheet, FileText, Sheet, type LucideIcon } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  EllipsisVertical,
+  FileSpreadsheet,
+  FileText,
+  Sheet,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
 import { Icon } from "@/components/icon";
 import { Checkbox } from "@/components/input";
 
@@ -192,9 +201,37 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
   );
 }
 
-function TableExportBar({ onExport }: { onExport?: (format: TableExportFormat) => void }) {
+function TableImport({
+  onImport,
+  disabled,
+}: {
+  onImport?: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <div className="flex justify-end">
+    <button
+      type="button"
+      disabled={disabled}
+      className="inline-flex h-control-sm cursor-pointer items-center gap-sm rounded-md border border-border-subtle bg-surface-card px-md text-label-md text-on-surface shadow-card transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-50"
+      onClick={() => onImport?.()}
+    >
+      <Icon icon={Upload} size="sm" />
+      Importar
+    </button>
+  );
+}
+
+type TableDataBarProps = {
+  onExport?: (format: TableExportFormat) => void;
+  onImport?: () => void;
+  showImport?: boolean;
+  importDisabled?: boolean;
+};
+
+function TableDataBar({ onExport, onImport, showImport = false, importDisabled }: TableDataBarProps) {
+  return (
+    <div className="flex flex-wrap justify-end gap-sm">
+      {showImport && onImport ? <TableImport onImport={onImport} disabled={importDisabled} /> : null}
       <TableExport onExport={onExport} />
     </div>
   );
@@ -204,12 +241,32 @@ type TableProps = TableHTMLAttributes<HTMLTableElement> & {
   containerClassName?: string;
   showExport?: boolean;
   onExport?: (format: TableExportFormat) => void;
+  onImport?: () => void;
+  showImport?: boolean;
+  importDisabled?: boolean;
 };
 
-export function Table({ className, containerClassName, children, showExport = true, onExport, ...props }: TableProps) {
+export function Table({
+  className,
+  containerClassName,
+  children,
+  showExport = true,
+  onExport,
+  onImport,
+  showImport = false,
+  importDisabled,
+  ...props
+}: TableProps) {
   return (
     <div className="flex flex-col gap-sm">
-      {showExport ? <TableExportBar onExport={onExport} /> : null}
+      {showExport ? (
+        <TableDataBar
+          onExport={onExport}
+          onImport={onImport}
+          showImport={showImport}
+          importDisabled={importDisabled}
+        />
+      ) : null}
       <div
         className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
       >
@@ -224,7 +281,7 @@ export function Table({ className, containerClassName, children, showExport = tr
   );
 }
 
-export { TableExport };
+export { TableExport, TableImport };
 
 export function TableCaption({ className, ...props }: HTMLAttributes<HTMLTableCaptionElement>) {
   return (
@@ -661,6 +718,9 @@ type ResponsiveTableProps = {
   viewport?: "auto" | "desktop" | "mobile";
   onExport?: (format: TableExportFormat) => void;
   showExport?: boolean;
+  onImport?: () => void;
+  showImport?: boolean;
+  importDisabled?: boolean;
 };
 
 export function ResponsiveTable({
@@ -670,11 +730,24 @@ export function ResponsiveTable({
   viewport = "auto",
   onExport,
   showExport = true,
+  onImport,
+  showImport = false,
+  importDisabled,
 }: ResponsiveTableProps) {
+  const bar =
+    showExport && (onExport || (showImport && onImport)) ? (
+      <TableDataBar
+        onExport={onExport}
+        onImport={onImport}
+        showImport={showImport}
+        importDisabled={importDisabled}
+      />
+    ) : null;
+
   if (viewport === "mobile") {
     return (
       <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>
-        {showExport ? <TableExportBar onExport={onExport} /> : null}
+        {bar}
         {mobile}
       </div>
     );
@@ -688,7 +761,7 @@ export function ResponsiveTable({
     <div className={className}>
       <div className="hidden min-[768px]:block">{desktop}</div>
       <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">
-        {showExport ? <TableExportBar onExport={onExport} /> : null}
+        {bar}
         {mobile}
       </div>
     </div>

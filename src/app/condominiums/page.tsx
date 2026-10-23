@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, RotateCcw, Scale } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -61,6 +61,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   condominioAtendeAdvogado,
   escopoCondominios,
+  getCadastros,
   opcoesAdvogadosResponsaveis,
   registrarAuditoria,
   rotuloAdvogadosCondominio,
@@ -69,6 +70,7 @@ import {
   type Condominio,
 } from "@/lib/catalog";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
+import { interpretarArquivoCondominios } from "@/lib/condominios/importar-planilha";
 import { useAuth } from "@/context/auth-context";
 import { useCatalog } from "@/hooks/use-catalog";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -171,6 +173,9 @@ export default function CondominiosPage() {
   const [cepErro, setCepErro] = useState("");
   const [enderecoLiberado, setEnderecoLiberado] = useState(false);
   const ultimoCepBuscado = useRef("");
+  const importArquivoRef = useRef<HTMLInputElement>(null);
+  const [importando, setImportando] = useState(false);
+  const podeImportar = pode("condominios", "criar");
 
   useEffect(() => {
     const digitos = digitosCep(form.cep);
@@ -581,6 +586,104 @@ export default function CondominiosPage() {
     ]);
   }
 
+  function abrirImportacao() {
+    importArquivoRef.current?.click();
+  }
+
+  async function handleArquivoImportacao(event: ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!arquivo || !podeImportar) return;
+
+    setImportando(true);
+    try {
+      const conteudo = await arquivo.text();
+      const { linhas, importaveis } = interpretarArquivoCondominios(conteudo, opcoesAdvogados);
+      const errosParse = linhas.filter((item) => item.erro);
+      if (importaveis.length === 0) {
+        toast({
+          variant: "error",
+          title: "Importação não realizada",
+          description:
+            errosParse[0]?.erro ??
+            'Use CSV (;) ou XLS exportado por esta tela, com colunas "Nome" e "Advogados".',
+        });
+        return;
+      }
+
+      const base = getCadastros().condominios;
+      const identificadoresUsados = new Set(
+        base
+          .map((item) => item.identificadorExterno.trim().toLocaleLowerCase("pt-BR"))
+          .filter(Boolean),
+      );
+      let nextId = base.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+      let criadas = 0;
+      let duplicadas = 0;
+      let falhas = errosParse.length;
+      const novos: Condominio[] = [];
+
+      for (const payload of importaveis) {
+        const identificador = payload.identificadorExterno.trim();
+        if (identificador) {
+          const chave = identificador.toLocaleLowerCase("pt-BR");
+          if (identificadoresUsados.has(chave)) {
+            duplicadas += 1;
+            continue;
+          }
+          identificadoresUsados.add(chave);
+        }
+
+        const registro: Condominio = { id: nextId, ...payload };
+        nextId += 1;
+        novos.push(registro);
+        criadas += 1;
+      }
+
+      if (novos.length > 0) {
+        setCondominios((current) => [...current, ...novos]);
+        for (const item of novos) {
+          registrarAuditoria({
+            entidade: "condominium",
+            registroId: String(item.id),
+            acao: "INSERT",
+            dadosAnteriores: "",
+            dadosNovos: item.nome,
+            camposAlterados: "importacao",
+          });
+        }
+      }
+
+      if (criadas === 0 && duplicadas > 0 && falhas === 0) {
+        toast({
+          variant: "info",
+          title: "Nenhum condomínio novo",
+          description: "Todos os identificadores da planilha já existem na carteira.",
+        });
+        return;
+      }
+
+      const partes: string[] = [];
+      if (criadas > 0) partes.push(`${criadas} criado(s)`);
+      if (duplicadas > 0) partes.push(`${duplicadas} ignorado(s) (identificador duplicado)`);
+      if (falhas > 0) partes.push(`${falhas} com erro`);
+
+      toast({
+        variant: criadas > 0 ? "success" : "info",
+        title: criadas > 0 ? "Importação concluída" : "Importação parcial",
+        description: partes.join(" · "),
+      });
+    } catch {
+      toast({
+        variant: "error",
+        title: "Erro ao ler arquivo",
+        description: "Use CSV (;) ou planilha XLS exportada por esta tela.",
+      });
+    } finally {
+      setImportando(false);
+    }
+  }
+
   function aoExportar(formato: TableExportFormat) {
     if (visible.length === 0) {
       toast({
@@ -638,7 +741,13 @@ export default function CondominiosPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Condomínios" onExport={aoExportar}>
+    <Table
+      aria-label="Condomínios"
+      onExport={aoExportar}
+      onImport={abrirImportacao}
+      showImport={podeImportar}
+      importDisabled={importando}
+    >
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
@@ -815,7 +924,23 @@ export default function CondominiosPage() {
             ]}
           />
 
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
+          <input
+            ref={importArquivoRef}
+            type="file"
+            accept=".csv,.xls,text/csv,application/vnd.ms-excel"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={handleArquivoImportacao}
+          />
+          <ResponsiveTable
+            desktop={desktopTable}
+            mobile={mobileTable}
+            onExport={aoExportar}
+            onImport={abrirImportacao}
+            showImport={podeImportar}
+            importDisabled={importando}
+          />
           {visible.length > 0 ? (
             <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
           ) : null}
