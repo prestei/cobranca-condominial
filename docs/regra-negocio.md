@@ -187,6 +187,13 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Histórico completo das ações
 - Auditoria das alterações
 
+### Auditoria (consulta)
+
+- **Quem consulta:** perfil com permissão `auditoria.ler` (Administradora no seed padrão).
+- **Como:** tela `/auditoria` e `GET /api/auditoria` (somente leitura).
+- **Gravação:** automática via `registrarAuditoria` nos serviços de API após INSERT/UPDATE/DELETE; não há exclusão de eventos pela interface.
+- Detalhes por entidade e contrato: [modulos/auditoria.md](modulos/auditoria.md).
+
 ---
 
 ## 4. Dados

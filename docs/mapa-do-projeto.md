@@ -97,7 +97,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | relatorios | `/relatorios` | `relatorios/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
 | usuarios | `/login`, `/usuarios` | `login/page.tsx`, `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | `Usuario`; sessão `useAuth` | `user` | cargos, atendimentos, auditoria |
 | cargos | `/cargos`, `/acesso-negado` | `cargos/page.tsx`, `lib/permissions/*`, `middleware.ts` | [cargos.md](modulos/cargos.md) | `Cargo` | `role` | usuarios, regra-negocio (permissões), todas as rotas autenticadas |
-| auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` | todos os módulos com mutação |
+| auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` (futuro PG) | todos os módulos com mutação; API `GET /api/auditoria`, `src/lib/auditoria/*` |
 | integracao-superlogica | — | (a definir em `src/lib` / API) | [integracao-superlogica.md](modulos/integracao-superlogica.md) | `origensDebito` | `debt`, `import` | importacoes, debitos |
 
 **Shell de navegação:** menu lateral em `src/components/workspace-shell.tsx` (rotas acima).

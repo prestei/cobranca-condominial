@@ -494,6 +494,10 @@ export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => 
   atualizar("importacoes", next);
 }
 
+export function setAuditoria(next: Auditoria[] | ((current: Auditoria[]) => Auditoria[])) {
+  atualizar("auditoria", next);
+}
+
 export function registrarAuditoria(
   entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados">,
   usuarioId?: number,
