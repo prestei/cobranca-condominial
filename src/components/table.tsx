@@ -754,16 +754,19 @@ export function ResponsiveTable({
   }
 
   if (viewport === "desktop") {
-    return <div className={className}>{desktop}</div>;
+    return (
+      <div className={`flex flex-col gap-sm ${className ?? ""}`}>
+        {bar}
+        {desktop}
+      </div>
+    );
   }
 
   return (
-    <div className={className}>
+    <div className={`flex flex-col gap-sm ${className ?? ""}`}>
+      {bar}
       <div className="hidden min-[768px]:block">{desktop}</div>
-      <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">
-        {bar}
-        {mobile}
-      </div>
+      <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">{mobile}</div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
 import { DoorOpen, Eye, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -80,6 +81,7 @@ import {
   aplicarVinculoSalvo,
   sincronizarUnidadesDoServidor,
 } from "@/lib/unidades/sync-cliente";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
 const etapasCadastroUnidade = ["Unidade", "Responsável"] as const;
@@ -115,15 +117,6 @@ type ErrosResponsavel = Partial<
 >;
 
 const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Inativa: "error" };
-
-const badgeSituacaoCobranca: Record<string, "success" | "error" | "secondary" | "neutral"> = {
-  "Sem cobrança": "neutral",
-  "Em cobrança": "error",
-  "Em acordo": "secondary",
-  Notificada: "neutral",
-  Ajuizada: "error",
-  Quitada: "success",
-};
 
 export default function UnidadesPage() {
   const { toast } = useToast();
@@ -176,9 +169,24 @@ export default function UnidadesPage() {
     if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, user?.userId);
   }
 
+  async function prepararCondominiosParaSalvar(): Promise<boolean> {
+    const sync = await garantirCondominiosPersistidosNoServidor(user?.userId);
+    if (sync.ok) return true;
+    toast({
+      variant: "error",
+      title: "Condomínio não disponível",
+      description: sync.error,
+    });
+    setErrors({ condominioId: sync.error });
+    setStep(0);
+    return false;
+  }
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      await garantirCondominiosPersistidosNoServidor(user?.userId);
+      if (cancelled) return;
       await recarregarUnidadesDoServidor();
       if (cancelled) return;
     })();
@@ -481,8 +489,7 @@ export default function UnidadesPage() {
   }
 
   function celulaCobranca(item: Unidade) {
-    const rotulo = situacaoCobrancaUnidade(item);
-    return <Badge variant={badgeSituacaoCobranca[rotulo] ?? "neutral"}>{rotulo}</Badge>;
+    return <BadgeSituacaoCobranca situacao={situacaoCobrancaUnidade(item)} />;
   }
 
   function celulaDebito(item: Unidade) {
@@ -696,6 +703,8 @@ export default function UnidadesPage() {
 
       setSalvando(true);
       try {
+        if (!(await prepararCondominiosParaSalvar())) return;
+
         const { response, body } = await salvarUnidadeApi(payload);
         if (!response.ok || !body.unidade) {
           toast({
@@ -758,6 +767,12 @@ export default function UnidadesPage() {
         setStep(0);
         setSheetOpen(false);
         setLeaveConfirmOpen(false);
+      } catch {
+        toast({
+          variant: "error",
+          title: "Erro ao cadastrar",
+          description: "Falha de comunicação com o servidor. Verifique se o sistema está em execução e tente de novo.",
+        });
       } finally {
         setSalvando(false);
       }
@@ -778,6 +793,8 @@ export default function UnidadesPage() {
 
     setSalvando(true);
     try {
+      if (!(await prepararCondominiosParaSalvar())) return;
+
       const { response, body } = await salvarUnidadeApi(payload);
       if (!response.ok) {
         toast({
@@ -815,6 +832,12 @@ export default function UnidadesPage() {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
       if (detalheId === body.unidade.id) setDetalheVersao((v) => v + 1);
+    } catch {
+      toast({
+        variant: "error",
+        title: "Erro ao atualizar",
+        description: "Falha de comunicação com o servidor. Verifique se o sistema está em execução e tente de novo.",
+      });
     } finally {
       setSalvando(false);
     }
@@ -846,13 +869,7 @@ export default function UnidadesPage() {
   );
 
   const desktopTable = (
-    <Table
-      aria-label="Unidades"
-      onExport={aoExportar}
-      onImport={abrirImportacao}
-      showImport={podeImportar}
-      importDisabled={importando}
-    >
+    <Table aria-label="Unidades" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("identificacao")} onSort={() => handleSort("identificacao")}>
@@ -1020,6 +1037,7 @@ export default function UnidadesPage() {
           onImport={abrirImportacao}
           showImport={podeImportar}
           importDisabled={importando}
+          className="mt-lg"
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
@@ -1032,7 +1050,7 @@ export default function UnidadesPage() {
         }}
       >
         <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
-          <SheetForm onSubmit={handleSave}>
+          <SheetForm noValidate onSubmit={handleSave}>
             <SheetHeader>
               <SheetHeaderLead>
                 <SheetHeaderIcon>

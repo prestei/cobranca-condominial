@@ -4,7 +4,6 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList, DoorOpen, Link2, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icon";
@@ -26,10 +25,7 @@ import {
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import {
-  formatarData,
-  formatarMoeda,
   nomeCondominio,
-  unidadeComDebitoOperacional,
   setResponsaveis,
   tiposPessoa,
   tiposVinculo,
@@ -38,6 +34,8 @@ import {
   type Vinculo,
 } from "@/data/catalogo";
 import { usePermissao } from "@/hooks/use-permissao";
+import { HistoricoLinhaTempo } from "@/components/unidades/historico-linha-tempo";
+import type { EventoHistoricoUnidade, HistoricoUnidadeReferencia } from "@/lib/historico-unidade/service";
 import { aplicarVinculoRemovido, aplicarVinculoSalvo } from "@/lib/unidades/sync-cliente";
 import { podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import type { ResponsavelResposta } from "@/lib/privacidade/dados-pessoais";
@@ -101,6 +99,10 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
   const { permissoes, pode } = usePermissao();
   const [detalhe, setDetalhe] = useState<DetalheUnidade | null>(null);
   const [loading, setLoading] = useState(false);
+  const [historicoRef, setHistoricoRef] = useState<HistoricoUnidadeReferencia | null>(null);
+  const [historicoEventos, setHistoricoEventos] = useState<EventoHistoricoUnidade[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [historicoErro, setHistoricoErro] = useState<string | null>(null);
   const [vinculoOpen, setVinculoOpen] = useState(false);
   const [removerVinculo, setRemoverVinculo] = useState<VinculoDetalhe | null>(null);
   const [modoNovoResponsavel, setModoNovoResponsavel] = useState(false);
@@ -116,6 +118,29 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
 
   const verPessoais = podeVerDadosPessoaisResponsavel(permissoes);
 
+  const carregarHistorico = useCallback(async (id: number) => {
+    setHistoricoLoading(true);
+    setHistoricoErro(null);
+    try {
+      const response = await fetch(`/api/unidades/${id}/historico`, { credentials: "same-origin" });
+      const payload = (await response.json()) as {
+        error?: string;
+        referencia?: HistoricoUnidadeReferencia;
+        eventos?: EventoHistoricoUnidade[];
+      };
+      if (!response.ok) {
+        setHistoricoRef(null);
+        setHistoricoEventos([]);
+        setHistoricoErro(payload.error ?? "Não foi possível carregar a linha do tempo.");
+        return;
+      }
+      setHistoricoRef(payload.referencia ?? null);
+      setHistoricoEventos(payload.eventos ?? []);
+    } finally {
+      setHistoricoLoading(false);
+    }
+  }, []);
+
   const carregar = useCallback(async () => {
     if (unidadeId === null) return;
     setLoading(true);
@@ -128,14 +153,18 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
         return;
       }
       setDetalhe(payload);
+      void carregarHistorico(unidadeId);
     } finally {
       setLoading(false);
     }
-  }, [onClose, toast, unidadeId]);
+  }, [carregarHistorico, onClose, toast, unidadeId]);
 
   useEffect(() => {
     if (unidadeId === null) {
       setDetalhe(null);
+      setHistoricoRef(null);
+      setHistoricoEventos([]);
+      setHistoricoErro(null);
       return;
     }
     void carregar();
@@ -311,53 +340,38 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   )}
                 </SheetPanel>
 
-                <SheetPanel className="flex flex-col gap-md">
-                  <p className="text-label-lg text-on-surface">Resumo de cobrança</p>
-                  <div className="flex flex-wrap gap-sm">
-                    {(() => {
-                      const emDebito = unidadeComDebitoOperacional(
-                        detalhe.unidade,
-                        detalhe.resumo.debitosAbertos > 0,
-                      );
-                      return (
-                        <>
-                    <Badge variant={emDebito ? "error" : "success"}>
-                      {emDebito
-                        ? `${detalhe.resumo.debitosAbertos} débito(s) em aberto`
-                        : "Em dia"}
-                    </Badge>
-                    {emDebito ? (
-                      <span className="text-body-sm tabular-nums text-on-surface">{formatarMoeda(String(detalhe.resumo.valorAberto))}</span>
-                    ) : null}
-                        </>
-                      );
-                    })()}
-                    <Badge variant="secondary">{detalhe.resumo.totalAtendimentos} atendimento(s)</Badge>
-                  </div>
-                  {detalhe.resumo.ultimosDebitos.length > 0 ? (
-                    <div>
-                      <p className="mb-sm text-label-md text-on-surface-variant">Últimos débitos</p>
-                      <ul className="flex flex-col gap-xs text-body-sm text-on-surface">
-                        {detalhe.resumo.ultimosDebitos.map((item) => (
-                          <li key={item.id}>
-                            {item.referencia} · {item.status} · {formatarMoeda(item.valorAtualizado)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {detalhe.resumo.ultimosAtendimentos.length > 0 ? (
-                    <div>
-                      <p className="mb-sm text-label-md text-on-surface-variant">Últimos atendimentos</p>
-                      <ul className="flex flex-col gap-xs text-body-sm text-on-surface">
-                        {detalhe.resumo.ultimosAtendimentos.map((item) => (
-                          <li key={item.id}>
-                            {formatarData(item.dataHora)} · {item.canal} · {item.assunto || "—"}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                <SheetPanel className="flex max-h-[min(28rem,55vh)] flex-col gap-md overflow-y-auto">
+                  <p className="text-label-lg text-on-surface">Linha do tempo da cobrança</p>
+                  {historicoRef ? (
+                    <HistoricoLinhaTempo
+                      referencia={historicoRef}
+                      eventos={historicoEventos}
+                      loading={historicoLoading}
+                      erro={historicoErro}
+                    />
+                  ) : (
+                    <HistoricoLinhaTempo
+                      referencia={{
+                        unidade: detalhe.unidade,
+                        condominio: {
+                          id: detalhe.unidade.condominioId,
+                          nome: nomeCondominio(detalhe.unidade.condominioId),
+                        },
+                        cobranca: {
+                          situacao: detalhe.unidade.situacao,
+                          reResponsavel: null,
+                          totalTentativas: detalhe.resumo.totalAtendimentos,
+                          ultimoContato: detalhe.resumo.ultimosAtendimentos[0]?.dataHora ?? null,
+                          debitosAbertos: detalhe.resumo.debitosAbertos,
+                          valorAberto: detalhe.resumo.valorAberto,
+                        },
+                        debitos: [],
+                      }}
+                      eventos={[]}
+                      loading={historicoLoading}
+                      erro={historicoErro}
+                    />
+                  )}
                 </SheetPanel>
               </SheetBody>
               <SheetFooter>

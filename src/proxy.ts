@@ -8,6 +8,13 @@ import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/acesso-negado"];
 
+/** Atalhos legados → abas em /atendimentos (T08 integrado à palitagem). */
+const REDIRECT_ROTAS_REMOVIDAS: Record<string, string> = {
+  "/fila": "/atendimentos?aba=fila",
+  "/distribuicao": "/atendimentos?aba=distribuicao",
+  "/retornos": "/atendimentos?aba=retornos",
+};
+
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
 }
@@ -44,6 +51,15 @@ export async function proxy(request: NextRequest) {
     const response = NextResponse.redirect(loginUrl);
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;
+  }
+
+  const destinoRemovido = REDIRECT_ROTAS_REMOVIDAS[pathname];
+  if (destinoRemovido) {
+    const url = new URL(destinoRemovido, request.url);
+    if (!destinoRemovido.includes("?")) {
+      url.search = request.nextUrl.search;
+    }
+    return NextResponse.redirect(url);
   }
 
   const modulo = moduloDaRota(pathname);

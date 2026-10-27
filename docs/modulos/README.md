@@ -9,6 +9,7 @@ Documentação **por módulo funcional**. Cada implementação ou alteração re
 | Unidades | [unidades.md](unidades.md) | `/unidades` |
 | Débitos | [debitos.md](debitos.md) | `/debitos` |
 | Atendimentos (palitagem) | [atendimentos.md](atendimentos.md) | `/atendimentos` |
+| Negociações (propostas T15 / parcelas T16) | [negociacoes.md](negociacoes.md) | (sheet na fila / histórico) |
 | Importações | [importacoes.md](importacoes.md) | `/importacoes` |
 | Relatórios | [relatorios.md](relatorios.md) | `/relatorios` |
 | Usuários | [usuarios.md](usuarios.md) | `/usuarios` |

@@ -7,6 +7,14 @@ import {
   PERMISSAO_JSON_ATENDENTE,
 } from "@/lib/permissions/seeds";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import {
+  atribuicoesBaseTeste,
+  condominiosBaseTeste,
+  debitosBaseTeste,
+  responsaveisBaseTeste,
+  unidadesBaseTeste,
+  vinculosBaseTeste,
+} from "@/data/seed-base-teste";
 
 export const advogados = ["Dra. Thamires", "Dra. Jullyane", "Dr. João"] as const;
 
@@ -40,11 +48,24 @@ export type Usuario = {
   id: number;
   /** Código único de login do colaborador. */
   codigo: string;
+  /** RE operacional (atendentes). */
+  codigoRe?: string;
   cargoId: number;
   nome: string;
   telefone: string;
   email: string;
   senha: string;
+};
+
+export type AtribuicaoCobranca = {
+  id: number;
+  unidadeId: number;
+  atendenteId: number;
+  atribuidoPorId: number;
+  atribuidoEm: string;
+  encerradoEm: string | null;
+  motivo: string;
+  anteriorAtendenteId: number | null;
 };
 
 export type Unidade = {
@@ -78,6 +99,9 @@ export type Vinculo = {
   observacoes: string;
 };
 
+/** `origem` = valores vindos da administradora/importação; `manual` = correção cadastrada no sistema (sem recálculo automático). */
+export type FonteValoresDebito = "origem" | "manual";
+
 export type Debito = {
   id: number;
   condominioId: number;
@@ -96,6 +120,9 @@ export type Debito = {
   valorPago: string;
   origem: string;
   identificadorExterno: string;
+  /** ISO — última persistência (importação ou correção manual). */
+  atualizadoEm: string;
+  fonteValores: FonteValoresDebito;
 };
 
 export type Atendimento = {
@@ -112,6 +139,56 @@ export type Atendimento = {
   status: string;
   dataProximaAcao: string;
   proximaAcao: string;
+  /** Preenchido ao marcar o retorno agendado como realizado (preserva data_proxima_acao original). */
+  retornoConcluidoEm: string;
+  retornoConcluidoPorId: number | null;
+};
+
+/** Proposta de negociação (T15) — não equivale a pagamento recebido. */
+export type PropostaNegociacao = {
+  id: string;
+  condominioId: number;
+  unidadeId: number;
+  usuarioId: number;
+  criadoEm: string;
+  status: string;
+  valorProposto: string;
+  observacoes: string;
+  debitoIds: number[];
+  /** Preenchido quando status = Aceita (acordo confirmado). */
+  acordoConfirmadoEm: string;
+  acordoConfirmadoPorId: number | null;
+  termosAprovados: string;
+};
+
+/** Parcela de acordo confirmado (T16) — valor previsto, não equivale a recebimento. */
+export type ParcelaAcordo = {
+  id: string;
+  propostaId: string;
+  condominioId: number;
+  unidadeId: number;
+  numero: number;
+  valorPrevisto: string;
+  /** Data de vencimento (YYYY-MM-DD). */
+  vencimentoEm: string;
+  criadoEm: string;
+  criadoPorId: number;
+};
+
+/** Pagamento vinculado a parcela de acordo (T16). */
+export type PagamentoAcordo = {
+  id: string;
+  propostaId: string;
+  parcelaId: string;
+  unidadeId: number;
+  valor: string;
+  /** Data informada do pagamento (ISO). */
+  dataPagamento: string;
+  referenciaComprovante: string;
+  /** Informado = relato operacional; Confirmado = conferência interna (fonte oficial a definir). */
+  confirmacao: string;
+  criadoEm: string;
+  registradoPorId: number;
 };
 
 export type Importacao = {
@@ -181,87 +258,14 @@ export const faixasAtraso = [
   { label: "Mais de 2 anos", min: 731, max: Number.POSITIVE_INFINITY },
 ] as const;
 export const statusAtendimento = ["Pendente", "Resolvido"] as const;
+export const statusPropostaNegociacao = ["Em análise", "Aceita", "Recusada", "Cancelada"] as const;
+export const confirmacaoPagamentoAcordo = ["Informado", "Confirmado"] as const;
+export const statusParcelaAcordo = ["Prevista", "Vencida", "Quitada"] as const;
 export const tiposImportacao = ["debitos", "responsaveis", "unidades"] as const;
 export const statusImportacao = ["Processando", "Concluida", "Erro", "Cancelada"] as const;
 export const acoesAuditoria = ["INSERT", "UPDATE", "DELETE"] as const;
 
-const condominiosIniciais: Condominio[] = [
-  {
-    id: 1,
-    nome: "Condomínio Teste Alpha",
-    identificadorExterno: "TEST-001",
-    status: "Ativo",
-    advogados: ["Dra. Thamires"],
-    administradora: "Administradora Exemplo",
-    cep: "41820-020",
-    logradouro: "Rua das Palmeiras",
-    numero: "100",
-    complemento: "Bloco A",
-    cidade: "Salvador",
-    estado: "BA",
-    observacao: "Cadastro fictício para desenvolvimento.",
-  },
-  {
-    id: 2,
-    nome: "Condomínio Teste Beta",
-    identificadorExterno: "TEST-002",
-    status: "Ativo",
-    advogados: ["Dra. Jullyane"],
-    administradora: "Superlógica Demo",
-    cep: "42700-000",
-    logradouro: "Av. Central",
-    numero: "250",
-    complemento: "",
-    cidade: "Lauro de Freitas",
-    estado: "BA",
-    observacao: "",
-  },
-  {
-    id: 3,
-    nome: "Condomínio Teste Gamma",
-    identificadorExterno: "TEST-003",
-    status: "Ativo",
-    advogados: ["Dr. João", "Dra. Thamires"],
-    administradora: "Administradora Exemplo",
-    cep: "40070-110",
-    logradouro: "Largo do Pelourinho",
-    numero: "12",
-    complemento: "Ed. Comercial",
-    cidade: "Salvador",
-    estado: "BA",
-    observacao: "Dois advogados vinculados para teste.",
-  },
-  {
-    id: 4,
-    nome: "Condomínio Teste Delta",
-    identificadorExterno: "TEST-004",
-    status: "Inativo",
-    advogados: ["Dra. Jullyane"],
-    administradora: "PDF Importações",
-    cep: "",
-    logradouro: "",
-    numero: "",
-    complemento: "",
-    cidade: "Camaçari",
-    estado: "BA",
-    observacao: "Inativo — histórico deve permanecer consultável.",
-  },
-  {
-    id: 5,
-    nome: "Condomínio Teste Épsilon",
-    identificadorExterno: "TEST-005",
-    status: "Ativo",
-    advogados: ["Dr. João"],
-    administradora: "",
-    cep: "41650-010",
-    logradouro: "Rua do Sol",
-    numero: "45",
-    complemento: "",
-    cidade: "Salvador",
-    estado: "BA",
-    observacao: "",
-  },
-];
+const condominiosIniciais: Condominio[] = condominiosBaseTeste;
 
 const cargosIniciais: Cargo[] = [
   {
@@ -290,9 +294,9 @@ const SENHA_TESTE_HASH = SENHA_INICIAL_HASH;
 
 const usuariosIniciais: Usuario[] = [
   { id: 1, codigo: "MILENA", cargoId: 1, nome: "Milena", telefone: "71999990001", email: "milena@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 2, codigo: "RAQUEL", cargoId: 2, nome: "Raquel", telefone: "71999990002", email: "raquel@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 3, codigo: "TASSIA", cargoId: 2, nome: "Tássia", telefone: "71999990003", email: "tassia@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 4, codigo: "ATD003", cargoId: 2, nome: "Atendente 3", telefone: "", email: "atendente3@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 2, codigo: "RAQUEL", codigoRe: "RE-001", cargoId: 2, nome: "Raquel", telefone: "71999990002", email: "raquel@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 3, codigo: "TASSIA", codigoRe: "RE-002", cargoId: 2, nome: "Tássia", telefone: "71999990003", email: "tassia@escritorio.example", senha: SENHA_INICIAL_HASH },
+  { id: 4, codigo: "ATD003", codigoRe: "RE-003", cargoId: 2, nome: "Atendente 3", telefone: "", email: "atendente3@escritorio.example", senha: SENHA_INICIAL_HASH },
   { id: 5, codigo: "ADRYELLE", cargoId: 3, nome: "Dra. Adryelle", telefone: "71999990005", email: "adryelle@escritorio.example", senha: SENHA_INICIAL_HASH },
   {
     id: 6,
@@ -305,378 +309,27 @@ const usuariosIniciais: Usuario[] = [
   },
 ];
 
-const unidadesIniciais: Unidade[] = [
-  { id: 1, condominioId: 1, identificacao: "101", bloco: "A", tipo: "Apartamento", status: "Ativa", situacao: "Em cobrança" },
-  { id: 2, condominioId: 1, identificacao: "102", bloco: "A", tipo: "Apartamento", status: "Ativa", situacao: "Em cobrança" },
-  { id: 3, condominioId: 1, identificacao: "201", bloco: "B", tipo: "Apartamento", status: "Inativa", situacao: "Quitada" },
-  { id: 4, condominioId: 2, identificacao: "B-203", bloco: "B", tipo: "Apartamento", status: "Ativa", situacao: "Em acordo" },
-  { id: 5, condominioId: 3, identificacao: "Sala 3", bloco: "Torre 1", tipo: "Sala", status: "Ativa", situacao: "Em cobrança" },
-  { id: 6, condominioId: 4, identificacao: "12", bloco: "", tipo: "Casa", status: "Ativa", situacao: "Notificada" },
-];
+const atribuicoesIniciais: AtribuicaoCobranca[] = atribuicoesBaseTeste;
 
-const responsaveisIniciais: Responsavel[] = [
-  {
-    id: 1,
-    nome: "Ana Souza",
-    cpfCnpj: "123.456.789-09",
-    tipoPessoa: "Fisica",
-    telefone: "71988880001",
-    whatsapp: "71988880001",
-    email: "ana.souza@example.com",
-    endereco: "Rua das Flores, 120, Salvador/BA",
-    observacoes: "",
-  },
-  {
-    id: 2,
-    nome: "Carlos Mendes",
-    cpfCnpj: "987.654.321-00",
-    tipoPessoa: "Fisica",
-    telefone: "71988880002",
-    whatsapp: "",
-    email: "carlos.mendes@example.com",
-    endereco: "",
-    observacoes: "Inquilino da unidade 101.",
-  },
-  {
-    id: 3,
-    nome: "Verde Administração Ltda",
-    cpfCnpj: "12.345.678/0001-90",
-    tipoPessoa: "Juridica",
-    telefone: "7133330000",
-    whatsapp: "",
-    email: "contato@verde.example",
-    endereco: "Av. Oceânica, 500, Salvador/BA",
-    observacoes: "",
-  },
-];
+const unidadesIniciais: Unidade[] = unidadesBaseTeste;
 
-const vinculosIniciais: Vinculo[] = [
-  { id: 1, unidadeId: 1, responsavelId: 1, tipoVinculo: "Proprietario", principal: true, observacoes: "" },
-  { id: 2, unidadeId: 1, responsavelId: 2, tipoVinculo: "Inquilino", principal: false, observacoes: "" },
-  { id: 3, unidadeId: 4, responsavelId: 3, tipoVinculo: "Administrador", principal: true, observacoes: "" },
-  { id: 4, unidadeId: 6, responsavelId: 1, tipoVinculo: "Sindico", principal: true, observacoes: "Mandato atual." },
-];
+const responsaveisIniciais: Responsavel[] = responsaveisBaseTeste;
 
-const debitosIniciais: Debito[] = [
-  {
-    id: 1,
-    condominioId: 1,
-    unidadeId: 1,
-    referencia: "09/2026",
-    descricao: "Cotas do Mês",
-    dataVencimento: "2026-09-10",
-    valor: "850.00",
-    valorOriginal: "850.00",
-    multa: "17.00",
-    juros: "8.50",
-    correcao: "0.00",
-    valorAtualizado: "875.50",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "Superlógica",
-    identificadorExterno: "AZ-101-092026",
-  },
-  {
-    id: 2,
-    condominioId: 1,
-    unidadeId: 2,
-    referencia: "05/2026",
-    descricao: "Taxa Extra",
-    dataVencimento: "2026-05-10",
-    valor: "1200.00",
-    valorOriginal: "1200.00",
-    multa: "24.00",
-    juros: "36.00",
-    correcao: "12.00",
-    valorAtualizado: "1272.00",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "PDF",
-    identificadorExterno: "",
-  },
-  {
-    id: 3,
-    condominioId: 2,
-    unidadeId: 4,
-    referencia: "07/2026",
-    descricao: "Acordo",
-    dataVencimento: "2026-07-15",
-    valor: "500.00",
-    valorOriginal: "500.00",
-    multa: "0.00",
-    juros: "0.00",
-    correcao: "0.00",
-    valorAtualizado: "500.00",
-    status: "Pago",
-    dataPagamento: "2026-07-14",
-    valorPago: "500.00",
-    origem: "Superlógica",
-    identificadorExterno: "ID-B203-072026",
-  },
-  {
-    id: 4,
-    condominioId: 1,
-    unidadeId: 1,
-    referencia: "11/2021",
-    descricao: "Cotas do Mês",
-    dataVencimento: "2021-11-10",
-    valor: "640.00",
-    valorOriginal: "640.00",
-    multa: "12.80",
-    juros: "220.00",
-    correcao: "80.00",
-    valorAtualizado: "952.80",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "PDF",
-    identificadorExterno: "AZ-101-112021",
-  },
-  {
-    id: 5,
-    condominioId: 1,
-    unidadeId: 2,
-    referencia: "09/2026",
-    descricao: "Cotas do Mês",
-    dataVencimento: "2026-09-10",
-    valor: "430.00",
-    valorOriginal: "430.00",
-    multa: "8.60",
-    juros: "4.30",
-    correcao: "0.00",
-    valorAtualizado: "442.90",
-    status: "Pago",
-    dataPagamento: "2026-10-04",
-    valorPago: "442.90",
-    origem: "Superlógica",
-    identificadorExterno: "AZ-102-092026",
-  },
-  {
-    id: 6,
-    condominioId: 3,
-    unidadeId: 5,
-    referencia: "08/2026",
-    descricao: "Cotas do Mês",
-    dataVencimento: "2026-08-06",
-    valor: "980.00",
-    valorOriginal: "980.00",
-    multa: "19.60",
-    juros: "29.40",
-    correcao: "0.00",
-    valorAtualizado: "1029.00",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "PDF",
-    identificadorExterno: "",
-  },
-  {
-    id: 7,
-    condominioId: 4,
-    unidadeId: 6,
-    referencia: "06/2026",
-    descricao: "Acordo",
-    dataVencimento: "2026-06-15",
-    valor: "700.00",
-    valorOriginal: "700.00",
-    multa: "14.00",
-    juros: "21.00",
-    correcao: "0.00",
-    valorAtualizado: "735.00",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "PDF",
-    identificadorExterno: "",
-  },
-  {
-    id: 8,
-    condominioId: 1,
-    unidadeId: 1,
-    referencia: "03/2026",
-    descricao: "Multas Infrações",
-    dataVencimento: "2026-03-10",
-    valor: "150.00",
-    valorOriginal: "150.00",
-    multa: "3.00",
-    juros: "9.00",
-    correcao: "0.00",
-    valorAtualizado: "162.00",
-    status: "Vencido",
-    dataPagamento: "",
-    valorPago: "",
-    origem: "PDF",
-    identificadorExterno: "",
-  },
-];
+const vinculosIniciais: Vinculo[] = vinculosBaseTeste;
 
-const atendimentosIniciais: Atendimento[] = [
-  {
-    id: "atd-1",
-    unidadeId: "1",
-    responsavelId: "1",
-    usuarioId: 2,
-    dataHora: "2026-09-20T14:30",
-    canal: "WhatsApp",
-    respondeu: "Sim",
-    motivo: "Dificuldade financeira",
-    assunto: "Cota de setembro",
-    descricao: "Pediu para retornar após o dia 25.",
-    status: "Pendente",
-    dataProximaAcao: "2026-09-25",
-    proximaAcao: "Nova tentativa de contato",
-  },
-  {
-    id: "atd-2",
-    unidadeId: "4",
-    responsavelId: "3",
-    usuarioId: 3,
-    dataHora: "2026-09-18T09:15",
-    canal: "Telefone",
-    respondeu: "Sim",
-    motivo: "Já pagou (enviar comprovante)",
-    assunto: "Confirmação de acordo",
-    descricao: "Administradora confirmou o pagamento da parcela.",
-    status: "Resolvido",
-    dataProximaAcao: "",
-    proximaAcao: "",
-  },
-  {
-    id: "atd-3",
-    unidadeId: "2",
-    responsavelId: "1",
-    usuarioId: 2,
-    dataHora: "2026-09-22T11:00",
-    canal: "WhatsApp",
-    respondeu: "Não",
-    motivo: "",
-    assunto: "Taxa extra",
-    descricao: "Mensagem sem resposta.",
-    status: "Pendente",
-    dataProximaAcao: "2026-10-06",
-    proximaAcao: "Nova tentativa",
-  },
-  {
-    id: "atd-4",
-    unidadeId: "1",
-    responsavelId: "1",
-    usuarioId: 2,
-    dataHora: "2026-10-05T10:15",
-    canal: "Telefone",
-    respondeu: "Sim",
-    motivo: "Esqueceu o vencimento",
-    assunto: "Cota de setembro",
-    descricao: "Disse que paga nesta semana.",
-    status: "Pendente",
-    dataProximaAcao: "2026-10-08",
-    proximaAcao: "Confirmar pagamento",
-  },
-  {
-    id: "atd-5",
-    unidadeId: "5",
-    responsavelId: "",
-    usuarioId: 3,
-    dataHora: "2026-10-03T16:40",
-    canal: "E-mail",
-    respondeu: "Não",
-    motivo: "",
-    assunto: "Cota de agosto",
-    descricao: "E-mail sem retorno.",
-    status: "Pendente",
-    dataProximaAcao: "2026-10-05",
-    proximaAcao: "Ligar",
-  },
-  {
-    id: "atd-6",
-    unidadeId: "6",
-    responsavelId: "1",
-    usuarioId: 3,
-    dataHora: "2026-10-01T09:05",
-    canal: "WhatsApp",
-    respondeu: "Sim",
-    motivo: "Aguarda proposta de acordo",
-    assunto: "Parcela de acordo",
-    descricao: "Pediu nova proposta.",
-    status: "Pendente",
-    dataProximaAcao: "2026-10-10",
-    proximaAcao: "Enviar proposta",
-  },
-];
+const debitosIniciais: Debito[] = debitosBaseTeste;
 
-const importacoesIniciais: Importacao[] = [
-  {
-    id: 1,
-    origem: "Superlógica",
-    tipo: "debitos",
-    arquivo: "inadimplencia-azaleias-2026-09.pdf",
-    status: "Concluida",
-    quantidadeRegistros: "249",
-    quantidadeImportados: "240",
-    quantidadeAtualizados: "8",
-    quantidadeErros: "1",
-    observacaoInterna: "Um registro sem unidade.",
-    usuarioId: 1,
-    dataImportacao: "2026-09-25T18:00",
-  },
-  {
-    id: 2,
-    origem: "PDF",
-    tipo: "unidades",
-    arquivo: "unidades-ideale.csv",
-    status: "Erro",
-    quantidadeRegistros: "40",
-    quantidadeImportados: "0",
-    quantidadeAtualizados: "0",
-    quantidadeErros: "40",
-    observacaoInterna: "Cabeçalho diferente do modelo.",
-    usuarioId: 1,
-    dataImportacao: "2026-09-26T10:12",
-  },
-];
+const atendimentosIniciais: Atendimento[] = [];
 
-const auditoriaInicial: Auditoria[] = [
-  {
-    id: 1,
-    usuarioId: "1",
-    entidade: "debt",
-    registroId: "3",
-    acao: "UPDATE",
-    dadosAnteriores: '{"status":"Pendente"}',
-    dadosNovos: '{"status":"Pago"}',
-    camposAlterados: "status, data_pagamento, valor_pago",
-    ip: "127.0.0.1",
-    userAgent: "Navegador interno",
-    dataHora: "2026-07-14T11:05",
-  },
-  {
-    id: 2,
-    usuarioId: "1",
-    entidade: "condominium",
-    registroId: "6",
-    acao: "INSERT",
-    dadosAnteriores: "",
-    dadosNovos: '{"nome":"Azaleias"}',
-    camposAlterados: "nome",
-    ip: "127.0.0.1",
-    userAgent: "Navegador interno",
-    dataHora: "2026-09-01T08:00",
-  },
-  {
-    id: 3,
-    usuarioId: "2",
-    entidade: "service_ticket",
-    registroId: "atd-1",
-    acao: "INSERT",
-    dadosAnteriores: "",
-    dadosNovos: '{"canal":"WhatsApp"}',
-    camposAlterados: "canal, assunto, descricao",
-    ip: "127.0.0.1",
-    userAgent: "Navegador interno",
-    dataHora: "2026-09-20T14:30",
-  },
-];
+const propostasNegociacaoIniciais: PropostaNegociacao[] = [];
+
+const parcelasAcordoIniciais: ParcelaAcordo[] = [];
+
+const pagamentosAcordoIniciais: PagamentoAcordo[] = [];
+
+const importacoesIniciais: Importacao[] = [];
+
+const auditoriaInicial: Auditoria[] = [];
 
 type Cadastros = {
   condominios: Condominio[];
@@ -687,6 +340,10 @@ type Cadastros = {
   vinculos: Vinculo[];
   debitos: Debito[];
   atendimentos: Atendimento[];
+  propostasNegociacao: PropostaNegociacao[];
+  parcelasAcordo: ParcelaAcordo[];
+  pagamentosAcordo: PagamentoAcordo[];
+  atribuicoesCobranca: AtribuicaoCobranca[];
   importacoes: Importacao[];
   auditoria: Auditoria[];
 };
@@ -700,6 +357,10 @@ let state: Cadastros = {
   vinculos: vinculosIniciais,
   debitos: debitosIniciais,
   atendimentos: atendimentosIniciais,
+  propostasNegociacao: propostasNegociacaoIniciais,
+  parcelasAcordo: parcelasAcordoIniciais,
+  pagamentosAcordo: pagamentosAcordoIniciais,
+  atribuicoesCobranca: atribuicoesIniciais,
   importacoes: importacoesIniciais,
   auditoria: auditoriaInicial,
 };
@@ -769,6 +430,7 @@ export function buscarUsuarioPorCodigoLogin(codigo: string) {
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
   const value = typeof next === "function" ? next(state[key]) : next;
+  if (value === state[key]) return;
   state = { ...state, [key]: value };
   atualizarCadastrosSnapshot();
   emit();
@@ -804,6 +466,28 @@ export function setDebitos(next: Debito[] | ((current: Debito[]) => Debito[])) {
 
 export function setAtendimentos(next: Atendimento[] | ((current: Atendimento[]) => Atendimento[])) {
   atualizar("atendimentos", next);
+}
+
+export function setPropostasNegociacao(
+  next: PropostaNegociacao[] | ((current: PropostaNegociacao[]) => PropostaNegociacao[]),
+) {
+  atualizar("propostasNegociacao", next);
+}
+
+export function setParcelasAcordo(next: ParcelaAcordo[] | ((current: ParcelaAcordo[]) => ParcelaAcordo[])) {
+  atualizar("parcelasAcordo", next);
+}
+
+export function setPagamentosAcordo(
+  next: PagamentoAcordo[] | ((current: PagamentoAcordo[]) => PagamentoAcordo[]),
+) {
+  atualizar("pagamentosAcordo", next);
+}
+
+export function setAtribuicoesCobranca(
+  next: AtribuicaoCobranca[] | ((current: AtribuicaoCobranca[]) => AtribuicaoCobranca[]),
+) {
+  atualizar("atribuicoesCobranca", next);
 }
 
 export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => Importacao[])) {
@@ -1026,7 +710,12 @@ export function situacaoRetorno(data: string, hoje = hojeIso()) {
   return "agendado" as const;
 }
 
-export function retornoPendente(item: { status: string; dataProximaAcao: string }) {
+export function retornoPendente(item: {
+  status: string;
+  dataProximaAcao: string;
+  retornoConcluidoEm?: string;
+}) {
+  if (item.retornoConcluidoEm?.trim()) return false;
   if (item.status === "Resolvido" || !item.dataProximaAcao) return false;
   const situacao = situacaoRetorno(item.dataProximaAcao);
   return situacao === "atrasado" || situacao === "hoje" || situacao === "semana";

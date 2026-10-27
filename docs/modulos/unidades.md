@@ -46,6 +46,7 @@ Todas exigem cookie de sessão (`lc_session`).
 | GET | `/api/unidades` | `ler` | Lista unidades no escopo do usuário |
 | POST | `/api/unidades` | `criar` | Cria unidade; body: `condominioId`, `identificacao`, `bloco`, `tipo`, `status`, `situacao?` |
 | GET | `/api/unidades/:id` | `ler` | Detalhe, vínculos, resumo de débitos/atendimentos |
+| GET | `/api/unidades/:id/historico` | `unidades.ler` **ou** `atendimentos.ler` | Linha do tempo consolidada (T12); atendente só com unidade na carteira vigente |
 | PATCH | `/api/unidades/:id` | `editar` | Atualiza cadastro (preserva histórico) |
 | DELETE | `/api/unidades/:id` | `excluir` | Remove só se não houver vínculos/débitos/atendimentos (409 caso contrário) |
 | POST | `/api/unidades/:id/vinculos` | `editar` | Vincula responsável existente ou novo |
@@ -53,13 +54,13 @@ Todas exigem cookie de sessão (`lc_session`).
 
 Erros comuns: `400` validação, `403` escopo/permissão, `409` duplicidade ou exclusão bloqueada.
 
-Implementação: `src/lib/unidades/service.ts`, rotas em `src/app/api/unidades/`.
+Implementação: `src/lib/unidades/service.ts`, `src/lib/historico-unidade/service.ts`, rotas em `src/app/api/unidades/`; UI: `UnidadeDetalheSheet`, `HistoricoLinhaTempo`, `HistoricoUnidadeSheet` (fila).
 
 ## Fluxos principais
 
 1. Listar → filtrar → **Consultar** (detalhe + histórico resumido) ou **Editar** / **Novo**; **Importar** (CSV ou XLS exportado) cria unidades em lote com permissão `unidades.criar` — colunas mínimas: Unidade, Condomínio, Tipo (demais opcionais, alinhadas à exportação)
 2. **Novo:** etapa 1 (dados da unidade) → **Continuar** → etapa 2 (responsável opcional) → **Salvar** (cria unidade e vínculo quando informado)
-3. No detalhe: vincular proprietário/responsável financeiro; ir a débitos ou atendimentos filtrados
+3. No detalhe: vincular proprietário/responsável financeiro; **linha do tempo** da cobrança; ir a débitos ou atendimentos filtrados
 4. Inativar unidade (`status` = `Inativa`) mantém vínculos e histórico
 5. Alterações registradas em `audit_log` via `registrarAuditoria`
 
@@ -81,4 +82,4 @@ Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e pe
 ## Pendências e decisões
 
 - Persistência PostgreSQL (depende de T02): API já centraliza regras para migração
-- Linha do tempo completa da unidade: ticket T12
+- Negociações/acordos na linha do tempo: eventos **Negociação** (T15 — ver [negociacoes.md](negociacoes.md)); parcelas/pagamentos (T16+)

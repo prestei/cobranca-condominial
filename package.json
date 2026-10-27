@@ -9,7 +9,8 @@
     "modelo": "vite",
     "db:up": "bash scripts/db-up.sh",
     "db:down": "bash scripts/db-down.sh",
-    "db:logs": "docker compose logs -f db"
+    "db:logs": "docker compose logs -f db",
+    "test": "node --test src/lib/debitos/indicadores.test.mjs src/lib/acordos/resumo.test.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

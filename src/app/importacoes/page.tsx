@@ -1,8 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import type { FormEvent } from "react";
-import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { AlertTriangle, FileUp, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -11,7 +10,7 @@ import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Select, Textarea } from "@/components/input";
+import { FormField, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
@@ -54,18 +53,24 @@ import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
-  agoraIso,
   formatarData,
-  getCadastros,
   nomeUsuario,
+  origensDebito,
   registrarAuditoria,
   setImportacoes,
   statusImportacao,
   tiposImportacao,
   type Importacao,
 } from "@/data/catalogo";
+import type { PreviewImportacaoDebitos, ResultadoConfirmacaoDebitos } from "@/lib/importacoes/debitos-service";
+import { FORMATO_IMPORTACAO_DEBITOS_V1 } from "@/lib/importacoes/importar-debitos-planilha";
+import {
+  aplicarImportacaoSalva,
+  mesclarDebitosDoServidor,
+  sincronizarImportacoesDoServidor,
+} from "@/lib/importacoes/sync-cliente";
 
-const etapas = ["Arquivo", "Resultado"] as const;
+const etapas = ["Arquivo", "Prévia", "Resultado"] as const;
 const rotuloTipo: Record<string, string> = { debitos: "Débitos", responsaveis: "Responsáveis", unidades: "Unidades" };
 const rotuloStatus: Record<string, string> = { Processando: "Processando", Concluida: "Concluída", Erro: "Erro", Cancelada: "Cancelada" };
 const badgeStatus: Record<string, "primary" | "success" | "error" | "secondary"> = {
@@ -74,25 +79,22 @@ const badgeStatus: Record<string, "primary" | "success" | "error" | "secondary">
   Erro: "error",
   Cancelada: "secondary",
 };
-type Quantidade = "quantidadeRegistros" | "quantidadeImportados" | "quantidadeAtualizados" | "quantidadeErros";
-type SortKey = "data" | "arquivo" | "status";
-const formularioVazio = {
-  origem: "",
-  tipo: "",
-  arquivo: "",
-  status: "",
-  quantidadeRegistros: "",
-  quantidadeImportados: "",
-  quantidadeAtualizados: "",
-  quantidadeErros: "",
-  observacaoInterna: "",
+const rotuloSituacaoLinha: Record<string, string> = {
+  novo: "Novo",
+  atualizacao: "Atualização",
+  duplicado: "Duplicado",
+  erro: "Erro",
+  manual_protegido: "Manual protegido",
 };
+
+type SortKey = "data" | "arquivo" | "status";
 
 export default function ImportacoesPage() {
   const { toast } = useToast();
   const { user: sessao } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
+  const arquivoRef = useRef<HTMLInputElement>(null);
   const cadastros = useCadastros();
   const importacoes = cadastros.importacoes;
   const [search, setSearch] = useState("");
@@ -106,11 +108,32 @@ export default function ImportacoesPage() {
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [confirmImportOpen, setConfirmImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Importacao | null>(null);
   const [step, setStep] = useState(0);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState(formularioVazio);
-  const [errors, setErrors] = useState<Partial<Record<"tipo" | "status" | Quantidade, string>>>({});
+  const [origem, setOrigem] = useState("");
+  const [nomeArquivo, setNomeArquivo] = useState("");
+  const [conteudoArquivo, setConteudoArquivo] = useState("");
+  const [preview, setPreview] = useState<PreviewImportacaoDebitos | null>(null);
+  const [resultado, setResultado] = useState<ResultadoConfirmacaoDebitos | null>(null);
+  const [processando, setProcessando] = useState(false);
+  const [erroOrigem, setErroOrigem] = useState("");
+  const [erroArquivo, setErroArquivo] = useState("");
+
+  const recarregarImportacoes = useCallback(async () => {
+    try {
+      const response = await fetch("/api/importacoes", { credentials: "same-origin" });
+      if (!response.ok) return;
+      const body = (await response.json()) as { importacoes?: Importacao[] };
+      if (body.importacoes) sincronizarImportacoesDoServidor(body.importacoes);
+    } catch {
+      /* mantém catálogo local */
+    }
+  }, []);
+
+  useEffect(() => {
+    void recarregarImportacoes();
+  }, [recarregarImportacoes]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = importacoes
@@ -168,35 +191,24 @@ export default function ImportacoesPage() {
     setPage(1);
   }
 
-  function openCreate() {
-    setEditingId(null);
-    setForm(formularioVazio);
-    setErrors({});
+  function resetWizard() {
     setStep(0);
-    setSheetOpen(true);
+    setOrigem("");
+    setNomeArquivo("");
+    setConteudoArquivo("");
+    setPreview(null);
+    setResultado(null);
+    setErroOrigem("");
+    setErroArquivo("");
   }
 
-  function openEdit(item: Importacao) {
-    setEditingId(item.id);
-    setForm({
-      origem: item.origem,
-      tipo: item.tipo,
-      arquivo: item.arquivo,
-      status: item.status,
-      quantidadeRegistros: item.quantidadeRegistros,
-      quantidadeImportados: item.quantidadeImportados,
-      quantidadeAtualizados: item.quantidadeAtualizados,
-      quantidadeErros: item.quantidadeErros,
-      observacaoInterna: item.observacaoInterna,
-    });
-    setErrors({});
-    setStep(0);
+  function openCreate() {
+    resetWizard();
     setSheetOpen(true);
   }
 
   function closeSheet() {
-    const preenchido = Object.values(form).some((value) => value.trim() !== "");
-    if (preenchido) {
+    if (step > 0 || origem || nomeArquivo) {
       setLeaveConfirmOpen(true);
       return;
     }
@@ -206,6 +218,7 @@ export default function ImportacoesPage() {
   function confirmLeave() {
     setLeaveConfirmOpen(false);
     setSheetOpen(false);
+    resetWizard();
   }
 
   function confirmDelete() {
@@ -219,92 +232,133 @@ export default function ImportacoesPage() {
       camposAlterados: "arquivo",
     });
     setImportacoes((current) => current.filter((item) => item.id !== deleteTarget.id));
-    if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setLeaveConfirmOpen(false);
-    }
     toast({ variant: "success", title: "Importação excluída" });
     setDeleteTarget(null);
   }
 
   function acoes(item: Importacao) {
     const lista = [];
-    if (pode("importacoes", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
     if (pode("importacoes", "excluir"))
       lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextErrors: Partial<Record<"tipo" | "status" | Quantidade, string>> = {};
-    if (!form.tipo) nextErrors.tipo = "Selecione o tipo do arquivo.";
-    if (!form.status) nextErrors.status = "Selecione a situação.";
-    const quantidades = ["quantidadeRegistros", "quantidadeImportados", "quantidadeAtualizados", "quantidadeErros"] as const;
-    for (const campo of quantidades) {
-      const raw = form[campo].trim();
-      if (raw && !/^\d+$/.test(raw)) nextErrors[campo] = "Informe um número inteiro.";
+  async function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!arquivo) return;
+    setErroArquivo("");
+    try {
+      const conteudo = await arquivo.text();
+      setConteudoArquivo(conteudo);
+      setNomeArquivo(arquivo.name);
+    } catch {
+      setErroArquivo("Não foi possível ler o arquivo.");
+      setConteudoArquivo("");
+      setNomeArquivo("");
     }
-
-    if (step === 0) {
-      const daEtapa: Partial<Record<"tipo" | "status", string>> = {};
-      if (nextErrors.tipo) daEtapa.tipo = nextErrors.tipo;
-      if (nextErrors.status) daEtapa.status = nextErrors.status;
-      setErrors(daEtapa);
-      if (Object.keys(daEtapa).length > 0) return;
-      setStep(1);
-      return;
-    }
-
-    setErrors(nextErrors);
-    if (nextErrors.tipo || nextErrors.status) {
-      setStep(0);
-      return;
-    }
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const anterior = importacoes.find((item) => item.id === editingId);
-    const saved = {
-      origem: form.origem.trim(),
-      tipo: form.tipo,
-      arquivo: form.arquivo.trim(),
-      status: form.status,
-      quantidadeRegistros: form.quantidadeRegistros.trim(),
-      quantidadeImportados: form.quantidadeImportados.trim(),
-      quantidadeAtualizados: form.quantidadeAtualizados.trim(),
-      quantidadeErros: form.quantidadeErros.trim(),
-      observacaoInterna: form.observacaoInterna.trim(),
-      usuarioId: anterior?.usuarioId ?? sessao?.userId ?? 1,
-      dataImportacao: anterior?.dataImportacao ?? agoraIso(),
-    };
-
-    if (editingId === null) {
-      const nextId = importacoes.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setImportacoes((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "import",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.arquivo || saved.tipo,
-        camposAlterados: "tipo, status, arquivo",
-      });
-      toast({ variant: "success", title: "Importação registrada" });
-    } else {
-      setImportacoes((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "import",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: anterior?.status ?? "",
-        dadosNovos: saved.status,
-        camposAlterados: "tipo, status, arquivo",
-      });
-      toast({ variant: "success", title: "Importação atualizada" });
-    }
-
-    setSheetOpen(false);
   }
+
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (step === 0) {
+      void validarArquivo();
+      return;
+    }
+    if (step === 1) {
+      setConfirmImportOpen(true);
+      return;
+    }
+    if (step === 2) {
+      setSheetOpen(false);
+      resetWizard();
+    }
+  }
+
+  async function validarArquivo() {
+    const errosOrigem = !origem ? "Selecione a origem dos dados." : "";
+    const errosArquivo = !conteudoArquivo.trim() ? "Selecione um arquivo CSV ou XLS exportado." : "";
+    setErroOrigem(errosOrigem);
+    setErroArquivo(errosArquivo);
+    if (errosOrigem || errosArquivo) return;
+
+    setProcessando(true);
+    try {
+      const response = await fetch("/api/importacoes/debitos/preview", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origem, arquivo: nomeArquivo, conteudo: conteudoArquivo }),
+      });
+      const body = (await response.json()) as { preview?: PreviewImportacaoDebitos; error?: string };
+      if (!response.ok || !body.preview) {
+        toast({
+          variant: "error",
+          title: "Validação falhou",
+          description: body.error ?? "Verifique o cabeçalho e o formato do arquivo.",
+        });
+        return;
+      }
+      setPreview(body.preview);
+      setStep(1);
+    } catch {
+      toast({ variant: "error", title: "Erro de rede", description: "Não foi possível validar o arquivo." });
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function executarImportacao() {
+    if (!preview) return;
+    setConfirmImportOpen(false);
+    setProcessando(true);
+    try {
+      const response = await fetch("/api/importacoes/debitos/confirmar", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origem: preview.origem,
+          arquivo: preview.arquivo,
+          conteudo: conteudoArquivo,
+          hashArquivo: preview.hashArquivo,
+        }),
+      });
+      const body = (await response.json()) as {
+        resultado?: ResultadoConfirmacaoDebitos;
+        debitos?: import("@/data/catalogo").Debito[];
+        error?: string;
+      };
+      if (!response.ok || !body.resultado) {
+        toast({
+          variant: "error",
+          title: "Importação não concluída",
+          description: body.error ?? "Tente validar o arquivo novamente.",
+        });
+        return;
+      }
+      if (body.debitos) mesclarDebitosDoServidor(body.debitos);
+      aplicarImportacaoSalva(body.resultado.importacao);
+      setResultado(body.resultado);
+      setStep(2);
+      await recarregarImportacoes();
+      toast({
+        variant: "success",
+        title: preview.arquivoJaImportado ? "Arquivo já importado" : "Importação concluída",
+        description: preview.arquivoJaImportado
+          ? "Nenhum débito duplicado foi gravado."
+          : `${body.resultado.novos} novo(s), ${body.resultado.atualizados} atualizado(s).`,
+      });
+    } catch {
+      toast({ variant: "error", title: "Erro de rede", description: "Não foi possível gravar a importação." });
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  const linhasComProblema =
+    preview?.linhas.filter((item) => item.situacao === "erro" || item.situacao === "manual_protegido").slice(0, 15) ??
+    [];
 
   const emptyState = (
     <EmptyState
@@ -312,14 +366,14 @@ export default function ImportacoesPage() {
       title={importacoes.length === 0 ? "Nenhuma importação registrada" : "Nenhuma importação encontrada"}
       description={
         importacoes.length === 0
-          ? "Registre o arquivo de débitos, unidades ou responsáveis enviado pela administradora."
+          ? "Envie o relatório de inadimplência (CSV ou XLS) da administradora para alimentar os débitos."
           : "Ajuste a busca, o tipo ou a situação."
       }
       action={
         pode("importacoes", "criar") ? (
           <Button size="sm" onClick={openCreate}>
             <Icon icon={Plus} size="sm" />
-            Novo
+            Importar inadimplência
           </Button>
         ) : undefined
       }
@@ -394,6 +448,13 @@ export default function ImportacoesPage() {
 
   return (
     <WorkspaceShell>
+      <input
+        ref={arquivoRef}
+        type="file"
+        accept=".csv,.xls,.txt,text/csv,application/vnd.ms-excel"
+        className="sr-only"
+        onChange={handleArquivoSelecionado}
+      />
       <PageHeader
         title="Importações"
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Importações" }]}
@@ -401,7 +462,7 @@ export default function ImportacoesPage() {
           pode("importacoes", "criar") ? (
             <Button size="md" onClick={openCreate}>
               <Icon icon={Plus} size="sm" />
-              Novo
+              Importar inadimplência
             </Button>
           ) : undefined
         }
@@ -462,18 +523,17 @@ export default function ImportacoesPage() {
         }}
       >
         <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
-          <SheetForm onSubmit={handleSave}>
+          <SheetForm onSubmit={handleFormSubmit}>
             <SheetHeader>
               <SheetHeaderLead>
                 <SheetHeaderIcon>
                   <Icon icon={FileUp} size="md" />
                 </SheetHeaderIcon>
                 <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>
-                    {editingId === null ? "Nova importação" : "Editar importação"}
-                  </SheetTitle>
+                  <SheetTitle id={`${formId}-title`}>Importar inadimplência</SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Histórico do arquivo recebido da administradora. Quem executou é o login atual.
+                    Formato {FORMATO_IMPORTACAO_DEBITOS_V1}: CSV (;) ou XLS. Quem executa é o login atual (
+                    {sessao?.nome ?? "—"}).
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -483,105 +543,135 @@ export default function ImportacoesPage() {
               <FormSteps steps={etapas} current={step} />
               {step === 0 ? (
                 <>
-                  <FormField label="Origem" htmlFor={`${formId}-origem`}>
-                    <Input
+                  <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
+                    <Select
                       id={`${formId}-origem`}
-                      value={form.origem}
-                      onChange={(event) => setForm((current) => ({ ...current, origem: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Tipo" htmlFor={`${formId}-tipo`} required error={errors.tipo}>
-                    <Select
-                      id={`${formId}-tipo`}
-                      value={form.tipo}
-                      invalid={Boolean(errors.tipo)}
-                      onChange={(event) => setForm((current) => ({ ...current, tipo: event.target.value }))}
+                      value={origem}
+                      invalid={Boolean(erroOrigem)}
+                      onChange={(event) => setOrigem(event.target.value)}
                     >
                       <option value="">Selecione</option>
-                      {tiposImportacao.map((item) => (
+                      {origensDebito.map((item) => (
                         <option key={item} value={item}>
-                          {rotuloTipo[item]}
+                          {item}
                         </option>
                       ))}
                     </Select>
                   </FormField>
-                  <FormField label="Arquivo" htmlFor={`${formId}-arquivo`}>
-                    <Input
-                      id={`${formId}-arquivo`}
-                      value={form.arquivo}
-                      onChange={(event) => setForm((current) => ({ ...current, arquivo: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Situação" htmlFor={`${formId}-status`} required error={errors.status}>
-                    <Select
-                      id={`${formId}-status`}
-                      value={form.status}
-                      invalid={Boolean(errors.status)}
-                      onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                    >
-                      <option value="">Selecione</option>
-                      {statusImportacao.map((item) => (
-                        <option key={item} value={item}>
-                          {rotuloStatus[item]}
-                        </option>
-                      ))}
-                    </Select>
+                  <FormField label="Arquivo" required error={erroArquivo}>
+                    <div className="flex flex-col gap-sm">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => arquivoRef.current?.click()}>
+                        Escolher arquivo
+                      </Button>
+                      <p className="text-body-sm text-on-surface-variant">
+                        {nomeArquivo ? nomeArquivo : "CSV ou planilha XLS com colunas Unidade, Condomínio, Referência, Vencimento e valor."}
+                      </p>
+                    </div>
                   </FormField>
                 </>
-              ) : (
-                <>
-                  <FormField label="Registros" htmlFor={`${formId}-registros`} error={errors.quantidadeRegistros}>
-                    <Input
-                      id={`${formId}-registros`}
-                      inputMode="numeric"
-                      value={form.quantidadeRegistros}
-                      invalid={Boolean(errors.quantidadeRegistros)}
-                      onChange={(event) => setForm((current) => ({ ...current, quantidadeRegistros: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Importados" htmlFor={`${formId}-importados`} error={errors.quantidadeImportados}>
-                    <Input
-                      id={`${formId}-importados`}
-                      inputMode="numeric"
-                      value={form.quantidadeImportados}
-                      invalid={Boolean(errors.quantidadeImportados)}
-                      onChange={(event) => setForm((current) => ({ ...current, quantidadeImportados: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Atualizados" htmlFor={`${formId}-atualizados`} error={errors.quantidadeAtualizados}>
-                    <Input
-                      id={`${formId}-atualizados`}
-                      inputMode="numeric"
-                      value={form.quantidadeAtualizados}
-                      invalid={Boolean(errors.quantidadeAtualizados)}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, quantidadeAtualizados: event.target.value }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label="Erros" htmlFor={`${formId}-erros`} error={errors.quantidadeErros}>
-                    <Input
-                      id={`${formId}-erros`}
-                      inputMode="numeric"
-                      value={form.quantidadeErros}
-                      invalid={Boolean(errors.quantidadeErros)}
-                      onChange={(event) => setForm((current) => ({ ...current, quantidadeErros: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Observação interna" htmlFor={`${formId}-observacao`}>
-                    <Textarea
-                      id={`${formId}-observacao`}
-                      value={form.observacaoInterna}
-                      onChange={(event) => setForm((current) => ({ ...current, observacaoInterna: event.target.value }))}
-                    />
-                  </FormField>
-                </>
-              )}
+              ) : null}
+
+              {step === 1 && preview ? (
+                <div className="flex flex-col gap-md">
+                  {preview.arquivoJaImportado ? (
+                    <p className="flex items-start gap-sm rounded-md bg-gold-subtle px-md py-sm text-body-sm text-on-surface">
+                      <Icon icon={AlertTriangle} size="sm" className="mt-0.5 shrink-0 text-brass" />
+                      Este arquivo já foi importado com sucesso. Uma nova confirmação não duplicará débitos.
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-sm text-body-sm min-[480px]:grid-cols-3">
+                    <p>
+                      <span className="text-on-surface-variant">Lidas:</span> {preview.quantidadeRegistros}
+                    </p>
+                    <p>
+                      <span className="text-on-surface-variant">Novos:</span> {preview.novos}
+                    </p>
+                    <p>
+                      <span className="text-on-surface-variant">Atualizações:</span> {preview.atualizacoes}
+                    </p>
+                    <p>
+                      <span className="text-on-surface-variant">Duplicadas:</span> {preview.duplicados}
+                    </p>
+                    <p>
+                      <span className="text-on-surface-variant">Erros:</span> {preview.erros}
+                    </p>
+                    <p>
+                      <span className="text-on-surface-variant">Manuais protegidos:</span> {preview.manualProtegido}
+                    </p>
+                  </div>
+                  {preview.amostraValida.length > 0 ? (
+                    <div>
+                      <p className="mb-sm text-label text-on-surface-variant">Amostra do que será gravado</p>
+                      <ul className="space-y-xs text-body-sm">
+                        {preview.amostraValida.map((item) => (
+                          <li key={`${item.linha}-${item.resumo?.referencia}`}>
+                            Linha {item.linha}: {item.resumo?.unidade} — {item.resumo?.referencia} (
+                            {item.resumo?.valorAtualizado})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {linhasComProblema.length > 0 ? (
+                    <div>
+                      <p className="mb-sm text-label text-on-surface-variant">Linhas com erro ou ignoradas</p>
+                      <ul className="max-h-48 space-y-xs overflow-y-auto text-body-sm">
+                        {linhasComProblema.map((item) => (
+                          <li key={`err-${item.linha}`}>
+                            Linha {item.linha} ({rotuloSituacaoLinha[item.situacao]}): {item.mensagem}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {preview.novos + preview.atualizacoes === 0 && !preview.arquivoJaImportado ? (
+                    <p className="text-body-sm text-on-surface-variant">
+                      Nenhuma linha será gravada. Corrija o arquivo ou cancela a operação.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {step === 2 && resultado ? (
+                <div className="space-y-sm text-body-sm">
+                  <p className="font-medium text-on-surface">Relatório da importação</p>
+                  <p>Arquivo: {resultado.importacao.arquivo}</p>
+                  <p>Situação: {rotuloStatus[resultado.importacao.status] ?? resultado.importacao.status}</p>
+                  <p>Novos débitos: {resultado.novos}</p>
+                  <p>Atualizados: {resultado.atualizados}</p>
+                  <p>Duplicados/ignorados: {resultado.duplicados}</p>
+                  <p>Erros na leitura: {resultado.erros}</p>
+                  <p>Registros manuais protegidos: {resultado.manualProtegido}</p>
+                </div>
+              ) : null}
             </SheetBody>
             <SheetFooterForm
               onClose={closeSheet}
-              onBack={step > 0 ? () => setStep(0) : undefined}
-              saveLabel={step === 0 ? "Continuar" : "Salvar"}
+              onBack={
+                step === 1
+                  ? () => setStep(0)
+                  : step === 2
+                    ? undefined
+                    : undefined
+              }
+              saveLabel={
+                step === 0
+                  ? processando
+                    ? "Validando…"
+                    : "Validar arquivo"
+                  : step === 1
+                    ? processando
+                      ? "Gravando…"
+                      : "Confirmar importação"
+                    : "Fechar"
+              }
+              saveDisabled={
+                processando ||
+                (step === 1 &&
+                  preview !== null &&
+                  preview.novos + preview.atualizacoes === 0 &&
+                  !preview.arquivoJaImportado)
+              }
             />
           </SheetForm>
         </SheetContent>
@@ -598,12 +688,21 @@ export default function ImportacoesPage() {
         onConfirm={confirmLeave}
       />
       <ConfirmDialog
+        open={confirmImportOpen}
+        onOpenChange={setConfirmImportOpen}
+        title="Confirmar importação?"
+        description="Linhas inválidas não serão gravadas. Débitos manuais sem ID externo não serão sobrescritos."
+        confirmLabel="Importar"
+        cancelLabel="Voltar"
+        onConfirm={() => void executarImportacao()}
+      />
+      <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
         title="Excluir importação?"
-        description="O histórico deste arquivo será removido."
+        description="O histórico deste arquivo será removido. Os débitos já gravados permanecem."
         confirmLabel="Excluir"
         cancelLabel="Cancelar"
         onConfirm={confirmDelete}

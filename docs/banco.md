@@ -12,6 +12,11 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [unit_responsible_party](#unit_responsible_party) | Vínculo entre unidade e responsável |
 | [debt](#debt) | Débito da unidade |
 | [service_ticket](#service_ticket) | Atendimento da unidade |
+| [negotiation_proposal](#negotiation_proposal) | Proposta de negociação / acordo (T15) |
+| [negotiation_proposal_debt](#negotiation_proposal_debt) | Débitos vinculados à proposta |
+| [agreement_installment](#agreement_installment) | Parcelas previstas do acordo confirmado (T16) |
+| [agreement_payment](#agreement_payment) | Pagamentos vinculados a parcelas de acordo (T16) |
+| [collection_assignment](#collection_assignment) | Responsável vigente na fila (unidade → atendente) |
 | [import](#import) | Importação de arquivo |
 | [audit_log](#audit_log) | Auditoria de alteração |
 
@@ -26,6 +31,15 @@ erDiagram
 	condominium ||--o{ debt : possui
 	unit ||--o{ debt : possui
 	unit ||--o{ service_ticket : refere
+	unit ||--o{ negotiation_proposal : refere
+	debt ||--o{ negotiation_proposal_debt : compoe
+	negotiation_proposal ||--o{ negotiation_proposal_debt : inclui
+	negotiation_proposal ||--o{ agreement_installment : parcelas
+	agreement_installment ||--o{ agreement_payment : recebe
+	negotiation_proposal ||--o{ agreement_payment : acordo
+	unit ||--o{ agreement_installment : unidade
+	unit ||--o{ agreement_payment : unidade
+	user ||--o{ negotiation_proposal : registra
 	responsible_party ||--o{ service_ticket : refere
 	user ||--o{ service_ticket : atende
 	user ||--o{ import : executa
@@ -51,6 +65,7 @@ Colaborador que opera o sistema.
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | codigo | VARCHAR(32) | não | único | Código de login do colaborador |
+| codigo_re | VARCHAR(16) | sim | único quando preenchido | RE operacional do atendente |
 | cargo_id | INT | sim | FK → role.id | Cargo |
 | nome | VARCHAR(255) | sim | | |
 | telefone | VARCHAR(255) | sim | | |
@@ -142,6 +157,23 @@ Débito ou encargo de uma unidade.
 | valor_pago | DECIMAL(12,2) | sim | | Valor efetivamente pago |
 | origem | VARCHAR | sim | | Superlógica, PDF ou outra administradora |
 | identificador_externo | VARCHAR | sim | | ID ou código vindo da administradora |
+| atualizado_em | TIMESTAMP | sim | | Última persistência (importação ou correção manual) |
+| fonte_valores | VARCHAR | sim | | `origem` (valores da administradora) ou `manual` (correção no sistema; sem recálculo automático de encargos) |
+
+## collection_assignment
+
+Histórico de responsáveis pela cobrança na fila operacional. Vigência: `encerrado_em` nulo. Protótipo: `AtribuicaoCobranca` em `catalogo.ts`; gestão manual via T09 (`src/lib/distribuicao/service.ts`, `/api/distribuicao/*`).
+
+| Coluna | Tipo | Nulo | Descrição |
+| --- | --- | --- | --- |
+| id | INT | não | PK |
+| unidade_id | INT | não | FK → unit.id |
+| atendente_id | INT | não | FK → user.id |
+| atribuido_por_id | INT | não | FK → user.id |
+| atribuido_em | TIMESTAMP | não | Início da vigência |
+| encerrado_em | TIMESTAMP | sim | Fim (redistribuição) |
+| motivo | TEXT | sim | |
+| anterior_atendente_id | INT | sim | FK → user.id |
 
 ## service_ticket
 
@@ -154,12 +186,79 @@ Atendimento (palitagem) de uma unidade. Quem registra é o colaborador logado.
 | responsavel_id | INT | sim | FK → responsible_party.id | |
 | usuario_id | INT | não | FK → user.id | Atendente |
 | data_hora | TIMESTAMP | não | | |
-| canal | VARCHAR | sim | | WhatsApp, Telefone, E-mail |
+| canal | VARCHAR | sim | | WhatsApp, Telefone, E-mail, SMS, Presencial, Carta/notificação |
+| respondeu | VARCHAR | sim | | Sim / Não — houve resposta do condômino ou administradora |
+| motivo | VARCHAR | sim | | Motivo da pendência (catálogo em `motivosPendencia`) quando respondeu = Sim |
 | assunto | VARCHAR | sim | | |
-| descricao | TEXT | sim | | |
+| descricao | TEXT | sim | | Observações |
 | status | VARCHAR | não | | Resolvido, Pendente |
 | data_proxima_acao | DATE | sim | | Data prevista para a próxima ação |
 | proxima_acao | VARCHAR | sim | | Próxima ação a executar |
+| retorno_concluido_em | TIMESTAMP | sim | | Data/hora em que o retorno agendado foi marcado como realizado |
+| retorno_concluido_por_id | INT | sim | FK → user.id | Quem marcou o retorno como realizado |
+
+## negotiation_proposal
+
+Proposta de negociação (T15). Não representa pagamento recebido. Protótipo: `PropostaNegociacao` em `catalogo.ts`; API `/api/propostas`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | UUID | não | PK | |
+| condominio_id | INT | não | FK → condominium.id | |
+| unidade_id | INT | não | FK → unit.id | |
+| usuario_id | INT | não | FK → user.id | Autor da proposta |
+| criado_em | TIMESTAMP | não | | Data/hora do registro |
+| status | VARCHAR | não | | Em análise, Aceita, Recusada, Cancelada |
+| valor_proposto | DECIMAL(12,2) | não | | Valor total proposto (sem recálculo automático de encargos) |
+| observacoes | TEXT | sim | | |
+| acordo_confirmado_em | TIMESTAMP | sim | | Preenchido quando status = Aceita |
+| acordo_confirmado_por_id | INT | sim | FK → user.id | Quem confirmou o acordo |
+| termos_aprovados | TEXT | sim | | Termos textuais do acordo confirmado |
+
+## agreement_installment
+
+Parcelas do cronograma após acordo confirmado (proposta **Aceita**). Valor **previsto** — não representa recebimento. Protótipo: `ParcelaAcordo` em `catalogo.ts`; API `POST/GET /api/propostas/:id/parcelas`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | UUID | não | PK | |
+| proposta_id | UUID | não | FK → negotiation_proposal.id | Acordo de origem |
+| condominio_id | INT | não | FK → condominium.id | |
+| unidade_id | INT | não | FK → unit.id | |
+| numero | INT | não | único por proposta | Número da parcela |
+| valor_previsto | DECIMAL(12,2) | não | | Valor previsto da parcela |
+| vencimento_em | DATE | não | | Data de vencimento |
+| criado_em | TIMESTAMP | não | | |
+| criado_por_id | INT | não | FK → user.id | |
+
+Status operacional (**Prevista**, **Vencida**, **Quitada**) é calculado em `src/lib/acordos/resumo.ts` a partir de vencimento e pagamentos **Confirmados**.
+
+## agreement_payment
+
+Pagamento informado ou confirmado contra uma parcela. Não altera automaticamente `debt.status`. Protótipo: `PagamentoAcordo` em `catalogo.ts`; API `POST/GET /api/propostas/:id/pagamentos`, correção `PATCH /api/pagamentos-acordo/:id`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | UUID | não | PK | |
+| proposta_id | UUID | não | FK → negotiation_proposal.id | |
+| parcela_id | UUID | não | FK → agreement_installment.id | |
+| unidade_id | INT | não | FK → unit.id | |
+| valor | DECIMAL(12,2) | não | | |
+| data_pagamento | TIMESTAMP | não | | Data informada do pagamento |
+| referencia_comprovante | VARCHAR | sim | | Referência ou comprovante |
+| confirmacao | VARCHAR | não | | Informado ou Confirmado |
+| criado_em | TIMESTAMP | não | | |
+| registrado_por_id | INT | não | FK → user.id | |
+
+## negotiation_proposal_debt
+
+Associação N:N entre proposta e débitos cobertos pela tratativa.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | INT | não | PK, autoincremento | |
+| proposta_id | UUID | não | FK → negotiation_proposal.id | |
+| debito_id | INT | não | FK → debt.id | Débito da mesma unidade |
 
 ## import
 
@@ -176,7 +275,7 @@ Histórico de importação de arquivos: débitos, unidades, responsáveis e outr
 | quantidade_importados | INT | sim | | |
 | quantidade_atualizados | INT | sim | | |
 | quantidade_erros | INT | sim | | |
-| observacao_interna | TEXT | sim | | |
+| observacao_interna | TEXT | sim | | JSON opcional: `hashArquivo`, `formato` (ex. `planilha-inadimplencia-v1`), `relatorio` com erros/ignorados |
 | usuario_id | INT | não | FK → user.id | Quem executou a importação |
 | data_importacao | TIMESTAMP | não | | |
 
@@ -209,6 +308,15 @@ Registro de cada alteração feita no sistema.
 | debt | condominium | muitos para um | condominio_id |
 | debt | unit | muitos para um | unidade_id |
 | service_ticket | unit | muitos para um | unidade_id |
+| negotiation_proposal | unit | muitos para um | unidade_id |
+| negotiation_proposal | user | muitos para um | usuario_id |
+| negotiation_proposal_debt | negotiation_proposal | muitos para um | proposta_id |
+| negotiation_proposal_debt | debt | muitos para um | debito_id |
+| agreement_installment | negotiation_proposal | muitos para um | proposta_id |
+| agreement_installment | unit | muitos para um | unidade_id |
+| agreement_payment | agreement_installment | muitos para um | parcela_id |
+| agreement_payment | negotiation_proposal | muitos para um | proposta_id |
+| agreement_payment | unit | muitos para um | unidade_id |
 | service_ticket | responsible_party | muitos para um | responsavel_id |
 | service_ticket | user | muitos para um | usuario_id |
 | import | user | muitos para um | usuario_id |

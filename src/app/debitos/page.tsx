@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { CheckCircle2, ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -59,20 +59,30 @@ import {
   diasDeAtraso,
   formatarData,
   formatarMoeda,
-  getCadastros,
   grupoDebito,
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
+  escopoCondominios,
+  escopoUnidades,
+  getCadastros,
   nomeCondominio,
   nomeUnidade,
   origensDebito,
-  registrarAuditoria,
-  setDebitos,
   statusDebito,
   type Debito,
+  type Unidade,
 } from "@/data/catalogo";
+import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
+import {
+  aplicarDebitoExcluido,
+  aplicarDebitoSalvo,
+  sincronizarDebitosDoServidor,
+} from "@/lib/debitos/sync-cliente";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
+import { sincronizarUnidadesDoServidor } from "@/lib/unidades/sync-cliente";
 
 const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
 const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
@@ -109,6 +119,32 @@ function limiteNumerico(valor: string) {
   return Number.isInteger(numero) && numero >= 1 ? numero : LIMITE_AMIGAVEL_DIAS;
 }
 
+function debitoParaFormulario(item: Debito) {
+  return {
+    condominioId: String(item.condominioId),
+    unidadeId: String(item.unidadeId),
+    referencia: item.referencia ?? "",
+    descricao: item.descricao ?? "",
+    dataVencimento: item.dataVencimento ?? "",
+    valor: item.valor ?? "",
+    valorOriginal: item.valorOriginal ?? "",
+    multa: item.multa ?? "",
+    juros: item.juros ?? "",
+    correcao: item.correcao ?? "",
+    valorAtualizado: item.valorAtualizado ?? "",
+    status: item.status ?? "",
+    dataPagamento: item.dataPagamento ?? "",
+    valorPago: item.valorPago ?? "",
+    origem: item.origem ?? "",
+    identificadorExterno: item.identificadorExterno ?? "",
+  };
+}
+
+function rotuloUnidadeForm(item: Unidade) {
+  const bloco = item.bloco?.trim();
+  return bloco ? `${item.identificacao} · ${bloco}` : item.identificacao;
+}
+
 const formularioVazio = {
   condominioId: "",
   unidadeId: "",
@@ -135,6 +171,7 @@ export default function DebitosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user: sessao } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
@@ -153,6 +190,8 @@ export default function DebitosPage() {
   const [appliedCondominioId, setAppliedCondominioId] = useState("todos");
   const [appliedCidade, setAppliedCidade] = useState("todas");
   const [appliedStatus, setAppliedStatus] = useState("todos");
+  const [origem, setOrigem] = useState("todas");
+  const [appliedOrigem, setAppliedOrigem] = useState("todas");
   const [unidadeId, setUnidadeId] = useState("todas");
   const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
@@ -165,6 +204,39 @@ export default function DebitosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<ErroCampo, string>>>({});
+  const [carregandoEdicao, setCarregandoEdicao] = useState(false);
+
+  const condominiosVisiveis = escopoCondominios(cadastros, sessao?.userId);
+  const unidadesVisiveis = escopoUnidades(cadastros, sessao?.userId);
+
+  async function sincronizarCadastrosRelacionados() {
+    await garantirCondominiosPersistidosNoServidor(sessao?.userId);
+    const response = await fetch("/api/unidades", { credentials: "same-origin" });
+    if (response.ok) {
+      const payload = (await response.json()) as { unidades?: Unidade[] };
+      if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, sessao?.userId);
+    }
+  }
+
+  async function recarregarDebitosDoServidor() {
+    const response = await fetch("/api/debitos", { credentials: "same-origin" });
+    if (!response.ok) return;
+    const payload = (await response.json()) as { debitos?: Debito[] };
+    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, sessao?.userId);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await sincronizarCadastrosRelacionados();
+      if (cancelled) return;
+      await recarregarDebitosDoServidor();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessao?.userId]);
 
   useEffect(() => {
     const unidadeQuery = searchParams?.get("unidade");
@@ -186,6 +258,7 @@ export default function DebitosPage() {
   const visible = debitos
     .filter((item) => {
       const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
+      const matchesOrigem = appliedOrigem === "todas" || item.origem === appliedOrigem;
       const matchesCondominio = appliedCondominioId === "todos" || String(item.condominioId) === appliedCondominioId;
       const cidadeDebito = cadastros.condominios.find((condominio) => condominio.id === item.condominioId)?.cidade.trim() ?? "";
       const matchesCidade = appliedCidade === "todas" || cidadeDebito === appliedCidade;
@@ -196,6 +269,7 @@ export default function DebitosPage() {
       const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeCondominio(item.condominioId)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesStatus &&
+        matchesOrigem &&
         matchesCondominio &&
         matchesCidade &&
         matchesPeriodo &&
@@ -241,14 +315,6 @@ export default function DebitosPage() {
   const limiteDias = limiteNumerico(appliedLimite);
   const corte = dataCorteLimite(appliedDataBase, limiteDias);
   const emAbertoNaData = visible.filter((item) => debitoAbertoNaData(item, appliedDataBase));
-  const somarAtualizado = (itens: Debito[]) => itens.reduce((total, item) => total + (Number(item.valorAtualizado) || 0), 0);
-  const somarOriginal = (itens: Debito[]) => itens.reduce((total, item) => total + (Number(item.valorOriginal) || 0), 0);
-  const diasNaBase = (item: Debito) => diasDeAtraso(item.dataVencimento, appliedDataBase);
-  const totalOriginal = somarOriginal(emAbertoNaData);
-  const totalAtualizado = somarAtualizado(emAbertoNaData);
-  const ateLimite = somarAtualizado(emAbertoNaData.filter((item) => !acimaDoLimite(diasNaBase(item), limiteDias)));
-  const acimaLimite = somarAtualizado(emAbertoNaData.filter((item) => acimaDoLimite(diasNaBase(item), limiteDias)));
-  const unidadesDevedoras = new Set(emAbertoNaData.map((item) => item.unidadeId)).size;
   const condominiosNoFiltro = cadastros.condominios.filter((item) => {
     const matchesCondominio = appliedCondominioId === "todos" || String(item.id) === appliedCondominioId;
     const matchesCidade = appliedCidade === "todas" || item.cidade.trim() === appliedCidade;
@@ -257,7 +323,18 @@ export default function DebitosPage() {
   const unidadesCarteira = cadastros.unidades.filter((item) =>
     condominiosNoFiltro.some((condominio) => condominio.id === item.condominioId),
   ).length;
-  const percentualUnidades = unidadesCarteira ? (unidadesDevedoras / unidadesCarteira) * 100 : null;
+  const indicadores = calcularIndicadoresInadimplencia({
+    debitos: emAbertoNaData,
+    dataBase: appliedDataBase,
+    limiteDias,
+    unidadesCarteira,
+  });
+  const totalOriginal = indicadores.totalOriginal;
+  const totalAtualizado = indicadores.totalAtualizado;
+  const ateLimite = indicadores.ateLimite;
+  const acimaLimite = indicadores.acimaLimite;
+  const unidadesDevedoras = indicadores.unidadesDevedoras;
+  const percentualUnidades = indicadores.percentualUnidades;
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
   }
@@ -284,6 +361,7 @@ export default function DebitosPage() {
     setAppliedCondominioId(condominioId);
     setAppliedCidade(cidade);
     setAppliedStatus(status);
+    setAppliedOrigem(origem);
     setAppliedUnidadeId(unidadeId);
     setPage(1);
   }
@@ -304,6 +382,8 @@ export default function DebitosPage() {
     setAppliedCondominioId("todos");
     setAppliedCidade("todas");
     setAppliedStatus("todos");
+    setOrigem("todas");
+    setAppliedOrigem("todas");
     setUnidadeId("todas");
     setAppliedUnidadeId("todas");
     setPage(1);
@@ -317,29 +397,39 @@ export default function DebitosPage() {
     setSheetOpen(true);
   }
 
-  function openEdit(item: Debito) {
+  async function openEdit(item: Debito) {
+    setCarregandoEdicao(true);
+    setSheetOpen(true);
     setEditingId(item.id);
-    setForm({
-      condominioId: String(item.condominioId),
-      unidadeId: String(item.unidadeId),
-      referencia: item.referencia,
-      descricao: item.descricao,
-      dataVencimento: item.dataVencimento,
-      valor: item.valor,
-      valorOriginal: item.valorOriginal,
-      multa: item.multa,
-      juros: item.juros,
-      correcao: item.correcao,
-      valorAtualizado: item.valorAtualizado,
-      status: item.status,
-      dataPagamento: item.dataPagamento,
-      valorPago: item.valorPago,
-      origem: item.origem,
-      identificadorExterno: item.identificadorExterno,
-    });
     setErrors({});
     setStep(0);
-    setSheetOpen(true);
+    setForm(debitoParaFormulario(item));
+    try {
+      await sincronizarCadastrosRelacionados();
+      const response = await fetch(`/api/debitos/${item.id}`, { credentials: "same-origin" });
+      const body = (await response.json()) as { debito?: Debito; error?: string };
+      const debito =
+        response.ok && body.debito
+          ? body.debito
+          : (getCadastros().debitos.find((registro) => registro.id === item.id) ?? item);
+      if (!response.ok && !body.debito) {
+        toast({
+          variant: "error",
+          title: "Não foi possível carregar o débito",
+          description: body.error ?? "Exibindo os dados disponíveis na listagem.",
+        });
+      }
+      setForm(debitoParaFormulario(debito));
+    } catch {
+      setForm(debitoParaFormulario(item));
+      toast({
+        variant: "error",
+        title: "Erro ao carregar",
+        description: "Exibindo os dados disponíveis na listagem.",
+      });
+    } finally {
+      setCarregandoEdicao(false);
+    }
   }
 
   function closeSheet() {
@@ -356,23 +446,55 @@ export default function DebitosPage() {
     setSheetOpen(false);
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    registrarAuditoria({
-      entidade: "debt",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.referencia,
-      dadosNovos: "",
-      camposAlterados: "referencia",
+    const response = await fetch(`/api/debitos/${deleteTarget.id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
     });
-    setDebitos((current) => current.filter((item) => item.id !== deleteTarget.id));
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      toast({ variant: "error", title: body.error ?? "Não foi possível excluir o débito." });
+      return;
+    }
+    aplicarDebitoExcluido(deleteTarget.id);
     if (editingId === deleteTarget.id) {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
     }
     toast({ variant: "success", title: "Débito excluído" });
     setDeleteTarget(null);
+  }
+
+  async function confirmarQuitacaoUnidade(item: Debito, forcar = false) {
+    const response = await fetch(`/api/debitos/unidade/${item.unidadeId}/confirmar-quitacao`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forcar }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      unidade?: { id: number; situacao: string };
+    };
+    if (response.status === 409 && !forcar) {
+      const aceitar = window.confirm(
+        `${body.error ?? "Há débitos em aberto."}\n\nConfirmar quitação da unidade mesmo assim? Atendimentos anteriores serão mantidos.`,
+      );
+      if (aceitar) void confirmarQuitacaoUnidade(item, true);
+      return;
+    }
+    if (!response.ok) {
+      toast({ variant: "error", title: body.error ?? "Não foi possível confirmar a quitação." });
+      return;
+    }
+    if (body.unidade) {
+      setUnidades((current) =>
+        current.map((u) => (u.id === body.unidade!.id ? { ...u, situacao: body.unidade!.situacao } : u)),
+      );
+    }
+    toast({ variant: "success", title: "Unidade marcada como quitada" });
+    await recarregarDebitosDoServidor();
   }
 
   function iniciarAtendimento(item: Debito) {
@@ -389,12 +511,22 @@ export default function DebitosPage() {
     if (pode("atendimentos", "criar"))
       lista.push({ label: "Iniciar atendimento", icon: ClipboardList, onSelect: () => iniciarAtendimento(item) });
     if (pode("debitos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("debitos", "editar") || pode("unidades", "editar")) {
+      const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
+      if (unidade && unidade.situacao !== "Quitada") {
+        lista.push({
+          label: "Confirmar unidade quitada",
+          icon: CheckCircle2,
+          onSelect: () => void confirmarQuitacaoUnidade(item),
+        });
+      }
+    }
     if (pode("debitos", "excluir"))
       lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const referencia = form.referencia.trim();
     const nextErrors: Partial<Record<ErroCampo, string>> = {};
@@ -460,6 +592,8 @@ export default function DebitosPage() {
     }
     if (Object.keys(nextErrors).length > 0) return;
 
+    await sincronizarCadastrosRelacionados();
+
     const canon = (value: string) => value.trim().replace(",", ".");
     const saved = {
       condominioId: Number(form.condominioId),
@@ -480,35 +614,37 @@ export default function DebitosPage() {
       identificadorExterno: form.identificadorExterno.trim(),
     };
 
-    if (editingId === null) {
-      const nextId = debitos.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setDebitos((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "debt",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.referencia,
-        camposAlterados: "referencia, status, valor_atualizado",
-      });
-      toast({ variant: "success", title: "Débito cadastrado" });
-    } else {
-      setDebitos((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "debt",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: debitos.find((item) => item.id === editingId)?.status ?? "",
-        dadosNovos: saved.status,
-        camposAlterados: "referencia, status, valor_atualizado",
-      });
-      toast({ variant: "success", title: "Débito atualizado" });
+    const url = editingId === null ? "/api/debitos" : `/api/debitos/${editingId}`;
+    const method = editingId === null ? "POST" : "PATCH";
+    const response = await fetch(url, {
+      method,
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(saved),
+    });
+    const body = (await response.json().catch(() => ({}))) as { debito?: Debito; error?: string };
+    if (!response.ok) {
+      toast({ variant: "error", title: body.error ?? "Não foi possível salvar o débito." });
+      return;
     }
-
+    if (body.debito) aplicarDebitoSalvo(body.debito, editingId === null ? "INSERT" : "UPDATE");
+    toast({ variant: "success", title: editingId === null ? "Débito cadastrado" : "Débito atualizado" });
     setSheetOpen(false);
   }
 
-  const unidadesDoCondominio = cadastros.unidades.filter((item) => String(item.condominioId) === form.condominioId);
+  function rotuloFonteValores(item: Debito) {
+    if (item.fonteValores === "manual") return "Correção manual";
+    return item.origem ? `Origem: ${item.origem}` : "Valores da origem";
+  }
+
+  const unidadesDoCondominio = useMemo(() => {
+    const lista = unidadesVisiveis.filter((item) => String(item.condominioId) === form.condominioId);
+    if (!form.unidadeId) return lista;
+    if (lista.some((item) => String(item.id) === form.unidadeId)) return lista;
+    const vinculada = unidadesVisiveis.find((item) => String(item.id) === form.unidadeId);
+    if (vinculada) return [...lista, vinculada];
+    return lista;
+  }, [form.condominioId, form.unidadeId, unidadesVisiveis]);
 
   const emptyState = (
     <EmptyState
@@ -563,12 +699,13 @@ export default function DebitosPage() {
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Situação
           </TableHead>
+          <TableHead>Origem / atualização</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={9}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={10}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -587,6 +724,10 @@ export default function DebitosPage() {
               </TableCell>
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+              </TableCell>
+              <TableCell className="text-body-sm text-on-surface-variant">
+                <span className="block">{rotuloFonteValores(item)}</span>
+                <span className="block tabular-nums">{formatarData(item.atualizadoEm)}</span>
               </TableCell>
               <TableActionsCell label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
             </TableRow>
@@ -624,6 +765,8 @@ export default function DebitosPage() {
               <TableMobileField label="Situação">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableMobileField>
+              <TableMobileField label="Origem">{rotuloFonteValores(item)}</TableMobileField>
+              <TableMobileField label="Atualizado">{formatarData(item.atualizadoEm)}</TableMobileField>
             </TableMobileFields>
           </TableMobileCard>
         ))}
@@ -718,6 +861,16 @@ export default function DebitosPage() {
                 ...statusDebito.map((item) => ({ value: item, label: item })),
               ],
             },
+            {
+              id: "origem",
+              label: "Origem dos dados",
+              value: origem,
+              onChange: setOrigem,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...origensDebito.map((item) => ({ value: item, label: item })),
+              ],
+            },
           ]}
         />
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -775,7 +928,7 @@ export default function DebitosPage() {
         }}
       >
         <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
-          <SheetForm onSubmit={handleSave}>
+          <SheetForm noValidate onSubmit={handleSave}>
             <SheetHeader>
               <SheetHeaderLead>
                 <SheetHeaderIcon>
@@ -804,8 +957,8 @@ export default function DebitosPage() {
                       }
                     >
                       <option value="">Selecione</option>
-                      {cadastros.condominios.map((item) => (
-                        <option key={item.id} value={item.id}>
+                      {condominiosVisiveis.map((item) => (
+                        <option key={item.id} value={String(item.id)}>
                           {item.nome}
                         </option>
                       ))}
@@ -820,8 +973,8 @@ export default function DebitosPage() {
                     >
                       <option value="">Selecione</option>
                       {unidadesDoCondominio.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.identificacao}
+                        <option key={item.id} value={String(item.id)}>
+                          {rotuloUnidadeForm(item)}
                         </option>
                       ))}
                     </Select>
@@ -970,6 +1123,7 @@ export default function DebitosPage() {
             </SheetBody>
             <SheetFooterForm
               onClose={closeSheet}
+              saveDisabled={carregandoEdicao}
               onBack={step > 0 ? () => setStep((current) => current - 1) : undefined}
               saveLabel={step < etapas.length - 1 ? "Continuar" : "Salvar"}
             />

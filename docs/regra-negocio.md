@@ -120,36 +120,61 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Proprietários e responsáveis financeiros
 - Histórico da unidade
 
-**Unidades (T06):** identificação única por condomínio (`identificacao` + condomínio); inativação preserva débitos, atendimentos e vínculos; exclusão só sem histórico. Responsável financeiro principal marcado no vínculo (`principal`). Situação de cobrança **Sem cobrança** é o padrão ao criar unidade (fora da fila de inadimplência; badge neutro na coluna Cobrança). **Em cobrança**, **Em acordo**, **Notificada** e **Ajuizada** entram na fila operacional. **Quitada** tira a unidade da fila: na listagem, coluna Débito exibe **Em dia** (verde) mesmo que existam débitos históricos consultáveis. A transição automática Sem cobrança → Em cobrança ao importar débitos vencidos fica para integração/importação (T13). API `/api/unidades` valida permissão e escopo de condomínio no servidor. Dados pessoais de responsáveis mascarados para perfis sem necessidade operacional (ex.: advogado em consulta).
+**Unidades (T06):** identificação única por condomínio (`identificacao` + condomínio); inativação preserva débitos, atendimentos e vínculos; exclusão só sem histórico. Responsável financeiro principal marcado no vínculo (`principal`). Situação de cobrança **Sem cobrança** é o padrão ao criar unidade (fora da fila de inadimplência; badge neutro na coluna Cobrança). **Em cobrança**, **Em acordo**, **Notificada** e **Ajuizada** entram na fila operacional. **Quitada** tira a unidade da fila: na listagem, coluna Débito exibe **Em dia** (verde) mesmo que existam débitos históricos consultáveis. A transição automática Sem cobrança → Em cobrança ao importar débitos vencidos **permanece pendente** (ver [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md)). API `/api/unidades` valida permissão e escopo de condomínio no servidor. Dados pessoais de responsáveis mascarados para perfis sem necessidade operacional (ex.: advogado em consulta).
 
 ### Inadimplência
 
-- Importação de dados
-- Integração com administradoras
-- Validação dos dados
-- Controle dos débitos
+**Importação (T13):** fluxo em `/importacoes` com prévia obrigatória (`POST /api/importacoes/debitos/preview`) e confirmação (`…/confirmar`). Mapeamento de condomínio/unidade por nome, ID ou identificador externo do condomínio + identificação da unidade (bloco quando necessário). Linhas inválidas não gravam; reimportação do mesmo arquivo (hash SHA-256) não duplica débitos; débitos manuais sem identificador externo não são sobrescritos; débitos ausentes do arquivo **não** são cancelados. Histórico em `import` com quantidades lidas, importadas, atualizadas e erros. Formato genérico `planilha-inadimplencia-v1` (CSV/XLS); PDF e layouts por administradora — pendente.
+
+- Integração com administradoras (Superlógica e leitores futuros)
+- **Gestão de débitos (T14):** listagem em `/debitos` via `GET /api/debitos` (escopo e permissão no servidor). Valores exibidos são os persistidos; indicadores na data-base somam `valor_atualizado` **sem duplicar** o mesmo `identificador_externo`. Campos `fonte_valores` (`origem` | `manual`) e `atualizado_em` distinguem importação de correção manual; alterações manuais geram `audit_log`. O sistema **não recalcula** juros, multa ou correção ausentes na origem.
+- Controle dos débitos (manual + importado)
 - Identificação de inadimplentes
-- Regra de entrada na cobrança
-- Atualização dos valores
+- **Quitação:** `POST /api/debitos/unidade/{id}/confirmar-quitacao` marca a unidade como `Quitada` (fora da fila); atendimentos e débitos históricos permanecem.
+- Regra de entrada na cobrança (pendente)
+- Atualização dos valores (importação atualiza só com ID externo ou equivalência; demais casos em DECISOES_PENDENTES)
+
+### Fila de cobranças (T08)
+
+- Integrada à tela `/atendimentos`, aba **Fila de cobranças** (`?aba=fila`); atalho `/fila` redireciona para essa aba.
+- Lista unidades em cobrança ativa via `GET /api/fila` (dados do cadastro persistido em memória no protótipo).
+- **Administradora:** carteira geral no escopo; filtros por condomínio, situação, RE e retorno; paginação no servidor.
+- **Atendente:** somente unidades com atribuição vigente ao seu RE (`collection_assignment` / seed).
+- **Advogado:** sem `atendimentos.ler` — não acessa a fila operacional.
+- Quitada / inativa cadastral não entra na fila; histórico permanece na aba Registros e em unidades.
+- Regra de **quando** o débito entra em cobrança: pendente de aprovação (fora do T08).
+
+### Distribuição de cobranças (T09)
+
+- Aba **Distribuição** em `/atendimentos?aba=distribuicao`; atalho `/distribuicao` redireciona para essa aba.
+- Apenas perfil com permissão de gestão de equipe (`usuarios.criar` no seed = Administradora) distribui ou redistribui.
+- Atribuição manual por **RE** do atendente; interface operacional exibe RE, não nome pessoal.
+- Cada mudança gera novo registro em `collection_assignment`; vigência anterior recebe `encerrado_em`, `anterior_atendente_id` e motivo quando informado.
+- A cobrança passa a aparecer na carteira do novo RE e deixa de ser vigente para o anterior; **atendimentos (`service_ticket`) mantêm o autor original**.
+- Distribuição em lote é **atômica**: se alguma unidade falhar na validação, nenhuma alteração é aplicada.
+- Produtividade e relatórios históricos contam ações pelo autor do registro, não pelo responsável atual da carteira.
+- Distribuição **automática** (rodízio, carga, etc.): não implementada — ver [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
 
 ### Palitagem
 
 - Lista de unidades com débito vencido
-- Registro do atendimento pelo colaborador logado
-- Histórico de contatos da unidade
-- WhatsApp, telefone e e-mail
-- Agendamento de retorno
+- Registro do atendimento pelo colaborador logado (`POST /api/atendimentos`): autor e data/hora gerados no servidor; autoria amarrada ao RE do login
+- Cada tentativa é um novo registro em `service_ticket`; não sobrescreve tentativas anteriores
+- Atendente só registra cobrança em unidade da sua carteira vigente; administradora registra no escopo geral
+- Unidade deve pertencer ao condomínio selecionado no formulário
+- Histórico de contatos da unidade (detalhe da unidade e aba Registros)
+- **Linha do tempo consolidada (T12):** `GET /api/unidades/:id/historico` agrega tentativas (`service_ticket`), propostas de negociação (`negotiation_proposal`, T15), conclusão de retornos, atribuições/redistribuições (`collection_assignment`), pagamentos de débitos e correções auditadas (`audit_log` em atendimento/unidade/proposta). Ordem cronológica; cada evento indica atendente por **RE** ou perfil (Administradora/Advogado). Escopo por condomínio; atendente consulta só unidades da carteira vigente; advogado via `unidades.ler`. Eventos não são apagados por quitação, inativação ou redistribuição.
+- Meios: WhatsApp, telefone, e-mail e demais canais do catálogo
+- Resposta Sim/Não e motivo da pendência (catálogo) quando houve contato
+- Agendamento de retorno (data e próxima ação)
+- Agenda de retornos (T11): aba **Retornos** em `/atendimentos?aba=retornos`; listagem via `GET /api/retornos`; conclusão via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
+- Atendente conclui retornos só da carteira vigente; administradora acompanha por RE
 - Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada
 
 ### Negociação e pagamentos
 
-- Propostas de negociação
-- Entrada e parcelamento
-- Registro de acordos
-- Controle de parcelas
-- Registro de pagamentos
-- Controle de acordos quebrados
-- Atualização do saldo devedor
+- **Propostas de negociação (T15):** registro via `/api/propostas` e sheet **Proposta** (fila / histórico da unidade). Vincula unidade, autor, valor proposto, observações e débitos (`debitoIds`). Status: Em análise, Aceita, Recusada, Cancelada. Confirmar acordo (`Aceita`) exige `termosAprovados` textuais e grava origem (`acordo_confirmado_*`); **não** baixa débito nem registra pagamento. Alterações de status auditadas (`negotiation_proposal`). Entrada, quantidade de parcelas na proposta e aprovação formal ampliada: ver [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
+- **Parcelas e pagamentos de acordo (T16):** após proposta **Aceita**, parcelas previstas em `/api/propostas/:id/parcelas` e pagamentos em `/api/propostas/:id/pagamentos`. Pagamento **Informado** ≠ recebimento confirmado; quitação de parcela e saldo do acordo usam apenas pagamentos **Confirmados** (regra de saldo de débitos e fonte de confirmação: decisão pendente). Potencial descumprimento = parcela vencida sem quitação confirmada — **não** rotular acordo como quebrado sem regra aprovada. Correções auditadas em `agreement_installment` e `agreement_payment`. Detalhes: [modulos/negociacoes.md](modulos/negociacoes.md).
 
 ### Jurídico e gestão
 

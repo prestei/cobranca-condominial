@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, RotateCcw, Scale } from "lucide-react";
+import { Building2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, RotateCcw, Scale, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
@@ -62,14 +62,17 @@ import {
   escopoCondominios,
   getCadastros,
   opcoesAdvogadosResponsaveis,
-  registrarAuditoria,
   rotuloAdvogadosCondominio,
-  setCondominios,
   statusCondominio,
   type Condominio,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
 import { interpretarArquivoCondominios } from "@/lib/condominios/importar-planilha";
+import {
+  aplicarCondominioExcluido,
+  aplicarCondominioSalvo,
+  garantirCondominiosPersistidosNoServidor,
+} from "@/lib/condominios/sync-cliente";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -163,6 +166,7 @@ export default function CondominiosPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Condominio | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Condominio | null>(null);
   const [step, setStep] = useState(0);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [detalheId, setDetalheId] = useState<number | null>(null);
@@ -174,7 +178,19 @@ export default function CondominiosPage() {
   const ultimoCepBuscado = useRef("");
   const importArquivoRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const podeImportar = pode("condominios", "criar");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await garantirCondominiosPersistidosNoServidor(user?.userId);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.userId]);
 
   useEffect(() => {
     const digitos = digitosCep(form.cep);
@@ -401,20 +417,25 @@ export default function CondominiosPage() {
     setSheetOpen(false);
   }
 
-  function confirmStatusChange() {
+  async function confirmStatusChange() {
     if (!statusTarget) return;
     const proximoStatus = statusTarget.status === "Ativo" ? "Inativo" : "Ativo";
-    setCondominios((current) =>
-      current.map((item) => (item.id === statusTarget.id ? { ...item, status: proximoStatus } : item)),
-    );
-    registrarAuditoria({
-      entidade: "condominium",
-      registroId: String(statusTarget.id),
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ status: statusTarget.status }),
-      dadosNovos: JSON.stringify({ status: proximoStatus }),
-      camposAlterados: "status",
+    const response = await fetch(`/api/condominios/${statusTarget.id}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: proximoStatus }),
     });
+    const body = (await response.json()) as { condominio?: Condominio; error?: string };
+    if (!response.ok || !body.condominio) {
+      toast({
+        variant: "error",
+        title: "Erro ao alterar situação",
+        description: body.error ?? "Não foi possível atualizar o condomínio.",
+      });
+      return;
+    }
+    aplicarCondominioSalvo(body.condominio, "UPDATE");
     if (editingId === statusTarget.id) {
       setForm((current) => ({ ...current, status: proximoStatus }));
     }
@@ -435,6 +456,32 @@ export default function CondominiosPage() {
 
   function adicionarUnidade(item: Condominio) {
     router.push(`/unidades?condominio=${item.id}&novo=1`);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const response = await fetch(`/api/condominios/${deleteTarget.id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    const payload = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      toast({
+        variant: "error",
+        title: "Não foi possível excluir",
+        description: payload.error ?? "Verifique permissões ou histórico do condomínio.",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+    aplicarCondominioExcluido(deleteTarget.id);
+    if (editingId === deleteTarget.id) {
+      setSheetOpen(false);
+      setLeaveConfirmOpen(false);
+    }
+    if (detalheId === deleteTarget.id) setDetalheId(null);
+    toast({ variant: "success", title: "Condomínio excluído" });
+    setDeleteTarget(null);
   }
 
   function acoes(item: Condominio) {
@@ -461,10 +508,18 @@ export default function CondominiosPage() {
         lista.push({ label: "Reativar", icon: RotateCcw, onSelect: () => setStatusTarget(item) });
       }
     }
+    if (pode("condominios", "excluir")) {
+      lista.push({
+        label: "Excluir",
+        icon: Trash2,
+        destructive: true,
+        onSelect: () => setDeleteTarget(item),
+      });
+    }
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!pode("condominios", editingId === null ? "criar" : "editar")) return;
     const nome = form.nome.trim();
@@ -521,34 +576,53 @@ export default function CondominiosPage() {
       observacao: form.observacao.trim(),
     };
 
-    if (editingId === null) {
-      const nextId = cadastros.condominios.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setCondominios((current) => [...current, { id: nextId, ...saved, status: "Ativo" }]);
-      registrarAuditoria({
-        entidade: "condominium",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.nome,
-        camposAlterados: "nome",
+    setSalvando(true);
+    try {
+      const url = editingId === null ? "/api/condominios" : `/api/condominios/${editingId}`;
+      const method = editingId === null ? "POST" : "PATCH";
+      const payload = editingId === null ? { ...saved, status: "Ativo" as const } : saved;
+      const response = await fetch(url, {
+        method,
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      toast({ variant: "success", title: "Condomínio cadastrado" });
-    } else {
-      setCondominios((current) =>
-        current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)),
-      );
-      registrarAuditoria({
-        entidade: "condominium",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: condominios.find((item) => item.id === editingId)?.nome ?? "",
-        dadosNovos: saved.nome,
-        camposAlterados: "nome",
+      const body = (await response.json()) as { condominio?: Condominio; error?: string };
+      if (!response.ok || !body.condominio) {
+        const msg = body.error ?? "Não foi possível salvar o condomínio.";
+        toast({
+          variant: "error",
+          title: editingId === null ? "Erro ao cadastrar" : "Erro ao atualizar",
+          description: msg,
+        });
+        const msgLower = msg.toLocaleLowerCase("pt-BR");
+        if (msgLower.includes("identificador")) {
+          setErrors({ identificadorExterno: msg });
+          setStep(0);
+        } else if (msgLower.includes("nome")) {
+          setErrors({ nome: msg });
+          setStep(0);
+        } else if (msgLower.includes("advogado")) {
+          setErrors({ advogados: msg });
+          setStep(0);
+        }
+        return;
+      }
+      aplicarCondominioSalvo(body.condominio, editingId === null ? "INSERT" : "UPDATE");
+      toast({
+        variant: "success",
+        title: editingId === null ? "Condomínio cadastrado" : "Condomínio atualizado",
       });
-      toast({ variant: "success", title: "Condomínio atualizado" });
+      setSheetOpen(false);
+    } catch {
+      toast({
+        variant: "error",
+        title: "Erro ao salvar",
+        description: "Falha de comunicação com o servidor. Verifique se o sistema está em execução e tente de novo.",
+      });
+    } finally {
+      setSalvando(false);
     }
-
-    setSheetOpen(false);
   }
 
   const colunasExportacao = [
@@ -616,11 +690,9 @@ export default function CondominiosPage() {
           .map((item) => item.identificadorExterno.trim().toLocaleLowerCase("pt-BR"))
           .filter(Boolean),
       );
-      let nextId = base.reduce((max, item) => Math.max(max, item.id), 0) + 1;
       let criadas = 0;
       let duplicadas = 0;
       let falhas = errosParse.length;
-      const novos: Condominio[] = [];
 
       for (const payload of importaveis) {
         const identificador = payload.identificadorExterno.trim();
@@ -633,24 +705,23 @@ export default function CondominiosPage() {
           identificadoresUsados.add(chave);
         }
 
-        const registro: Condominio = { id: nextId, ...payload };
-        nextId += 1;
-        novos.push(registro);
-        criadas += 1;
-      }
-
-      if (novos.length > 0) {
-        setCondominios((current) => [...current, ...novos]);
-        for (const item of novos) {
-          registrarAuditoria({
-            entidade: "condominium",
-            registroId: String(item.id),
-            acao: "INSERT",
-            dadosAnteriores: "",
-            dadosNovos: item.nome,
-            camposAlterados: "importacao",
-          });
+        const response = await fetch("/api/condominios", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = (await response.json()) as { condominio?: Condominio; error?: string };
+        if (response.ok && body.condominio) {
+          aplicarCondominioSalvo(body.condominio, "INSERT");
+          criadas += 1;
+          continue;
         }
+        if (response.status === 409) {
+          duplicadas += 1;
+          continue;
+        }
+        falhas += 1;
       }
 
       if (criadas === 0 && duplicadas > 0 && falhas === 0) {
@@ -740,13 +811,7 @@ export default function CondominiosPage() {
   );
 
   const desktopTable = (
-    <Table
-      aria-label="Condomínios"
-      onExport={aoExportar}
-      onImport={abrirImportacao}
-      showImport={podeImportar}
-      importDisabled={importando}
-    >
+    <Table aria-label="Condomínios" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
@@ -954,7 +1019,7 @@ export default function CondominiosPage() {
         }}
       >
         <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
-          <SheetForm onSubmit={handleSave}>
+          <SheetForm noValidate onSubmit={handleSave}>
             <SheetHeader>
               <SheetHeaderLead>
                 <SheetHeaderIcon>
@@ -1240,6 +1305,22 @@ export default function CondominiosPage() {
         cancelLabel="Cancelar"
         confirmVariant={statusTarget?.status === "Ativo" ? "critical" : "primary"}
         onConfirm={confirmStatusChange}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Excluir condomínio?"
+        description={
+          deleteTarget
+            ? `${deleteTarget.nome} será removido da carteira. Só é possível excluir condomínios sem unidades e sem histórico de cobrança.`
+            : undefined
+        }
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        confirmVariant="critical"
+        onConfirm={confirmDelete}
       />
     </WorkspaceShell>
   );

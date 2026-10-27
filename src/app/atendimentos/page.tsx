@@ -3,7 +3,11 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ClipboardList, ListOrdered, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { DistribuicaoPanel } from "@/components/atendimentos/distribuicao-panel";
+import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
+import { RetornosAgendaPanel } from "@/components/atendimentos/retornos-agenda-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -49,12 +53,12 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
+  type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
-  agoraIso,
   canaisAtendimento,
   condominioAtivo,
   debitoEmAberto,
@@ -63,17 +67,22 @@ import {
   formatarMoeda,
   getCadastros,
   motivosPendencia,
+  nomeCondominio,
   nomeUnidade,
   nomeUsuario,
-  registrarAuditoria,
-  setAtendimentos,
   statusAtendimento,
   type Atendimento,
 } from "@/data/catalogo";
+import {
+  aplicarAtendimentoExcluido,
+  aplicarAtendimentoSalvo,
+  sincronizarAtendimentosDoServidor,
+} from "@/lib/atendimentos/sync-cliente";
 
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { exportarListagem } from "@/lib/atendimentos/exportar-listagem";
 
 const etapas = ["Registro", "Retorno"] as const;
 const badgeStatus: Record<string, "success" | "secondary"> = { Resolvido: "success", Pendente: "secondary" };
@@ -121,6 +130,81 @@ export default function AtendimentosPage() {
   const [errors, setErrors] = useState<
     Partial<Record<"condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo", string>>
   >({});
+  const [aba, setAba] = useState<"fila" | "registros" | "distribuicao" | "retornos">("fila");
+  const [salvando, setSalvando] = useState(false);
+  const gerenciaDistribuicao = pode("usuarios", "criar");
+  const podeImportar = pode("importacoes", "criar");
+
+  const colunasRegistrosExport = [
+    "Data/hora",
+    "Atendente",
+    "Condomínio",
+    "Unidade",
+    "Canal",
+    "Respondeu",
+    "Motivo",
+    "Assunto",
+    "Situação",
+    "Próxima ação",
+    "Data próxima ação",
+    "Observações",
+  ];
+
+  function linhasRegistrosExport() {
+    return visible.map((item) => {
+      const unidade = cadastros.unidades.find((u) => String(u.id) === item.unidadeId);
+      return [
+        formatarData(item.dataHora),
+        nomeUsuario(item.usuarioId),
+        unidade ? nomeCondominio(unidade.condominioId) : "—",
+        nomeUnidade(Number(item.unidadeId)),
+        item.canal || "—",
+        item.respondeu || "—",
+        item.motivo || "—",
+        item.assunto || "—",
+        item.status,
+        item.proximaAcao || "—",
+        item.dataProximaAcao ? formatarData(item.dataProximaAcao) : "—",
+        item.descricao || "—",
+      ];
+    });
+  }
+
+  function aoExportarRegistros(formato: TableExportFormat) {
+    const base = `atendimentos-${new Date().toISOString().slice(0, 10)}`;
+    exportarListagem(toast, formato, "Registros de atendimento", base, colunasRegistrosExport, linhasRegistrosExport());
+  }
+
+  function abrirImportacao() {
+    router.push("/importacoes");
+  }
+
+  async function recarregarAtendimentosDoServidor() {
+    const response = await fetch("/api/atendimentos", { credentials: "same-origin" });
+    if (!response.ok) return;
+    const payload = (await response.json()) as { atendimentos?: Atendimento[] };
+    if (payload.atendimentos) sincronizarAtendimentosDoServidor(payload.atendimentos, sessao?.userId);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await recarregarAtendimentosDoServidor();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessao?.userId]);
+
+  useEffect(() => {
+    const abaQuery = searchParams?.get("aba");
+    if (abaQuery === "registros" || abaQuery === "fila" || abaQuery === "retornos") {
+      setAba(abaQuery);
+    } else if (abaQuery === "distribuicao" && gerenciaDistribuicao) {
+      setAba("distribuicao");
+    }
+  }, [gerenciaDistribuicao, searchParams]);
 
   useEffect(() => {
     if (!searchParams || searchParams.get("novo") !== "1") return;
@@ -146,7 +230,7 @@ export default function AtendimentosPage() {
     setErrors({});
     setStep(0);
     setSheetOpen(true);
-    router.replace("/atendimentos");
+    router.replace("/atendimentos?aba=fila");
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -270,23 +354,31 @@ export default function AtendimentosPage() {
     setSheetOpen(false);
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    registrarAuditoria({
-      entidade: "service_ticket",
-      registroId: deleteTarget.id,
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.assunto,
-      dadosNovos: "",
-      camposAlterados: "assunto",
-    });
-    setAtendimentos((current) => current.filter((item) => item.id !== deleteTarget.id));
-    if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setLeaveConfirmOpen(false);
+    try {
+      const response = await fetch(`/api/atendimentos/${encodeURIComponent(deleteTarget.id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Não foi possível excluir.");
+      }
+      aplicarAtendimentoExcluido(deleteTarget.id);
+      if (editingId === deleteTarget.id) {
+        setSheetOpen(false);
+        setLeaveConfirmOpen(false);
+      }
+      toast({ variant: "success", title: "Atendimento excluído" });
+      setDeleteTarget(null);
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Falha ao excluir",
+        description: error instanceof Error ? error.message : undefined,
+      });
     }
-    toast({ variant: "success", title: "Atendimento excluído" });
-    setDeleteTarget(null);
   }
 
   function acoes(item: Atendimento) {
@@ -310,8 +402,9 @@ export default function AtendimentosPage() {
     }));
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (salvando) return;
     const nextErrors: Partial<Record<"condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo", string>> = {};
     if (!form.condominioId) nextErrors.condominioId = "Selecione o condomínio.";
     if (!form.unidadeId) nextErrors.unidadeId = "Selecione a unidade.";
@@ -333,12 +426,10 @@ export default function AtendimentosPage() {
       return;
     }
 
-    const anterior = atendimentos.find((item) => item.id === editingId);
-    const saved = {
-      unidadeId: form.unidadeId,
-      responsavelId: form.responsavelId,
-      usuarioId: anterior?.usuarioId ?? sessao?.userId ?? 1,
-      dataHora: anterior?.dataHora ?? agoraIso(),
+    const body = {
+      condominioId: Number(form.condominioId),
+      unidadeId: Number(form.unidadeId),
+      responsavelId: form.responsavelId ? Number(form.responsavelId) : null,
       canal: form.canal,
       respondeu: form.respondeu,
       motivo: form.respondeu === "Sim" ? form.motivo : "",
@@ -349,32 +440,38 @@ export default function AtendimentosPage() {
       proximaAcao: form.proximaAcao.trim(),
     };
 
-    if (editingId === null) {
-      const nextId = crypto.randomUUID();
-      setAtendimentos((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "service_ticket",
-        registroId: nextId,
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.assunto || saved.canal,
-        camposAlterados: "unidade, canal, status",
+    setSalvando(true);
+    try {
+      const isNovo = editingId === null;
+      const response = await fetch(isNovo ? "/api/atendimentos" : `/api/atendimentos/${encodeURIComponent(editingId)}`, {
+        method: isNovo ? "POST" : "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
-      toast({ variant: "success", title: "Atendimento registrado" });
-    } else {
-      setAtendimentos((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "service_ticket",
-        registroId: editingId,
-        acao: "UPDATE",
-        dadosAnteriores: anterior?.status ?? "",
-        dadosNovos: saved.status,
-        camposAlterados: "unidade, canal, status, descricao",
+      const payload = (await response.json()) as { error?: string; atendimento?: Atendimento };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Não foi possível salvar o atendimento.");
+      }
+      if (payload.atendimento) {
+        aplicarAtendimentoSalvo(payload.atendimento, isNovo ? "INSERT" : "UPDATE");
+      }
+      toast({
+        variant: "success",
+        title: isNovo ? "Atendimento registrado" : "Atendimento atualizado",
       });
-      toast({ variant: "success", title: "Atendimento atualizado" });
+      setForm(formularioVazio);
+      setStep(0);
+      setSheetOpen(false);
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Falha ao salvar",
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setSalvando(false);
     }
-
-    setSheetOpen(false);
   }
 
   const emptyState = (
@@ -398,7 +495,7 @@ export default function AtendimentosPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Atendimentos">
+    <Table aria-label="Atendimentos" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("data")} onSort={() => handleSort("data")}>
@@ -465,9 +562,10 @@ export default function AtendimentosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Atendimentos"
+        description="Fila operacional de cobrança e histórico de palitagem."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Atendimentos" }]}
         actions={
-          pode("atendimentos", "criar") ? (
+          pode("atendimentos", "criar") && aba === "registros" ? (
             <Button size="md" onClick={openCreate}>
               <Icon icon={Plus} size="sm" />
               Novo
@@ -476,6 +574,55 @@ export default function AtendimentosPage() {
         }
       />
       <PageContent>
+        <Tabs
+          defaultValue="fila"
+          value={aba}
+          onValueChange={(value) => {
+            const next =
+              value === "registros"
+                ? "registros"
+                : value === "distribuicao"
+                  ? "distribuicao"
+                  : value === "retornos"
+                    ? "retornos"
+                    : "fila";
+            setAba(next);
+            router.replace(`/atendimentos?aba=${next}`, { scroll: false });
+          }}
+        >
+          <TabsList className="mb-lg">
+            <TabsTrigger value="fila">
+              <Icon icon={ListOrdered} size="sm" className="mr-xs" />
+              Fila de cobranças
+            </TabsTrigger>
+            {gerenciaDistribuicao ? (
+              <TabsTrigger value="distribuicao">
+                <Icon icon={Share2} size="sm" className="mr-xs" />
+                Distribuição
+              </TabsTrigger>
+            ) : null}
+            <TabsTrigger value="retornos">
+              <Icon icon={CalendarClock} size="sm" className="mr-xs" />
+              Retornos
+            </TabsTrigger>
+            <TabsTrigger value="registros">
+              <Icon icon={ClipboardList} size="sm" className="mr-xs" />
+              Registros
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="fila">
+            <FilaCobrancasPanel />
+          </TabsContent>
+          {gerenciaDistribuicao ? (
+            <TabsContent value="distribuicao">
+              <DistribuicaoPanel />
+            </TabsContent>
+          ) : null}
+          <TabsContent value="retornos">
+            <RetornosAgendaPanel />
+          </TabsContent>
+          <TabsContent value="registros">
+        <div className="flex flex-col gap-lg">
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -532,8 +679,17 @@ export default function AtendimentosPage() {
             <p className="mt-sm text-body-sm text-on-surface-variant">com retorno</p>
           </CardMetric>
         </div>
-        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+        <ResponsiveTable
+          desktop={desktopTable}
+          mobile={mobileTable}
+          onExport={aoExportarRegistros}
+          onImport={abrirImportacao}
+          showImport={podeImportar}
+        />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </div>
+          </TabsContent>
+        </Tabs>
       </PageContent>
 
       <Sheet
@@ -716,7 +872,8 @@ export default function AtendimentosPage() {
             <SheetFooterForm
               onClose={closeSheet}
               onBack={step > 0 ? () => setStep(0) : undefined}
-              saveLabel={step === 0 ? "Continuar" : "Salvar"}
+              saveLabel={step === 0 ? "Continuar" : salvando ? "Salvando…" : "Salvar"}
+              saveDisabled={salvando}
             />
           </SheetForm>
         </SheetContent>

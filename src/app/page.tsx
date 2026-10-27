@@ -497,9 +497,9 @@ export default function HomePage() {
           selo="Agenda"
           titulo="Retornos da equipe"
           descricao="O que precisa fazer ligação de novo."
-          href="/atendimentos"
-          linkLabel="Abrir lista"
-          onLink={() => router.push("/atendimentos")}
+          href="/atendimentos?aba=retornos"
+          linkLabel="Abrir agenda"
+          onLink={() => router.push("/atendimentos?aba=retornos")}
         >
           <div className="overflow-hidden rounded-lg border border-border-subtle">
             <Table aria-label="Retornos agendados">
