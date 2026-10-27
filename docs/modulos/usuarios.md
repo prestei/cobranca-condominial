@@ -8,7 +8,7 @@ Gestão de colaboradores, login individual e vínculo com cargos. O nome exibido
 
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `usuarios`
 - **Módulos relacionados:** [cargos](cargos.md), [atendimentos](atendimentos.md), [auditoria](auditoria.md)
-- **Dados:** `user` em [banco.md](../banco.md); `Usuario` em `catalogo.ts` (protótipo em memória)
+- **Dados:** `user` em [banco.md](../banco.md); tipo `Usuario` em `src/data/catalogo.ts` (estado em memória no servidor, espelhado no cliente)
 - **Stack:** [stack.md](../stack.md) — `AUTH_SECRET`, cookies de sessão
 
 ## Rotas e telas
@@ -22,9 +22,11 @@ Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra
 
 ## Dados e persistência
 
-Modelo lógico em `docs/banco.md` (`user`, `role`). Hoje o login valida contra `getCadastros().usuarios` no servidor (mesmo seed que o protótipo). Senhas iniciais em bcrypt; novas senhas cadastradas na UI permanecem em texto no cliente até a migração para PostgreSQL.
+Modelo lógico em `docs/banco.md` (`user`, `role`). Colaboradores e senhas (bcrypt) ficam no estado servidor de `catalogo.ts`; o CRUD em `/usuarios` persiste via API. Login valida no servidor com `buscarUsuarioPorCodigoLogin` + `verifyPassword`.
 
 ## API e contratos
+
+### Autenticação
 
 | Método | Path | Body | Resposta |
 | --- | --- | --- | --- |
@@ -34,12 +36,25 @@ Modelo lógico em `docs/banco.md` (`user`, `role`). Hoje o login valida contra `
 
 Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 
+### Colaboradores (`src/lib/usuarios/service.ts`)
+
+Permissões: `usuarios.ler` (listar), `usuarios.criar`, `usuarios.editar`, `usuarios.excluir`. Respostas **não** incluem `senha`.
+
+| Método | Path | Body | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/usuarios` | — | `200` `{ usuarios: UsuarioPublico[] }` |
+| POST | `/api/usuarios` | `{ codigo, cargoId, nome, telefone, email, senha, codigoRe?, id? }` | `201` `{ usuario }` ou `4xx` `{ error }` |
+| PATCH | `/api/usuarios/:id` | `{ codigo, cargoId, nome, telefone, email, senha?, codigoRe? }` | `200` `{ usuario }` |
+| DELETE | `/api/usuarios/:id` | — | `200` `{ ok: true }` — bloqueado se houver atendimento, importação ou auditoria |
+
+Sincronização cliente: `src/lib/usuarios/sync-cliente.ts` (`garantirUsuariosPersistidosNoServidor` na abertura de `/usuarios`).
+
 ## Fluxos principais
 
 1. **Login:** usuário envia código e senha → API valida no cadastro → cookie de sessão → redirecionamento para `/` ou `?from=`.
 2. **Sessão:** `AuthProvider` consulta `/api/auth/session` e expõe `useAuth()`; menu e atendimentos usam `userId` da sessão.
 3. **Logout:** menu **Sair** → `POST /api/auth/logout` → redireciona para `/login`.
-4. **CRUD colaboradores:** sheet em `/usuarios` (ainda em memória no cliente).
+4. **CRUD colaboradores:** sheet em `/usuarios` → `POST`/`PATCH`/`DELETE` `/api/usuarios` → estado servidor + espelho no cliente.
 
 ## Regras de negócio
 
@@ -59,6 +74,5 @@ Nenhuma.
 
 ## Pendências e decisões
 
-- Persistir `user` e senhas hasheadas no PostgreSQL; alinhar CRUD de `/usuarios` à API.
-- API de usuários e sincronização servidor/cliente para permissões no `middleware`.
+- Migrar `user` e senhas para PostgreSQL (migrations em `db/migrations/`).
 - Recuperação de senha e política de bloqueio por tentativas.

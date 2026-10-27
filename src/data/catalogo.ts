@@ -423,9 +423,9 @@ export function getCadastrosServerSnapshot() {
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
-  const seed = usuariosIniciais.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
-  if (seed) return seed;
-  return state.usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  const noEstado = state.usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  if (noEstado) return noEstado;
+  return usuariosIniciais.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -49,14 +49,14 @@ import {
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  getCadastros,
-  nomeCargo,
-  registrarAuditoria,
-  setUsuarios,
-  type Usuario,
-} from "@/data/catalogo";
+import { nomeCargo, type Usuario } from "@/data/catalogo";
+import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
+import {
+  aplicarUsuarioExcluido,
+  aplicarUsuarioSalvo,
+  garantirUsuariosPersistidosNoServidor,
+} from "@/lib/usuarios/sync-cliente";
 import { usePermissao } from "@/hooks/use-permissao";
 import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 
@@ -65,6 +65,7 @@ const formularioVazio = { cargoId: "", codigo: "", nome: "", telefone: "", email
 
 export default function UsuariosPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
@@ -82,6 +83,19 @@ export default function UsuariosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>>>({});
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const resultado = await garantirUsuariosPersistidosNoServidor();
+      if (cancelled || resultado.ok) return;
+      toast({ variant: "error", title: "Sincronização", description: resultado.error });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.userId, toast]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = usuarios
@@ -184,31 +198,23 @@ export default function UsuariosPage() {
     setSheetOpen(false);
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    const atuais = getCadastros();
-    const emUso =
-      atuais.atendimentos.some((item) => item.usuarioId === deleteTarget.id) ||
-      atuais.importacoes.some((item) => item.usuarioId === deleteTarget.id) ||
-      atuais.auditoria.some((item) => item.usuarioId === String(deleteTarget.id));
-    if (emUso) {
+  async function confirmDelete() {
+    if (!deleteTarget || !pode("usuarios", "excluir")) return;
+    const response = await fetch(`/api/usuarios/${deleteTarget.id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    const body = (await response.json()) as { error?: string };
+    if (!response.ok) {
       toast({
         variant: "error",
-        title: "Colaborador em uso",
-        description: "Existem atendimentos, importações ou auditoria ligados a esta pessoa.",
+        title: "Erro ao excluir",
+        description: body.error ?? "Não foi possível excluir o colaborador.",
       });
       setDeleteTarget(null);
       return;
     }
-    registrarAuditoria({
-      entidade: "user",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.nome,
-      dadosNovos: "",
-      camposAlterados: "nome",
-    });
-    setUsuarios((current) => current.filter((item) => item.id !== deleteTarget.id));
+    aplicarUsuarioExcluido(deleteTarget.id);
     if (editingId === deleteTarget.id) {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
@@ -225,8 +231,9 @@ export default function UsuariosPage() {
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!pode("usuarios", editingId === null ? "criar" : "editar")) return;
     const nome = form.nome.trim();
     const codigo = normalizarCodigoUsuario(form.codigo);
     const email = form.email.trim();
@@ -260,42 +267,50 @@ export default function UsuariosPage() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const anterior = usuarios.find((item) => item.id === editingId);
-    const saved = {
+    const payload = {
       codigo,
       cargoId: Number(form.cargoId),
       nome,
       telefone: form.telefone.trim(),
       email,
-      senha: senha || anterior?.senha || "",
+      ...(senha ? { senha } : {}),
     };
 
-    if (editingId === null) {
-      const nextId = usuarios.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setUsuarios((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "user",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.nome,
-        camposAlterados: "codigo, nome, cargo_id, email",
+    setSalvando(true);
+    try {
+      const url = editingId === null ? "/api/usuarios" : `/api/usuarios/${editingId}`;
+      const method = editingId === null ? "POST" : "PATCH";
+      const response = await fetch(url, {
+        method,
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      toast({ variant: "success", title: "Colaborador cadastrado" });
-    } else {
-      setUsuarios((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "user",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: anterior?.nome ?? "",
-        dadosNovos: saved.nome,
-        camposAlterados: senha ? "codigo, nome, cargo_id, email, senha" : "codigo, nome, cargo_id, email",
+      const body = (await response.json()) as { usuario?: Omit<Usuario, "senha">; error?: string };
+      if (!response.ok || !body.usuario) {
+        const msg = body.error ?? "Não foi possível salvar o colaborador.";
+        toast({
+          variant: "error",
+          title: editingId === null ? "Erro ao cadastrar" : "Erro ao atualizar",
+          description: msg,
+        });
+        const msgLower = msg.toLocaleLowerCase("pt-BR");
+        if (msgLower.includes("código")) setErrors({ codigo: msg });
+        else if (msgLower.includes("e-mail")) setErrors({ email: msg });
+        else if (msgLower.includes("cargo")) setErrors({ cargoId: msg });
+        else if (msgLower.includes("senha")) setErrors({ senha: msg });
+        else if (msgLower.includes("nome")) setErrors({ nome: msg });
+        return;
+      }
+      aplicarUsuarioSalvo(body.usuario, editingId === null ? "INSERT" : "UPDATE");
+      toast({
+        variant: "success",
+        title: editingId === null ? "Colaborador cadastrado" : "Colaborador atualizado",
       });
-      toast({ variant: "success", title: "Colaborador atualizado" });
+      setSheetOpen(false);
+    } finally {
+      setSalvando(false);
     }
-
-    setSheetOpen(false);
   }
 
   const emptyState = (
@@ -526,7 +541,7 @@ export default function UsuariosPage() {
                 />
               </FormField>
             </SheetBody>
-            <SheetFooterForm onClose={closeSheet} />
+            <SheetFooterForm onClose={closeSheet} saveDisabled={salvando} saveLabel={salvando ? "Salvando…" : "Salvar"} />
           </SheetForm>
         </SheetContent>
       </Sheet>
