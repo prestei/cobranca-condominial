@@ -99,12 +99,11 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Dashboard
 
-- Visão geral da inadimplência
-- Unidades com débito vencido
-- Valores em aberto
-- Acordos e pagamentos
-- Indicadores por condomínio
-- Indicadores por responsável
+- Rota `/` carrega `GET /api/dashboard` (`dashboard.ler`); layout e métricas variam por perfil (administradora, atendente, advogado), sempre com escopo validado no servidor.
+- **Administradora:** carteira completa — inadimplência (totais deduplicados, faixas, condomínios, advogados responsáveis), resumo da fila de cobranças, operação dos últimos 7 dias, retornos pendentes (identificação por RE na tabela).
+- **Atendente:** fila da carteira (atribuição vigente), atendimentos do dia, contatos da semana na autoria do usuário, retornos próprios.
+- **Advogado:** condomínios vinculados, indicadores de débitos no escopo, ranking por condomínio, resumo de encaminhamentos jurídicos quando `juridico.ler`.
+- Valores monetários formatados em pt-BR; estados de carregamento, erro e ausência de dados; sem metas ou pontuações inventadas.
 
 ### Colaboradores e permissões
 
@@ -178,12 +177,11 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Jurídico e gestão
 
-- Encaminhamento para advogado
-- Análise para cobrança judicial
-- Documentos da cobrança
-- Relatórios gerenciais
-- Relatórios por condomínio
-- Relatórios por atendente/advogado
+- **Encaminhamento jurídico (T17):** registro via módulo `juridico` (`POST /api/juridico/encaminhamentos`) com unidade, condomínio, autor, advogado vinculado ao condomínio, débitos opcionais e contexto. Acompanhamento em `/juridico` e sheet na fila/histórico; status provisórios em `statusEncaminhamentoJuridico`; transições e escopo validados em `src/lib/juridico/service.ts`. **Advogado** consulta e edita apenas condomínios do seu vínculo; documentos (metadados) exigem `juridico.ler`. Eventos na linha do tempo (T12). Alterações em `audit_log`. **Não** ajuíza ações nem envia documentos a tribunais automaticamente. Checklist documental, campos processuais e integrações: [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
+- Análise para cobrança judicial (fluxo manual fora do sistema)
+- Documentos da cobrança (metadados internos; upload/armazenamento oficial pendente)
+- **Relatórios (T19):** hub `/relatorios` (equipe, retornos, efetividade, carteira). Filtros respeitam `escopoCondominios` e permissões; exportação via `GET /api/relatorios/export` exige `relatorios.exportar` e repete os mesmos filtros da tela, com data/hora de geração e RE (não nome) para atendentes. CSV UTF-8 com BOM; XLS via XML SpreadsheetML (padrão do projeto). Sem dados ilustrativos na UI.
+- Relatórios por condomínio / advogado / RE (administradora)
 - Histórico completo das ações
 - Auditoria das alterações
 

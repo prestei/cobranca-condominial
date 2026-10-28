@@ -5,6 +5,7 @@ const admin: PermissoesCargo = {
   dashboard: { ler: true },
   atendimentos: { ler: true, criar: true, editar: true, excluir: true },
   debitos: { ler: true, criar: true, editar: true, excluir: true },
+  juridico: { ler: true, criar: true, editar: true },
   condominios: { ler: true, criar: true, editar: true, excluir: true },
   unidades: { ler: true, criar: true, editar: true, excluir: true },
   relatorios: { ler: true, exportar: true },
@@ -25,6 +26,7 @@ const advogado: PermissoesCargo = {
   condominios: { ler: true },
   unidades: { ler: true },
   debitos: { ler: true },
+  juridico: { ler: true, editar: true },
   relatorios: { ler: true, exportar: true },
 };
 

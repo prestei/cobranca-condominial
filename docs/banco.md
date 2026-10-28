@@ -17,6 +17,8 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [agreement_installment](#agreement_installment) | Parcelas previstas do acordo confirmado (T16) |
 | [agreement_payment](#agreement_payment) | Pagamentos vinculados a parcelas de acordo (T16) |
 | [collection_assignment](#collection_assignment) | Responsável vigente na fila (unidade → atendente) |
+| [legal_case_referral](#legal_case_referral) | Encaminhamento para análise jurídica (T17) |
+| [legal_document](#legal_document) | Metadado de documento jurídico (T17) |
 | [import](#import) | Importação de arquivo |
 | [audit_log](#audit_log) | Auditoria de alteração |
 
@@ -39,6 +41,9 @@ erDiagram
 	negotiation_proposal ||--o{ agreement_payment : acordo
 	unit ||--o{ agreement_installment : unidade
 	unit ||--o{ agreement_payment : unidade
+	unit ||--o{ legal_case_referral : refere
+	user ||--o{ legal_case_referral : encaminha
+	legal_case_referral ||--o{ legal_document : possui
 	user ||--o{ negotiation_proposal : registra
 	responsible_party ||--o{ service_ticket : refere
 	user ||--o{ service_ticket : atende
@@ -198,6 +203,39 @@ Atendimento (palitagem) de uma unidade. Quem registra é o colaborador logado.
 | retorno_concluido_em | TIMESTAMP | sim | | Data/hora em que o retorno agendado foi marcado como realizado |
 | retorno_concluido_por_id | INT | sim | FK → user.id | Quem marcou o retorno como realizado |
 
+## legal_case_referral
+
+Encaminhamento de cobrança para análise jurídica (T17). Não dispara ajuizamento. Protótipo: `EncaminhamentoJuridico` em `catalogo.ts`; API `/api/juridico/encaminhamentos`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | UUID | não | PK | |
+| condominio_id | INT | não | FK → condominium.id | |
+| unidade_id | INT | não | FK → unit.id | |
+| usuario_id | INT | não | FK → user.id | Autor do encaminhamento |
+| encaminhado_em | TIMESTAMP | não | | |
+| status | VARCHAR | não | | Estados provisórios (catálogo em `statusEncaminhamentoJuridico`) |
+| advogado_responsavel | VARCHAR | não | | Nome do advogado vinculado ao condomínio |
+| observacoes | TEXT | sim | | |
+| debito_ids_json | TEXT | sim | | Lista JSON de IDs de débitos |
+| resumo_contexto | TEXT | sim | | Snapshot textual do caso |
+| atualizado_em | TIMESTAMP | não | | |
+| atualizado_por_id | INT | não | FK → user.id | |
+
+## legal_document
+
+Metadado de documento ligado ao encaminhamento (referência interna; sem envio a tribunais). Protótipo: `DocumentoJuridico` em `catalogo.ts`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | UUID | não | PK | |
+| encaminhamento_id | UUID | não | FK → legal_case_referral.id | |
+| titulo | VARCHAR | não | | |
+| descricao | TEXT | sim | | |
+| referencia_arquivo | VARCHAR | sim | | Pasta, caminho ou identificador interno |
+| registrado_em | TIMESTAMP | não | | |
+| registrado_por_id | INT | não | FK → user.id | |
+
 ## negotiation_proposal
 
 Proposta de negociação (T15). Não representa pagamento recebido. Protótipo: `PropostaNegociacao` em `catalogo.ts`; API `/api/propostas`.
@@ -318,6 +356,10 @@ Registro de cada alteração feita no sistema.
 | agreement_payment | agreement_installment | muitos para um | parcela_id |
 | agreement_payment | negotiation_proposal | muitos para um | proposta_id |
 | agreement_payment | unit | muitos para um | unidade_id |
+| legal_case_referral | unit | muitos para um | unidade_id |
+| legal_case_referral | condominium | muitos para um | condominio_id |
+| legal_case_referral | user | muitos para um | usuario_id |
+| legal_document | legal_case_referral | muitos para um | encaminhamento_id |
 | service_ticket | responsible_party | muitos para um | responsavel_id |
 | service_ticket | user | muitos para um | usuario_id |
 | import | user | muitos para um | usuario_id |

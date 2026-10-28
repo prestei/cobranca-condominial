@@ -88,13 +88,14 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 
 | Slug | Rota | Tela (`src/app`) | Doc módulo | Tipos mock (`src/data/catalogo.ts`) | Tabelas (`docs/banco.md`) | Módulos relacionados |
 | --- | --- | --- | --- | --- | --- | --- |
-| dashboard | `/` | `page.tsx` | [dashboard.md](modulos/dashboard.md) | agregados de várias entidades | — | atendimentos, debitos, relatorios |
+| dashboard | `/` | `page.tsx`, `components/dashboard/*`, `GET /api/dashboard` | [dashboard.md](modulos/dashboard.md) | agregados (serviço `src/lib/dashboard/service.ts`) | — | atendimentos, debitos, relatorios, juridico |
 | atendimentos | `/atendimentos` | `atendimentos/page.tsx`, `fila-cobrancas-panel.tsx`, `distribuicao-panel.tsx` | [atendimentos.md](modulos/atendimentos.md) | `Atendimento`, `AtribuicaoCobranca`, `PropostaNegociacao`, `ParcelaAcordo`, `PagamentoAcordo` | `service_ticket`, `collection_assignment`, `negotiation_proposal`, `negotiation_proposal_debt`, `agreement_installment`, `agreement_payment`, `debt`, `user`, `unit` | condominios, unidades, debitos, [negociacoes](modulos/negociacoes.md), usuarios; API `/api/fila`, `/api/atendimentos`, `/api/propostas`, `/api/propostas/:id/parcelas`, `/api/propostas/:id/pagamentos`, `/api/distribuicao/*` |
 | debitos | `/debitos` | `debitos/page.tsx` | [debitos.md](modulos/debitos.md) | `Debito` | `debt`, `unit`, `condominium` | unidades, importacoes, atendimentos, relatorios; API `/api/debitos`, `/api/debitos/indicadores`, `src/lib/debitos/*` |
+| juridico | `/juridico` | `juridico/page.tsx`, `encaminhamento-juridico-sheet.tsx` | [juridico.md](modulos/juridico.md) | `EncaminhamentoJuridico`, `DocumentoJuridico` | `legal_case_referral`, `legal_document` | condominios, unidades, debitos, atendimentos (fila/histórico); API `/api/juridico/encaminhamentos`, `src/lib/juridico/*` |
 | condominios | `/condominios` | `condominios/page.tsx` | [condominios.md](modulos/condominios.md) | `Condominio` | `condominium` | unidades, debitos, atendimentos; API `/api/condominios`, `src/lib/condominios/*` |
 | unidades | `/unidades` | `unidades/page.tsx`, `components/unidade-detalhe-sheet.tsx` | [unidades.md](modulos/unidades.md) | `Unidade`, `Responsavel`, `Vinculo` | `unit`, `responsible_party`, `unit_responsible_party` | condominios, debitos, atendimentos; API `/api/unidades` |
 | importacoes | `/importacoes` | `importacoes/page.tsx` | [importacoes.md](modulos/importacoes.md) | `Importacao`, `Debito` | `import`, `debt` | integracao-superlogica, debitos, unidades; API `/api/importacoes`, `/api/importacoes/debitos/*`, `src/lib/importacoes/*` |
-| relatorios | `/relatorios` | `relatorios/page.tsx` | [relatorios.md](modulos/relatorios.md) | leitura de cadastros | várias (leitura) | atendimentos, debitos, condominios |
+| relatorios | `/relatorios` | `relatorios/page.tsx`, `GET /api/relatorios/opcoes`, `GET /api/relatorios/export`, `src/lib/relatorios/*` | [relatorios.md](modulos/relatorios.md) | agregados (serviço) | várias (leitura) | atendimentos, debitos, condominios |
 | usuarios | `/login`, `/usuarios` | `login/page.tsx`, `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | `Usuario`; sessão `useAuth` | `user` | cargos, atendimentos, auditoria; API `/api/usuarios`, `src/lib/usuarios/*`, `/api/auth/*` |
 | cargos | `/cargos`, `/acesso-negado` | `cargos/page.tsx`, `lib/permissions/*`, `middleware.ts` | [cargos.md](modulos/cargos.md) | `Cargo` | `role` | usuarios, regra-negocio (permissões), todas as rotas autenticadas |
 | auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` (futuro PG) | todos os módulos com mutação; API `GET /api/auditoria`, `src/lib/auditoria/*` |
@@ -122,6 +123,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | T14 Gestão de débitos e inadimplência | `/debitos`, `/api/debitos`, `/api/debitos/indicadores`, quitação de unidade, `src/lib/debitos/*`, importacoes |
 | T15 Proposta de negociação e acordo | `/api/propostas`, `PropostaNegociacaoSheet`, `src/lib/negociacoes/*`, linha do tempo, [negociacoes.md](modulos/negociacoes.md) |
 | T16 Parcelas, pagamentos e acordos | `/api/propostas/:id/parcelas`, `/api/propostas/:id/pagamentos`, `AcordoAcompanhamentoBlock`, `src/lib/acordos/*`, `agreement_installment`, `agreement_payment`, [negociacoes.md](modulos/negociacoes.md) |
+| T17 Encaminhamento jurídico | `/juridico`, `/api/juridico/encaminhamentos`, `EncaminhamentoJuridicoSheet`, linha do tempo, [juridico.md](modulos/juridico.md) |
 | §2.2 Permissões | cargos, usuarios, [regra-negocio.md](regra-negocio.md) |
 | §2.5 Alertas de retorno | atendimentos, dashboard |
 | Relatórios e gráficos | relatorios, atendimentos, debitos |

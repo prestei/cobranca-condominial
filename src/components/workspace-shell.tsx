@@ -10,6 +10,7 @@ import {
   FileUp,
   LayoutDashboard,
   Receipt,
+  Scale,
   ScrollText,
   Shield,
   UserRound,
@@ -40,6 +41,7 @@ const secoes: Array<{
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
       { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
       { href: "/debitos", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
+      { href: "/juridico", label: "Jurídico", icon: Scale, modulo: "juridico" },
     ],
   },
   {

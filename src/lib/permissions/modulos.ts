@@ -28,6 +28,12 @@ export const MODULOS_PERMISSAO = [
     acoes: ["ler", "criar", "editar", "excluir"] as const,
   },
   {
+    id: "juridico",
+    label: "Jurídico",
+    description: "Encaminhamentos para análise jurídica e acompanhamento pelos advogados.",
+    acoes: ["ler", "criar", "editar"] as const,
+  },
+  {
     id: "condominios",
     label: "Condomínios",
     description: "Cadastro da carteira de condomínios.",
@@ -80,6 +86,7 @@ export type PermissoesCargo = {
 export const ROTAS_MODULO: Array<{ prefix: string; modulo: ModuloPermissao }> = [
   { prefix: "/atendimentos", modulo: "atendimentos" },
   { prefix: "/debitos", modulo: "debitos" },
+  { prefix: "/juridico", modulo: "juridico" },
   { prefix: "/condominios", modulo: "condominios" },
   { prefix: "/unidades", modulo: "unidades" },
   { prefix: "/relatorios", modulo: "relatorios" },

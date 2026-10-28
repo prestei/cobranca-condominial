@@ -11,9 +11,11 @@ const rotuloTipo: Record<EventoHistoricoUnidade["tipo"], string> = {
   pagamento: "Pagamento",
   pagamento_acordo: "Pag. acordo",
   negociacao: "Negociação",
+  encaminhamento_juridico: "Jurídico",
   correcao_atendimento: "Correção",
   correcao_unidade: "Correção",
   correcao_proposta: "Status proposta",
+  correcao_juridico: "Jurídico",
 };
 
 const variantTipo: Record<
@@ -26,9 +28,11 @@ const variantTipo: Record<
   pagamento: "success",
   pagamento_acordo: "success",
   negociacao: "secondary",
+  encaminhamento_juridico: "secondary",
   correcao_atendimento: "neutral",
   correcao_unidade: "neutral",
   correcao_proposta: "neutral",
+  correcao_juridico: "neutral",
 };
 
 type Props = {

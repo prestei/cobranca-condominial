@@ -29,42 +29,30 @@ import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
   acimaDoLimite,
-  advogados,
   canaisAtendimento,
   debitoAbertoNaData,
   diasDeAtraso,
+  escopoCondominios,
   faixasAtraso,
   formatarData,
-  getCadastros,
+  opcoesAdvogadosResponsaveis,
   grupoDebito,
   gruposDebito,
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
   motivosPendencia,
   nomeUnidade,
-  nomeUsuario,
   situacaoRetorno,
   type Atendimento,
   type Condominio,
   type Debito,
 } from "@/data/catalogo";
-import {
-  exemploCalorCompleto,
-  exemploCruzamento,
-  exemploListaAtendimentos,
-  exemploMeios,
-  exemploPorAdvogado,
-  exemploPorAtendente,
-  exemploPorMotivo,
-  exemploRespondeuGrupo,
-  exemploResumoCondominio,
-  exemploRetornosTabela,
-  exemploRetornosSituacao,
-  exemploRetornosPorAtendente,
-  exemploSerieAtendimentos,
-  exemploStatsPorUnidade,
-} from "@/data/relatorios-exemplo";
-import { exportarExcel, exportarPdf } from "@/lib/exportar";
+import { useAuth } from "@/context/auth-context";
+import { listarAtendimentos } from "@/lib/atendimentos/service";
+import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
+import { listarDebitos } from "@/lib/debitos/service";
+import { exportarPdf } from "@/lib/exportar";
+import type { RelatorioExportPayload } from "@/lib/relatorios/service";
 
 const filtroInicial = {
   busca: "",
@@ -73,7 +61,7 @@ const filtroInicial = {
   ate: "",
   advogado: "todos",
   condominio: "todos",
-  atendente: "todos",
+  codigoRe: "todos",
   respondeu: "todos",
   motivo: "todos",
   canal: "todos",
@@ -128,7 +116,7 @@ function resolverRelatorio(abaLegado: string | null, relatorioPedido: string | n
 
 const COMPARATIVOS = [
   { id: "condominio" as const, rotulo: "Condomínio" },
-  { id: "atendente" as const, rotulo: "Atendente" },
+  { id: "atendente" as const, rotulo: "RE" },
   { id: "advogado" as const, rotulo: "Advogado" },
   { id: "meio" as const, rotulo: "Meio" },
 ];
@@ -340,13 +328,21 @@ function TabelaTexto({
   );
 }
 
+function reDoUsuarioId(cadastros: ReturnType<typeof useCadastros>, usuarioId: number) {
+  const usuario = cadastros.usuarios.find((item) => item.id === usuarioId);
+  if (!usuario) return "—";
+  return codigoReDoUsuario(usuario) ?? "—";
+}
+
 function RelatoriosPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
+  const { user: sessao } = useAuth();
+  const userId = sessao?.userId ?? 0;
   const router = useRouter();
   const params = useSearchParams();
   const pedidoRelatorio = params?.get("relatorio") ?? null;
-  const pedidoAba = params?.get("aba");
+  const pedidoAba = params?.get("aba") ?? null;
   const relatorio = resolverRelatorio(pedidoAba, pedidoRelatorio);
   const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
   const cadastros = useCadastros();
@@ -358,7 +354,65 @@ function RelatoriosPage() {
   const periodo = resolverPeriodo(aplicado, hoje);
   const dataBase = periodo.fim || hoje;
   const busca = aplicado.busca.trim().toLocaleLowerCase("pt-BR");
-  const chave = `${relatorio ?? "hub"}|${periodo.inicio}|${periodo.fim}|${aplicado.advogado}|${aplicado.condominio}|${aplicado.atendente}|${aplicado.respondeu}|${aplicado.motivo}|${aplicado.canal}|${busca}|${comparativo}`;
+  const chave = `${relatorio ?? "hub"}|${periodo.inicio}|${periodo.fim}|${aplicado.advogado}|${aplicado.condominio}|${aplicado.codigoRe}|${aplicado.respondeu}|${aplicado.motivo}|${aplicado.canal}|${busca}|${comparativo}`;
+
+  const condominiosEscopo = escopoCondominios(cadastros, userId || undefined);
+  const atendentesRe = listarAtendentesComRe();
+  const podeFiltrarPorRe = pode("usuarios", "criar");
+
+  function queryExportParams() {
+    const qs = new URLSearchParams();
+    if (relatorio) qs.set("tipo", relatorio);
+    if (aplicado.busca.trim()) qs.set("busca", aplicado.busca.trim());
+    if (relatorio === "carteira") {
+      qs.set("dataBase", dataBase);
+    } else {
+      if (periodo.inicio) qs.set("de", periodo.inicio);
+      if (periodo.fim) qs.set("ate", periodo.fim);
+    }
+    if (aplicado.advogado !== "todos") qs.set("advogado", aplicado.advogado);
+    if (aplicado.condominio !== "todos") qs.set("condominio", aplicado.condominio);
+    if (aplicado.codigoRe !== "todos") qs.set("codigoRe", aplicado.codigoRe);
+    if (aplicado.respondeu !== "todos") qs.set("respondeu", aplicado.respondeu);
+    if (aplicado.motivo !== "todos") qs.set("motivo", aplicado.motivo);
+    if (aplicado.canal !== "todos") qs.set("canal", aplicado.canal);
+    return qs;
+  }
+
+  async function exportarViaApi(formato: "csv" | "xls") {
+    if (!relatorio) return;
+    const qs = queryExportParams();
+    qs.set("formato", formato);
+    try {
+      const response = await fetch(`/api/relatorios/export?${qs.toString()}`, { credentials: "same-origin" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        toast({
+          variant: "error",
+          title: "Exportação não concluída",
+          description: body.error ?? "Verifique os filtros e tente novamente.",
+        });
+        return;
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const nome = match?.[1] ?? `relatorio.${formato === "csv" ? "csv" : "xls"}`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = nome;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ variant: "success", title: formato === "csv" ? "CSV baixado" : "Planilha baixada" });
+    } catch {
+      toast({
+        variant: "error",
+        title: "Falha na exportação",
+        description: "Não foi possível comunicar com o servidor.",
+      });
+    }
+  }
 
   function abrirRelatorio(id: RelatorioId) {
     setPagina(1);
@@ -370,9 +424,12 @@ function RelatoriosPage() {
     router.push("/relatorios");
   }
 
-  function aoExportar(formato: TableExportFormat) {
-    if (formato === "pdf") imprimir();
-    else exportar();
+  async function aoExportar(formato: TableExportFormat) {
+    if (formato === "pdf") {
+      await imprimir();
+      return;
+    }
+    await exportarViaApi(formato === "csv" ? "csv" : "xls");
   }
 
   function condominioDaUnidade(unidadeId: string) {
@@ -392,7 +449,10 @@ function RelatoriosPage() {
     if (exigirPeriodo && !dentro(item.dataHora, periodo.inicio, periodo.fim)) return false;
     const condominio = condominioDaUnidade(item.unidadeId);
     if (!combinaCarteira(condominio)) return false;
-    if (aplicado.atendente !== "todos" && String(item.usuarioId) !== aplicado.atendente) return false;
+    if (aplicado.codigoRe !== "todos") {
+      const re = reDoUsuarioId(cadastros, item.usuarioId);
+      if (re.toUpperCase() !== aplicado.codigoRe.toUpperCase()) return false;
+    }
     if (aplicado.respondeu !== "todos" && item.respondeu !== aplicado.respondeu) return false;
     if (aplicado.motivo !== "todos" && item.motivo !== aplicado.motivo) return false;
     if (aplicado.canal !== "todos" && item.canal !== aplicado.canal) return false;
@@ -400,7 +460,8 @@ function RelatoriosPage() {
     return busca.length === 0 || texto.includes(busca);
   }
 
-  const atendimentos = cadastros.atendimentos.filter((item) => combinaAtendimento(item, true));
+  const atendimentosBase = userId ? listarAtendimentos(userId) : [];
+  const atendimentos = atendimentosBase.filter((item) => combinaAtendimento(item, true));
   const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
   const unidadesContatadas = new Set(atendimentos.map((item) => item.unidadeId)).size;
   const retornosPeriodo = atendimentos.filter((item) => item.status !== "Resolvido" && item.dataProximaAcao);
@@ -420,7 +481,7 @@ function RelatoriosPage() {
   let pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
 
   const porCondominio = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.nome ?? "—"));
-  let porAtendente = agruparContagem(atendimentos.map((item) => nomeUsuario(item.usuarioId)));
+  let porAtendente = agruparContagem(atendimentos.map((item) => reDoUsuarioId(cadastros, item.usuarioId)));
   let porAdvogado = agruparContagem(
     atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogados[0] ?? "—"),
   );
@@ -447,7 +508,7 @@ function RelatoriosPage() {
   });
 
   let equipe = porAtendente.map((linha) => {
-    const itens = atendimentos.filter((item) => nomeUsuario(item.usuarioId) === linha.nome);
+    const itens = atendimentos.filter((item) => reDoUsuarioId(cadastros, item.usuarioId) === linha.nome);
     const sim = itens.filter((item) => item.respondeu === "Sim").length;
     const atrasados = itens.filter((item) => item.status !== "Resolvido" && situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
     return {
@@ -459,7 +520,7 @@ function RelatoriosPage() {
     };
   });
 
-  const retornos = cadastros.atendimentos
+  const retornos = atendimentosBase
     .filter((item) => {
       if (!combinaAtendimento(item, false)) return false;
       if (item.status === "Resolvido" || !item.dataProximaAcao) return false;
@@ -472,13 +533,14 @@ function RelatoriosPage() {
   const retornosAtrasados = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
   const retornosHoje = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "hoje").length;
 
+  const debitosEscopoLista = userId ? listarDebitos(userId) : [];
   let cruzamento = [...new Set(atendimentos.map((item) => item.unidadeId))].map((unidadeId) => {
     const contatos = atendimentos.filter((item) => item.unidadeId === unidadeId);
     const meses = new Set(contatos.map((item) => mesSeguinte(item.dataHora)));
-    const pagamento = cadastros.debitos.find(
+    const pagamento = debitosEscopoLista.find(
       (debito) => String(debito.unidadeId) === unidadeId && debito.status === "Pago" && debito.dataPagamento && meses.has(debito.dataPagamento.slice(0, 7)),
     );
-    const acordo = cadastros.debitos.find(
+    const acordo = debitosEscopoLista.find(
       (debito) => String(debito.unidadeId) === unidadeId && grupoDebito(debito.descricao) === "Acordo" && meses.has(debito.dataVencimento.slice(0, 7)),
     );
     return {
@@ -490,7 +552,7 @@ function RelatoriosPage() {
   });
   let comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
 
-  const debitos = cadastros.debitos.filter((item) => {
+  const debitos = (userId ? listarDebitos(userId) : []).filter((item) => {
     const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
     if (!combinaCarteira(condominio)) return false;
     if (!debitoAbertoNaData(item, dataBase)) return false;
@@ -504,7 +566,9 @@ function RelatoriosPage() {
   const valorAte60 = somar(ate60);
   const valorAcima60 = somar(acima60);
   const unidadesDevedoras = new Set(debitos.map((item) => item.unidadeId)).size;
-  const unidadesCarteira = cadastros.unidades.filter((item) => combinaCarteira(cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId))).length;
+  const unidadesCarteira = cadastros.unidades.filter((item) =>
+    combinaCarteira(cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId)),
+  ).length;
   const percentualUnidades = unidadesCarteira ? (unidadesDevedoras / unidadesCarteira) * 100 : 0;
   const parteJuridica = totalAberto ? (valorAcima60 / totalAberto) * 100 : 0;
 
@@ -526,7 +590,10 @@ function RelatoriosPage() {
     })
     .sort((a, b) => b.valor - a.valor);
 
-  const porAdvogadoDebito = advogados
+  const advogadosEscopo = [
+    ...new Set(condominiosEscopo.flatMap((item) => item.advogados)),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const porAdvogadoDebito = (advogadosEscopo.length ? advogadosEscopo : opcoesAdvogadosResponsaveis(cadastros))
     .map((advogado) => {
       const itens = debitos.filter((item) => {
         const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
@@ -605,8 +672,8 @@ function RelatoriosPage() {
       const ultimo = [...contatos].sort((a, b) => b.dataHora.localeCompare(a.dataHora))[0];
       return {
         unidadeId,
-        nome: nomeUnidade(unidadeId),
-        condominio: condominioDaUnidade(unidadeId)?.nome ?? "—",
+        nome: nomeUnidade(String(unidadeId)),
+        condominio: condominioDaUnidade(String(unidadeId))?.nome ?? "—",
         contatos: contatos.length,
         resposta: contatos.length ? (respostas / contatos.length) * 100 : 0,
         valorAberto,
@@ -633,131 +700,37 @@ function RelatoriosPage() {
     />
   );
 
-  function linhaAtendimento(item: Atendimento) {
-    const condominio = condominioDaUnidade(item.unidadeId);
-    return [
-      formatarData(item.dataHora),
-      condominio?.nome ?? "—",
-      nomeUnidade(item.unidadeId),
-      nomeUsuario(item.usuarioId),
-      condominio?.advogados[0] ?? "—",
-      item.canal,
-      item.respondeu || "—",
-      item.motivo || "—",
-      item.assunto || "—",
-      item.descricao || "—",
-      formatarData(item.dataProximaAcao),
-      item.proximaAcao || "—",
-      item.status,
-    ];
-  }
-
-  function linhaDebito(item: Debito) {
-    const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
-    const dias = diasDeAtraso(item.dataVencimento, dataBase);
-    return [
-      condominio?.nome ?? "—",
-      condominio?.advogados[0] ?? "—",
-      nomeUnidade(item.unidadeId),
-      item.referencia,
-      item.descricao || "—",
-      grupoDebito(item.descricao),
-      formatarData(item.dataVencimento),
-      String(dias),
-      dinheiro(Number(item.valorOriginal) || 0),
-      dinheiro(Number(item.valorAtualizado) || 0),
-      item.status,
-    ];
-  }
-
-  function exportar() {
-    if (!relatorio) return;
-    if (relatorio === "retornos") {
-      exportarExcel(
-        "retornos-pendentes.xls",
-        ["Quando", "Condomínio", "Unidade", "Atendente", "Próxima ação", "Situação"],
-        retornos.map((item) => [
-          formatarData(item.dataProximaAcao),
-          condominioDaUnidade(item.unidadeId)?.nome ?? "—",
-          nomeUnidade(item.unidadeId),
-          nomeUsuario(item.usuarioId),
-          item.proximaAcao || "—",
-          rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"],
-        ]),
-      );
-      return;
-    }
-    if (relatorio === "efetividade") {
-      exportarExcel(
-        "efetividade-cobranca.xls",
-        ["Unidade", "Condomínio", "Contatos", "Resultado"],
-        cruzamento.map((linha) => [linha.unidade, linha.condominio, String(linha.contatos), linha.resultado]),
-      );
-      return;
-    }
-    if (relatorio === "equipe") {
-      exportarExcel(
-        "relatorio-cobranca.xls",
-        ["Data", "Condomínio", "Unidade", "Atendente", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Descrição", "Retorno", "Próxima ação", "Situação"],
-        listaAtendimentos.map(linhaAtendimento),
-      );
-      return;
-    }
-    exportarExcel(
-      "carteira-inadimplencia.xls",
-      ["Condomínio", "Advogado", "Unidade", "Referência", "Descrição", "Grupo", "Vencimento", "Dias", "Original", "Atualizado", "Situação"],
-      listaDebitos.map(linhaDebito),
-    );
-    exportarExcel(
-      "carteira-por-unidade.xls",
-      ["Unidade", "Condomínio", "Contatos", "Resposta", "Cobranças abertas", "Dias de atraso", "Valor atualizado", "Último contato"],
-      statsPorUnidade.map((linha) => [
-        linha.nome,
-        linha.condominio,
-        String(linha.contatos),
-        percentual(linha.resposta),
-        String(linha.cobrancas),
-        String(linha.dias),
-        dinheiro(linha.valorAberto),
-        linha.ultimo,
-      ]),
-    );
-  }
-
-  function imprimir() {
+  async function imprimir() {
     if (!relatorio || !atual) return;
-    const secoes =
-      relatorio === "carteira"
-        ? [
-            {
-              titulo: "Por unidade",
-              colunas: ["Unidade", "Condomínio", "Contatos", "Resposta", "Em aberto", "Dias", "Último"],
-              linhas: statsPorUnidade.map((linha) => [
-                linha.nome,
-                linha.condominio,
-                String(linha.contatos),
-                percentual(linha.resposta),
-                dinheiro(linha.valorAberto),
-                String(linha.dias),
-                linha.ultimo,
-              ]),
-            },
-            { titulo: "Totais da carteira", colunas: ["Indicador", "Valor"], linhas: [["Original", dinheiro(totalOriginal)], ["Atualizado", dinheiro(totalAberto)], ["Até 60 dias", dinheiro(valorAte60)], ["Acima de 60 dias", dinheiro(valorAcima60)], ["Unidades inadimplentes", percentual(percentualUnidades)]] },
-            { titulo: "Composição", colunas: ["Grupo", "Atualizado", "Até 60", "Acima de 60", "Participação"], linhas: porGrupo.map((linha) => [linha.nome, dinheiro(linha.valor), dinheiro(linha.ate), dinheiro(linha.acima), percentual(linha.percentual)]) },
-            { titulo: "Ranking de condomínios", colunas: ["Condomínio", "Em aberto", "Unidades", "% unidades"], linhas: rankingCondominio.map((linha) => [linha.nome, dinheiro(linha.valor), `${linha.devedoras}/${linha.unidades}`, percentual(linha.percentualUnidades)]) },
-            { titulo: "Faixas de atraso", colunas: ["Faixa", "Em aberto", "Participação"], linhas: porFaixa.map((linha) => [linha.nome, dinheiro(linha.valor), percentual(linha.percentual)]) },
-            { titulo: "Alertas jurídicos", colunas: ["Alerta", "Unidade", "Dias", "Atualizado"], linhas: alertas.map((linha) => [linha.tipo, nomeUnidade(linha.item.unidadeId), String(diasDeAtraso(linha.item.dataVencimento, dataBase)), dinheiro(Number(linha.item.valorAtualizado) || 0)]) },
-          ]
-        : [
-            { titulo: serieLonga ? "Atendimentos por mês" : "Atendimentos por dia", colunas: ["Período", "Quantidade"], linhas: serie.map((linha) => [linha.nome, String(linha.quantidade)]) },
-            { titulo: "Respondeu x não respondeu", colunas: ["Situação", "Quantidade", "Percentual"], linhas: respondeuGrupo.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
-            { titulo: "Motivos da pendência", colunas: ["Motivo", "Quantidade", "Percentual"], linhas: porMotivo.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.percentual)]) },
-            { titulo: "Resumo por condomínio", colunas: ["Condomínio", "Atendimentos", "Resposta", "Unidades", "Último"], linhas: resumoCondominio.map((linha) => [linha.nome, String(linha.quantidade), percentual(linha.resposta), String(linha.unidades), linha.ultimo]) },
-            { titulo: "Retornos pendentes", colunas: ["Quando", "Unidade", "Atendente", "Ação", "Situação"], linhas: retornos.map((item) => [formatarData(item.dataProximaAcao), nomeUnidade(item.unidadeId), nomeUsuario(item.usuarioId), item.proximaAcao || "—", rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]]) },
-          ];
-    const abriu = exportarPdf(atual.titulo, `${relatorio}.html`, secoes);
-    if (!abriu) {
-      toast({ variant: "info", title: "Relatório baixado", description: "Abra o arquivo e use imprimir para salvar em PDF." });
+    const qs = queryExportParams();
+    qs.set("formato", "json");
+    try {
+      const response = await fetch(`/api/relatorios/export?${qs.toString()}`, { credentials: "same-origin" });
+      const body = (await response.json()) as { payload?: RelatorioExportPayload; error?: string };
+      if (!response.ok || !body.payload) {
+        toast({
+          variant: "error",
+          title: "Exportação não concluída",
+          description: body.error ?? "Verifique os filtros e tente novamente.",
+        });
+        return;
+      }
+      const meta = {
+        titulo: "Informações da exportação",
+        colunas: ["Detalhe"],
+        linhas: [[`Gerado em: ${body.payload.meta.geradoEm}`], ...body.payload.meta.filtros.map((linha) => [linha])],
+      };
+      const secoes = [meta, ...body.payload.secoes.map((secao) => ({ titulo: secao.titulo, colunas: secao.colunas, linhas: secao.linhas }))];
+      const abriu = exportarPdf(body.payload.titulo, `${relatorio}.html`, secoes);
+      if (!abriu) {
+        toast({ variant: "info", title: "Relatório baixado", description: "Abra o arquivo e use imprimir para salvar em PDF." });
+      }
+    } catch {
+      toast({
+        variant: "error",
+        title: "Falha na exportação",
+        description: "Não foi possível comunicar com o servidor.",
+      });
     }
   }
 
@@ -774,26 +747,36 @@ function RelatoriosPage() {
       label: "Advogado",
       value: filtro.advogado,
       onChange: (advogado: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, advogado })),
-      options: [{ value: "todos", label: "Todos" }, ...advogados.map((item) => ({ value: item, label: item }))],
+      options: [
+        { value: "todos", label: "Todos" },
+        ...(advogadosEscopo.length ? advogadosEscopo : opcoesAdvogadosResponsaveis(cadastros)).map((item) => ({
+          value: item,
+          label: item,
+        })),
+      ],
     },
     {
       id: "condominio",
       label: "Condomínio",
       value: filtro.condominio,
       onChange: (condominio: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, condominio })),
-      options: [{ value: "todos", label: "Todos" }, ...cadastros.condominios.map((item) => ({ value: String(item.id), label: item.nome }))],
+      options: [{ value: "todos", label: "Todos" }, ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome }))],
     },
   ];
 
   const camposCobranca = [
     ...camposBase,
-    {
-      id: "atendente",
-      label: "Atendente",
-      value: filtro.atendente,
-      onChange: (atendente: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, atendente })),
-      options: [{ value: "todos", label: "Todos" }, ...cadastros.usuarios.map((item) => ({ value: String(item.id), label: item.nome }))],
-    },
+    ...(podeFiltrarPorRe
+      ? [
+          {
+            id: "codigoRe",
+            label: "RE",
+            value: filtro.codigoRe,
+            onChange: (codigoRe: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, codigoRe })),
+            options: [{ value: "todos", label: "Todos" }, ...atendentesRe.map((item) => ({ value: item.codigoRe, label: item.codigoRe }))],
+          },
+        ]
+      : []),
     {
       id: "respondeu",
       label: "Respondeu",
@@ -823,76 +806,31 @@ function RelatoriosPage() {
 
   const camposFiltro = relatorio === "carteira" ? camposBase : camposCobranca;
 
-  let dadosIlustrativos = false;
-  let metricAtendimentos = atendimentos.length;
-  let metricTaxaResposta = taxaResposta;
-  let metricUnidadesContatadas = unidadesContatadas;
-  let metricRetornosAbertos = retornosPeriodo.length;
-  let metricRetornosAtrasados = retornosAtrasados;
-  let metricRetornosHoje = retornosHoje;
-  let metricRetornosAgenda = retornos.length;
-  let linhasRetornosDemo = retornos.map((item) => [
+  const metricAtendimentos = atendimentos.length;
+  const metricTaxaResposta = taxaResposta;
+  const metricUnidadesContatadas = unidadesContatadas;
+  const metricRetornosAbertos = retornosPeriodo.length;
+  const metricRetornosAtrasados = retornosAtrasados;
+  const metricRetornosHoje = retornosHoje;
+  const metricRetornosAgenda = retornos.length;
+  const linhasRetornosTabela = retornos.map((item) => [
     formatarData(item.dataProximaAcao),
     condominioDaUnidade(item.unidadeId)?.nome ?? "—",
     nomeUnidade(item.unidadeId),
-    nomeUsuario(item.usuarioId),
+    reDoUsuarioId(cadastros, item.usuarioId),
     item.proximaAcao || "—",
     rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"],
   ]);
 
-  const cobrancaSemGrafico =
-    atendimentos.length === 0 || serie.length < 2 || respondeuGrupo.every((linha) => linha.quantidade === 0);
-  if (cobrancaSemGrafico) {
-    dadosIlustrativos = true;
-    if (serie.length < 2) {
-      serie = exemploSerieAtendimentos();
-      pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
-    }
-    respondeuGrupo = exemploRespondeuGrupo();
-    porMotivo = exemploPorMotivo();
-    meios = exemploMeios();
-    resumoCondominio = exemploResumoCondominio();
-    equipe = exemploPorAtendente();
-    porAdvogado = exemploPorAdvogado();
-    if (atendimentos.length === 0) {
-      metricAtendimentos = 29;
-      metricTaxaResposta = 62;
-      metricUnidadesContatadas = 14;
-      metricRetornosAbertos = 5;
-    }
-  }
-
-  if (cruzamento.length === 0 || comResultado === 0) {
-    dadosIlustrativos = true;
-    cruzamento = exemploCruzamento();
-    comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
-  }
-
-  if (statsPorUnidade.length === 0) {
-    dadosIlustrativos = true;
-    statsPorUnidade = exemploStatsPorUnidade();
-  }
-
-  if (retornos.length === 0) {
-    dadosIlustrativos = true;
-    metricRetornosAtrasados = 2;
-    metricRetornosHoje = 1;
-    metricRetornosAgenda = 5;
-    linhasRetornosDemo = exemploRetornosTabela();
-  }
-
-  let linhasAtendimentosDetalhe = listaAtendimentos.map((item) => [
+  const linhasAtendimentosDetalhe = listaAtendimentos.map((item) => [
     formatarData(item.dataHora),
     condominioDaUnidade(item.unidadeId)?.nome ?? "—",
     nomeUnidade(item.unidadeId),
-    nomeUsuario(item.usuarioId),
+    reDoUsuarioId(cadastros, item.usuarioId),
     item.canal,
     item.respondeu || "—",
     item.motivo || "—",
   ]);
-  if (atendimentos.length === 0) {
-    linhasAtendimentosDetalhe = exemploListaAtendimentos();
-  }
 
   const comparativoBarras =
     comparativo === "condominio"
@@ -905,7 +843,7 @@ function RelatoriosPage() {
               nome: linha.nome,
               valor: linha.quantidade,
               detalhe: `${percentual(linha.resposta)} resposta`,
-              tom: (linha.resposta >= 50 ? "settled" : "pending") as const,
+              tom: linha.resposta >= 50 ? ("settled" as const) : ("pending" as const),
             }));
 
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -926,19 +864,14 @@ function RelatoriosPage() {
     }
   }
   const picoCalor = [...celulasCalor].sort((a, b) => b.v - a.v)[0];
-  let celulasCalorExibir = celulasCalor;
-  let picoCalorExibir = picoCalor;
-  if (celulasCalor.every((celula) => celula.v === 0)) {
-    dadosIlustrativos = true;
-    celulasCalorExibir = exemploCalorCompleto(horasCalor);
-    picoCalorExibir = [...celulasCalorExibir].sort((a, b) => b.v - a.v)[0];
-  }
+  const celulasCalorExibir = celulasCalor;
+  const picoCalorExibir = picoCalor;
 
   let corpo: ReactNode = null;
   if (relatorio === "equipe") {
     corpo = (
       <>
-        {(atendimentos.length > 0 || dadosIlustrativos) ? (
+        {atendimentos.length > 0 ? (
           <Leitura>
             {pico ? `No período, o pico foi ${pico.nome} (${pico.quantidade} atendimento${pico.quantidade === 1 ? "" : "s"}). ` : ""}
             {percentual(metricTaxaResposta)} dos contatos tiveram resposta.
@@ -946,7 +879,6 @@ function RelatoriosPage() {
               ? ` ${comResultado} de ${cruzamento.length} unidade${cruzamento.length === 1 ? "" : "s"} contatada${cruzamento.length === 1 ? "" : "s"} pagou ou fez acordo no mês seguinte.`
               : ""}
             {metricRetornosAtrasados > 0 ? ` Há ${metricRetornosAtrasados} retorno${metricRetornosAtrasados === 1 ? "" : "s"} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}.` : ""}
-            {dadosIlustrativos ? " Os gráficos usam números ilustrativos quando o recorte não traz dados suficientes." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
@@ -1063,7 +995,7 @@ function RelatoriosPage() {
         />
         <TabelaTexto
           rotulo="Lista detalhada do período"
-          colunas={["Data", "Condomínio", "Unidade", "Atendente", "Meio", "Respondeu", "Motivo"]}
+          colunas={["Data", "Condomínio", "Unidade", "RE", "Meio", "Respondeu", "Motivo"]}
           linhas={linhasAtendimentosDetalhe}
           pagina={pagina}
           onPagina={setPagina}
@@ -1072,12 +1004,8 @@ function RelatoriosPage() {
       </>
     );
   } else if (relatorio === "retornos") {
-    const porSituacao =
-      retornos.length > 0
-        ? agruparContagem(retornos.map((item) => rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]))
-        : exemploRetornosSituacao();
-    const porAtendenteRetorno =
-      retornos.length > 0 ? agruparContagem(retornos.map((item) => nomeUsuario(item.usuarioId))) : exemploRetornosPorAtendente();
+    const porSituacao = agruparContagem(retornos.map((item) => rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]));
+    const porAtendenteRetorno = agruparContagem(retornos.map((item) => reDoUsuarioId(cadastros, item.usuarioId)));
     corpo = (
       <>
         {metricRetornosAgenda > 0 ? (
@@ -1086,7 +1014,6 @@ function RelatoriosPage() {
               ? `${metricRetornosAtrasados} retorno${metricRetornosAtrasados === 1 ? "" : "s"} passou da data combinada. `
               : "Nenhum retorno atrasado no recorte. "}
             Hoje: {metricRetornosHoje}. Na agenda: {metricRetornosAgenda}.
-            {dadosIlustrativos && retornos.length === 0 ? " Números ilustrativos para demonstração." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
@@ -1109,7 +1036,7 @@ function RelatoriosPage() {
               }))}
             />
           </Painel>
-          <Painel titulo="Por atendente">
+          <Painel titulo="Por RE">
             <GraficoBarras
               chave={`${chave}-equipe`}
               vazio={vazio}
@@ -1123,8 +1050,8 @@ function RelatoriosPage() {
         </Grade>
         <TabelaTexto
           rotulo="Retornos pendentes"
-          colunas={["Quando", "Condomínio", "Unidade", "Atendente", "Próxima ação", "Situação"]}
-          linhas={linhasRetornosDemo}
+          colunas={["Quando", "Condomínio", "Unidade", "RE", "Próxima ação", "Situação"]}
+          linhas={linhasRetornosTabela}
           pagina={pagina}
           onPagina={setPagina}
           vazio={vazio}
@@ -1137,10 +1064,9 @@ function RelatoriosPage() {
       <>
         {cruzamento.length > 0 ? (
           <Leitura>
-            {comResultado === 0 && !dadosIlustrativos
+            {comResultado === 0
               ? `Nenhuma das ${cruzamento.length} unidades contatadas pagou ou fez acordo no mês seguinte.`
               : `${comResultado} de ${cruzamento.length} unidades contatadas tiveram pagamento ou acordo no mês seguinte.`}
-            {dadosIlustrativos && comResultado > 0 ? " Exemplo ilustrativo de efetividade." : ""}
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">

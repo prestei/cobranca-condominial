@@ -7,6 +7,7 @@ import {
   type AtribuicaoCobranca,
   type Debito,
   type PagamentoAcordo,
+  type EncaminhamentoJuridico,
   type PropostaNegociacao,
   type Unidade,
 } from "@/data/catalogo";
@@ -64,15 +65,18 @@ export type EventoHistoricoUnidade = {
     | "pagamento"
     | "pagamento_acordo"
     | "negociacao"
+    | "encaminhamento_juridico"
     | "correcao_atendimento"
     | "correcao_unidade"
-    | "correcao_proposta";
+    | "correcao_proposta"
+    | "correcao_juridico";
   origem:
     | "service_ticket"
     | "collection_assignment"
     | "debt"
     | "negotiation_proposal"
     | "agreement_payment"
+    | "legal_case_referral"
     | "audit_log"
     | "unit";
   dataHora: string;
@@ -226,6 +230,31 @@ function eventoRedistribuicao(registro: AtribuicaoCobranca): EventoHistoricoUnid
   };
 }
 
+function eventoEncaminhamentoJuridico(encaminhamento: EncaminhamentoJuridico): EventoHistoricoUnidade {
+  const { ator, atorPerfil } = rotuloAutor(encaminhamento.usuarioId);
+  const observacao = [
+    encaminhamento.resumoContexto.trim(),
+    encaminhamento.observacoes.trim(),
+    encaminhamento.debitoIds.length > 0 ? `Débitos: ${encaminhamento.debitoIds.join(", ")}` : "",
+    `Advogado: ${encaminhamento.advogadoResponsavel}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    id: `juridico-${encaminhamento.id}`,
+    tipo: "encaminhamento_juridico",
+    origem: "legal_case_referral",
+    dataHora: encaminhamento.encaminhadoEm,
+    ator,
+    atorPerfil,
+    titulo: "Encaminhamento jurídico",
+    resultado: `Status: ${encaminhamento.status}`,
+    observacao: observacao || undefined,
+    registroOrigemId: encaminhamento.id,
+  };
+}
+
 function eventoPropostaNegociacao(proposta: PropostaNegociacao): EventoHistoricoUnidade {
   const { ator, atorPerfil } = rotuloAutor(proposta.usuarioId);
   const titulo =
@@ -307,6 +336,7 @@ function eventosAuditoriaUnidade(
   unidadeId: number,
   idsAtendimento: Set<string>,
   idsProposta: Set<string>,
+  idsEncaminhamento: Set<string>,
 ): EventoHistoricoUnidade[] {
   const eventos: EventoHistoricoUnidade[] = [];
   for (const registro of getCadastros().auditoria) {
@@ -342,6 +372,29 @@ function eventosAuditoriaUnidade(
         ator,
         atorPerfil,
         titulo: "Correção de atendimento",
+        observacao: registro.camposAlterados.replaceAll("_", " "),
+        registroOrigemId: registro.registroId,
+      });
+      continue;
+    }
+
+    if (registro.entidade === "legal_case_referral" && idsEncaminhamento.has(registro.registroId)) {
+      if (
+        !registro.camposAlterados.includes("status") &&
+        !registro.camposAlterados.includes("advogado_responsavel")
+      ) {
+        continue;
+      }
+      const userId = Number(registro.usuarioId);
+      const { ator, atorPerfil } = Number.isFinite(userId) ? rotuloAutor(userId) : { ator: "—", atorPerfil: "outro" as const };
+      eventos.push({
+        id: `audit-juridico-${registro.id}`,
+        tipo: "correcao_juridico",
+        origem: "audit_log",
+        dataHora: registro.dataHora,
+        ator,
+        atorPerfil,
+        titulo: "Alteração no acompanhamento jurídico",
         observacao: registro.camposAlterados.replaceAll("_", " "),
         registroOrigemId: registro.registroId,
       });
@@ -430,8 +483,10 @@ export function obterHistoricoUnidade(userId: number, unidadeId: number): Histor
   };
 
   const propostas = cadastros.propostasNegociacao.filter((item) => item.unidadeId === unidadeId);
+  const encaminhamentos = cadastros.encaminhamentosJuridicos.filter((item) => item.unidadeId === unidadeId);
   const idsAtendimento = new Set(atendimentos.map((item) => item.id));
   const idsProposta = new Set(propostas.map((item) => item.id));
+  const idsEncaminhamento = new Set(encaminhamentos.map((item) => item.id));
   const eventos: EventoHistoricoUnidade[] = [];
 
   for (const atendimento of atendimentos) {
@@ -440,6 +495,10 @@ export function obterHistoricoUnidade(userId: number, unidadeId: number): Histor
 
   for (const registro of cadastros.atribuicoesCobranca.filter((item) => item.unidadeId === unidadeId)) {
     eventos.push(eventoRedistribuicao(registro));
+  }
+
+  for (const encaminhamento of encaminhamentos) {
+    eventos.push(eventoEncaminhamentoJuridico(encaminhamento));
   }
 
   for (const proposta of propostas) {
@@ -474,7 +533,7 @@ export function obterHistoricoUnidade(userId: number, unidadeId: number): Histor
     if (pagamento) eventos.push(pagamento);
   }
 
-  eventos.push(...eventosAuditoriaUnidade(unidadeId, idsAtendimento, idsProposta));
+  eventos.push(...eventosAuditoriaUnidade(unidadeId, idsAtendimento, idsProposta, idsEncaminhamento));
 
   eventos.sort(ordenarEventos);
 

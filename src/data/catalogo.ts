@@ -175,6 +175,34 @@ export type ParcelaAcordo = {
   criadoPorId: number;
 };
 
+/** Encaminhamento de cobrança para análise jurídica (T17). Não ajuíza nem envia documentos a tribunais. */
+export type EncaminhamentoJuridico = {
+  id: string;
+  condominioId: number;
+  unidadeId: number;
+  usuarioId: number;
+  encaminhadoEm: string;
+  status: string;
+  advogadoResponsavel: string;
+  observacoes: string;
+  /** Snapshot dos débitos vinculados ao encaminhamento. */
+  debitoIds: number[];
+  resumoContexto: string;
+  atualizadoEm: string;
+  atualizadoPorId: number;
+};
+
+/** Metadado de documento jurídico (referência interna; sem upload automático a tribunais). */
+export type DocumentoJuridico = {
+  id: string;
+  encaminhamentoId: string;
+  titulo: string;
+  descricao: string;
+  referenciaArquivo: string;
+  registradoEm: string;
+  registradoPorId: number;
+};
+
 /** Pagamento vinculado a parcela de acordo (T16). */
 export type PagamentoAcordo = {
   id: string;
@@ -259,6 +287,16 @@ export const faixasAtraso = [
 ] as const;
 export const statusAtendimento = ["Pendente", "Resolvido"] as const;
 export const statusPropostaNegociacao = ["Em análise", "Aceita", "Recusada", "Cancelada"] as const;
+/** Estados operacionais provisórios — checklist e campos processuais em DECISOES_PENDENTES. */
+export const statusEncaminhamentoJuridico = [
+  "Encaminhado",
+  "Em análise",
+  "Documentação pendente",
+  "Aguardando decisão",
+  "Pronto para ajuizamento",
+  "Retornado à cobrança amigável",
+  "Arquivado",
+] as const;
 export const confirmacaoPagamentoAcordo = ["Informado", "Confirmado"] as const;
 export const statusParcelaAcordo = ["Prevista", "Vencida", "Quitada"] as const;
 export const tiposImportacao = ["debitos", "responsaveis", "unidades"] as const;
@@ -341,6 +379,10 @@ const atendimentosIniciais: Atendimento[] = [
 
 const propostasNegociacaoIniciais: PropostaNegociacao[] = [];
 
+const encaminhamentosJuridicosIniciais: EncaminhamentoJuridico[] = [];
+
+const documentosJuridicosIniciais: DocumentoJuridico[] = [];
+
 const parcelasAcordoIniciais: ParcelaAcordo[] = [];
 
 const pagamentosAcordoIniciais: PagamentoAcordo[] = [];
@@ -359,6 +401,8 @@ type Cadastros = {
   debitos: Debito[];
   atendimentos: Atendimento[];
   propostasNegociacao: PropostaNegociacao[];
+  encaminhamentosJuridicos: EncaminhamentoJuridico[];
+  documentosJuridicos: DocumentoJuridico[];
   parcelasAcordo: ParcelaAcordo[];
   pagamentosAcordo: PagamentoAcordo[];
   atribuicoesCobranca: AtribuicaoCobranca[];
@@ -376,6 +420,8 @@ let state: Cadastros = {
   debitos: debitosIniciais,
   atendimentos: atendimentosIniciais,
   propostasNegociacao: propostasNegociacaoIniciais,
+  encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
+  documentosJuridicos: documentosJuridicosIniciais,
   parcelasAcordo: parcelasAcordoIniciais,
   pagamentosAcordo: pagamentosAcordoIniciais,
   atribuicoesCobranca: atribuicoesIniciais,
@@ -490,6 +536,18 @@ export function setPropostasNegociacao(
   next: PropostaNegociacao[] | ((current: PropostaNegociacao[]) => PropostaNegociacao[]),
 ) {
   atualizar("propostasNegociacao", next);
+}
+
+export function setEncaminhamentosJuridicos(
+  next: EncaminhamentoJuridico[] | ((current: EncaminhamentoJuridico[]) => EncaminhamentoJuridico[]),
+) {
+  atualizar("encaminhamentosJuridicos", next);
+}
+
+export function setDocumentosJuridicos(
+  next: DocumentoJuridico[] | ((current: DocumentoJuridico[]) => DocumentoJuridico[]),
+) {
+  atualizar("documentosJuridicos", next);
 }
 
 export function setParcelasAcordo(next: ParcelaAcordo[] | ((current: ParcelaAcordo[]) => ParcelaAcordo[])) {

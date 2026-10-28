@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { Handshake, History } from "lucide-react";
+import { Handshake, History, Scale } from "lucide-react";
+import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { Button } from "@/components/button";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { Icon } from "@/components/icon";
@@ -34,6 +35,7 @@ export function HistoricoUnidadeSheet({ unidadeId, tituloUnidade, tituloCondomin
   const { pode } = usePermissao();
   const [referencia, setReferencia] = useState<HistoricoUnidadeReferencia | null>(null);
   const [propostaAberta, setPropostaAberta] = useState(false);
+  const [juridicoAberto, setJuridicoAberto] = useState(false);
   const [eventos, setEventos] = useState<EventoHistoricoUnidade[]>([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -97,12 +99,20 @@ export function HistoricoUnidadeSheet({ unidadeId, tituloUnidade, tituloCondomin
             </SheetHeaderText>
           </SheetHeaderLead>
           <SheetClose />
-          {pode("atendimentos", "criar") && referencia ? (
-            <Button type="button" variant="secondary" size="sm" onClick={() => setPropostaAberta(true)}>
-              <Handshake className="size-4" aria-hidden />
-              Proposta
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap gap-sm">
+            {pode("atendimentos", "criar") && referencia ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setPropostaAberta(true)}>
+                <Handshake className="size-4" aria-hidden />
+                Proposta
+              </Button>
+            ) : null}
+            {pode("juridico", "ler") && referencia ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setJuridicoAberto(true)}>
+                <Scale className="size-4" aria-hidden />
+                Jurídico
+              </Button>
+            ) : null}
+          </div>
         </SheetHeader>
         <SheetBody>
           <SheetPanel className="max-h-[min(32rem,70vh)] overflow-y-auto">
@@ -145,6 +155,14 @@ export function HistoricoUnidadeSheet({ unidadeId, tituloUnidade, tituloCondomin
         tituloUnidade={titulo}
         tituloCondominio={condominio}
         onClose={() => setPropostaAberta(false)}
+        onSalvo={() => void carregar()}
+      />
+      <EncaminhamentoJuridicoSheet
+        unidadeId={juridicoAberto ? unidadeId : null}
+        condominioId={juridicoAberto && referencia ? referencia.unidade.condominioId : null}
+        tituloUnidade={titulo}
+        tituloCondominio={condominio}
+        onClose={() => setJuridicoAberto(false)}
         onSalvo={() => void carregar()}
       />
     </Sheet>

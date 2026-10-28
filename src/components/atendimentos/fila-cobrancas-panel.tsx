@@ -11,10 +11,12 @@ import {
   History,
   ListOrdered,
   RotateCcw,
+  Scale,
   Share2,
   User,
 } from "lucide-react";
 import { DistribuicaoAutomaticaPanel } from "@/components/atendimentos/distribuicao-automatica-panel";
+import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
@@ -156,6 +158,12 @@ export function FilaCobrancasPanel() {
   const [historicoUnidadeId, setHistoricoUnidadeId] = useState<number | null>(null);
   const [historicoRotulo, setHistoricoRotulo] = useState<{ unidade: string; condominio: string } | null>(null);
   const [propostaContexto, setPropostaContexto] = useState<{
+    unidadeId: number;
+    condominioId: number;
+    unidade: string;
+    condominio: string;
+  } | null>(null);
+  const [juridicoContexto, setJuridicoContexto] = useState<{
     unidadeId: number;
     condominioId: number;
     unidade: string;
@@ -359,6 +367,15 @@ export function FilaCobrancasPanel() {
     });
   }
 
+  function abrirJuridico(item: FilaCobrancaItem) {
+    setJuridicoContexto({
+      unidadeId: item.unidadeId,
+      condominioId: item.condominioId,
+      unidade: rotuloUnidade(item),
+      condominio: nomeCondominio(item.condominioId),
+    });
+  }
+
   function acoesLinha(item: FilaCobrancaItem) {
     const lista: Array<{
       label: string;
@@ -372,6 +389,9 @@ export function FilaCobrancasPanel() {
     if (pode("atendimentos", "criar")) {
       lista.push({ label: "Registrar contato", icon: ClipboardList, onSelect: () => registrarAtendimento(item.unidadeId) });
       lista.push({ label: "Proposta", icon: Handshake, onSelect: () => abrirProposta(item) });
+    }
+    if (pode("juridico", "ler")) {
+      lista.push({ label: "Jurídico", icon: Scale, onSelect: () => abrirJuridico(item) });
     }
     if (
       pode("atendimentos", "editar") &&
@@ -833,6 +853,13 @@ export function FilaCobrancasPanel() {
         tituloUnidade={propostaContexto?.unidade}
         tituloCondominio={propostaContexto?.condominio}
         onClose={() => setPropostaContexto(null)}
+      />
+      <EncaminhamentoJuridicoSheet
+        unidadeId={juridicoContexto?.unidadeId ?? null}
+        condominioId={juridicoContexto?.condominioId ?? null}
+        tituloUnidade={juridicoContexto?.unidade}
+        tituloCondominio={juridicoContexto?.condominio}
+        onClose={() => setJuridicoContexto(null)}
       />
 
       <ConfirmDialog
