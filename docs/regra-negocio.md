@@ -114,8 +114,8 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Condomínios e unidades
 
-- Cadastro de condomínios
-- Responsável jurídico
+- Cadastro de condomínios (`/condominios`, `GET|POST /api/condominios`, `PATCH|DELETE /api/condominios/:id`): nome obrigatório, ao menos um advogado responsável, identificador externo único quando informado; inativação preserva unidades, débitos e atendimentos; exclusão só sem unidades nem histórico de cobrança. Escopo: advogado vê condomínios em que está vinculado; atendente vê condomínios **Ativos**; administradora vê a carteira completa. Mutações registradas em `audit_log`.
+- Responsável jurídico (advogados no cadastro do condomínio)
 - Cadastro de unidades
 - Proprietários e responsáveis financeiros
 - Histórico da unidade
@@ -146,7 +146,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Distribuição de cobranças (T09)
 
-- Aba **Distribuição** em `/atendimentos?aba=distribuicao`; atalho `/distribuicao` redireciona para essa aba.
+- **Distribuição** integrada à fila em `/atendimentos` (painel automático + atribuição manual); atalho `/distribuicao` redireciona para `/atendimentos`.
 - Apenas perfil com permissão de gestão de equipe (`usuarios.criar` no seed = Administradora) distribui ou redistribui.
 - Atribuição manual por **RE** do atendente; interface operacional exibe RE, não nome pessoal.
 - Cada mudança gera novo registro em `collection_assignment`; vigência anterior recebe `encerrado_em`, `anterior_atendente_id` e motivo quando informado.
@@ -167,7 +167,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Meios: WhatsApp, telefone, e-mail e demais canais do catálogo
 - Resposta Sim/Não e motivo da pendência (catálogo) quando houve contato
 - Agendamento de retorno (data e próxima ação)
-- Agenda de retornos (T11): aba **Retornos** em `/atendimentos?aba=retornos`; listagem via `GET /api/retornos`; conclusão via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
+- Agenda de retornos (T11): filtro **Retorno** na fila `/atendimentos` (ex. `?retorno=hoje`); API `GET /api/retornos` permanece para integrações; conclusão na fila via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
 - Atendente conclui retornos só da carteira vigente; administradora acompanha por RE
 - Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada
 

@@ -88,7 +88,7 @@ export function CardMetricRow({
         className={[
           "-mx-md flex gap-md overflow-x-auto overscroll-x-contain px-md pb-px snap-x snap-mandatory",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          "min-[768px]:mx-0 min-[768px]:grid min-[768px]:gap-md min-[768px]:overflow-visible min-[768px]:px-0 min-[768px]:pb-0",
+          "min-[768px]:mx-0 min-[768px]:grid min-[768px]:items-stretch min-[768px]:gap-md min-[768px]:overflow-visible min-[768px]:px-0 min-[768px]:pb-0",
           desktopGridClass[desktopCols],
         ].join(" ")}
       >
@@ -98,7 +98,7 @@ export function CardMetricRow({
             ref={(node) => {
               slideRefs.current[index] = node;
             }}
-            className="min-w-full shrink-0 snap-start min-[768px]:min-w-0"
+            className="flex min-h-full min-w-full shrink-0 snap-start min-[768px]:min-w-0"
           >
             {child}
           </div>

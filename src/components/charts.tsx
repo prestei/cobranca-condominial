@@ -207,12 +207,14 @@ export function GraficoRosca({
   legenda,
   vazio,
   chave,
+  semLegenda = false,
 }: {
   fatias: Array<{ nome: string; valor: number; detalhe: string; tom?: TomGrafico }>;
   centro: string;
   legenda: string;
   vazio: ReactNode;
   chave: string;
+  semLegenda?: boolean;
 }) {
   const progresso = useProgresso(chave);
   const ativas = fatias.filter((fatia) => fatia.valor > 0);
@@ -225,7 +227,13 @@ export function GraficoRosca({
   let percorrido = 0;
 
   return (
-    <div className="flex flex-col items-center gap-lg min-[768px]:flex-row min-[768px]:items-center">
+    <div
+      className={
+        semLegenda
+          ? "flex flex-col items-center"
+          : "flex flex-col items-center gap-lg min-[768px]:flex-row min-[768px]:items-center"
+      }
+    >
       <svg viewBox="0 0 160 160" className="size-44 shrink-0" role="img" aria-label={`${legenda}: ${centro}`}>
         <g transform="rotate(-90 80 80)">
           <circle cx="80" cy="80" r={raio} className="fill-none stroke-surface-subtle" strokeWidth="16" />
@@ -253,21 +261,25 @@ export function GraficoRosca({
         <text x="80" y="76" textAnchor="middle" className="fill-on-surface font-sans text-[18px] font-semibold">
           {centro}
         </text>
-        <text x="80" y="96" textAnchor="middle" className="fill-on-surface-variant font-sans text-[11px]">
-          {legenda}
-        </text>
+        {!semLegenda ? (
+          <text x="80" y="96" textAnchor="middle" className="fill-on-surface-variant font-sans text-[11px]">
+            {legenda}
+          </text>
+        ) : null}
       </svg>
-      <ul className="flex w-full min-w-0 flex-col gap-sm">
-        {fatias.map((fatia, indice) => (
-          <li key={fatia.nome} className="flex items-center justify-between gap-md">
-            <span className="flex min-w-0 items-center gap-sm">
-              <span className={`size-2.5 shrink-0 rounded-full ${preenchimento[fatia.tom ?? tomPorIndice(indice)]}`} />
-              <span className="truncate text-body-md text-on-surface">{fatia.nome}</span>
-            </span>
-            <span className="shrink-0 text-body-sm tabular-nums text-on-surface-variant">{fatia.detalhe}</span>
-          </li>
-        ))}
-      </ul>
+      {semLegenda ? null : (
+        <ul className="flex w-full min-w-0 flex-col gap-sm">
+          {fatias.map((fatia, indice) => (
+            <li key={fatia.nome} className="flex items-center justify-between gap-md">
+              <span className="flex min-w-0 items-center gap-sm">
+                <span className={`size-2.5 shrink-0 rounded-full ${preenchimento[fatia.tom ?? tomPorIndice(indice)]}`} />
+                <span className="truncate text-body-md text-on-surface">{fatia.nome}</span>
+              </span>
+              <span className="shrink-0 text-body-sm tabular-nums text-on-surface-variant">{fatia.detalhe}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

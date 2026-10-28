@@ -16,15 +16,13 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos?aba=fila` | Aba **Fila de cobranças** — unidades em cobrança ativa |
-| `/atendimentos?aba=distribuicao` | Aba **Distribuição** — atribuição/redistribuição por RE (Administradora) |
-| `/atendimentos?aba=retornos` | Aba **Retornos** — agenda de retornos agendados e conclusão |
-| `/atendimentos?aba=registros` | Aba **Registros** — histórico de palitagem |
-| `/atendimentos?novo=1&unidade=` | Abre sheet de novo atendimento (a partir da fila) |
-| `/fila` | Redireciona para `/atendimentos?aba=fila` (atalho legado) |
-| `/distribuicao` | Redireciona para `/atendimentos?aba=distribuicao` |
+| `/atendimentos` | **Fila de cobranças** — tela operacional única: KPIs, filtros, tabela, distribuição automática (Administradora), atividade recente |
+| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (substitui a aba Retornos) |
+| `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
+| `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
+| `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; fila: `src/components/atendimentos/fila-cobrancas-panel.tsx` (botão **Histórico** → `HistoricoUnidadeSheet`); distribuição: `src/components/atendimentos/distribuicao-panel.tsx`; retornos: `src/components/atendimentos/retornos-agenda-panel.tsx`.
+Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; distribuição automática `src/components/atendimentos/distribuicao-automatica-panel.tsx`. Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
 
 ## Perfis e permissões
 
@@ -41,7 +39,7 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 
 | Método | Path | Permissão | Descrição |
 | --- | --- | --- | --- |
-| GET | `/api/fila` | `atendimentos.ler` | Fila paginada: `page`, `pageSize`, `q`, `condominioId`, `situacao`, `atendente`, `codigoRe`, `retorno` |
+| GET | `/api/fila` | `atendimentos.ler` | Fila paginada (filtros na listagem) + `resumo` global da carteira (KPIs, **sem** filtros da tabela): `page`, `pageSize`, `q`, `condominioId`, `situacao`, `atendente`, `codigoRe`, `semResponsavel=1`, `retorno`, `sort`, `order` |
 | GET | `/api/atendimentos` | `atendimentos.ler` | Lista de palitagem no escopo: `unidadeId`, `status`, `canal`, `q` |
 | POST | `/api/atendimentos` | `atendimentos.criar` | Body: condomínio, unidade, canal, respondeu, motivo?, status, observações, retorno — autor e `data_hora` no servidor |
 | PATCH | `/api/atendimentos/[id]` | `atendimentos.editar` | Correção administrativa; preserva autor e timestamp originais |
@@ -49,6 +47,8 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 | GET | `/api/distribuicao/carteira` | `usuarios.criar` | Totais da carteira vigente por RE |
 | GET | `/api/distribuicao/historico` | `usuarios.criar` | Histórico de `collection_assignment` (`unidadeId`, `limit`) |
 | POST | `/api/distribuicao/atribuicoes` | `usuarios.criar` | Body: `{ unidadeIds, codigoRe, motivo? }` — distribuição atômica em lote |
+| GET/PATCH | `/api/distribuicao/automatica` | `usuarios.criar` | Configuração (ativada, estrategia) e contagem aguardando atribuição |
+| POST | `/api/distribuicao/automatica/executar` | `usuarios.criar` | Distribui unidades sem RE (estratégia **carga** = carteira equilibrada) |
 | GET | `/api/retornos` | `atendimentos.ler` | Agenda paginada: `estado` (pendente/concluido/todos), `situacao`, `de`, `ate`, `condominioId`, `codigoRe`, `q`, `page`, `pageSize` |
 | POST | `/api/atendimentos/[id]/concluir-retorno` | `atendimentos.editar` | Marca retorno agendado como realizado; grava `retorno_concluido_em` e autor; preserva `data_proxima_acao` |
 | GET | `/api/unidades/:id/historico` | `unidades.ler` ou `atendimentos.ler` | Linha do tempo da unidade (T12); ver [unidades](unidades.md) |
@@ -68,16 +68,17 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Fluxos
 
-1. Atendente abre **Atendimentos → Fila** → vê carteira → **Registrar** abre palitagem com unidade preenchida.
-2. Administradora usa filtros combinados e paginação no servidor.
-3. **Distribuição** — seleciona unidades da fila, atribui por RE, consulta carteira e histórico.
-4. **Registros** — listagem sincronizada com `GET /api/atendimentos`; novo atendimento via sheet (fila ou aba Registros) persiste com `POST /api/atendimentos`.
-5. Cada **nova tentativa** acrescenta um registro (`service_ticket`); tentativas anteriores não são sobrescritas.
+1. Operador abre **Atendimentos** (fila única) → identifica cobranças pelos KPIs e filtros. Barra de filtros (`FilterBar` variante `toolbar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
+2. **Administradora** — painel **Distribuição automática** (ativar regra, **Distribuir agora**) ou seleção manual na tabela + atribuição por RE.
+3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
+4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).
+5. **Registrar contato** — menu de ações ou `?novo=1&unidade=` → `POST /api/atendimentos`.
+6. Cada tentativa acrescenta um `service_ticket`; registros anteriores não são sobrescritos.
 
 ## Regras de negócio (agenda de retornos — T11)
 
 - Retorno = atendimento (`service_ticket`) com `data_proxima_acao` preenchida.
-- Classificação temporal (atrasado, hoje, próximos 7 dias, agendado) via `situacaoRetorno` / `hojeIso()` (fuso do ambiente Node/navegador).
+- Classificação temporal (atrasado, hoje, próximos 7 dias, agendado) via `situacaoRetorno` / `hojeIso()` (fuso do ambiente Node/navegador). Valores de `data_proxima_acao` com hora (`…T15:00:00`) são comparados pelo **dia** (YYYY-MM-DD), preservando a hora na UI («Hoje, 15:00»).
 - **Pendente:** sem `retorno_concluido_em`; entra em alertas e contador do menu (`retornoPendente`).
 - **Concluído:** `POST …/concluir-retorno` preenche `retorno_concluido_em` e `retorno_concluido_por_id` no servidor; **não** apaga a data prevista nem o registro de palitagem.
 - **Atendente:** vê e conclui retornos das unidades da carteira vigente (`collection_assignment`), independentemente de quem registrou a palitagem.
@@ -96,5 +97,5 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Pendências
 
-- Persistir fila, atribuições e tickets no PostgreSQL (hoje catálogo em memória compartilhado via API).
-- Distribuição automática (critério pendente — ver [DECISOES_PENDENTES.md](../DECISOES_PENDENTES.md)).
+- Persistir fila, atribuições, config de distribuição automática e tickets no PostgreSQL (hoje catálogo em memória compartilhado via API).
+- Refinar estratégias `rodizio`, `condominio` e `volume` além da **carga equilibrada** já disponível; ver [DECISOES_PENDENTES.md](../DECISOES_PENDENTES.md).

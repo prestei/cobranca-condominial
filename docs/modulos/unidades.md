@@ -77,7 +77,7 @@ Nenhuma direta; importações futuras podem criar unidades e vínculos (ver [imp
 
 ## Estados de interface
 
-Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor`. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
+Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor`. Layout alinhado às demais telas de carteira: `PageHeader` com descrição, quatro indicadores (`CardMetric` + `CardMetricRow`) sobre o recorte filtrado, seção **Filtros** com `FilterBar`, tabela responsiva com exportação/importação, paginação de 20. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
 
 ## Pendências e decisões
 

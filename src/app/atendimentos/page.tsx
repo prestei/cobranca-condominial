@@ -3,22 +3,14 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { CalendarClock, ClipboardList, ListOrdered, Pencil, Plus, Share2, Trash2 } from "lucide-react";
-import { DistribuicaoPanel } from "@/components/atendimentos/distribuicao-panel";
+import { ClipboardList, ListOrdered } from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
-import { RetornosAgendaPanel } from "@/components/atendimentos/retornos-agenda-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Alert } from "@/components/alert";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { CardMetric } from "@/components/card-metric";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { EmptyState } from "@/components/empty-state";
-import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select, Textarea } from "@/components/input";
-import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
   Sheet,
@@ -35,27 +27,7 @@ import {
   SheetHelpText,
   SheetTitle,
 } from "@/components/sheet";
-import {
-  ResponsiveTable,
-  Table,
-  TableActionsButton,
-  TableActionsCell,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableMobileCard,
-  TableMobileCardHeader,
-  TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
-  TableMobileList,
-  TableMobileTitle,
-  TableRow,
-  type TableExportFormat,
-  type TableSortDirection,
-} from "@/components/table";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
@@ -63,30 +35,16 @@ import {
   condominioAtivo,
   debitoEmAberto,
   diasDeAtraso,
-  formatarData,
   formatarMoeda,
   getCadastros,
   motivosPendencia,
-  nomeCondominio,
-  nomeUnidade,
-  nomeUsuario,
   statusAtendimento,
   type Atendimento,
 } from "@/data/catalogo";
-import {
-  aplicarAtendimentoExcluido,
-  aplicarAtendimentoSalvo,
-  sincronizarAtendimentosDoServidor,
-} from "@/lib/atendimentos/sync-cliente";
-
-import { useAuth } from "@/context/auth-context";
+import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 import { useCadastros } from "@/hooks/use-cadastros";
-import { usePermissao } from "@/hooks/use-permissao";
-import { exportarListagem } from "@/lib/atendimentos/exportar-listagem";
 
 const etapas = ["Registro", "Retorno"] as const;
-const badgeStatus: Record<string, "success" | "secondary"> = { Resolvido: "success", Pendente: "secondary" };
-type SortKey = "data" | "assunto" | "status";
 const formularioVazio = {
   condominioId: "",
   unidadeId: "",
@@ -103,113 +61,22 @@ const formularioVazio = {
 
 export default function AtendimentosPage() {
   const { toast } = useToast();
-  const { user: sessao } = useAuth();
-  const { pode } = usePermissao();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
-  const atendimentos = cadastros.atendimentos;
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("todos");
-  const [canal, setCanal] = useState("todos");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedStatus, setAppliedStatus] = useState("todos");
-  const [appliedCanal, setAppliedCanal] = useState("todos");
-  const [unidadeFiltro, setUnidadeFiltro] = useState("todas");
-  const [appliedUnidadeFiltro, setAppliedUnidadeFiltro] = useState("todas");
-  const [sortKey, setSortKey] = useState<SortKey>("data");
-  const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
-  const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Atendimento | null>(null);
   const [step, setStep] = useState(0);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(formularioVazio);
   const [errors, setErrors] = useState<
     Partial<Record<"condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo", string>>
   >({});
-  const [aba, setAba] = useState<"fila" | "registros" | "distribuicao" | "retornos">("fila");
   const [salvando, setSalvando] = useState(false);
-  const gerenciaDistribuicao = pode("usuarios", "criar");
-  const podeImportar = pode("importacoes", "criar");
-
-  const colunasRegistrosExport = [
-    "Data/hora",
-    "Atendente",
-    "Condomínio",
-    "Unidade",
-    "Canal",
-    "Respondeu",
-    "Motivo",
-    "Assunto",
-    "Situação",
-    "Próxima ação",
-    "Data próxima ação",
-    "Observações",
-  ];
-
-  function linhasRegistrosExport() {
-    return visible.map((item) => {
-      const unidade = cadastros.unidades.find((u) => String(u.id) === item.unidadeId);
-      return [
-        formatarData(item.dataHora),
-        nomeUsuario(item.usuarioId),
-        unidade ? nomeCondominio(unidade.condominioId) : "—",
-        nomeUnidade(Number(item.unidadeId)),
-        item.canal || "—",
-        item.respondeu || "—",
-        item.motivo || "—",
-        item.assunto || "—",
-        item.status,
-        item.proximaAcao || "—",
-        item.dataProximaAcao ? formatarData(item.dataProximaAcao) : "—",
-        item.descricao || "—",
-      ];
-    });
-  }
-
-  function aoExportarRegistros(formato: TableExportFormat) {
-    const base = `atendimentos-${new Date().toISOString().slice(0, 10)}`;
-    exportarListagem(toast, formato, "Registros de atendimento", base, colunasRegistrosExport, linhasRegistrosExport());
-  }
-
-  function abrirImportacao() {
-    router.push("/importacoes");
-  }
-
-  async function recarregarAtendimentosDoServidor() {
-    const response = await fetch("/api/atendimentos", { credentials: "same-origin" });
-    if (!response.ok) return;
-    const payload = (await response.json()) as { atendimentos?: Atendimento[] };
-    if (payload.atendimentos) sincronizarAtendimentosDoServidor(payload.atendimentos, sessao?.userId);
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await recarregarAtendimentosDoServidor();
-      if (cancelled) return;
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessao?.userId]);
-
-  useEffect(() => {
-    const abaQuery = searchParams?.get("aba");
-    if (abaQuery === "registros" || abaQuery === "fila" || abaQuery === "retornos") {
-      setAba(abaQuery);
-    } else if (abaQuery === "distribuicao" && gerenciaDistribuicao) {
-      setAba("distribuicao");
-    }
-  }, [gerenciaDistribuicao, searchParams]);
 
   useEffect(() => {
     if (!searchParams || searchParams.get("novo") !== "1") return;
     const cadastrosAtuais = getCadastros();
-    const condominioQuery = searchParams.get("condominio");
     const unidadeQuery = searchParams.get("unidade");
     let condominioId = "";
     let unidadeId = "";
@@ -219,52 +86,29 @@ export default function AtendimentosPage() {
         unidadeId = unidadeQuery;
         condominioId = String(unidade.condominioId);
       }
-    } else if (
-      condominioQuery &&
-      cadastrosAtuais.condominios.some((item) => String(item.id) === condominioQuery)
-    ) {
-      condominioId = condominioQuery;
     }
-    setEditingId(null);
     setForm({ ...formularioVazio, condominioId, unidadeId });
     setErrors({});
     setStep(0);
     setSheetOpen(true);
-    router.replace("/atendimentos?aba=fila");
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("novo");
+    params.delete("unidade");
+    params.delete("aba");
+    const qs = params.toString();
+    router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
   }, [router, searchParams]);
 
   useEffect(() => {
-    const unidadeQuery = searchParams?.get("unidade");
-    if (!unidadeQuery || searchParams?.get("novo") === "1") return;
-    const existe = getCadastros().unidades.some((item) => String(item.id) === unidadeQuery);
-    if (!existe) return;
-    setUnidadeFiltro(unidadeQuery);
-    setAppliedUnidadeFiltro(unidadeQuery);
-    setPage(1);
-    router.replace("/atendimentos");
+    const abaLegada = searchParams?.get("aba");
+    if (!abaLegada || abaLegada === "fila") return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("aba");
+    if (abaLegada === "retornos") params.set("retorno", "hoje");
+    const qs = params.toString();
+    router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
   }, [router, searchParams]);
 
-  const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
-  const visible = atendimentos
-    .filter((item) => {
-      const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
-      const matchesCanal = appliedCanal === "todos" || item.canal === appliedCanal;
-      const matchesUnidade = appliedUnidadeFiltro === "todas" || item.unidadeId === appliedUnidadeFiltro;
-      const haystack = `${item.assunto} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeUsuario(item.usuarioId)}`.toLocaleLowerCase("pt-BR");
-      return matchesStatus && matchesCanal && matchesUnidade && (query.length === 0 || haystack.includes(query));
-    })
-    .sort((a, b) => {
-      const factor = sortDirection === "asc" ? 1 : -1;
-      const left = sortKey === "assunto" ? a.assunto : sortKey === "status" ? a.status : a.dataHora;
-      const right = sortKey === "assunto" ? b.assunto : sortKey === "status" ? b.status : b.dataHora;
-      return left.localeCompare(right, "pt-BR") * factor;
-    });
-
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const pendentes = visible.filter((item) => item.status === "Pendente").length;
-  const comRetorno = visible.filter((item) => item.dataProximaAcao.trim().length > 0).length;
   const debitosDaUnidade = cadastros.debitos.filter(
     (item) => String(item.unidadeId) === form.unidadeId && debitoEmAberto(item),
   );
@@ -272,73 +116,6 @@ export default function AtendimentosPage() {
     .filter((item) => condominioAtivo(item))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const unidadesDoCondominio = cadastros.unidades.filter((item) => String(item.condominioId) === form.condominioId);
-
-  function directionFor(key: SortKey): TableSortDirection {
-    return sortKey === key ? sortDirection : "none";
-  }
-
-  function handleSort(key: SortKey) {
-    if (sortKey !== key) {
-      setSortKey(key);
-      setSortDirection(key === "data" ? "desc" : "asc");
-      return;
-    }
-    if (sortDirection === "asc") {
-      setSortDirection("desc");
-      return;
-    }
-    setSortKey("data");
-    setSortDirection("desc");
-  }
-
-  function handleApply() {
-    setAppliedSearch(search);
-    setAppliedStatus(status);
-    setAppliedCanal(canal);
-    setAppliedUnidadeFiltro(unidadeFiltro);
-    setPage(1);
-  }
-
-  function handleClear() {
-    setSearch("");
-    setStatus("todos");
-    setCanal("todos");
-    setUnidadeFiltro("todas");
-    setAppliedSearch("");
-    setAppliedStatus("todos");
-    setAppliedCanal("todos");
-    setAppliedUnidadeFiltro("todas");
-    setPage(1);
-  }
-
-  function openCreate() {
-    setEditingId(null);
-    setForm(formularioVazio);
-    setErrors({});
-    setStep(0);
-    setSheetOpen(true);
-  }
-
-  function openEdit(item: Atendimento) {
-    const unidade = cadastros.unidades.find((atual) => String(atual.id) === item.unidadeId);
-    setEditingId(item.id);
-    setForm({
-      condominioId: unidade ? String(unidade.condominioId) : "",
-      unidadeId: item.unidadeId,
-      responsavelId: item.responsavelId,
-      canal: item.canal,
-      respondeu: item.respondeu,
-      motivo: item.motivo,
-      assunto: item.assunto,
-      descricao: item.descricao,
-      status: item.status,
-      dataProximaAcao: item.dataProximaAcao,
-      proximaAcao: item.proximaAcao,
-    });
-    setErrors({});
-    setStep(0);
-    setSheetOpen(true);
-  }
 
   function closeSheet() {
     const preenchido = Object.values(form).some((value) => value.trim() !== "");
@@ -352,41 +129,6 @@ export default function AtendimentosPage() {
   function confirmLeave() {
     setLeaveConfirmOpen(false);
     setSheetOpen(false);
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    try {
-      const response = await fetch(`/api/atendimentos/${encodeURIComponent(deleteTarget.id)}`, {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Não foi possível excluir.");
-      }
-      aplicarAtendimentoExcluido(deleteTarget.id);
-      if (editingId === deleteTarget.id) {
-        setSheetOpen(false);
-        setLeaveConfirmOpen(false);
-      }
-      toast({ variant: "success", title: "Atendimento excluído" });
-      setDeleteTarget(null);
-    } catch (error) {
-      toast({
-        variant: "error",
-        title: "Falha ao excluir",
-        description: error instanceof Error ? error.message : undefined,
-      });
-    }
-  }
-
-  function acoes(item: Atendimento) {
-    const lista = [];
-    if (pode("atendimentos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
-    if (pode("atendimentos", "excluir"))
-      lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
-    return lista;
   }
 
   function escolherCondominio(condominioId: string) {
@@ -442,9 +184,8 @@ export default function AtendimentosPage() {
 
     setSalvando(true);
     try {
-      const isNovo = editingId === null;
-      const response = await fetch(isNovo ? "/api/atendimentos" : `/api/atendimentos/${encodeURIComponent(editingId)}`, {
-        method: isNovo ? "POST" : "PATCH",
+      const response = await fetch("/api/atendimentos", {
+        method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -454,12 +195,9 @@ export default function AtendimentosPage() {
         throw new Error(payload.error ?? "Não foi possível salvar o atendimento.");
       }
       if (payload.atendimento) {
-        aplicarAtendimentoSalvo(payload.atendimento, isNovo ? "INSERT" : "UPDATE");
+        aplicarAtendimentoSalvo(payload.atendimento, "INSERT");
       }
-      toast({
-        variant: "success",
-        title: isNovo ? "Atendimento registrado" : "Atendimento atualizado",
-      });
+      toast({ variant: "success", title: "Atendimento registrado" });
       setForm(formularioVazio);
       setStep(0);
       setSheetOpen(false);
@@ -474,220 +212,23 @@ export default function AtendimentosPage() {
     }
   }
 
-  const emptyState = (
-    <EmptyState
-      icon={<Icon icon={ClipboardList} size="lg" />}
-      title={atendimentos.length === 0 ? "Nenhum atendimento registrado" : "Nenhum atendimento encontrado"}
-      description={
-        atendimentos.length === 0
-          ? "O registro grava quem atendeu a partir do login. A data e a hora entram sozinhas."
-          : "Ajuste a busca, a situação ou o canal."
-      }
-      action={
-        pode("atendimentos", "criar") ? (
-          <Button size="sm" onClick={openCreate}>
-            <Icon icon={Plus} size="sm" />
-            Novo
-          </Button>
-        ) : undefined
-      }
-    />
-  );
-
-  const desktopTable = (
-    <Table aria-label="Atendimentos" showExport={false}>
-      <TableHeader>
-        <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead sortable sortDirection={directionFor("data")} onSort={() => handleSort("data")}>
-            Data
-          </TableHead>
-          <TableHead>Atendente</TableHead>
-          <TableHead sortable sortDirection={directionFor("assunto")} onSort={() => handleSort("assunto")}>
-            Assunto
-          </TableHead>
-          <TableHead>Canal</TableHead>
-          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
-            Situação
-          </TableHead>
-          <TableHead actions />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
-        ) : (
-          pageRows.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="font-medium">{formatarData(item.dataHora)}</TableCell>
-              <TableCell>{nomeUsuario(item.usuarioId)}</TableCell>
-              <TableCell>{item.assunto || "—"}</TableCell>
-              <TableCell>{item.canal || "—"}</TableCell>
-              <TableCell>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-              </TableCell>
-              <TableActionsCell label={`Ações do atendimento ${item.assunto || item.id}`} actions={acoes(item)} />
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
-  );
-
-  const mobileTable =
-    visible.length === 0 ? (
-      <TableMobileEmpty>{emptyState}</TableMobileEmpty>
-    ) : (
-      <TableMobileList aria-label="Atendimentos">
-        {pageRows.map((item) => (
-          <TableMobileCard key={item.id}>
-            <TableMobileCardHeader>
-              <span aria-hidden="true" />
-              <TableMobileTitle>{item.assunto || formatarData(item.dataHora)}</TableMobileTitle>
-              <TableActionsButton label={`Ações do atendimento ${item.assunto || item.id}`} actions={acoes(item)} />
-            </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Data">{formatarData(item.dataHora)}</TableMobileField>
-              <TableMobileField label="Atendente">{nomeUsuario(item.usuarioId)}</TableMobileField>
-              <TableMobileField label="Canal">{item.canal || "—"}</TableMobileField>
-              <TableMobileField label="Situação">
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-              </TableMobileField>
-            </TableMobileFields>
-          </TableMobileCard>
-        ))}
-      </TableMobileList>
-    );
-
   return (
     <WorkspaceShell>
       <PageHeader
-        title="Atendimentos"
-        description="Fila operacional de cobrança e histórico de palitagem."
+        title="Fila de cobranças"
+        description="Acompanhe, distribua e gerencie as cobranças em um só lugar."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Atendimentos" }]}
-        actions={
-          pode("atendimentos", "criar") && aba === "registros" ? (
-            <Button size="md" onClick={openCreate}>
-              <Icon icon={Plus} size="sm" />
-              Novo
-            </Button>
-          ) : undefined
-        }
       />
       <PageContent>
-        <Tabs
-          defaultValue="fila"
-          value={aba}
-          onValueChange={(value) => {
-            const next =
-              value === "registros"
-                ? "registros"
-                : value === "distribuicao"
-                  ? "distribuicao"
-                  : value === "retornos"
-                    ? "retornos"
-                    : "fila";
-            setAba(next);
-            router.replace(`/atendimentos?aba=${next}`, { scroll: false });
-          }}
-        >
-          <TabsList className="mb-lg">
+        <Tabs defaultValue="fila" value="fila" className="flex flex-col gap-lg">
+          <TabsList className="mb-0 shrink-0">
             <TabsTrigger value="fila">
-              <Icon icon={ListOrdered} size="sm" className="mr-xs" />
+              <Icon icon={ListOrdered} size="sm" className="mr-xs shrink-0" aria-hidden />
               Fila de cobranças
             </TabsTrigger>
-            {gerenciaDistribuicao ? (
-              <TabsTrigger value="distribuicao">
-                <Icon icon={Share2} size="sm" className="mr-xs" />
-                Distribuição
-              </TabsTrigger>
-            ) : null}
-            <TabsTrigger value="retornos">
-              <Icon icon={CalendarClock} size="sm" className="mr-xs" />
-              Retornos
-            </TabsTrigger>
-            <TabsTrigger value="registros">
-              <Icon icon={ClipboardList} size="sm" className="mr-xs" />
-              Registros
-            </TabsTrigger>
           </TabsList>
-          <TabsContent value="fila">
+          <TabsContent value="fila" className="!rounded-none !bg-transparent !p-0 text-inherit shadow-none">
             <FilaCobrancasPanel />
-          </TabsContent>
-          {gerenciaDistribuicao ? (
-            <TabsContent value="distribuicao">
-              <DistribuicaoPanel />
-            </TabsContent>
-          ) : null}
-          <TabsContent value="retornos">
-            <RetornosAgendaPanel />
-          </TabsContent>
-          <TabsContent value="registros">
-        <div className="flex flex-col gap-lg">
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar atendimento..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
-            {
-              id: "situacao",
-              label: "Situação",
-              value: status,
-              onChange: setStatus,
-              options: [
-                { value: "todos", label: "Todas" },
-                ...statusAtendimento.map((item) => ({ value: item, label: item })),
-              ],
-            },
-            {
-              id: "canal",
-              label: "Canal",
-              value: canal,
-              onChange: setCanal,
-              options: [
-                { value: "todos", label: "Todos os canais" },
-                ...canaisAtendimento.map((item) => ({ value: item, label: item })),
-              ],
-            },
-            {
-              id: "unidade",
-              label: "Unidade",
-              value: unidadeFiltro,
-              onChange: setUnidadeFiltro,
-              options: [
-                { value: "todas", label: "Todas" },
-                ...cadastros.unidades.map((item) => ({
-                  value: String(item.id),
-                  label: nomeUnidade(item.id),
-                })),
-              ],
-            },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">atendimentos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ClipboardList} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(pendentes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">pendentes</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ClipboardList} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comRetorno).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com retorno</p>
-          </CardMetric>
-        </div>
-        <ResponsiveTable
-          desktop={desktopTable}
-          mobile={mobileTable}
-          onExport={aoExportarRegistros}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
-        />
-        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
-        </div>
           </TabsContent>
         </Tabs>
       </PageContent>
@@ -707,11 +248,9 @@ export default function AtendimentosPage() {
                   <Icon icon={ClipboardList} size="md" />
                 </SheetHeaderIcon>
                 <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>
-                    {editingId === null ? "Novo atendimento" : "Editar atendimento"}
-                  </SheetTitle>
+                  <SheetTitle id={`${formId}-title`}>Registrar contato</SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Tentativa de cobrança da unidade inadimplente. Quem registra é o login atual.
+                    Tentativa de cobrança da unidade. Quem registra é o login atual.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -854,8 +393,8 @@ export default function AtendimentosPage() {
                   <FormField label="Data da próxima ação" htmlFor={`${formId}-proxima-data`}>
                     <Input
                       id={`${formId}-proxima-data`}
-                      type="date"
-                      value={form.dataProximaAcao}
+                      type="datetime-local"
+                      value={form.dataProximaAcao.includes("T") ? form.dataProximaAcao.slice(0, 16) : form.dataProximaAcao}
                       onChange={(event) => setForm((current) => ({ ...current, dataProximaAcao: event.target.value }))}
                     />
                   </FormField>
@@ -888,17 +427,6 @@ export default function AtendimentosPage() {
         cancelLabel="Permanecer"
         confirmVariant="critical"
         onConfirm={confirmLeave}
-      />
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-        title="Excluir atendimento?"
-        description="A correção fica na auditoria. A exclusão é da administradora."
-        confirmLabel="Excluir"
-        cancelLabel="Cancelar"
-        onConfirm={confirmDelete}
       />
     </WorkspaceShell>
   );

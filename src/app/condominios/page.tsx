@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, RotateCcw, Scale, Trash2 } from "lucide-react";
+import { Building2, CheckCircle2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, Receipt, RotateCcw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
@@ -184,13 +184,20 @@ export default function CondominiosPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      await garantirCondominiosPersistidosNoServidor(user?.userId);
+      const sync = await garantirCondominiosPersistidosNoServidor(user?.userId);
       if (cancelled) return;
+      if (!sync.ok) {
+        toast({
+          variant: "error",
+          title: "Erro ao carregar condomínios",
+          description: sync.error,
+        });
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [user?.userId]);
+  }, [user?.userId, toast]);
 
   useEffect(() => {
     const digitos = digitosCep(form.cep);
@@ -313,8 +320,17 @@ export default function CondominiosPage() {
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const advogadosNaLista = new Set(visible.flatMap((item) => item.advogados)).size;
+  const ativos = visible.filter((item) => item.status === "Ativo").length;
+  const unidadesComDebitoAberto = new Set(
+    cadastros.debitos
+      .filter((item) => item.status === "Pendente" || item.status === "Vencido")
+      .map((item) => item.unidadeId),
+  );
+  const inadimplentes = visible.filter((item) =>
+    unidades.some((u) => u.condominioId === item.id && unidadesComDebitoAberto.has(u.id)),
+  ).length;
   const comEndereco = visible.filter((item) => item.cidade.trim().length > 0).length;
+  const metricValor = (n: number) => String(n).padStart(2, "0");
   const detalhe = detalheId === null ? null : (condominios.find((item) => item.id === detalheId) ?? null);
   const unidadesDoDetalhe = detalhe ? unidades.filter((item) => item.condominioId === detalhe.id) : [];
 
@@ -848,11 +864,19 @@ export default function CondominiosPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">
-                <div className="flex flex-col gap-xs">
-                  <span>{item.nome}</span>
-                  {item.identificadorExterno ? (
-                    <span className="text-body-sm text-on-surface-variant">{item.identificadorExterno}</span>
-                  ) : null}
+                <div className="flex items-start gap-sm">
+                  <span
+                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                    aria-hidden="true"
+                  >
+                    <Icon icon={Building2} size="sm" />
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-xs">
+                    <span>{item.nome}</span>
+                    {item.identificadorExterno ? (
+                      <span className="text-body-sm text-on-surface-variant">{item.identificadorExterno}</span>
+                    ) : null}
+                  </div>
                 </div>
               </TableCell>
               <TableCell>
@@ -904,6 +928,7 @@ export default function CondominiosPage() {
     <WorkspaceShell>
         <PageHeader
           title="Condomínios"
+          description="Gerencie os condomínios cadastrados no sistema, visualize informações e acompanhe a situação de cada um."
           breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
           actions={
             pode("condominios", "criar") ? (
@@ -915,79 +940,92 @@ export default function CondominiosPage() {
           }
         />
         <PageContent>
-          <FilterBar
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar condomínio..."
-            onApply={handleApply}
-            onClear={handleClear}
-            fields={[
-              {
-                id: "administradora",
-                label: "Administradora",
-                value: administradora,
-                onChange: setAdministradora,
-                options: [
-                  { value: "todas", label: "Todas" },
-                  ...administradoras.map((nome) => ({ value: nome, label: nome })),
-                ],
-              },
-              {
-                id: "cidade",
-                label: "Cidade",
-                value: cidade,
-                onChange: setCidade,
-                options: [
-                  { value: "todas", label: "Todas" },
-                  ...cidades.map((nome) => ({ value: nome, label: nome })),
-                ],
-              },
-              {
-                id: "advogado",
-                label: "Advogado responsável",
-                value: lawyer,
-                onChange: setLawyer,
-                options: [
-                  { value: "todos", label: "Todos os advogados" },
-                  ...opcoesAdvogados.map((nome) => ({ value: nome, label: nome })),
-                ],
-              },
-              {
-                id: "situacao",
-                label: "Situação",
-                value: situacao,
-                onChange: setSituacao,
-                options: [
-                  { value: "todos", label: "Todos" },
-                  ...statusCondominio.map((item) => ({ value: item, label: item })),
-                ],
-              },
-            ]}
-          />
-
-          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+          <div
+            className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4"
+            aria-label="Resumo de condomínios"
+          >
             <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={Building2} size="md" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">na carteira</p>
-            </CardMetric>
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={Building2} size="md" className="text-primary-container" />}
+              rotulo="Total de condomínios"
+              valor={metricValor(visible.length)}
+            />
             <CardMetric
+              accent="brass"
               iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={Scale} size="md" className="text-brass" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(advogadosNaLista).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">advogados</p>
-            </CardMetric>
+              icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+              rotulo="Ativos"
+              valor={metricValor(ativos)}
+            />
             <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={MapPin} size="md" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(comEndereco).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">com endereço</p>
-            </CardMetric>
+              accent="critical"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
+              rotulo="Inadimplentes"
+              valor={metricValor(inadimplentes)}
+            />
+            <CardMetric
+              accent="tertiary"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={MapPin} size="md" className="text-tertiary-container" />}
+              rotulo="Com endereço"
+              valor={metricValor(comEndereco)}
+            />
           </div>
+
+          <section className="flex flex-col gap-md">
+            <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+            <FilterBar
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Buscar condomínio..."
+              onApply={handleApply}
+              onClear={handleClear}
+              fields={[
+                {
+                  id: "administradora",
+                  label: "Administradora",
+                  value: administradora,
+                  onChange: setAdministradora,
+                  options: [
+                    { value: "todas", label: "Todas" },
+                    ...administradoras.map((nome) => ({ value: nome, label: nome })),
+                  ],
+                },
+                {
+                  id: "cidade",
+                  label: "Cidade",
+                  value: cidade,
+                  onChange: setCidade,
+                  options: [
+                    { value: "todas", label: "Todas" },
+                    ...cidades.map((nome) => ({ value: nome, label: nome })),
+                  ],
+                },
+                {
+                  id: "advogado",
+                  label: "Advogado responsável",
+                  value: lawyer,
+                  onChange: setLawyer,
+                  options: [
+                    { value: "todos", label: "Todos os advogados" },
+                    ...opcoesAdvogados.map((nome) => ({ value: nome, label: nome })),
+                  ],
+                },
+                {
+                  id: "situacao",
+                  label: "Situação",
+                  value: situacao,
+                  onChange: setSituacao,
+                  options: [
+                    { value: "todos", label: "Todos" },
+                    ...statusCondominio.map((item) => ({ value: item, label: item })),
+                  ],
+                },
+              ]}
+            />
+          </section>
 
           <input
             ref={importArquivoRef}

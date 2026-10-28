@@ -1,8 +1,19 @@
 import type { ReactNode } from "react";
 
+export type CardMetricAccent = "primary" | "brass" | "critical" | "tertiary";
+
+const accentBarClass: Record<CardMetricAccent, string> = {
+  primary: "bg-primary-container",
+  brass: "bg-brass",
+  critical: "bg-status-critical",
+  tertiary: "bg-inverse-primary",
+};
+
 type CardMetricProps = {
   icon: ReactNode;
   iconClassName: string;
+  /** Faixa de destaque à esquerda (mesmo padrão de Inadimplência e fila). */
+  accent?: CardMetricAccent;
   /** Título curto do indicador (ex.: "Valor atualizado em aberto"). */
   rotulo?: string;
   /** Número ou valor principal. */
@@ -11,36 +22,56 @@ type CardMetricProps = {
   detalhe?: string;
   /** Layout legado: conteúdo livre (valor + rótulo na ordem antiga). */
   children?: ReactNode;
+  className?: string;
 };
 
-export function CardMetric({ icon, iconClassName, rotulo, valor, detalhe, children }: CardMetricProps) {
+export function CardMetric({
+  icon,
+  iconClassName,
+  accent,
+  rotulo,
+  valor,
+  detalhe,
+  children,
+  className,
+}: CardMetricProps) {
   if (rotulo !== undefined && valor !== undefined) {
     return (
-      <article className="flex min-w-0 flex-col gap-xs rounded-xl border border-border-subtle bg-surface-card p-md shadow-card">
-        <div className="flex items-start gap-sm">
-          <div
-            className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
-            aria-hidden="true"
-          >
-            {icon}
+      <article
+        className={`flex h-full min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card ${className ?? ""}`}
+      >
+        {accent ? (
+          <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" />
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-xs p-md">
+          <div className="flex items-start gap-sm">
+            <div
+              className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+              aria-hidden="true"
+            >
+              {icon}
+            </div>
+            <p className="min-w-0 pt-0.5 text-body-sm font-medium leading-snug text-on-surface">{rotulo}</p>
           </div>
-          <p className="min-w-0 pt-0.5 text-body-sm font-medium leading-snug text-on-surface">{rotulo}</p>
+          <p className="text-metric font-semibold tabular-nums text-on-surface">{valor}</p>
+          {detalhe ? <p className="text-body-sm leading-snug text-on-surface-variant">{detalhe}</p> : null}
         </div>
-        <p className="text-headline-sm tabular-nums text-on-surface">{valor}</p>
-        {detalhe ? <p className="text-body-sm leading-snug text-on-surface-variant">{detalhe}</p> : null}
       </article>
     );
   }
 
   return (
-    <article className="flex min-w-0 items-center gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+    <article
+      className={`flex h-full min-w-0 items-center gap-md overflow-hidden rounded-xl border border-border-subtle bg-surface-card p-md shadow-card ${className ?? ""}`}
+    >
+      {accent ? <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" /> : null}
       <div
-        className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
         aria-hidden="true"
       >
         {icon}
       </div>
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </article>
   );
 }

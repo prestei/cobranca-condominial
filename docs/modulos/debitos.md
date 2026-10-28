@@ -13,7 +13,7 @@ Consultar e acompanhar débitos por unidade e condomínio, com valores e situaç
 
 ## Rotas e telas
 
-- `/debitos` — `src/app/debitos/page.tsx` — listagem, filtros, indicadores na data-base, cadastro/edição em sheet (três etapas), confirmação de unidade quitada.
+- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs (original, atualizado, faixas até/acima do limite), gráfico de unidades inadimplentes, filtros, tabela **Registros de Inadimplência** com exportação CSV/XLS/PDF, cadastro/edição em sheet (três etapas), confirmação de unidade quitada.
 
 ## Perfis e permissões
 
@@ -54,7 +54,7 @@ Serviço: `src/lib/debitos/service.ts`. Sincronização cliente: `src/lib/debito
 
 ## Fluxos principais
 
-1. **Listagem** — ao abrir, sincroniza condomínios (`/api/condominios`) e unidades (`/api/unidades`) no catálogo do cliente, depois carrega `/api/debitos`; filtros locais (período, data-base, cidade, origem, situação).
+1. **Listagem** — ao abrir, sincroniza condomínios (`/api/condominios`) e unidades (`/api/unidades`) no catálogo do cliente, depois carrega `/api/debitos`; layout: KPIs, **filtros**, bloco de percentuais, tabela; filtros locais (período, data-base, cidade, origem, situação); exportação da tabela filtrada (CSV, XLS, PDF via impressão).
 2. **Indicadores** — totais na data-base usam valores persistidos; soma deduplica registros com o mesmo `identificadorExterno`.
 3. **Cadastro/edição manual** — selects de condomínio/unidade usam escopo do usuário; ao editar, recarrega cadastros relacionados e `GET /api/debitos/[id]` antes de preencher o sheet; API + auditoria; `fonteValores` = `manual`.
 4. **Importação** — atualiza `fonteValores` = `origem` e `atualizadoEm`; ver T13.

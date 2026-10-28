@@ -10,9 +10,9 @@ const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/acesso-nega
 
 /** Atalhos legados → abas em /atendimentos (T08 integrado à palitagem). */
 const REDIRECT_ROTAS_REMOVIDAS: Record<string, string> = {
-  "/fila": "/atendimentos?aba=fila",
-  "/distribuicao": "/atendimentos?aba=distribuicao",
-  "/retornos": "/atendimentos?aba=retornos",
+  "/fila": "/atendimentos",
+  "/distribuicao": "/atendimentos",
+  "/retornos": "/atendimentos?retorno=hoje",
 };
 
 function isPublicPath(pathname: string) {

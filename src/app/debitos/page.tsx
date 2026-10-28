@@ -3,8 +3,10 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { CheckCircle2, ClipboardList, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, Pencil, Plus, Receipt, Scale, Trash2, Wallet } from "lucide-react";
+import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
+import { GraficoRosca } from "@/components/charts";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -47,7 +49,9 @@ import {
   TableMobileFields,
   TableMobileList,
   TableMobileTitle,
+  TableExport,
   TableRow,
+  type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
@@ -82,7 +86,8 @@ import {
   sincronizarDebitosDoServidor,
 } from "@/lib/debitos/sync-cliente";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
-import { sincronizarUnidadesDoServidor } from "@/lib/unidades/sync-cliente";
+import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
+import { aplicarUnidadeSalva, sincronizarUnidadesDoServidor } from "@/lib/unidades/sync-cliente";
 
 const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
 const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
@@ -335,6 +340,12 @@ export default function DebitosPage() {
   const acimaLimite = indicadores.acimaLimite;
   const unidadesDevedoras = indicadores.unidadesDevedoras;
   const percentualUnidades = indicadores.percentualUnidades;
+  const unidadesEmDia = Math.max(0, unidadesCarteira - unidadesDevedoras);
+  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
+  const vazioGrafico = (
+    <p className="text-body-md text-on-surface-variant">Sem unidades ou débitos no recorte para exibir o gráfico.</p>
+  );
+
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
   }
@@ -489,9 +500,8 @@ export default function DebitosPage() {
       return;
     }
     if (body.unidade) {
-      setUnidades((current) =>
-        current.map((u) => (u.id === body.unidade!.id ? { ...u, situacao: body.unidade!.situacao } : u)),
-      );
+      const atual = cadastros.unidades.find((u) => u.id === body.unidade!.id);
+      if (atual) aplicarUnidadeSalva({ ...atual, situacao: body.unidade.situacao }, "UPDATE");
     }
     toast({ variant: "success", title: "Unidade marcada como quitada" });
     await recarregarDebitosDoServidor();
@@ -671,8 +681,76 @@ export default function DebitosPage() {
       ? String(diasDeAtraso(item.dataVencimento, appliedDataBase))
       : "—";
 
+  function celulaDias(item: Debito) {
+    const texto = diasDaLinha(item);
+    if (texto === "—") return texto;
+    return (
+      <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-error-container px-sm py-xs text-label-sm tabular-nums text-status-critical">
+        {texto}
+      </span>
+    );
+  }
+
+  function linhasExportacao() {
+    return visible.map((item) => [
+      item.referencia,
+      nomeUnidade(item.unidadeId),
+      grupoDebito(item.descricao),
+      formatarData(item.dataVencimento),
+      diasDaLinha(item),
+      formatarMoeda(item.valorOriginal),
+      formatarMoeda(item.valorAtualizado),
+      item.status,
+      rotuloFonteValores(item),
+      formatarData(item.atualizadoEm),
+    ]);
+  }
+
+  function aoExportar(formato: TableExportFormat) {
+    if (visible.length === 0) {
+      toast({
+        variant: "info",
+        title: "Nada para exportar",
+        description: "Ajuste os filtros ou cadastre débitos no escopo.",
+      });
+      return;
+    }
+    const colunas = [
+      "Referência",
+      "Unidade",
+      "Tipo",
+      "Vencimento",
+      "Dias",
+      "Original",
+      "Atualizado",
+      "Situação",
+      "Origem",
+      "Atualização",
+    ];
+    const linhas = linhasExportacao();
+    const arquivoBase = `inadimplencia-${appliedDataBase}`;
+    if (formato === "csv") {
+      exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
+      toast({ variant: "success", title: "CSV baixado" });
+      return;
+    }
+    if (formato === "xls") {
+      exportarExcel(`${arquivoBase}.xls`, colunas, linhas);
+      toast({ variant: "success", title: "Planilha baixada" });
+      return;
+    }
+    const abriu = exportarPdf("Inadimplência", `${arquivoBase}.html`, [
+      { titulo: "Registros (filtros aplicados)", colunas, linhas },
+    ]);
+    if (abriu) {
+      toast({ variant: "success", title: "PDF", description: "Use imprimir ou salvar como PDF no navegador." });
+    } else {
+      toast({ variant: "error", title: "Não foi possível abrir a visualização para impressão." });
+    }
+  }
+
   const desktopTable = (
-    <Table aria-label="Inadimplência">
+    <Table aria-label="Inadimplência" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("referencia")} onSort={() => handleSort("referencia")}>
@@ -713,9 +791,7 @@ export default function DebitosPage() {
               <TableCell>{nomeUnidade(item.unidadeId)}</TableCell>
               <TableCell>{grupoDebito(item.descricao)}</TableCell>
               <TableCell>{formatarData(item.dataVencimento)}</TableCell>
-              <TableCell align="right" className="tabular-nums">
-                {diasDaLinha(item)}
-              </TableCell>
+              <TableCell align="right">{celulaDias(item)}</TableCell>
               <TableCell align="right" className="tabular-nums">
                 {formatarMoeda(item.valorOriginal)}
               </TableCell>
@@ -753,9 +829,7 @@ export default function DebitosPage() {
               <TableMobileField label="Unidade">{nomeUnidade(item.unidadeId)}</TableMobileField>
               <TableMobileField label="Tipo">{grupoDebito(item.descricao)}</TableMobileField>
               <TableMobileField label="Vencimento">{formatarData(item.dataVencimento)}</TableMobileField>
-              <TableMobileField label="Dias" valueClassName="tabular-nums">
-                {diasDaLinha(item)}
-              </TableMobileField>
+              <TableMobileField label="Dias">{celulaDias(item)}</TableMobileField>
               <TableMobileField label="Original" valueClassName="tabular-nums">
                 {formatarMoeda(item.valorOriginal)}
               </TableMobileField>
@@ -789,13 +863,46 @@ export default function DebitosPage() {
         }
       />
       <PageContent>
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar débito..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
+        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={Receipt} size="md" className="text-brass" />}
+            rotulo="Valor original"
+            valor={moeda(totalOriginal)}
+          />
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
+            rotulo="Valor atualizado"
+            valor={moeda(totalAtualizado)}
+          />
+          <CardMetric
+            accent="tertiary"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={Clock} size="md" className="text-tertiary-container" />}
+            rotulo={`Até ${limiteDias} dias`}
+            valor={moeda(ateLimite)}
+          />
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
+            rotulo={`Acima de ${limiteDias} dias`}
+            valor={moeda(acimaLimite)}
+          />
+        </div>
+
+        <section className="flex flex-col gap-md">
+          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar débito, unidade, condomínio..."
+            onApply={handleApply}
+            onClear={handleClear}
+            fields={[
             {
               id: "periodo",
               label: "Período",
@@ -871,52 +978,68 @@ export default function DebitosPage() {
                 ...origensDebito.map((item) => ({ value: item, label: item })),
               ],
             },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Receipt} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(totalOriginal)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">valor original</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(totalAtualizado)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">valor atualizado</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(ateLimite)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">até {limiteDias} dias</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{moeda(acimaLimite)}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">acima de {limiteDias} dias</p>
-          </CardMetric>
-        </div>
+            ]}
+          />
+        </section>
+
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
           <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
-          <div className="grid grid-cols-1 gap-lg min-[640px]:grid-cols-2">
-            <div className="min-w-0">
-              <p className="text-metric text-on-surface tabular-nums">
-                {percentualUnidades === null ? "—" : percentual(percentualUnidades)}
-              </p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência das unidades</p>
+          <div className="grid grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[768px]:items-center">
+            <div className="flex flex-col items-center gap-sm min-[768px]:items-start">
               {unidadesCarteira > 0 ? (
-                <p className="mt-xs text-body-sm text-on-surface-variant">
+                <GraficoRosca
+                  chave={chaveGraficos}
+                  vazio={vazioGrafico}
+                  semLegenda
+                  centro={percentualUnidades === null ? "—" : percentual(percentualUnidades)}
+                  legenda="unidades"
+                  fatias={[
+                    {
+                      nome: "Com débito vencido",
+                      valor: unidadesDevedoras,
+                      detalhe: String(unidadesDevedoras),
+                      tom: "critical",
+                    },
+                    {
+                      nome: "Sem débito vencido",
+                      valor: unidadesEmDia,
+                      detalhe: String(unidadesEmDia),
+                      tom: "navy",
+                    },
+                  ]}
+                />
+              ) : (
+                vazioGrafico
+              )}
+              <p className="text-body-sm text-on-surface-variant">Inadimplência das unidades</p>
+              {unidadesCarteira > 0 ? (
+                <p className="text-body-sm text-on-surface-variant">
                   {unidadesDevedoras} de {unidadesCarteira} unidades com débito vencido na data-base
                 </p>
               ) : null}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 border-t border-border-subtle pt-lg min-[768px]:border-t-0 min-[768px]:border-l min-[768px]:pl-lg min-[768px]:pt-0">
               <p className="text-metric text-on-surface tabular-nums">—</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">inadimplência do valor emitido</p>
-              <p className="mt-xs text-body-sm text-on-surface-variant">Depende do total emitido no período filtrado (ainda não vem na importação).</p>
+              <p className="mt-sm text-body-sm text-on-surface-variant">Inadimplência do valor emitido</p>
+              <p className="mt-xs text-body-sm text-on-surface-variant">
+                Depende do total emitido no período filtrado (ainda não vem na importação).
+              </p>
             </div>
           </div>
-          <p className="border-t border-border-subtle pt-md text-body-sm text-on-surface-variant">
-            Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias} dias.
-            O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte dos filtros.
-          </p>
+          <Alert variant="info" title="Como ler os indicadores">
+            Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias}{" "}
+            dias. O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte
+            dos filtros.
+          </Alert>
         </section>
-        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+
+        <section className="flex flex-col gap-md">
+          <div className="flex flex-wrap items-center justify-between gap-md">
+            <h2 className="text-headline-sm text-on-surface">Registros de Inadimplência</h2>
+            <TableExport onExport={aoExportar} />
+          </div>
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+        </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
 

@@ -11,6 +11,7 @@ import {
   type Unidade,
 } from "@/data/catalogo";
 import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re";
+import { listarFilaCobranca } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -55,13 +56,121 @@ export type DistribuirResultado = {
   atribuicoes: AtribuicaoCobranca[];
 };
 
-/** Ponto de extensão para distribuição automática (T09 — decisão de algoritmo pendente). */
-export type DistribuicaoAutomaticaOpcoes = {
-  estrategia?: "rodizio" | "carga" | "condominio" | "volume";
+/** Estratégias de distribuição automática (protótipo — carga equilibrada como padrão). */
+export type DistribuicaoAutomaticaEstrategia = "carga" | "rodizio" | "condominio" | "volume";
+
+export type DistribuicaoAutomaticaConfig = {
+  ativada: boolean;
+  estrategia: DistribuicaoAutomaticaEstrategia;
 };
 
-export function distribuicaoAutomaticaDisponivel(): false {
-  return false;
+export type DistribuicaoAutomaticaOpcoes = {
+  estrategia?: DistribuicaoAutomaticaEstrategia;
+};
+
+export type ExecutarDistribuicaoAutomaticaResultado = DistribuirResultado & {
+  pendentesAntes: number;
+};
+
+let configDistribuicaoAutomatica: DistribuicaoAutomaticaConfig = {
+  ativada: true,
+  estrategia: "carga",
+};
+
+export function distribuicaoAutomaticaDisponivel(): true {
+  return true;
+}
+
+export function obterConfigDistribuicaoAutomatica(): DistribuicaoAutomaticaConfig {
+  return { ...configDistribuicaoAutomatica };
+}
+
+export function atualizarConfigDistribuicaoAutomatica(
+  userId: number,
+  patch: Partial<DistribuicaoAutomaticaConfig>,
+): DistribuicaoAutomaticaConfig {
+  assertGerenciaDistribuicao(userId);
+  configDistribuicaoAutomatica = {
+    ...configDistribuicaoAutomatica,
+    ...patch,
+    estrategia: patch.estrategia ?? configDistribuicaoAutomatica.estrategia,
+    ativada: patch.ativada ?? configDistribuicaoAutomatica.ativada,
+  };
+  return obterConfigDistribuicaoAutomatica();
+}
+
+export function contarUnidadesAguardandoAtribuicao(userId: number): number {
+  return listarFilaCobranca(userId).filter((item) => !item.codigoRe).length;
+}
+
+function escolherReCargaEquilibrada(userId: number, contagem: Map<number, number>) {
+  const atendentes = listarAtendentesComRe();
+  if (atendentes.length === 0) {
+    throw new DistribuicaoServiceError("Não há atendentes com RE cadastrado.", 400);
+  }
+  let escolhido = atendentes[0];
+  let menor = contagem.get(escolhido.id) ?? 0;
+  for (const atendente of atendentes) {
+    const total = contagem.get(atendente.id) ?? 0;
+    if (total < menor) {
+      menor = total;
+      escolhido = atendente;
+    }
+  }
+  void userId;
+  return escolhido;
+}
+
+export function executarDistribuicaoAutomatica(
+  userId: number,
+  meta?: { ip?: string; userAgent?: string },
+): ExecutarDistribuicaoAutomaticaResultado {
+  assertGerenciaDistribuicao(userId);
+  if (!configDistribuicaoAutomatica.ativada) {
+    throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
+  }
+
+  const pendentes = listarFilaCobranca(userId).filter((item) => !item.codigoRe);
+  if (pendentes.length === 0) {
+    return { atribuidas: 0, ignoradasMesmoResponsavel: 0, atribuicoes: [], pendentesAntes: 0 };
+  }
+
+  const carteiras = listarCarteiraPorRe(userId);
+  const contagem = new Map<number, number>(carteiras.map((item) => [item.atendenteId, item.totalUnidades]));
+
+  let atribuidas = 0;
+  let ignoradasMesmoResponsavel = 0;
+  const atribuicoes: AtribuicaoCobranca[] = [];
+
+  for (const item of pendentes) {
+    const atendente =
+      configDistribuicaoAutomatica.estrategia === "carga"
+        ? escolherReCargaEquilibrada(userId, contagem)
+        : escolherReCargaEquilibrada(userId, contagem);
+
+    const resultado = distribuirUnidades(
+      userId,
+      {
+        unidadeIds: [item.unidadeId],
+        codigoRe: atendente.codigoRe,
+        motivo: "Distribuição automática",
+      },
+      meta,
+    );
+    atribuidas += resultado.atribuidas;
+    ignoradasMesmoResponsavel += resultado.ignoradasMesmoResponsavel;
+    atribuicoes.push(...resultado.atribuicoes);
+    if (resultado.atribuidas > 0) {
+      contagem.set(atendente.id, (contagem.get(atendente.id) ?? 0) + resultado.atribuidas);
+    }
+  }
+
+  return {
+    atribuidas,
+    ignoradasMesmoResponsavel,
+    atribuicoes,
+    pendentesAntes: pendentes.length,
+  };
 }
 
 export function podeGerenciarDistribuicao(userId: number) {

@@ -83,6 +83,7 @@ Condomínio atendido.
 | identificador_externo | VARCHAR(255) | sim | único quando preenchido | Código da administradora ou integração |
 | status | VARCHAR | não | padrão `Ativo` | Ativo, Inativo |
 | advogados_json | TEXT | sim | | Lista JSON dos advogados responsáveis |
+| administradora | VARCHAR(255) | sim | | Nome da administradora do condomínio |
 | estado | VARCHAR(255) | sim | | |
 | cidade | VARCHAR(255) | sim | | |
 | cep | VARCHAR(255) | sim | | |

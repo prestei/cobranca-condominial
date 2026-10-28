@@ -24,8 +24,11 @@ export function BadgeSituacaoCobranca({ situacao, className }: BadgeSituacaoCobr
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-body-sm font-medium ${estilo} ${className ?? ""}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body-sm font-medium ${estilo} ${className ?? ""}`}
     >
+      {label === "Em cobrança" ? (
+        <span className="size-1.5 shrink-0 rounded-full bg-current opacity-90" aria-hidden />
+      ) : null}
       {label}
     </span>
   );

@@ -90,6 +90,8 @@ export function Textarea({ className, invalid, rows = 3, ...props }: TextareaPro
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
+  /** Ex.: «Condomínio» → botão mostra «Condomínio: Todos». */
+  prefixLabel?: string;
 };
 
 type OpcaoSelect = {
@@ -134,6 +136,7 @@ function useCliente() {
 export function Select({
   className,
   invalid,
+  prefixLabel,
   children,
   value,
   defaultValue,
@@ -295,12 +298,19 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={aberto}
         aria-controls={aberto ? listaId : undefined}
+        aria-label={
+          prefixLabel ? `${prefixLabel}: ${selecionada?.label ?? "Selecione"}` : undefined
+        }
         aria-required={required || undefined}
         aria-invalid={invalid || undefined}
         className={`${formControlClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${controlStateClass(invalid)} ${className ?? ""}`}
         onClick={() => (aberto ? fechar() : abrir())}
       >
-        <span className={`truncate ${selecionada ? "" : "text-on-surface-variant"}`}>{selecionada?.label ?? "Selecione"}</span>
+        <span className={`truncate ${selecionada ? "" : "text-on-surface-variant"}`}>
+          {prefixLabel
+            ? `${prefixLabel}: ${selecionada?.label ?? "Selecione"}`
+            : (selecionada?.label ?? "Selecione")}
+        </span>
       </button>
       {name ? <input type="hidden" name={name} value={valor} /> : null}
       <Icon

@@ -319,7 +319,25 @@ const vinculosIniciais: Vinculo[] = vinculosBaseTeste;
 
 const debitosIniciais: Debito[] = debitosBaseTeste;
 
-const atendimentosIniciais: Atendimento[] = [];
+const atendimentosIniciais: Atendimento[] = [
+  {
+    id: "demo-retorno-102",
+    unidadeId: "2",
+    responsavelId: "2",
+    usuarioId: 2,
+    dataHora: "2026-10-20T14:00:00.000Z",
+    canal: "Telefone",
+    respondeu: "Não",
+    motivo: "",
+    assunto: "Cobrança cota set/2026",
+    descricao: "Sem contato — agendar retorno.",
+    status: "Pendente",
+    dataProximaAcao: "2026-10-27T15:00:00",
+    proximaAcao: "Nova tentativa de contato",
+    retornoConcluidoEm: "",
+    retornoConcluidoPorId: null,
+  },
+];
 
 const propostasNegociacaoIniciais: PropostaNegociacao[] = [];
 
@@ -705,11 +723,12 @@ export function diasDeAtraso(vencimento: string, dataBase = hojeIso()) {
 
 export function situacaoRetorno(data: string, hoje = hojeIso()) {
   if (!data) return "";
-  if (data < hoje) return "atrasado" as const;
-  if (data === hoje) return "hoje" as const;
+  const dataDia = data.slice(0, 10);
+  if (dataDia < hoje) return "atrasado" as const;
+  if (dataDia === hoje) return "hoje" as const;
   const limite = new Date(`${hoje}T00:00:00`);
   limite.setDate(limite.getDate() + 7);
-  const alvo = new Date(`${data}T00:00:00`);
+  const alvo = new Date(`${dataDia}T00:00:00`);
   if (alvo.getTime() <= limite.getTime()) return "semana" as const;
   return "agendado" as const;
 }

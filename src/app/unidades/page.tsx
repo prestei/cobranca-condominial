@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
-import { DoorOpen, Eye, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { Building2, CheckCircle2, DoorOpen, Eye, Pencil, Plus, Receipt, Scale, Trash2 } from "lucide-react";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -276,6 +276,10 @@ export default function UnidadesPage() {
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const ativas = visible.filter((item) => item.status === "Ativa").length;
   const devendo = visible.filter((item) => emDebitoOperacional(item)).length;
+  const emCobranca = visible.filter(
+    (item) => situacaoCobrancaUnidade(item) !== "Sem cobrança",
+  ).length;
+  const metricValor = (n: number) => String(n).padStart(2, "0");
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -898,8 +902,28 @@ export default function UnidadesPage() {
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.identificacao}</TableCell>
-              <TableCell>{nomeCondominio(item.condominioId)}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-start gap-sm">
+                  <span
+                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                    aria-hidden="true"
+                  >
+                    <Icon icon={DoorOpen} size="sm" />
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-xs">
+                    <span>{item.identificacao}</span>
+                    {item.bloco?.trim() ? (
+                      <span className="text-body-sm text-on-surface-variant">Bloco {item.bloco.trim()}</span>
+                    ) : null}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-sm">
+                  <Icon icon={Building2} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
+                  <span>{nomeCondominio(item.condominioId)}</span>
+                </div>
+              </TableCell>
               <TableCell>{item.bloco || "—"}</TableCell>
               <TableCell>{item.tipo}</TableCell>
               <TableCell>
@@ -946,6 +970,7 @@ export default function UnidadesPage() {
     <WorkspaceShell>
       <PageHeader
         title="Unidades"
+        description="Gerencie apartamentos, casas e salas dos condomínios da carteira, acompanhe a situação de cobrança e os débitos de cada unidade."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Unidades" }]}
         actions={
           pode("unidades", "criar") ? (
@@ -957,70 +982,94 @@ export default function UnidadesPage() {
         }
       />
       <PageContent>
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar unidade..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
-            {
-              id: "condominio",
-              label: "Condomínio",
-              value: condominio,
-              onChange: setCondominio,
-              options: [
-                { value: "todos", label: "Todos os condomínios" },
-                ...condominiosVisiveis.map((item) => ({ value: String(item.id), label: item.nome })),
-              ],
-            },
-            {
-              id: "situacao-cadastro",
-              label: "Cadastro",
-              value: status,
-              onChange: setStatus,
-              options: [
-                { value: "todos", label: "Todas" },
-                ...statusUnidade.map((item) => ({ value: item, label: item })),
-              ],
-            },
-            {
-              id: "situacao-cobranca",
-              label: "Cobrança",
-              value: cobranca,
-              onChange: setCobranca,
-              options: [
-                { value: "todos", label: "Todas" },
-                ...situacoesUnidade.map((item) => ({ value: item, label: item })),
-              ],
-            },
-            {
-              id: "debito",
-              label: "Débito",
-              value: debito,
-              onChange: setDebito,
-              options: [
-                { value: "todos", label: "Todos" },
-                { value: "devendo", label: "Devendo" },
-                { value: "em-dia", label: "Em dia" },
-              ],
-            },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">unidades</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={DoorOpen} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(ativas).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">ativas</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-status-critical text-on-primary" icon={<Icon icon={Receipt} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(devendo).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">devendo</p>
-          </CardMetric>
+        <div
+          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4"
+          aria-label="Resumo de unidades"
+        >
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={DoorOpen} size="md" className="text-primary-container" />}
+            rotulo="Total de unidades"
+            valor={metricValor(visible.length)}
+          />
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+            rotulo="Ativas"
+            valor={metricValor(ativas)}
+          />
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
+            rotulo="Inadimplentes"
+            valor={metricValor(devendo)}
+          />
+          <CardMetric
+            accent="tertiary"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={Scale} size="md" className="text-tertiary-container" />}
+            rotulo="Em cobrança"
+            valor={metricValor(emCobranca)}
+          />
         </div>
+
+        <section className="flex flex-col gap-md">
+          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar unidade..."
+            onApply={handleApply}
+            onClear={handleClear}
+            fields={[
+              {
+                id: "condominio",
+                label: "Condomínio",
+                value: condominio,
+                onChange: setCondominio,
+                options: [
+                  { value: "todos", label: "Todos os condomínios" },
+                  ...condominiosVisiveis.map((item) => ({ value: String(item.id), label: item.nome })),
+                ],
+              },
+              {
+                id: "situacao-cadastro",
+                label: "Cadastro",
+                value: status,
+                onChange: setStatus,
+                options: [
+                  { value: "todos", label: "Todas" },
+                  ...statusUnidade.map((item) => ({ value: item, label: item })),
+                ],
+              },
+              {
+                id: "situacao-cobranca",
+                label: "Cobrança",
+                value: cobranca,
+                onChange: setCobranca,
+                options: [
+                  { value: "todos", label: "Todas" },
+                  ...situacoesUnidade.map((item) => ({ value: item, label: item })),
+                ],
+              },
+              {
+                id: "debito",
+                label: "Débito",
+                value: debito,
+                onChange: setDebito,
+                options: [
+                  { value: "todos", label: "Todos" },
+                  { value: "devendo", label: "Devendo" },
+                  { value: "em-dia", label: "Em dia" },
+                ],
+              },
+            ]}
+          />
+        </section>
+
         <input
           ref={importArquivoRef}
           type="file"
@@ -1037,7 +1086,6 @@ export default function UnidadesPage() {
           onImport={abrirImportacao}
           showImport={podeImportar}
           importDisabled={importando}
-          className="mt-lg"
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

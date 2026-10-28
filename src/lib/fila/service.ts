@@ -38,16 +38,35 @@ export type FilaCobrancaItem = {
   diasAtrasoMax: number;
   ultimoAtendimento: string | null;
   proximoRetorno: string | null;
+  proximoRetornoAtendimentoId: string | null;
   retornoSituacao: string;
 };
+
+export type FilaCobrancaResumo = {
+  emCobranca: number;
+  semResponsavel: number;
+  retornosHoje: number;
+};
+
+export type FilaOrdenacaoCampo =
+  | "condominio"
+  | "unidade"
+  | "inadimplencia"
+  | "situacao"
+  | "re"
+  | "ultimoAtendimento"
+  | "proximoRetorno";
 
 export type FilaCobrancaFiltros = {
   condominioId?: number;
   situacao?: string;
   atendenteId?: number;
   codigoRe?: string;
+  semResponsavel?: boolean;
   busca?: string;
   retorno?: "atrasado" | "hoje" | "semana" | "sem" | "todos";
+  sort?: FilaOrdenacaoCampo;
+  order?: "asc" | "desc";
 };
 
 function usuarioVeCarteiraGeral(userId: number) {
@@ -83,15 +102,17 @@ function resumoAtendimentosUnidade(unidadeId: number) {
     .atendimentos.filter((item) => Number(item.unidadeId) === unidadeId)
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   const ultimo = lista[0]?.dataHora ?? null;
-  const pendentesRetorno = lista
-    .filter(retornoPendente)
-    .map((item) => item.dataProximaAcao)
-    .filter(Boolean)
-    .sort();
-  const proximoRetorno = pendentesRetorno[0] ?? null;
+  const pendentesRetorno = lista.filter(retornoPendente).sort((a, b) => {
+    const da = a.dataProximaAcao || "";
+    const db = b.dataProximaAcao || "";
+    return da.localeCompare(db);
+  });
+  const proximo = pendentesRetorno[0];
+  const proximoRetorno = proximo?.dataProximaAcao ?? null;
   return {
     ultimoAtendimento: ultimo,
     proximoRetorno,
+    proximoRetornoAtendimentoId: proximo?.id ?? null,
     retornoSituacao: proximoRetorno ? situacaoRetorno(proximoRetorno) : "",
   };
 }
@@ -113,7 +134,17 @@ function montarItem(unidade: Unidade): FilaCobrancaItem {
     diasAtrasoMax: inad.diasMax,
     ultimoAtendimento: atend.ultimoAtendimento,
     proximoRetorno: atend.proximoRetorno,
+    proximoRetornoAtendimentoId: atend.proximoRetornoAtendimentoId,
     retornoSituacao: atend.retornoSituacao,
+  };
+}
+
+export function resumoFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): FilaCobrancaResumo {
+  const lista = listarFilaCobranca(userId, filtros);
+  return {
+    emCobranca: lista.length,
+    semResponsavel: lista.filter((item) => !item.codigoRe).length,
+    retornosHoje: lista.filter((item) => item.retornoSituacao === "hoje").length,
   };
 }
 
@@ -137,7 +168,9 @@ function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros 
   if (geral && filtros?.atendenteId) {
     lista = lista.filter((item) => item.atendenteId === filtros.atendenteId);
   }
-  if (geral && filtros?.codigoRe?.trim()) {
+  if (geral && filtros?.semResponsavel) {
+    lista = lista.filter((item) => !item.codigoRe);
+  } else if (geral && filtros?.codigoRe?.trim()) {
     const alvo = filtros.codigoRe.trim().toUpperCase();
     lista = lista.filter((item) => item.codigoRe?.toUpperCase() === alvo);
   }
@@ -159,13 +192,63 @@ function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros 
   return lista;
 }
 
-export function listarFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): FilaCobrancaItem[] {
-  const base = unidadesBase(userId).map(montarItem);
-  return aplicarFiltros(base, filtros, userId).sort((a, b) => {
+function nomeCondominioItem(item: FilaCobrancaItem) {
+  return getCadastros().condominios.find((c) => c.id === item.condominioId)?.nome ?? "";
+}
+
+function compararFila(a: FilaCobrancaItem, b: FilaCobrancaItem, sort: FilaOrdenacaoCampo, factor: number) {
+  switch (sort) {
+    case "condominio": {
+      const left = nomeCondominioItem(a);
+      const right = nomeCondominioItem(b);
+      return left.localeCompare(right, "pt-BR") * factor;
+    }
+    case "unidade": {
+      const left = `${a.identificacao} ${a.bloco}`;
+      const right = `${b.identificacao} ${b.bloco}`;
+      return left.localeCompare(right, "pt-BR", { numeric: true }) * factor;
+    }
+    case "inadimplencia":
+      return (a.diasAtrasoMax - b.diasAtrasoMax) * factor;
+    case "situacao":
+      return a.situacao.localeCompare(b.situacao, "pt-BR") * factor;
+    case "re": {
+      const left = a.codigoRe ?? "";
+      const right = b.codigoRe ?? "";
+      return left.localeCompare(right, "pt-BR") * factor;
+    }
+    case "ultimoAtendimento": {
+      const left = a.ultimoAtendimento ?? "";
+      const right = b.ultimoAtendimento ?? "";
+      return left.localeCompare(right, "pt-BR") * factor;
+    }
+    case "proximoRetorno": {
+      const left = a.proximoRetorno ?? "";
+      const right = b.proximoRetorno ?? "";
+      return left.localeCompare(right, "pt-BR") * factor;
+    }
+    default:
+      return 0;
+  }
+}
+
+function ordenarFila(lista: FilaCobrancaItem[], filtros?: FilaCobrancaFiltros) {
+  const sort = filtros?.sort;
+  const factor = filtros?.order === "desc" ? -1 : 1;
+  return [...lista].sort((a, b) => {
+    if (sort) {
+      const cmp = compararFila(a, b, sort, factor);
+      if (cmp !== 0) return cmp;
+    }
     const cond = a.condominioId - b.condominioId;
     if (cond !== 0) return cond;
     return a.identificacao.localeCompare(b.identificacao, "pt-BR", { numeric: true });
   });
+}
+
+export function listarFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): FilaCobrancaItem[] {
+  const base = unidadesBase(userId).map(montarItem);
+  return ordenarFila(aplicarFiltros(base, filtros, userId), filtros);
 }
 
 export function listarFilaCobrancaPaginada(
