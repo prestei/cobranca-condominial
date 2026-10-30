@@ -13,6 +13,7 @@ import {
   Scale,
   ScrollText,
   Shield,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -53,7 +54,10 @@ const secoes: Array<{
   },
   {
     title: "Análise",
-    links: [{ href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
+    links: [
+      { href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" },
+      { href: "/indicadores", label: "Indicadores", icon: ShieldCheck, modulo: "relatorios" },
+    ],
   },
   {
     title: "Operação",

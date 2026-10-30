@@ -1,5 +1,5 @@
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
-import { serializarPermissoes } from "@/lib/permissions/parse";
+import { parsePermissoesJson, serializarPermissoes } from "@/lib/permissions/parse";
 
 const admin: PermissoesCargo = {
   dashboard: { ler: true },
@@ -33,3 +33,12 @@ const advogado: PermissoesCargo = {
 export const PERMISSAO_JSON_ADMIN = serializarPermissoes(admin);
 export const PERMISSAO_JSON_ATENDENTE = serializarPermissoes(atendente);
 export const PERMISSAO_JSON_ADVOGADO = serializarPermissoes(advogado);
+
+/** Permissões de fábrica dos cargos seed (Administrador, Atendente, Advogado). */
+export function permissoesPadraoPorNome(nome: string): PermissoesCargo | null {
+  const chave = nome.trim().toLocaleLowerCase("pt-BR");
+  if (chave === "administrador") return parsePermissoesJson(PERMISSAO_JSON_ADMIN);
+  if (chave === "atendente") return parsePermissoesJson(PERMISSAO_JSON_ATENDENTE);
+  if (chave === "advogado") return parsePermissoesJson(PERMISSAO_JSON_ADVOGADO);
+  return null;
+}

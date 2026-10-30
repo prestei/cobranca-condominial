@@ -10,7 +10,9 @@
     "db:up": "bash scripts/db-up.sh",
     "db:down": "bash scripts/db-down.sh",
     "db:logs": "docker compose logs -f db",
-    "test": "node --test src/lib/debitos/indicadores.test.mjs src/lib/acordos/resumo.test.mjs"
+    "test": "node --test src/lib/debitos/indicadores.test.mjs src/lib/acordos/resumo.test.mjs src/lib/colaboradores/re-sequencia.test.mjs src/lib/auditoria/sanitize.test.mjs src/lib/auditoria/periodo.test.mjs && node --import tsx --test src/test/fluxos-permissoes.integracao.test.ts",
+    "test:unit": "node --test src/lib/debitos/indicadores.test.mjs src/lib/acordos/resumo.test.mjs src/lib/colaboradores/re-sequencia.test.mjs src/lib/auditoria/sanitize.test.mjs src/lib/auditoria/periodo.test.mjs",
+    "test:integracao": "node --import tsx --test src/test/fluxos-permissoes.integracao.test.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
@@ -19,6 +21,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^6.3.5"
   },

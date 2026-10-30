@@ -70,12 +70,13 @@ Colaborador que opera o sistema.
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | codigo | VARCHAR(32) | não | único | Código de login do colaborador |
-| codigo_re | VARCHAR(16) | sim | único quando preenchido | RE operacional do atendente |
+| codigo_re | VARCHAR(16) | sim | único quando preenchido | RE operacional do atendente (`RE-10000` …) |
 | cargo_id | INT | sim | FK → role.id | Cargo |
 | nome | VARCHAR(255) | sim | | |
 | telefone | VARCHAR(255) | sim | | |
 | email | VARCHAR(255) | sim | | |
 | senha | VARCHAR(255) | sim | | Senha |
+| ativo | BOOLEAN | não | padrão `true` | Colaborador inativo não autentica; RE permanece reservado |
 
 ## condominium
 

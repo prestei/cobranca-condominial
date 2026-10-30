@@ -1,6 +1,6 @@
 # Design system
 
-Tokens em `src/app/globals.css` (`@theme`). Tipografia: **Open Sans** em todo o projeto (`font-sans` no `body`; sem fonte com serifa). Componentes globais em `src/components/` — importar de `@/components/...` e usar em qualquer página. A rota `/design-system` é o arquivo `src/pages/design-system.tsx`, que só lista esses componentes.
+Tokens em `src/app/globals.css` (`@theme`). Tipografia: **Open Sans** self-hosted (`src/app/fonts/open-sans/`, `src/lib/fonts/open-sans.ts` + `next/font/local`; sem fetch ao Google Fonts no dev). Componentes globais em `src/components/` — importar de `@/components/...` e usar em qualquer página. A rota `/design-system` é o arquivo `src/pages/design-system.tsx`, que só lista esses componentes.
 
 ## Componentes
 
@@ -28,7 +28,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
 | `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. padrão `max-w-sheet` (`calc(32rem + 150px)` em `@theme`); `SheetContent size="wide"` → 52rem somente quando documentado para a tela. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
-| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
+| `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: contador e barra de progresso, **Restaurar padrão** / **Desmarcar tudo**, cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
 | `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: badges por área do sistema; `title` com o detalhe das ações. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |

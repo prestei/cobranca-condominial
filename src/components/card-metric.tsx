@@ -43,10 +43,10 @@ export function CardMetric({
         {accent ? (
           <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col gap-xs p-md">
+        <div className="flex min-w-0 flex-1 flex-col gap-xs p-lg">
           <div className="flex items-start gap-sm">
             <div
-              className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+              className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
               aria-hidden="true"
             >
               {icon}
@@ -62,16 +62,18 @@ export function CardMetric({
 
   return (
     <article
-      className={`flex h-full min-w-0 items-center gap-md overflow-hidden rounded-xl border border-border-subtle bg-surface-card p-md shadow-card ${className ?? ""}`}
+      className={`flex h-full min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card ${className ?? ""}`}
     >
       {accent ? <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" /> : null}
-      <div
-        className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
-        aria-hidden="true"
-      >
-        {icon}
+      <div className="flex min-w-0 flex-1 items-center gap-md p-lg">
+        <div
+          className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+          aria-hidden="true"
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
-      <div className="min-w-0 flex-1">{children}</div>
     </article>
   );
 }

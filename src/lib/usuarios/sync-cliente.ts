@@ -66,8 +66,8 @@ export async function garantirUsuariosPersistidosNoServidor(): Promise<Resultado
         nome: item.nome,
         telefone: item.telefone,
         email: item.email,
-        codigoRe: item.codigoRe,
         senha: item.senha || undefined,
+        ativo: item.ativo !== false,
       }),
     });
     let body: { usuario?: UsuarioPublico; error?: string } = {};

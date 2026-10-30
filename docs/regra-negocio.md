@@ -107,7 +107,10 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Colaboradores e permissões
 
-- Cadastro de colaboradores
+- Cadastro de colaboradores em `/usuarios` (somente perfil com `usuarios.criar` / `usuarios.editar`, em geral Administradora).
+- **Código RE:** atendentes recebem identificador sequencial `RE-10000`, `RE-10001`, … gerado **no servidor** na criação; imutável; único no cadastro; inativos mantêm o RE reservado (não reutilizado). Administrador e Advogado não recebem RE — continuam identificados pelo nome no cadastro. Telas operacionais (fila, retornos, distribuição, relatórios por RE) exibem o RE no lugar do nome do atendente.
+- Ativação/desativação: inativo não autentica; reativação restaura o mesmo RE.
+- Advogados: vínculo aos condomínios via lista `advogados` no cadastro do condomínio (nome do colaborador), editável no sheet do colaborador.
 - Cargos e permissões configuráveis pelo administrador: para cada módulo do sistema, o cargo define se pode **ver**, **criar**, **editar**, **excluir** e, em relatórios, **exportar** (matriz em `/cargos`, persistida em `role.permissao_json`).
 - Controle de acesso: menu e rotas respeitam permissão de **ver**; botões de mutação respeitam criar/editar/excluir/exportar. Sem permissão de ver → página `/acesso-negado`.
 
@@ -180,7 +183,8 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - **Encaminhamento jurídico (T17):** registro via módulo `juridico` (`POST /api/juridico/encaminhamentos`) com unidade, condomínio, autor, advogado vinculado ao condomínio, débitos opcionais e contexto. Acompanhamento em `/juridico` e sheet na fila/histórico; status provisórios em `statusEncaminhamentoJuridico`; transições e escopo validados em `src/lib/juridico/service.ts`. **Advogado** consulta e edita apenas condomínios do seu vínculo; documentos (metadados) exigem `juridico.ler`. Eventos na linha do tempo (T12). Alterações em `audit_log`. **Não** ajuíza ações nem envia documentos a tribunais automaticamente. Checklist documental, campos processuais e integrações: [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
 - Análise para cobrança judicial (fluxo manual fora do sistema)
 - Documentos da cobrança (metadados internos; upload/armazenamento oficial pendente)
-- **Relatórios (T19):** hub `/relatorios` (equipe, retornos, efetividade, carteira). Filtros respeitam `escopoCondominios` e permissões; exportação via `GET /api/relatorios/export` exige `relatorios.exportar` e repete os mesmos filtros da tela, com data/hora de geração e RE (não nome) para atendentes. CSV UTF-8 com BOM; XLS via XML SpreadsheetML (padrão do projeto). Sem dados ilustrativos na UI.
+- **Relatórios (T19):** hub `/relatorios` (produtividade por RE, equipe, retornos, efetividade, carteira). Filtros respeitam `escopoCondominios` e permissões; exportação via `GET /api/relatorios/export` exige `relatorios.exportar` e repete os mesmos filtros da tela, com data/hora de geração e RE (não nome) para atendentes. CSV UTF-8 com BOM; XLS via XML SpreadsheetML (padrão do projeto). Sem dados ilustrativos na UI.
+- **Produtividade por RE (T23):** tela `/relatorios/produtividade` (exclusiva da administradora — `usuarios.criar`). Período obrigatório; filtros opcionais por condomínio, advogado e RE. UI consome `GET /api/relatorios/produtividade`. Indicadores objetivos por colaborador: atendimentos (autor), retornos concluídos, negociações criadas, ações agendadas no registro e acordos confirmados; exportação inclui também retornos previstos/atrasados/em aberto e carteira vigente. Definições exibidas na tela. Sem ranking, metas ou pontuação automática.
 - Relatórios por condomínio / advogado / RE (administradora)
 - Histórico completo das ações
 - Auditoria das alterações
@@ -189,7 +193,8 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 - **Quem consulta:** perfil com permissão `auditoria.ler` (Administradora no seed padrão).
 - **Como:** tela `/auditoria` e `GET /api/auditoria` (somente leitura).
-- **Gravação:** automática via `registrarAuditoria` nos serviços de API após INSERT/UPDATE/DELETE; não há exclusão de eventos pela interface.
+- **Gravação:** automática via `registrarAuditoria` nos serviços de API após INSERT/UPDATE/DELETE; sanitização centralizada (sem senhas/tokens); não há exclusão de eventos pela interface.
+- **Consulta:** filtros por período, colaborador/RE, entidade e tipo de ação em `GET /api/auditoria`; atendentes identificados por **RE** na coluna *Quem fez*.
 - Detalhes por entidade e contrato: [modulos/auditoria.md](modulos/auditoria.md).
 
 ---

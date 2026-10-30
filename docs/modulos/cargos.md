@@ -40,11 +40,18 @@ Protótipo em memória (`setCargos` em `catalogo.ts`). Modelo lógico em `docs/b
 
 ## API e contratos
 
-Nenhuma API dedicada a cargos no protótipo. Sessão: `cargoId` no JWT (`SessionUser` em `src/lib/auth/types.ts`).
+| Método | Path | Permissão | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/cargos` | `cargos.ler` | `{ cargos: Cargo[] }` |
+| POST | `/api/cargos` | `cargos.criar` | `201` `{ cargo }` — auditoria `role` INSERT |
+| PATCH | `/api/cargos/:id` | `cargos.editar` | `{ cargo }` — auditoria com resumo de permissões antes/depois |
+| DELETE | `/api/cargos/:id` | `cargos.excluir` | `{ ok: true }` — bloqueado se houver colaboradores |
+
+Serviço: `src/lib/cargos/service.ts`. Sessão: `cargoId` no JWT (`SessionUser` em `src/lib/auth/types.ts`).
 
 ## Fluxos principais
 
-1. Admin abre `/cargos` → **Novo** ou **Editar** → preenche nome, descrição e matriz por módulo → salva (`permissaoJson` serializado).
+1. Admin abre `/cargos` → **Novo** ou **Editar** → preenche nome, descrição e matriz por módulo → salva via API (`permissaoJson` serializado no servidor).
 2. Colaborador faz login → permissões derivadas do `cargoId` + `permissaoJson` do cargo.
 3. Tentativa de abrir rota sem `ler` → redirecionamento para `/acesso-negado?modulo=…`.
 
@@ -60,9 +67,9 @@ Nenhuma.
 
 ## Estados de interface
 
-- Listagem: coluna **Áreas com acesso** com `ResumoPermissoesCargo` (badge por módulo; passe o mouse para ver ações).
-- Mobile: métricas em **carrossel** (`CardMetricRow` — um `CardMetric` por vez, deslize ou aguarde 5s; pontos indicam a posição); desktop em grid de 3 colunas. Cards de lista com **Descrição** e **Áreas com acesso** em `TableMobileField` com `stacked` (rótulo acima do valor; badges com `flex-wrap`).
-- Lista vazia / filtro sem resultado; sheet de cadastro com bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e lista `MatrizPermissoesCargo` (um cartão por área do sistema, checkboxes com rótulos em linguagem simples — Consultar, Cadastrar, Alterar, Excluir, Exportar dados); sheet no tamanho padrão do sistema (`max-w-sheet`); confirmação de exclusão e de saída com dados preenchidos.
+- Listagem: colunas **Áreas com acesso** (`ResumoPermissoesCargo` — badge por módulo; passe o mouse para ver ações) e **Colaboradores** (quantidade vinculada ao cargo).
+- Mobile: métricas em **carrossel** (`CardMetricRow` — um `CardMetric` por vez, deslize ou aguarde 5s; pontos indicam a posição); desktop em grid de 3 colunas. Indicadores no modo `rotulo` / `valor` / `detalhe` com faixa lateral (`accent`). Cards de lista com **Descrição**, **Áreas com acesso** (stacked) e **Colaboradores**.
+- Lista vazia / filtro sem resultado; sheet **wide** com cabeçalho em destaque (`primary-fixed`), título dinâmico (nome do cargo), bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e `MatrizPermissoesCargo` (barra de progresso `módulos com acesso`, atalhos **Restaurar padrão** — seeds Administrador/Atendente/Advogado ou estado ao abrir — e **Desmarcar tudo**; um cartão por área, checkboxes Consultar, Cadastrar, Alterar, Excluir, Exportar dados); rodapé **Cancelar** + **Salvar**; confirmação de exclusão e de saída com dados preenchidos.
 
 ## Pendências e decisões
 

@@ -3,12 +3,11 @@ import {
   getCadastros,
   nomeCondominio,
   nomeUnidade,
-  nomeUsuario,
   situacaoRetorno,
   type Atendimento,
   type AtribuicaoCobranca,
 } from "@/data/catalogo";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario, identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -111,12 +110,12 @@ function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
     situacaoAgenda,
     dataHoraAtendimento: atendimento.dataHora,
     atendimentoAutorId: atendimento.usuarioId,
-    atendimentoAutorNome: nomeUsuario(atendimento.usuarioId),
+    atendimentoAutorNome: identificadorColaboradorPorId(atendimento.usuarioId),
     proximaAcao: atendimento.proximaAcao,
     observacao: atendimento.descricao,
     retornoConcluidoEm: concluido ? atendimento.retornoConcluidoEm : null,
     retornoConcluidoPorId: concluidoPorId,
-    retornoConcluidoPorNome: concluidoPorId != null ? nomeUsuario(concluidoPorId) : null,
+    retornoConcluidoPorNome: concluidoPorId != null ? identificadorColaboradorPorId(concluidoPorId) : null,
   };
 }
 

@@ -59,6 +59,8 @@ type FilterBarProps = {
   clearLabel?: string;
   /** `toolbar`: uma linha (mockup fila de cobranças) — busca com ícone, selects «Label: valor», Filtrar com funil. */
   variant?: "default" | "toolbar";
+  /** Com `variant="toolbar"`, distribui busca/cargo/situação em proporções fixas no desktop. */
+  toolbarLayout?: "flex" | "proportional";
 };
 
 export function FilterBar({
@@ -73,6 +75,7 @@ export function FilterBar({
   applyLabel = "Filtrar",
   clearLabel = "Limpar",
   variant = "default",
+  toolbarLayout = "flex",
 }: FilterBarProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,12 +119,27 @@ export function FilterBar({
   }
 
   if (variant === "toolbar") {
+    const toolbarFormClass =
+      toolbarLayout === "proportional"
+        ? "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1024px]:grid min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center min-[1024px]:gap-md"
+        : "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center";
+
+    const searchWrapClass =
+      toolbarLayout === "proportional"
+        ? "relative min-w-0"
+        : "relative min-w-[12rem] flex-1 basis-[14rem]";
+
+    const fieldWrapClass =
+      toolbarLayout === "proportional" ? "min-w-0" : "min-w-[9.5rem] flex-1 basis-[11rem]";
+
+    const actionsWrapClass =
+      toolbarLayout === "proportional"
+        ? "flex shrink-0 items-center justify-end gap-sm min-[1024px]:justify-end"
+        : "flex shrink-0 items-center justify-end gap-sm min-[1100px]:ml-auto";
+
     return (
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center"
-      >
-        <div className="relative min-w-[12rem] flex-1 basis-[14rem]">
+      <form onSubmit={handleSubmit} className={toolbarFormClass}>
+        <div className={searchWrapClass}>
           <label htmlFor={searchId} className="sr-only">
             {searchLabel}
           </label>
@@ -141,7 +159,7 @@ export function FilterBar({
         </div>
 
         {fields.map((field) => (
-          <div key={field.id} className="min-w-[9.5rem] flex-1 basis-[11rem]">
+          <div key={field.id} className={fieldWrapClass}>
             <label htmlFor={field.id} className="sr-only">
               {field.label}
             </label>
@@ -149,7 +167,7 @@ export function FilterBar({
           </div>
         ))}
 
-        <div className="flex shrink-0 items-center justify-end gap-sm min-[1100px]:ml-auto">
+        <div className={actionsWrapClass}>
           <Button type="button" variant="outline" size="sm" onClick={onClear}>
             <Icon icon={RotateCcw} size="sm" />
             {clearLabel}
@@ -189,7 +207,7 @@ export function FilterBar({
           {clearLabel}
         </Button>
         <Button type="submit" size="sm">
-          <Icon icon={Search} size="sm" />
+          <Icon icon={Filter} size="sm" />
           {applyLabel}
         </Button>
       </div>

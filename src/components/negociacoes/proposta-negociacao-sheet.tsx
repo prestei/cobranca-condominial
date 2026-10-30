@@ -28,9 +28,9 @@ import {
   formatarData,
   formatarMoeda,
   getCadastros,
-  nomeUsuario,
   type PropostaNegociacao,
 } from "@/data/catalogo";
+import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
 import { aplicarPropostaSalva } from "@/lib/negociacoes/sync-cliente";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -248,7 +248,7 @@ export function PropostaNegociacaoSheet({
                       Valor proposto: <strong>{formatarMoeda(item.valorProposto)}</strong>
                     </p>
                     <p className="text-body-sm text-on-surface-variant">
-                      Autor: {nomeUsuario(item.usuarioId)} · Débitos {item.debitoIds.join(", ")}
+                      Autor: {identificadorColaboradorPorId(item.usuarioId)} · Débitos {item.debitoIds.join(", ")}
                     </p>
                     {item.observacoes ? (
                       <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p>

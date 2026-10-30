@@ -5,8 +5,16 @@ import {
   setUsuarios,
   type Usuario,
 } from "@/data/catalogo";
+import { usuarioEhAtendente } from "@/lib/colaboradores/re";
+import {
+  codigoReEmUso,
+  codigoReValido,
+  normalizarCodigoRe,
+  reservarCodigoRe,
+} from "@/lib/colaboradores/re-sequencia";
 import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { hashPassword, isPasswordHash } from "@/lib/auth/password";
+import { sincronizarCondominiosAdvogado } from "@/lib/usuarios/advogado-condominios";
 import { usuarioParaResposta, type UsuarioPublico } from "@/lib/usuarios/apresentacao";
 
 export type UsuarioInput = {
@@ -16,7 +24,10 @@ export type UsuarioInput = {
   telefone: string;
   email: string;
   senha?: string;
+  /** Ignorado pelo servidor — RE é gerado apenas para atendentes. */
   codigoRe?: string;
+  ativo?: boolean;
+  condominioIds?: number[];
 };
 
 export class UsuarioServiceError extends Error {
@@ -59,7 +70,35 @@ function usuarioEmUso(usuarioId: number) {
   );
 }
 
-async function validarEntrada(input: UsuarioInput, editingId: number | null): Promise<Omit<Usuario, "id">> {
+function resolverCodigoRePersistente(
+  cargoId: number,
+  anterior: Usuario | undefined,
+  usuariosAtuais: Usuario[],
+): string | undefined {
+  const candidato: Usuario = anterior
+    ? { ...anterior, cargoId }
+    : { id: -1, codigo: "", cargoId, nome: "", telefone: "", email: "", senha: "", ativo: true };
+
+  if (!usuarioEhAtendente(candidato)) {
+    return undefined;
+  }
+
+  const reAnterior = anterior?.codigoRe?.trim();
+  if (reAnterior && codigoReValido(reAnterior)) {
+    const normalizado = normalizarCodigoRe(reAnterior);
+    if (codigoReEmUso(normalizado, usuariosAtuais, anterior?.id ?? null)) {
+      throw new UsuarioServiceError("Código RE em conflito no cadastro.", 409);
+    }
+    return normalizado;
+  }
+
+  return undefined;
+}
+
+async function validarEntrada(
+  input: UsuarioInput,
+  editingId: number | null,
+): Promise<Omit<Usuario, "id" | "codigoRe">> {
   const nome = input.nome.trim();
   if (!nome) {
     throw new UsuarioServiceError("Informe o nome.", 400);
@@ -113,7 +152,8 @@ async function validarEntrada(input: UsuarioInput, editingId: number | null): Pr
     throw new UsuarioServiceError("Senha do colaborador inválida. Informe uma nova senha.", 400);
   }
 
-  const codigoRe = input.codigoRe?.trim();
+  const ativo = input.ativo !== undefined ? Boolean(input.ativo) : (anterior?.ativo ?? true);
+
   return {
     codigo,
     cargoId,
@@ -121,8 +161,16 @@ async function validarEntrada(input: UsuarioInput, editingId: number | null): Pr
     telefone: input.telefone.trim(),
     email,
     senha,
-    ...(codigoRe ? { codigoRe } : anterior?.codigoRe ? { codigoRe: anterior.codigoRe } : {}),
+    ativo,
   };
+}
+
+function montarUsuarioComRe(
+  base: Omit<Usuario, "id" | "codigoRe">,
+  usuarioId: number,
+  codigoRe: string | undefined,
+): Usuario {
+  return codigoRe ? { id: usuarioId, ...base, codigoRe } : { id: usuarioId, ...base };
 }
 
 export function listarUsuarios(): UsuarioPublico[] {
@@ -135,7 +183,7 @@ export async function criarUsuario(
   options?: { id?: number },
   meta?: { ip?: string; userAgent?: string },
 ): Promise<UsuarioPublico> {
-  const dados = await validarEntrada(input, null);
+  const base = await validarEntrada(input, null);
 
   let nextId = options?.id;
   if (nextId !== undefined) {
@@ -149,16 +197,42 @@ export async function criarUsuario(
     nextId = proximoNumero(getCadastros().usuarios.map((item) => item.id));
   }
 
-  const usuario: Usuario = { id: nextId, ...dados };
-  setUsuarios((current) => [...current, usuario]);
+  const usuariosAtuais = getCadastros().usuarios;
+  const reExistente = resolverCodigoRePersistente(base.cargoId, undefined, usuariosAtuais);
+  const precisaGerarRe = usuarioEhAtendente({ ...base, id: nextId }) && !reExistente;
+
+  let usuario: Usuario;
+
+  if (precisaGerarRe) {
+    usuario = await reservarCodigoRe(usuariosAtuais, (codigoRe) => {
+      const criado = montarUsuarioComRe(base, nextId!, codigoRe);
+      setUsuarios((current) => [...current, criado]);
+      return criado;
+    });
+  } else {
+    usuario = montarUsuarioComRe(base, nextId, reExistente);
+    setUsuarios((current) => [...current, usuario]);
+  }
+
+  if (input.condominioIds) {
+    sincronizarCondominiosAdvogado(
+      actorUserId,
+      usuario.id,
+      usuario.cargoId,
+      usuario.nome,
+      input.condominioIds,
+      meta,
+    );
+  }
+
   registrarAuditoria(
     {
       entidade: "user",
       registroId: String(nextId),
       acao: "INSERT",
       dadosAnteriores: "",
-      dadosNovos: usuario.nome,
-      camposAlterados: "codigo, nome, cargo_id, email",
+      dadosNovos: usuario.codigoRe ? `${usuario.codigoRe} · ${usuario.nome}` : usuario.nome,
+      camposAlterados: usuario.codigoRe ? "codigo, nome, cargo_id, email, codigo_re" : "codigo, nome, cargo_id, email",
     },
     actorUserId,
     meta,
@@ -177,17 +251,78 @@ export async function atualizarUsuario(
     throw new UsuarioServiceError("Colaborador não encontrado.", 404);
   }
 
-  const dados = await validarEntrada({ ...input, codigoRe: input.codigoRe ?? atual.codigoRe }, usuarioId);
-  const atualizado: Usuario = { id: usuarioId, ...dados };
-  setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
+  const base = await validarEntrada(input, usuarioId);
+  const usuariosAtuais = getCadastros().usuarios.filter((item) => item.id !== usuarioId);
+  let codigoRe = resolverCodigoRePersistente(base.cargoId, atual, usuariosAtuais);
+
+  const precisaGerarRe = usuarioEhAtendente({ ...base, id: usuarioId }) && !codigoRe;
+
+  let atualizado: Usuario;
+
+  if (precisaGerarRe) {
+    atualizado = await reservarCodigoRe(getCadastros().usuarios, (novoRe) => {
+      const next = montarUsuarioComRe(base, usuarioId, novoRe);
+      setUsuarios((current) => current.map((item) => (item.id === usuarioId ? next : item)));
+      return next;
+    });
+  } else {
+    atualizado = montarUsuarioComRe(base, usuarioId, codigoRe);
+    setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
+  }
+
+  if (input.condominioIds) {
+    sincronizarCondominiosAdvogado(
+      actorUserId,
+      usuarioId,
+      atualizado.cargoId,
+      atualizado.nome,
+      input.condominioIds,
+      meta,
+    );
+  }
+
   registrarAuditoria(
     {
       entidade: "user",
       registroId: String(usuarioId),
       acao: "UPDATE",
-      dadosAnteriores: atual.nome,
-      dadosNovos: atualizado.nome,
-      camposAlterados: input.senha?.trim() ? "codigo, nome, cargo_id, email, senha" : "codigo, nome, cargo_id, email",
+      dadosAnteriores: atual.codigoRe ?? atual.nome,
+      dadosNovos: atualizado.codigoRe ?? atualizado.nome,
+      camposAlterados: input.senha?.trim()
+        ? "codigo, nome, cargo_id, email, credencial_acesso, ativo"
+        : "codigo, nome, cargo_id, email, ativo",
+    },
+    actorUserId,
+    meta,
+  );
+  return usuarioParaResposta(atualizado);
+}
+
+export async function alterarSituacaoUsuario(
+  actorUserId: number,
+  usuarioId: number,
+  ativo: boolean,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<UsuarioPublico> {
+  const atual = getCadastros().usuarios.find((item) => item.id === usuarioId);
+  if (!atual) {
+    throw new UsuarioServiceError("Colaborador não encontrado.", 404);
+  }
+  if (atual.ativo === ativo) {
+    return usuarioParaResposta(atual);
+  }
+
+  const atualizado: Usuario = { ...atual, ativo };
+  setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
+
+  registrarAuditoria(
+    {
+      entidade: "user",
+      registroId: String(usuarioId),
+      acao: "UPDATE",
+      dadosAnteriores: atual.ativo === false ? "Inativo" : "Ativo",
+      dadosNovos: ativo ? "Ativo" : "Inativo",
+      camposAlterados: "ativo",
     },
     actorUserId,
     meta,

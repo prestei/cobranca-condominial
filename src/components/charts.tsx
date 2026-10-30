@@ -111,6 +111,63 @@ export function GraficoBarras({
   );
 }
 
+export function GraficoColunasAgrupadas({
+  grupos,
+  series,
+  vazio,
+  chave,
+}: {
+  grupos: Array<{ nome: string; valores: number[] }>;
+  series: Array<{ nome: string; tom?: TomGrafico }>;
+  vazio: ReactNode;
+  chave: string;
+}) {
+  const progresso = useProgresso(chave);
+  const maximo = Math.max(...grupos.flatMap((grupo) => grupo.valores), 0);
+  if (grupos.length === 0 || maximo <= 0) return vazio;
+
+  return (
+    <div className="flex flex-col gap-md">
+      <p className="flex flex-wrap gap-md text-body-sm text-on-surface-variant">
+        {series.map((item, indice) => (
+          <span key={item.nome} className="inline-flex items-center gap-xs">
+            <span className={`size-2.5 rounded-full ${preenchimento[item.tom ?? tomPorIndice(indice)]}`} />
+            {item.nome}
+          </span>
+        ))}
+      </p>
+      <div className="flex h-56 items-end gap-lg overflow-x-auto pb-xs" aria-hidden="true">
+        {grupos.map((grupo, indiceGrupo) => (
+          <div key={grupo.nome} className="flex min-w-[4.5rem] shrink-0 flex-col items-center gap-xs">
+            <div className="flex h-40 w-full items-end justify-center gap-0.5">
+              {grupo.valores.map((valor, indiceSerie) => {
+                const altura = valor <= 0 ? 0 : Math.max(4, (valor / maximo) * 100) * avanco(progresso, indiceGrupo + indiceSerie * 0.2);
+                return (
+                  <div
+                    key={`${grupo.nome}-${series[indiceSerie]?.nome ?? indiceSerie}`}
+                    className={`w-2.5 rounded-t-sm ${preenchimento[series[indiceSerie]?.tom ?? tomPorIndice(indiceSerie)]}`}
+                    style={{ height: `${casa(altura)}%` }}
+                    title={`${grupo.nome} · ${series[indiceSerie]?.nome ?? ""}: ${valor}`}
+                  />
+                );
+              })}
+            </div>
+            <span className="max-w-full truncate text-center text-body-sm text-on-surface-variant">{grupo.nome}</span>
+          </div>
+        ))}
+      </div>
+      <ListaOculta
+        itens={grupos.flatMap((grupo) =>
+          grupo.valores.map((valor, indice) => ({
+            nome: `${grupo.nome} — ${series[indice]?.nome ?? ""}`,
+            detalhe: String(valor),
+          })),
+        )}
+      />
+    </div>
+  );
+}
+
 export function GraficoColunas({
   itens,
   vazio,

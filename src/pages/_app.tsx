@@ -1,13 +1,7 @@
 import type { AppProps } from "next/app";
-import { Open_Sans } from "next/font/google";
 import { Providers } from "@/app/providers";
+import { openSans } from "@/lib/fonts/open-sans";
 import "@/app/globals.css";
-
-const openSans = Open_Sans({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-open-sans",
-});
 
 export default function App({ Component, pageProps }: AppProps) {
   return (

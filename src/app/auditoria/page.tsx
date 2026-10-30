@@ -43,12 +43,8 @@ import {
   type TableSortDirection,
 } from "@/components/table";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  acoesAuditoria,
-  formatarData,
-  nomeUsuario,
-  type Auditoria,
-} from "@/data/catalogo";
+import { acoesAuditoria, formatarData, type Auditoria } from "@/data/catalogo";
+import type { PeriodValue } from "@/components/period-input";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import {
@@ -60,9 +56,12 @@ import {
   textoAmigavelDados,
   textoTecnicoFormatado,
 } from "@/lib/auditoria/apresentacao";
+import { rotuloAutorAuditoria } from "@/lib/auditoria/autor";
 import { sincronizarAuditoriaDoServidor } from "@/lib/auditoria/sync-cliente";
 
 type SortKey = "data" | "tipo" | "acao";
+
+const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
@@ -86,6 +85,10 @@ export default function AuditoriaPage() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedEntidade, setAppliedEntidade] = useState("todas");
   const [appliedAcao, setAppliedAcao] = useState("todas");
+  const [periodo, setPeriodo] = useState<PeriodValue>(periodoTodos);
+  const [autorId, setAutorId] = useState("todos");
+  const [appliedPeriodo, setAppliedPeriodo] = useState<PeriodValue>(periodoTodos);
+  const [appliedAutorId, setAppliedAutorId] = useState("todos");
   const [sortKey, setSortKey] = useState<SortKey>("data");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -102,7 +105,17 @@ export default function AuditoriaPage() {
     setCarregando(true);
     setErroCarregamento("");
     try {
-      const response = await fetch("/api/auditoria", { credentials: "same-origin" });
+      const params = new URLSearchParams();
+      if (appliedEntidade !== "todas") params.set("entidade", appliedEntidade);
+      if (appliedAcao !== "todas") params.set("acao", appliedAcao);
+      if (appliedSearch.trim()) params.set("q", appliedSearch.trim());
+      if (appliedPeriodo.de.trim()) params.set("dataDe", appliedPeriodo.de.trim());
+      if (appliedPeriodo.ate.trim()) params.set("dataAte", appliedPeriodo.ate.trim());
+      if (appliedAutorId !== "todos") params.set("usuarioId", appliedAutorId);
+      const queryString = params.toString();
+      const response = await fetch(`/api/auditoria${queryString ? `?${queryString}` : ""}`, {
+        credentials: "same-origin",
+      });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
         setErroCarregamento(body?.error ?? "Não foi possível carregar o histórico.");
@@ -115,11 +128,20 @@ export default function AuditoriaPage() {
     } finally {
       setCarregando(false);
     }
-  }, [sessao]);
+  }, [sessao, appliedEntidade, appliedAcao, appliedSearch, appliedPeriodo, appliedAutorId]);
 
   useEffect(() => {
     void recarregarAuditoria();
   }, [recarregarAuditoria]);
+
+  const opcoesAutores = Array.from(
+    new Map(
+      cadastros.usuarios.map((usuario) => [
+        usuario.id,
+        { value: String(usuario.id), label: rotuloAutorAuditoria(usuario.id) },
+      ]),
+    ).values(),
+  ).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
   const entidades = Array.from(new Set(auditoria.map((item) => item.entidade))).sort((a, b) =>
     (rotuloTipoRegistro[a] ?? a).localeCompare(rotuloTipoRegistro[b] ?? b, "pt-BR"),
@@ -128,10 +150,8 @@ export default function AuditoriaPage() {
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = auditoria
     .filter((item) => {
-      const matchesEntidade = appliedEntidade === "todas" || item.entidade === appliedEntidade;
-      const matchesAcao = appliedAcao === "todas" || item.acao === appliedAcao;
-      const haystack = `${item.registroId} ${item.camposAlterados} ${item.dadosAnteriores} ${item.dadosNovos} ${nomeUsuario(item.usuarioId)} ${resumoLinha(item)} ${rotuloTipoRegistro[item.entidade] ?? ""}`.toLocaleLowerCase("pt-BR");
-      return matchesEntidade && matchesAcao && (query.length === 0 || haystack.includes(query));
+      const haystack = `${item.registroId} ${item.camposAlterados} ${item.dadosAnteriores} ${item.dadosNovos} ${rotuloAutorAuditoria(item.usuarioId)} ${resumoLinha(item)} ${rotuloTipoRegistro[item.entidade] ?? ""}`.toLocaleLowerCase("pt-BR");
+      return query.length === 0 || haystack.includes(query);
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
@@ -179,6 +199,8 @@ export default function AuditoriaPage() {
     setAppliedSearch(search);
     setAppliedEntidade(entidade);
     setAppliedAcao(acao);
+    setAppliedPeriodo(periodo);
+    setAppliedAutorId(autorId);
     setPage(1);
   }
 
@@ -186,9 +208,13 @@ export default function AuditoriaPage() {
     setSearch("");
     setEntidade("todas");
     setAcao("todas");
+    setPeriodo(periodoTodos);
+    setAutorId("todos");
     setAppliedSearch("");
     setAppliedEntidade("todas");
     setAppliedAcao("todas");
+    setAppliedPeriodo(periodoTodos);
+    setAppliedAutorId("todos");
     setPage(1);
   }
 
@@ -252,7 +278,7 @@ export default function AuditoriaPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{formatarData(item.dataHora)}</TableCell>
-              <TableCell>{nomeUsuario(item.usuarioId)}</TableCell>
+              <TableCell>{rotuloAutorAuditoria(item.usuarioId)}</TableCell>
               <TableCell>{rotuloTipoRegistro[item.entidade] ?? "Outro cadastro"}</TableCell>
               <TableCell>
                 <Badge variant={badgeAcaoVariant(item.acao)}>{rotuloAcao(item.acao)}</Badge>
@@ -282,7 +308,7 @@ export default function AuditoriaPage() {
             </TableMobileCardHeader>
             <TableMobileFields>
               <TableMobileField label="Quando">{formatarData(item.dataHora)}</TableMobileField>
-              <TableMobileField label="Quem fez">{nomeUsuario(item.usuarioId)}</TableMobileField>
+              <TableMobileField label="Quem fez">{rotuloAutorAuditoria(item.usuarioId)}</TableMobileField>
               <TableMobileField label="Onde">{rotuloTipoRegistro[item.entidade] ?? "Outro cadastro"}</TableMobileField>
             </TableMobileFields>
           </TableMobileCard>
@@ -307,10 +333,24 @@ export default function AuditoriaPage() {
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Buscar por nome, resumo ou palavra-chave..."
+          searchPlaceholder="Buscar por RE, resumo ou palavra-chave..."
           onApply={handleApply}
           onClear={handleClear}
           fields={[
+            {
+              id: "periodo",
+              label: "Período",
+              type: "period",
+              value: periodo,
+              onChange: setPeriodo,
+            },
+            {
+              id: "autor",
+              label: "Quem fez",
+              value: autorId,
+              onChange: setAutorId,
+              options: [{ value: "todos", label: "Todos" }, ...opcoesAutores],
+            },
             {
               id: "entidade",
               label: "Tipo de registro",
@@ -363,7 +403,7 @@ export default function AuditoriaPage() {
                   <SheetHeaderText>
                     <SheetTitle id={`${sheetId}-titulo`}>{resumoLinha(detalhe)}</SheetTitle>
                     <SheetDescription id={`${sheetId}-desc`}>
-                      {formatarData(detalhe.dataHora)} · feito por {nomeUsuario(detalhe.usuarioId)}
+                      {formatarData(detalhe.dataHora)} · feito por {rotuloAutorAuditoria(detalhe.usuarioId)}
                     </SheetDescription>
                   </SheetHeaderText>
                 </SheetHeaderLead>
@@ -373,7 +413,7 @@ export default function AuditoriaPage() {
                 <SheetPanel variant="tint">
                   <div className="grid grid-cols-1 gap-md min-[480px]:grid-cols-2">
                     <DetalheCampo label="Quando" value={formatarData(detalhe.dataHora)} />
-                    <DetalheCampo label="Quem fez" value={nomeUsuario(detalhe.usuarioId)} />
+                    <DetalheCampo label="Quem fez" value={rotuloAutorAuditoria(detalhe.usuarioId)} />
                     <DetalheCampo label="Onde" value={rotuloTipoRegistro[detalhe.entidade] ?? "Outro cadastro"} />
                     <DetalheCampo label="O que aconteceu" value={rotuloAcao(detalhe.acao)} />
                     <DetalheCampo label="Código do item" value={detalhe.registroId ? `#${detalhe.registroId}` : "—"} />

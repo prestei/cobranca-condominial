@@ -13,6 +13,7 @@ Documentação **por módulo funcional**. Cada implementação ou alteração re
 | Jurídico (encaminhamento T17) | [juridico.md](juridico.md) | `/juridico` |
 | Importações | [importacoes.md](importacoes.md) | `/importacoes` |
 | Relatórios | [relatorios.md](relatorios.md) | `/relatorios` |
+| Indicadores | [indicadores.md](indicadores.md) | `/indicadores` |
 | Usuários | [usuarios.md](usuarios.md) | `/usuarios` |
 | Cargos / perfis | [cargos.md](cargos.md) | `/cargos` |
 | Auditoria | [auditoria.md](auditoria.md) | `/auditoria` |

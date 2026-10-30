@@ -23,6 +23,7 @@ import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re
 import { listarDebitos } from "@/lib/debitos/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { montarPainelProdutividadePorRe } from "@/lib/relatorios/produtividade";
 import { listarRetornosAgenda } from "@/lib/retornos/service";
 
 export class RelatorioServiceError extends Error {
@@ -34,7 +35,7 @@ export class RelatorioServiceError extends Error {
   }
 }
 
-export type RelatorioTipo = "equipe" | "retornos" | "efetividade" | "carteira";
+export type RelatorioTipo = "equipe" | "produtividade" | "retornos" | "efetividade" | "carteira";
 
 export type RelatorioFiltros = {
   busca: string;
@@ -148,7 +149,13 @@ export function parseRelatorioFiltros(searchParams: URLSearchParams, tipo: Relat
 }
 
 export function assertRelatorioTipo(valor: string | null): RelatorioTipo {
-  if (valor === "equipe" || valor === "retornos" || valor === "efetividade" || valor === "carteira") {
+  if (
+    valor === "equipe" ||
+    valor === "produtividade" ||
+    valor === "retornos" ||
+    valor === "efetividade" ||
+    valor === "carteira"
+  ) {
     return valor;
   }
   throw new RelatorioServiceError("Informe um tipo de relatório válido.", 400);
@@ -351,6 +358,63 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
           titulo: "Unidades contatadas",
           colunas: ["Unidade", "Condomínio", "Contatos", "Resultado"],
           linhas: cruzamento.map((linha) => [linha.unidade, linha.condominio, String(linha.contatos), linha.resultado]),
+        },
+      ],
+    };
+  }
+
+  if (tipo === "produtividade") {
+    const painel = montarPainelProdutividadePorRe(userId, filtros);
+    const linhasResumo = painel.linhas.map((linha) => [
+      linha.codigoRe,
+      String(linha.atendimentosRegistrados),
+      String(linha.retornosConcluidos),
+      String(linha.negociacoesRegistradas),
+      String(linha.acoesRegistradas),
+      String(linha.acordosConfirmados),
+      String(linha.retornosPrevistos),
+      String(linha.retornosAtrasados),
+      String(linha.retornosEmAberto),
+      String(linha.cobrancasAtribuidas),
+    ]);
+    const meios = [...new Set(painel.linhas.flatMap((linha) => Object.keys(linha.porMeio)))].sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    );
+    const linhasMeio = painel.linhas.flatMap((linha) =>
+      meios
+        .filter((meio) => (linha.porMeio[meio] ?? 0) > 0)
+        .map((meio) => [linha.codigoRe, meio, String(linha.porMeio[meio] ?? 0)]),
+    );
+    return {
+      titulo: "Produtividade por RE",
+      nomeArquivo: "produtividade-por-re",
+      meta: { geradoEm, filtros: metaFiltros },
+      secoes: [
+        {
+          titulo: "Indicadores por RE",
+          colunas: [
+            "RE",
+            "Atendimentos",
+            "Retornos concluídos",
+            "Negociações",
+            "Ações agendadas",
+            "Acordos confirmados",
+            "Retornos previstos",
+            "Retornos atrasados",
+            "Retornos em aberto",
+            "Cobranças na carteira",
+          ],
+          linhas: linhasResumo,
+        },
+        {
+          titulo: "Atendimentos por meio (período)",
+          colunas: ["RE", "Meio", "Quantidade"],
+          linhas: linhasMeio,
+        },
+        {
+          titulo: "Definições dos indicadores",
+          colunas: ["Definição"],
+          linhas: painel.definicoes.map((texto) => [texto]),
         },
       ],
     };

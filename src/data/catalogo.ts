@@ -1,3 +1,5 @@
+import { sanitizarCamposAlterados, sanitizarTextoAuditoria } from "@/lib/auditoria/sanitize";
+import { migrarCodigosReUsuarios } from "@/lib/colaboradores/re-sequencia";
 import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
 import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { temPermissao } from "@/lib/permissions/check";
@@ -48,13 +50,15 @@ export type Usuario = {
   id: number;
   /** Código único de login do colaborador. */
   codigo: string;
-  /** RE operacional (atendentes). */
+  /** RE operacional (atendentes). Imutável após atribuição. */
   codigoRe?: string;
   cargoId: number;
   nome: string;
   telefone: string;
   email: string;
   senha: string;
+  /** Colaborador inativo não autentica; o RE permanece reservado. */
+  ativo?: boolean;
 };
 
 export type AtribuicaoCobranca = {
@@ -331,11 +335,59 @@ const SENHA_INICIAL_HASH = "$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QF
 const SENHA_TESTE_HASH = SENHA_INICIAL_HASH;
 
 const usuariosIniciais: Usuario[] = [
-  { id: 1, codigo: "MILENA", cargoId: 1, nome: "Milena", telefone: "71999990001", email: "milena@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 2, codigo: "RAQUEL", codigoRe: "RE-001", cargoId: 2, nome: "Raquel", telefone: "71999990002", email: "raquel@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 3, codigo: "TASSIA", codigoRe: "RE-002", cargoId: 2, nome: "Tássia", telefone: "71999990003", email: "tassia@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 4, codigo: "ATD003", codigoRe: "RE-003", cargoId: 2, nome: "Atendente 3", telefone: "", email: "atendente3@escritorio.example", senha: SENHA_INICIAL_HASH },
-  { id: 5, codigo: "ADRYELLE", cargoId: 3, nome: "Dra. Adryelle", telefone: "71999990005", email: "adryelle@escritorio.example", senha: SENHA_INICIAL_HASH },
+  {
+    id: 1,
+    codigo: "MILENA",
+    cargoId: 1,
+    nome: "Milena",
+    telefone: "71999990001",
+    email: "milena@escritorio.example",
+    senha: SENHA_INICIAL_HASH,
+    ativo: true,
+  },
+  {
+    id: 2,
+    codigo: "RAQUEL",
+    codigoRe: "RE-10000",
+    cargoId: 2,
+    nome: "Raquel",
+    telefone: "71999990002",
+    email: "raquel@escritorio.example",
+    senha: SENHA_INICIAL_HASH,
+    ativo: true,
+  },
+  {
+    id: 3,
+    codigo: "TASSIA",
+    codigoRe: "RE-10001",
+    cargoId: 2,
+    nome: "Tássia",
+    telefone: "71999990003",
+    email: "tassia@escritorio.example",
+    senha: SENHA_INICIAL_HASH,
+    ativo: true,
+  },
+  {
+    id: 4,
+    codigo: "ATD003",
+    codigoRe: "RE-10002",
+    cargoId: 2,
+    nome: "Atendente 3",
+    telefone: "",
+    email: "atendente3@escritorio.example",
+    senha: SENHA_INICIAL_HASH,
+    ativo: false,
+  },
+  {
+    id: 5,
+    codigo: "ADRYELLE",
+    cargoId: 3,
+    nome: "Dra. Adryelle",
+    telefone: "71999990005",
+    email: "adryelle@escritorio.example",
+    senha: SENHA_INICIAL_HASH,
+    ativo: true,
+  },
   {
     id: 6,
     codigo: "12345",
@@ -344,6 +396,7 @@ const usuariosIniciais: Usuario[] = [
     telefone: "",
     email: "teste@escritorio.example",
     senha: SENHA_TESTE_HASH,
+    ativo: true,
   },
 ];
 
@@ -440,14 +493,21 @@ export function subscribeCadastros(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+function normalizarUsuario(item: Usuario): Usuario {
+  return { ...item, ativo: item.ativo ?? true };
+}
+
 function usuariosComSeed() {
-  const map = new Map(state.usuarios.map((item) => [item.id, item]));
+  const map = new Map(state.usuarios.map((item) => [item.id, normalizarUsuario(item)]));
   for (const seed of usuariosIniciais) {
     if (!map.has(seed.id)) {
-      map.set(seed.id, seed);
+      map.set(seed.id, normalizarUsuario(seed));
     }
   }
-  return [...map.values()].sort((a, b) => a.id - b.id);
+  const lista = [...map.values()].sort((a, b) => a.id - b.id);
+  const cargoAtendenteId = state.cargos.find((item) => item.nome === "Atendente")?.id;
+  if (cargoAtendenteId === undefined) return lista;
+  return migrarCodigosReUsuarios(lista, cargoAtendenteId);
 }
 
 function normalizarUnidade(item: Unidade): Unidade {
@@ -487,9 +547,13 @@ export function getCadastrosServerSnapshot() {
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
-  const noEstado = state.usuarios.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  const noEstado = state.usuarios.find(
+    (item) => normalizarCodigoUsuario(item.codigo) === chave && item.ativo !== false,
+  );
   if (noEstado) return noEstado;
-  return usuariosIniciais.find((item) => normalizarCodigoUsuario(item.codigo) === chave);
+  return usuariosIniciais.find(
+    (item) => normalizarCodigoUsuario(item.codigo) === chave && item.ativo !== false,
+  );
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
@@ -570,8 +634,35 @@ export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => 
   atualizar("importacoes", next);
 }
 
+/** Somente leitura/sincronização na UI — eventos são append-only via `registrarAuditoria` no servidor. */
 export function setAuditoria(next: Auditoria[] | ((current: Auditoria[]) => Auditoria[])) {
   atualizar("auditoria", next);
+}
+
+const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
+  condominios: condominiosIniciais,
+  cargos: cargosIniciais,
+  usuarios: usuariosIniciais,
+  unidades: unidadesIniciais,
+  responsaveis: responsaveisIniciais,
+  vinculos: vinculosIniciais,
+  debitos: debitosIniciais,
+  atendimentos: atendimentosIniciais,
+  propostasNegociacao: propostasNegociacaoIniciais,
+  encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
+  documentosJuridicos: documentosJuridicosIniciais,
+  parcelasAcordo: parcelasAcordoIniciais,
+  pagamentosAcordo: pagamentosAcordoIniciais,
+  atribuicoesCobranca: atribuicoesIniciais,
+  importacoes: importacoesIniciais,
+  auditoria: auditoriaInicial,
+});
+
+/** Restaura o catálogo em memória ao seed inicial — uso exclusivo em testes automatizados. */
+export function resetCadastrosParaTestes() {
+  state = structuredClone(cadastrosSnapshotParaTestes);
+  atualizarCadastrosSnapshot();
+  emit();
 }
 
 export function registrarAuditoria(
@@ -585,7 +676,12 @@ export function registrarAuditoria(
     ip: meta?.ip ?? "",
     userAgent: meta?.userAgent ?? "",
     dataHora: agoraIso(),
-    ...entry,
+    entidade: entry.entidade,
+    registroId: entry.registroId,
+    acao: entry.acao,
+    dadosAnteriores: sanitizarTextoAuditoria(entry.dadosAnteriores),
+    dadosNovos: sanitizarTextoAuditoria(entry.dadosNovos),
+    camposAlterados: sanitizarCamposAlterados(entry.camposAlterados),
   };
   state = { ...state, auditoria: [registro, ...state.auditoria] };
   atualizarCadastrosSnapshot();

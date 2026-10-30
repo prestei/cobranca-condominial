@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { AlertTriangle, FileUp, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileUp, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -155,6 +155,7 @@ export default function ImportacoesPage() {
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const concluidas = visible.filter((item) => item.status === "Concluida").length;
   const comErro = visible.filter((item) => item.status === "Erro").length;
+  const metricValor = (n: number) => String(n).padStart(2, "0");
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -468,49 +469,69 @@ export default function ImportacoesPage() {
         }
       />
       <PageContent>
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar importação..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
-            {
-              id: "tipo",
-              label: "Tipo",
-              value: tipo,
-              onChange: setTipo,
-              options: [
-                { value: "todos", label: "Todos" },
-                ...tiposImportacao.map((item) => ({ value: item, label: rotuloTipo[item] ?? item })),
-              ],
-            },
-            {
-              id: "situacao",
-              label: "Situação",
-              value: status,
-              onChange: setStatus,
-              options: [
-                { value: "todos", label: "Todas" },
-                ...statusImportacao.map((item) => ({ value: item, label: rotuloStatus[item] ?? item })),
-              ],
-            },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">importações</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={FileUp} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(concluidas).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">concluídas</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={FileUp} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comErro).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com erro</p>
-          </CardMetric>
+        <div
+          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3"
+          aria-label="Resumo de importações"
+        >
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={FileUp} size="md" className="text-primary-container" />}
+            rotulo="Importações"
+            valor={metricValor(visible.length)}
+            detalhe="No recorte atual da listagem"
+          />
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+            rotulo="Concluídas"
+            valor={metricValor(concluidas)}
+            detalhe="Processadas com sucesso"
+          />
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
+            rotulo="Com erro"
+            valor={metricValor(comErro)}
+            detalhe="Falha na validação ou gravação"
+          />
         </div>
+
+        <section className="flex flex-col gap-md">
+          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar importação..."
+            onApply={handleApply}
+            onClear={handleClear}
+            fields={[
+              {
+                id: "tipo",
+                label: "Tipo",
+                value: tipo,
+                onChange: setTipo,
+                options: [
+                  { value: "todos", label: "Todos" },
+                  ...tiposImportacao.map((item) => ({ value: item, label: rotuloTipo[item] ?? item })),
+                ],
+              },
+              {
+                id: "situacao",
+                label: "Situação",
+                value: status,
+                onChange: setStatus,
+                options: [
+                  { value: "todos", label: "Todas" },
+                  ...statusImportacao.map((item) => ({ value: item, label: rotuloStatus[item] ?? item })),
+                ],
+              },
+            ]}
+          />
+        </section>
+
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

@@ -10,5 +10,7 @@ export async function findUsuarioPorCredenciais(codigo: string, senha: string) {
   const valido = await verifyPassword(senha, usuario.senha);
   if (!valido) return null;
 
+  if (usuario.ativo === false) return null;
+
   return usuario;
 }

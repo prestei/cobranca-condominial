@@ -14,6 +14,8 @@ export const rotuloTipoRegistro: Record<string, string> = {
   agreement_installment: "Parcela do acordo",
   agreement_payment: "Pagamento do acordo",
   collection_assignment: "Distribuição de unidades",
+  legal_case_referral: "Encaminhamento jurídico",
+  legal_document: "Documento jurídico",
   audit_log: "Histórico",
 };
 
@@ -35,6 +37,7 @@ const rotuloCampo: Record<string, string> = {
   telefone: "telefone",
   situacao: "situação da unidade",
   identificacao: "identificação",
+  credencial_acesso: "credencial de acesso",
 };
 
 export function rotuloAcao(acao: string) {

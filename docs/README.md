@@ -11,3 +11,4 @@ Ponto de partida da documentação do sistema de cobrança condominial.
 | [Regras de negócio](regra-negocio.md) | Perfis, permissões, fluxos e validações |
 | [Estrutura do banco](banco.md) | Tabelas, colunas e relacionamentos |
 | [Proposta oficial](proposta-oficial.md) | Escopo e requisitos do produto |
+| [Testes T21 (QA)](testes/roteiro-qa-t21.md) | Roteiro manual + referência à suíte `npm test` |

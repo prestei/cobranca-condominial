@@ -13,8 +13,11 @@ function parseUsuarioBody(body: unknown): (UsuarioInput & { id?: number }) | nul
   const str = (key: string) => (typeof record[key] === "string" ? (record[key] as string) : "");
   const cargoId = Number(record.cargoId);
   const id = record.id !== undefined ? Number(record.id) : undefined;
-  const codigoRe = typeof record.codigoRe === "string" ? record.codigoRe : undefined;
   const senha = typeof record.senha === "string" ? record.senha : undefined;
+  const ativo = record.ativo !== undefined ? Boolean(record.ativo) : undefined;
+  const condominioIds = Array.isArray(record.condominioIds)
+    ? record.condominioIds.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
+    : undefined;
 
   return {
     ...(Number.isFinite(id) ? { id } : {}),
@@ -23,7 +26,8 @@ function parseUsuarioBody(body: unknown): (UsuarioInput & { id?: number }) | nul
     telefone: str("telefone"),
     email: str("email"),
     cargoId,
-    ...(codigoRe !== undefined ? { codigoRe } : {}),
+    ...(ativo !== undefined ? { ativo } : {}),
+    ...(condominioIds !== undefined ? { condominioIds } : {}),
     ...(senha !== undefined ? { senha } : {}),
   };
 }

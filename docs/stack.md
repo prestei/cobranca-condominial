@@ -89,4 +89,14 @@ Credenciais padrão do compose: usuário `cobranca`, senha `cobranca_dev`, banco
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 
+## Testes automatizados
+
+| Script | Descrição |
+| --- | --- |
+| `npm test` | Unitários (`node --test` em `src/lib/**/*.test.mjs`) + integração T21 (`tsx` + `src/test/fluxos-permissoes.integracao.test.ts`) |
+| `npm run test:unit` | Somente unitários |
+| `npm run test:integracao` | Fluxos e permissões (catálogo em memória, sem HTTP) |
+
+Detalhes e roteiro manual: [`README.md`](../README.md) e [`testes/roteiro-qa-t21.md`](testes/roteiro-qa-t21.md).
+
 Credenciais de demonstração usam os e-mails de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). Persistência em PostgreSQL para `user` será ligada em tarefa posterior; o login valida o catálogo em memória no servidor.

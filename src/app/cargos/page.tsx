@@ -1,8 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import { Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { CardMetricRow } from "@/components/card-metric-row";
@@ -52,13 +52,14 @@ import {
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  getCadastros,
-  registrarAuditoria,
-  setCargos,
-  type Cargo,
-} from "@/data/catalogo";
+import type { Cargo } from "@/data/catalogo";
+import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
+import {
+  aplicarCargoExcluido,
+  aplicarCargoSalvo,
+  sincronizarCargosDoServidor,
+} from "@/lib/cargos/sync-cliente";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
   cargoTemAlgumaPermissao,
@@ -66,13 +67,24 @@ import {
   permissoesVazias,
   serializarPermissoes,
 } from "@/lib/permissions/parse";
+import { permissoesPadraoPorNome } from "@/lib/permissions/seeds";
 
 type SortKey = "nome" | "descricao";
 
 const formularioVazio = { nome: "", descricao: "", permissoes: permissoesVazias() };
 
+type FormularioCargo = typeof formularioVazio;
+
+function clonarFormulario(valor: FormularioCargo): FormularioCargo {
+  return {
+    ...valor,
+    permissoes: parsePermissoesJson(serializarPermissoes(valor.permissoes)),
+  };
+}
+
 export default function CargosPage() {
   const { toast } = useToast();
+  const { user: sessao } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
@@ -89,7 +101,25 @@ export default function CargosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Cargo | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
+  const [formBaseline, setFormBaseline] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<"nome", string>>>({});
+  const [salvando, setSalvando] = useState(false);
+
+  const recarregarCargos = useCallback(async () => {
+    if (!sessao) return;
+    try {
+      const response = await fetch("/api/cargos", { credentials: "same-origin" });
+      if (!response.ok) return;
+      const body = (await response.json()) as { cargos?: Cargo[] };
+      if (body.cargos) sincronizarCargosDoServidor(body.cargos);
+    } catch {
+      /* mantém catálogo local */
+    }
+  }, [sessao]);
+
+  useEffect(() => {
+    void recarregarCargos();
+  }, [recarregarCargos]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = cargos
@@ -114,6 +144,10 @@ export default function CargosPage() {
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const comPermissao = visible.filter((item) => cargoTemAlgumaPermissao(parsePermissoesJson(item.permissaoJson))).length;
   const emUso = visible.filter((item) => cadastros.usuarios.some((usuario) => usuario.cargoId === item.id)).length;
+
+  function contagemColaboradores(cargoId: number) {
+    return cadastros.usuarios.filter((usuario) => usuario.cargoId === cargoId).length;
+  }
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -149,16 +183,40 @@ export default function CargosPage() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(formularioVazio);
+    const vazio = clonarFormulario(formularioVazio);
+    setForm(vazio);
+    setFormBaseline(vazio);
     setErrors({});
     setSheetOpen(true);
   }
 
   function openEdit(item: Cargo) {
     setEditingId(item.id);
-    setForm({ nome: item.nome, descricao: item.descricao, permissoes: parsePermissoesJson(item.permissaoJson) });
+    const inicial = clonarFormulario({
+      nome: item.nome,
+      descricao: item.descricao,
+      permissoes: parsePermissoesJson(item.permissaoJson),
+    });
+    setForm(inicial);
+    setFormBaseline(inicial);
     setErrors({});
     setSheetOpen(true);
+  }
+
+  function restaurarPadraoPermissoes() {
+    const seed = permissoesPadraoPorNome(form.nome);
+    if (seed) {
+      setForm((current) => ({ ...current, permissoes: parsePermissoesJson(serializarPermissoes(seed)) }));
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      permissoes: parsePermissoesJson(serializarPermissoes(formBaseline.permissoes)),
+    }));
+  }
+
+  function desmarcarTudoPermissoes() {
+    setForm((current) => ({ ...current, permissoes: permissoesVazias() }));
   }
 
   function closeSheet() {
@@ -178,32 +236,32 @@ export default function CargosPage() {
     setSheetOpen(false);
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    if (getCadastros().usuarios.some((item) => item.cargoId === deleteTarget.id)) {
-      toast({
-        variant: "error",
-        title: "Cargo em uso",
-        description: "Existem colaboradores com este cargo.",
+    try {
+      const response = await fetch(`/api/cargos/${deleteTarget.id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
       });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        toast({
+          variant: "error",
+          title: "Não foi possível excluir",
+          description: body?.error ?? "Tente novamente.",
+        });
+        return;
+      }
+      aplicarCargoExcluido(deleteTarget.id);
+      if (editingId === deleteTarget.id) {
+        setSheetOpen(false);
+        setLeaveConfirmOpen(false);
+      }
+      toast({ variant: "success", title: "Cargo excluído" });
       setDeleteTarget(null);
-      return;
+    } catch {
+      toast({ variant: "error", title: "Não foi possível excluir", description: "Falha de conexão." });
     }
-    registrarAuditoria({
-      entidade: "role",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.nome,
-      dadosNovos: "",
-      camposAlterados: "nome",
-    });
-    setCargos((current) => current.filter((item) => item.id !== deleteTarget.id));
-    if (editingId === deleteTarget.id) {
-      setSheetOpen(false);
-      setLeaveConfirmOpen(false);
-    }
-    toast({ variant: "success", title: "Cargo excluído" });
-    setDeleteTarget(null);
   }
 
   function acoes(item: Cargo) {
@@ -214,8 +272,9 @@ export default function CargosPage() {
     return lista;
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (salvando) return;
     const nome = form.nome.trim();
     const nextErrors: Partial<Record<"nome", string>> = {};
 
@@ -240,34 +299,37 @@ export default function CargosPage() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const saved = { nome, descricao: form.descricao.trim(), permissaoJson: serializarPermissoes(form.permissoes) };
+    const payload = {
+      nome,
+      descricao: form.descricao.trim(),
+      permissoes: form.permissoes,
+    };
 
-    if (editingId === null) {
-      const nextId = cargos.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      setCargos((current) => [...current, { id: nextId, ...saved }]);
-      registrarAuditoria({
-        entidade: "role",
-        registroId: String(nextId),
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: saved.nome,
-        camposAlterados: "nome, descricao, permissao_json",
+    setSalvando(true);
+    try {
+      const response = await fetch(editingId === null ? "/api/cargos" : `/api/cargos/${editingId}`, {
+        method: editingId === null ? "POST" : "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      toast({ variant: "success", title: "Cargo cadastrado" });
-    } else {
-      setCargos((current) => current.map((item) => (item.id === editingId ? { id: editingId, ...saved } : item)));
-      registrarAuditoria({
-        entidade: "role",
-        registroId: String(editingId),
-        acao: "UPDATE",
-        dadosAnteriores: cargos.find((item) => item.id === editingId)?.nome ?? "",
-        dadosNovos: saved.nome,
-        camposAlterados: "nome, descricao, permissao_json",
-      });
-      toast({ variant: "success", title: "Cargo atualizado" });
+      const body = (await response.json().catch(() => null)) as { cargo?: Cargo; error?: string } | null;
+      if (!response.ok || !body?.cargo) {
+        toast({
+          variant: "error",
+          title: editingId === null ? "Não foi possível cadastrar" : "Não foi possível atualizar",
+          description: body?.error ?? "Tente novamente.",
+        });
+        return;
+      }
+      aplicarCargoSalvo(body.cargo);
+      toast({ variant: "success", title: editingId === null ? "Cargo cadastrado" : "Cargo atualizado" });
+      setSheetOpen(false);
+    } catch {
+      toast({ variant: "error", title: "Falha de conexão", description: "Não foi possível salvar o cargo." });
+    } finally {
+      setSalvando(false);
     }
-
-    setSheetOpen(false);
   }
 
   const emptyState = (
@@ -301,12 +363,13 @@ export default function CargosPage() {
             Descrição
           </TableHead>
           <TableHead>Áreas com acesso</TableHead>
+          <TableHead className="text-right">Colaboradores</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={4}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -316,6 +379,9 @@ export default function CargosPage() {
               </TableCell>
               <TableCell className="align-middle">
                 <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
+              </TableCell>
+              <TableCell className="align-middle text-right tabular-nums text-on-surface-variant">
+                {contagemColaboradores(item.id)}
               </TableCell>
               <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableRow>
@@ -342,6 +408,9 @@ export default function CargosPage() {
               <TableMobileField label="Áreas com acesso" stacked>
                 <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
               </TableMobileField>
+              <TableMobileField label="Colaboradores">
+                {String(contagemColaboradores(item.id))}
+              </TableMobileField>
             </TableMobileFields>
           </TableMobileCard>
         ))}
@@ -352,6 +421,7 @@ export default function CargosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Cargos"
+        description="Perfis de acesso e permissões por área do sistema. Cada colaborador herda o cargo vinculado."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Cargos" }]}
         actions={
           pode("cargos", "criar") ? (
@@ -384,18 +454,30 @@ export default function CargosPage() {
           ]}
         />
         <CardMetricRow aria-label="Resumo de cargos">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">cargos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={Shield} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(comPermissao).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">com permissões</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={Shield} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(emUso).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">em uso</p>
-          </CardMetric>
+          <CardMetric
+            accent="primary"
+            rotulo="Cargos no recorte"
+            valor={String(visible.length).padStart(2, "0")}
+            detalhe="Total após busca e filtros."
+            iconClassName="bg-surface-subtle text-primary-container"
+            icon={<Icon icon={Shield} size="md" />}
+          />
+          <CardMetric
+            accent="tertiary"
+            rotulo="Com permissões"
+            valor={String(comPermissao).padStart(2, "0")}
+            detalhe="Perfis com ao menos uma área marcada."
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Shield} size="md" />}
+          />
+          <CardMetric
+            accent="brass"
+            rotulo="Em uso"
+            valor={String(emUso).padStart(2, "0")}
+            detalhe="Cargos com colaboradores vinculados."
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={UserRound} size="md" className="text-brass" />}
+          />
         </CardMetricRow>
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
@@ -409,23 +491,26 @@ export default function CargosPage() {
         }}
       >
         <SheetContent
+          size="wide"
           aria-labelledby={`${formId}-title`}
           aria-describedby={`${formId}-desc`}
         >
           <SheetForm onSubmit={handleSave}>
-            <SheetHeader>
+            <SheetHeader className="border-primary-fixed-dim/35 bg-primary-fixed/45">
               <SheetHeaderLead>
-                <SheetHeaderIcon>
+                <SheetHeaderIcon className="border border-primary-fixed-dim/30 bg-surface-card text-primary-container">
                   <Icon icon={Shield} size="md" />
                 </SheetHeaderIcon>
                 <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>{editingId === null ? "Novo cargo" : "Editar cargo"}</SheetTitle>
-                  <SheetDescription id={`${formId}-desc`}>
-                    Defina o nome e marque o que este cargo pode fazer no sistema.
+                  <SheetTitle id={`${formId}-title`} className="text-primary-container">
+                    {form.nome.trim() || (editingId === null ? "Novo cargo" : "Editar cargo")}
+                  </SheetTitle>
+                  <SheetDescription id={`${formId}-desc`} className="text-on-primary-fixed-variant">
+                    Defina quais permissões este cargo terá no sistema.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
-              <SheetClose />
+              <SheetClose className="text-primary-container hover:bg-primary-fixed/60 hover:text-on-primary-fixed" />
             </SheetHeader>
             <SheetBody className="gap-md min-[768px]:gap-lg">
               <SheetPanel className="flex flex-col gap-md">
@@ -451,9 +536,11 @@ export default function CargosPage() {
                 formId={formId}
                 permissoes={form.permissoes}
                 onChange={(permissoes) => setForm((current) => ({ ...current, permissoes }))}
+                onRestaurarPadrao={restaurarPadraoPermissoes}
+                onDesmarcarTudo={desmarcarTudoPermissoes}
               />
             </SheetBody>
-            <SheetFooterForm onClose={closeSheet} />
+            <SheetFooterForm closeLabel="Cancelar" onClose={closeSheet} saveDisabled={salvando} />
           </SheetForm>
         </SheetContent>
       </Sheet>

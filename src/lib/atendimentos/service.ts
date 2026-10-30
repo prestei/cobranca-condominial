@@ -14,6 +14,23 @@ import {
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
+function serializarAtendimentoAuditoria(atendimento: Atendimento): string {
+  return JSON.stringify({
+    unidadeId: atendimento.unidadeId,
+    responsavelId: atendimento.responsavelId,
+    canal: atendimento.canal,
+    respondeu: atendimento.respondeu,
+    motivo: atendimento.motivo,
+    assunto: atendimento.assunto,
+    descricao: atendimento.descricao,
+    status: atendimento.status,
+    dataProximaAcao: atendimento.dataProximaAcao,
+    proximaAcao: atendimento.proximaAcao,
+    retornoConcluidoEm: atendimento.retornoConcluidoEm ?? "",
+    retornoConcluidoPorId: atendimento.retornoConcluidoPorId ?? null,
+  });
+}
+
 export class AtendimentoServiceError extends Error {
   constructor(
     message: string,
@@ -225,7 +242,7 @@ export function criarAtendimento(
       registroId: registro.id,
       acao: "INSERT",
       dadosAnteriores: "",
-      dadosNovos: JSON.stringify({ canal: registro.canal, unidadeId: registro.unidadeId }),
+      dadosNovos: serializarAtendimentoAuditoria(registro),
       camposAlterados: "unidade_id, canal, status, respondeu",
     },
     userId,
@@ -278,8 +295,8 @@ export function atualizarAtendimento(
       entidade: "service_ticket",
       registroId: id,
       acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ status: anterior.status, canal: anterior.canal }),
-      dadosNovos: JSON.stringify({ status: atualizado.status, canal: atualizado.canal }),
+      dadosAnteriores: serializarAtendimentoAuditoria(anterior),
+      dadosNovos: serializarAtendimentoAuditoria(atualizado),
       camposAlterados: "unidade_id, canal, status, descricao, retorno",
     },
     userId,

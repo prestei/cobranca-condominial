@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarClock, Handshake, ArrowLeft, ArrowUpRight, Phone, Wallet } from "lucide-react";
+import { BarChart3, CalendarClock, Handshake, ArrowLeft, ArrowUpRight, Phone, Users, Wallet } from "lucide-react";
 import {
   GraficoBarras,
   GraficoCalor,
@@ -70,6 +70,13 @@ const filtroInicial = {
 const rotuloRetorno = { atrasado: "Atrasado", hoje: "Hoje", semana: "Próximos 7 dias", agendado: "Agendado" } as const;
 
 const RELATORIOS = [
+  {
+    id: "produtividade",
+    titulo: "Produtividade por RE",
+    descricao: "Indicadores objetivos por colaborador (RE): atendimentos, retornos e carteira no período.",
+    icon: Users,
+    selo: "Gestão",
+  },
   {
     id: "equipe",
     titulo: "Produtividade da equipe",
@@ -343,8 +350,29 @@ function RelatoriosPage() {
   const params = useSearchParams();
   const pedidoRelatorio = params?.get("relatorio") ?? null;
   const pedidoAba = params?.get("aba") ?? null;
-  const relatorio = resolverRelatorio(pedidoAba, pedidoRelatorio);
+  const relatorioBruto = resolverRelatorio(pedidoAba, pedidoRelatorio);
+  const relatorio = relatorioBruto === "produtividade" ? null : relatorioBruto;
   const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
+
+  useEffect(() => {
+    if (pedidoRelatorio !== "produtividade") return;
+    const qs = new URLSearchParams();
+    if (params) {
+      for (const [chave, valor] of params.entries()) {
+        if (chave !== "relatorio" && chave !== "aba") qs.set(chave, valor);
+      }
+    }
+    const sufixo = qs.toString();
+    router.replace(sufixo ? `/relatorios/produtividade?${sufixo}` : "/relatorios/produtividade");
+  }, [pedidoRelatorio, params, router]);
+
+  useEffect(() => {
+    const condominioParam = params?.get("condominio")?.trim();
+    if (!relatorio || !condominioParam || condominioParam === "todos") return;
+    if (!Number.isFinite(Number(condominioParam))) return;
+    setFiltro((atual) => (atual.condominio === condominioParam ? atual : { ...atual, condominio: condominioParam }));
+    setAplicado((atual) => (atual.condominio === condominioParam ? atual : { ...atual, condominio: condominioParam }));
+  }, [relatorio, params]);
   const cadastros = useCadastros();
   const [filtro, setFiltro] = useState(filtroInicial);
   const [aplicado, setAplicado] = useState(filtroInicial);
@@ -359,6 +387,26 @@ function RelatoriosPage() {
   const condominiosEscopo = escopoCondominios(cadastros, userId || undefined);
   const atendentesRe = listarAtendentesComRe();
   const podeFiltrarPorRe = pode("usuarios", "criar");
+  const relatoriosHub = RELATORIOS.filter((item) => item.id !== "produtividade" || podeFiltrarPorRe);
+
+  function filtrosRelatorioServico() {
+    const condominioId =
+      aplicado.condominio !== "todos" && Number.isFinite(Number(aplicado.condominio))
+        ? Number(aplicado.condominio)
+        : null;
+    return {
+      busca: aplicado.busca,
+      de: periodo.inicio,
+      ate: periodo.fim,
+      advogado: aplicado.advogado,
+      condominioId,
+      codigoRe: aplicado.codigoRe,
+      respondeu: aplicado.respondeu,
+      motivo: aplicado.motivo,
+      canal: aplicado.canal,
+      dataBase,
+    };
+  }
 
   function queryExportParams() {
     const qs = new URLSearchParams();
@@ -416,6 +464,10 @@ function RelatoriosPage() {
 
   function abrirRelatorio(id: RelatorioId) {
     setPagina(1);
+    if (id === "produtividade") {
+      router.push("/relatorios/produtividade");
+      return;
+    }
     router.push(`/relatorios?relatorio=${id}`);
   }
 
@@ -1378,6 +1430,9 @@ function RelatoriosPage() {
   }
 
   function destaqueHub(id: RelatorioId) {
+    if (id === "produtividade") {
+      return podeFiltrarPorRe ? "Por RE e período · exportável" : "Exclusivo da administradora";
+    }
     if (id === "equipe") return `${metricAtendimentos} atendimentos · ${percentual(metricTaxaResposta)} com resposta`;
     if (id === "retornos") return `${metricRetornosAgenda} na agenda · ${metricRetornosAtrasados} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}`;
     if (id === "efetividade") {
@@ -1397,7 +1452,7 @@ function RelatoriosPage() {
         title={atual?.titulo ?? "Relatórios"}
         description={
           atual?.descricao ??
-          "Quatro relatórios: produtividade, retornos, efetividade e carteira com visão por unidade. Filtre o período e exporte pelo menu no topo."
+          "Relatórios de produtividade por RE, operação da equipe, retornos, efetividade e carteira. Filtre o período e exporte pelo menu no topo."
         }
         breadcrumbs={[
           { label: "Início", href: "/" },
@@ -1409,7 +1464,7 @@ function RelatoriosPage() {
       <PageContent>
         {!relatorio ? (
           <div className="grid min-w-0 grid-cols-1 gap-lg min-[640px]:grid-cols-2 min-[1280px]:grid-cols-4">
-            {RELATORIOS.map((item) => {
+            {relatoriosHub.map((item) => {
               const atencao = (item.id === "retornos" && retornosAtrasados > 0) || (item.id === "carteira" && alertas.length > 0);
               return (
                 <article

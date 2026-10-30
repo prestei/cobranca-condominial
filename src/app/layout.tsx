@@ -1,13 +1,7 @@
 import type { ReactNode } from "react";
-import { Open_Sans } from "next/font/google";
 import { Providers } from "@/app/providers";
+import { openSans } from "@/lib/fonts/open-sans";
 import "./globals.css";
-
-const openSans = Open_Sans({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-open-sans",
-});
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
