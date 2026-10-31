@@ -54,6 +54,7 @@ type MatrizPermissoesCargoProps = {
   onChange: (permissoes: PermissoesCargo) => void;
   onRestaurarPadrao?: () => void;
   onDesmarcarTudo?: () => void;
+  readOnly?: boolean;
 };
 
 function alterarPermissao(
@@ -77,6 +78,7 @@ export function MatrizPermissoesCargo({
   onChange,
   onRestaurarPadrao,
   onDesmarcarTudo,
+  readOnly = false,
 }: MatrizPermissoesCargoProps) {
   const modulosAtivos = listarModulosPermitidos(permissoes);
   const modulosAtivosIds = new Set(modulosAtivos.map((item) => item.modulo));
@@ -108,7 +110,7 @@ export function MatrizPermissoesCargo({
             style={{ width: `${progresso}%` }}
           />
         </div>
-        {onRestaurarPadrao || onDesmarcarTudo ? (
+        {(!readOnly && (onRestaurarPadrao || onDesmarcarTudo)) ? (
           <div className="flex flex-wrap justify-end gap-sm pt-xs">
             {onRestaurarPadrao ? (
               <Button type="button" variant="ghost" size="sm" onClick={onRestaurarPadrao}>
@@ -168,6 +170,7 @@ export function MatrizPermissoesCargo({
                         <Checkbox
                           id={inputId}
                           checked={checked}
+                          disabled={readOnly}
                           onChange={(event) =>
                             onChange(alterarPermissao(permissoes, modulo.id, acao, event.target.checked))
                           }

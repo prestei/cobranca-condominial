@@ -1,16 +1,22 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, BarChart3, Users } from "lucide-react";
+import { BarChart3, Users } from "lucide-react";
 import { GraficoColunasAgrupadas, tomPorIndice } from "@/components/charts";
-import { CardMetric } from "@/components/card-metric";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
+import {
+  Leitura,
+  RelatorioFiltros,
+  RelatorioMetrica,
+  RelatorioPainel,
+  RelatorioSecaoTabela,
+  VoltarRelatoriosHub,
+} from "@/components/relatorios/relatorio-ui";
 import {
   Table,
   TableBody,
@@ -46,18 +52,6 @@ const filtroInicial = {
   condominio: "todos",
   codigoRe: "todos",
 };
-
-function Painel({ titulo, nota, children }: { titulo: string; nota?: string; children: React.ReactNode }) {
-  return (
-    <section className="flex min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-      <div className="flex flex-col gap-xs">
-        <h2 className="text-headline-sm text-on-surface">{titulo}</h2>
-        {nota ? <p className="text-body-sm text-on-surface-variant">{nota}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function ProdutividadePorRePage() {
   const { toast } = useToast();
@@ -326,40 +320,23 @@ function ProdutividadePorRePage() {
     const { totais, periodo: periodoPainel, definicoes } = painel;
     corpo = (
       <>
-        <p className="rounded-lg border border-border-subtle bg-gold-subtle px-md py-sm text-body-md text-on-surface">
+        <Leitura>
           Período consultado: {periodoPainel.rotulo}. Contagens por RE usam o autor de cada ação registrada; a carteira
           atual reflete a atribuição vigente hoje.
-        </p>
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-5">
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={BarChart3} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{totais.atendimentosRegistrados}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">atendimentos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={BarChart3} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{totais.retornosConcluidos}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">retornos concluídos</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={BarChart3} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{totais.negociacoesRegistradas}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">negociações</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={BarChart3} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{totais.acoesRegistradas}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">ações agendadas</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={BarChart3} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{totais.acordosConfirmados}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">acordos confirmados</p>
-          </CardMetric>
+        </Leitura>
+        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-5" aria-label="Indicadores de produtividade">
+          <RelatorioMetrica valor={String(totais.atendimentosRegistrados)} rotulo="atendimentos" destaque />
+          <RelatorioMetrica valor={String(totais.retornosConcluidos)} rotulo="retornos concluídos" accent="tertiary" />
+          <RelatorioMetrica valor={String(totais.negociacoesRegistradas)} rotulo="negociações" />
+          <RelatorioMetrica valor={String(totais.acoesRegistradas)} rotulo="ações agendadas" accent="tertiary" />
+          <RelatorioMetrica valor={String(totais.acordosConfirmados)} rotulo="acordos confirmados" accent="brass" detalhe="Confirmados no período" />
         </div>
         {gruposGrafico.length > 0 ? (
-          <Painel titulo="Comparativo por RE (5 indicadores)" nota="Sem ranking ou pontuação — apenas contagens objetivas no período.">
+          <RelatorioPainel titulo="Comparativo por RE (5 indicadores)" nota="Sem ranking ou pontuação — apenas contagens objetivas no período.">
             <GraficoColunasAgrupadas chave={chaveConsulta} vazio={vazio} series={seriesGrafico} grupos={gruposGrafico} />
-          </Painel>
+          </RelatorioPainel>
         ) : null}
-        <Painel titulo="Produtividade por pessoa (RE)">
-          <section className="flex flex-col gap-xs">
-            <h3 className="text-headline-sm text-on-surface">Resumo por colaborador</h3>
+        <RelatorioSecaoTabela titulo="Produtividade por pessoa (RE)" nota="Resumo por colaborador">
             <Table showExport={false} aria-label="Produtividade por RE">
               <TableHeader>
                 <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -409,15 +386,14 @@ function ProdutividadePorRePage() {
             {linhasOrdenadas.length > PAGE_SIZE ? (
               <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={setPagina} />
             ) : null}
-          </section>
-        </Painel>
-        <Painel titulo="Definição dos indicadores">
+        </RelatorioSecaoTabela>
+        <RelatorioPainel titulo="Definição dos indicadores">
           <ul className="list-disc space-y-xs pl-md text-body-sm text-on-surface-variant">
             {definicoes.map((texto) => (
               <li key={texto}>{texto}</li>
             ))}
           </ul>
-        </Painel>
+        </RelatorioPainel>
       </>
     );
   }
@@ -436,12 +412,10 @@ function ProdutividadePorRePage() {
       />
       <PageContent>
         <div className="flex flex-col gap-lg">
-          <Link href="/relatorios" className="inline-flex self-start items-center gap-xs rounded-md px-sm py-xs text-body-sm font-medium text-primary-container hover:bg-surface-subtle">
-            <Icon icon={ArrowLeft} size="sm" />
-            Todos os relatórios
-          </Link>
+          <VoltarRelatoriosHub />
           {podeFiltrarPorRe ? (
-            <FilterBar
+            <RelatorioFiltros>
+              <FilterBar
               searchValue=""
               onSearchChange={() => undefined}
               searchPlaceholder="Busca não aplicável neste relatório"
@@ -456,6 +430,7 @@ function ProdutividadePorRePage() {
               }}
               fields={camposFiltro}
             />
+            </RelatorioFiltros>
           ) : null}
           <div className="flex flex-col gap-xl">{corpo}</div>
         </div>

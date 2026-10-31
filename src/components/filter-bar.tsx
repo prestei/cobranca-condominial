@@ -182,8 +182,11 @@ export function FilterBar({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md">
-      <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
+    >
+      <div className="min-w-0 flex-1 basis-[12rem]">
         <FormField label={searchLabel} htmlFor={searchId}>
           <Input
             id={searchId}
@@ -193,15 +196,17 @@ export function FilterBar({
             placeholder={searchPlaceholder}
           />
         </FormField>
-
-        {fields.map((field) => (
-          <FormField key={field.id} label={field.label} htmlFor={field.id}>
-            {renderFieldControl(field)}
-          </FormField>
-        ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-sm">
+      {fields.map((field) => (
+        <div key={field.id} className="min-w-0 flex-1 basis-[10rem]">
+          <FormField label={field.label} htmlFor={field.id}>
+            {renderFieldControl(field)}
+          </FormField>
+        </div>
+      ))}
+
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-sm min-[768px]:ml-auto min-[768px]:w-auto">
         <Button type="button" variant="outline" size="sm" onClick={onClear}>
           <Icon icon={RotateCcw} size="sm" />
           {clearLabel}

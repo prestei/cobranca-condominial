@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarClock, Handshake, ArrowLeft, ArrowUpRight, Phone, Users, Wallet } from "lucide-react";
+import { BarChart3, CalendarClock, Handshake, ArrowUpRight, Phone, Users, Wallet } from "lucide-react";
 import {
   GraficoBarras,
   GraficoCalor,
@@ -15,7 +15,6 @@ import {
 } from "@/components/charts";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { CardMetric } from "@/components/card-metric";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
@@ -24,6 +23,15 @@ import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow, TableExport, type TableExportFormat, type TableSortDirection } from "@/components/table";
 import { useToast } from "@/components/toast";
+import {
+  Grade,
+  Leitura,
+  RelatorioFiltros,
+  RelatorioMetrica,
+  RelatorioPainel,
+  RelatorioSecaoTabela,
+  VoltarRelatoriosHub,
+} from "@/components/relatorios/relatorio-ui";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -198,38 +206,6 @@ function cruzou60NoMes(vencimento: string, dataBase: string) {
   return isoData(marco).slice(0, 7) === dataBase.slice(0, 7);
 }
 
-function Grade({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-lg min-[961px]:grid-cols-2">{children}</div>;
-}
-
-function Painel({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
-  return (
-    <section className="flex min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-      <div className="flex flex-col gap-xs">
-        <h2 className="text-headline-sm text-on-surface">{titulo}</h2>
-        {nota ? <p className="text-body-sm text-on-surface-variant">{nota}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Leitura({ children }: { children: ReactNode }) {
-  return <p className="rounded-lg border border-border-subtle bg-gold-subtle px-md py-sm text-body-md text-on-surface">{children}</p>;
-}
-
-function Metrica({ valor, rotulo, destaque = false }: { valor: string; rotulo: string; destaque?: boolean }) {
-  return (
-    <CardMetric
-      iconClassName={destaque ? "bg-gold-subtle text-brass" : "bg-surface-subtle text-on-surface-variant"}
-      icon={<Icon icon={BarChart3} size="md" className={destaque ? "text-brass" : undefined} />}
-    >
-      <p className="text-metric text-on-surface tabular-nums">{valor}</p>
-      <p className="mt-sm text-body-sm text-on-surface-variant">{rotulo}</p>
-    </CardMetric>
-  );
-}
-
 function valorOrdenavel(texto: string) {
   const bruto = texto.trim();
   if (!bruto || bruto === "—") return null;
@@ -302,8 +278,7 @@ function TabelaTexto({
 
   const recorte = linhasOrdenadas.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
   return (
-    <section className="flex flex-col gap-xs">
-      <h2 className="text-headline-sm text-on-surface">{rotulo}</h2>
+    <RelatorioSecaoTabela titulo={rotulo}>
       <Table showExport={false} aria-label={rotulo}>
         <TableHeader>
           <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -331,7 +306,7 @@ function TabelaTexto({
         </TableBody>
       </Table>
       {linhasOrdenadas.length > PAGE_SIZE ? <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={onPagina} /> : null}
-    </section>
+    </RelatorioSecaoTabela>
   );
 }
 
@@ -469,11 +444,6 @@ function RelatoriosPage() {
       return;
     }
     router.push(`/relatorios?relatorio=${id}`);
-  }
-
-  function voltarHub() {
-    setPagina(1);
-    router.push("/relatorios");
   }
 
   async function aoExportar(formato: TableExportFormat) {
@@ -934,12 +904,12 @@ function RelatoriosPage() {
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <Metrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
-          <Metrica valor={percentual(metricTaxaResposta)} rotulo="responderam" />
-          <Metrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" />
-          <Metrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" />
+          <RelatorioMetrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
+          <RelatorioMetrica valor={percentual(metricTaxaResposta)} rotulo="responderam" detalhe="Taxa de resposta no período" />
+          <RelatorioMetrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" accent="tertiary" />
+          <RelatorioMetrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" detalhe="Agenda em aberto no recorte" />
         </div>
-        <Painel
+        <RelatorioPainel
           titulo="Mapa de horário de atendimento"
           nota={
             picoCalorExibir && picoCalorExibir.v > 0
@@ -954,8 +924,8 @@ function RelatoriosPage() {
             celulas={celulasCalorExibir}
             vazio={vazioCalor}
           />
-        </Painel>
-        <Painel titulo={serieLonga ? "Atendimentos por mês" : "Atendimentos por dia"} nota="A coluna dourada é o pico. Acima de dois meses, o gráfico passa a ser mensal.">
+        </RelatorioPainel>
+        <RelatorioPainel titulo={serieLonga ? "Atendimentos por mês" : "Atendimentos por dia"} nota="A coluna dourada é o pico. Acima de dois meses, o gráfico passa a ser mensal.">
           <GraficoColunas
             chave={chave}
             vazio={vazio}
@@ -966,9 +936,9 @@ function RelatoriosPage() {
               tom: pico && linha.nome === pico.nome && linha.quantidade === pico.quantidade ? "brass" : "navy",
             }))}
           />
-        </Painel>
+        </RelatorioPainel>
         <Grade>
-          <Painel titulo="Quem respondeu">
+          <RelatorioPainel titulo="Quem respondeu">
             <GraficoRosca
               chave={`${chave}-resposta`}
               vazio={vazio}
@@ -981,8 +951,8 @@ function RelatoriosPage() {
                 tom: linha.nome === "Sim" ? "settled" : linha.nome === "Não" ? "pending" : "mist",
               }))}
             />
-          </Painel>
-          <Painel titulo="Motivos da pendência" nota="Entram só os contatos em que o condômino respondeu.">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Motivos da pendência" nota="Entram só os contatos em que o condômino respondeu.">
             <GraficoBarras
               chave={`${chave}-motivos`}
               vazio={vazio}
@@ -993,9 +963,9 @@ function RelatoriosPage() {
                 tom: tomPorIndice(indice),
               }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
-        <Painel
+        <RelatorioPainel
           titulo="Comparativo de volume"
           nota="Na palitagem os condomínios aparecem juntos; a divisão por advogado vale para a leitura da equipe."
         >
@@ -1007,9 +977,9 @@ function RelatoriosPage() {
             ))}
           </div>
           <GraficoBarras chave={`${chave}-${comparativo}`} vazio={vazio} itens={comparativoBarras} />
-        </Painel>
+        </RelatorioPainel>
         <Grade>
-          <Painel titulo="Unidades com mais contatos" nota="Top 10 no período — o detalhe unidade a unidade está no relatório Carteira e unidades.">
+          <RelatorioPainel titulo="Unidades com mais contatos" nota="Top 10 no período — o detalhe unidade a unidade está no relatório Carteira e unidades.">
             <GraficoBarras
               chave={`${chave}-unidades-top`}
               vazio={vazio}
@@ -1023,8 +993,8 @@ function RelatoriosPage() {
                   tom: tomPorIndice(indice),
                 }))}
             />
-          </Painel>
-          <Painel titulo="Resposta por meio de cobrança">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Resposta por meio de cobrança">
             <GraficoBarras
               chave={`${chave}-meio-resposta`}
               vazio={vazio}
@@ -1035,7 +1005,7 @@ function RelatoriosPage() {
                 tom: linha.resposta >= 50 ? "settled" : "pending",
               }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
         <TabelaTexto
           rotulo="Resumo por condomínio"
@@ -1069,12 +1039,12 @@ function RelatoriosPage() {
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque />
-          <Metrica valor={String(metricRetornosHoje)} rotulo="para hoje" />
-          <Metrica valor={String(metricRetornosAgenda)} rotulo="na agenda" />
+          <RelatorioMetrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque accent="critical" detalhe="Passaram da data combinada" />
+          <RelatorioMetrica valor={String(metricRetornosHoje)} rotulo="para hoje" accent="brass" />
+          <RelatorioMetrica valor={String(metricRetornosAgenda)} rotulo="na agenda" accent="tertiary" />
         </div>
         <Grade>
-          <Painel titulo="Situação da agenda">
+          <RelatorioPainel titulo="Situação da agenda">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
@@ -1087,8 +1057,8 @@ function RelatoriosPage() {
                 tom: linha.nome === "Atrasado" ? "critical" : linha.nome === "Hoje" ? "pending" : linha.nome === "Próximos 7 dias" ? "brass" : "navy",
               }))}
             />
-          </Painel>
-          <Painel titulo="Por RE">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Por RE">
             <GraficoBarras
               chave={`${chave}-equipe`}
               vazio={vazio}
@@ -1098,7 +1068,7 @@ function RelatoriosPage() {
                 detalhe: String(linha.quantidade),
               }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
         <TabelaTexto
           rotulo="Retornos pendentes"
@@ -1122,12 +1092,12 @@ function RelatoriosPage() {
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <Metrica valor={String(cruzamento.length)} rotulo="unidades contatadas" />
-          <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length)} rotulo="pagaram" destaque />
-          <Metrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
+          <RelatorioMetrica valor={String(cruzamento.length)} rotulo="unidades contatadas" />
+          <RelatorioMetrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length)} rotulo="pagaram" destaque />
+          <RelatorioMetrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
         </div>
         <Grade>
-          <Painel titulo="O que aconteceu no mês seguinte">
+          <RelatorioPainel titulo="O que aconteceu no mês seguinte">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
@@ -1140,8 +1110,8 @@ function RelatoriosPage() {
                 tom: linha.nome.startsWith("Pagou") ? "settled" : linha.nome.startsWith("Acordo") ? "brass" : "mist",
               }))}
             />
-          </Painel>
-          <Painel titulo="Contatos por unidade">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Contatos por unidade">
             <GraficoBarras
               chave={`${chave}-unidades`}
               vazio={vazio}
@@ -1152,7 +1122,7 @@ function RelatoriosPage() {
                 tom: linha.resultado.startsWith("Pagou") ? "settled" : linha.resultado.startsWith("Acordo") ? "brass" : "mist",
               }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
         <TabelaTexto
           rotulo="Unidades contatadas e resultado"
@@ -1186,13 +1156,13 @@ function RelatoriosPage() {
           </Leitura>
         ) : null}
         <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <Metrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
-          <Metrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} />
-          <Metrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} />
-          <Metrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" />
+          <RelatorioMetrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
+          <RelatorioMetrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} accent="tertiary" detalhe="Fase amigável" />
+          <RelatorioMetrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} accent="critical" detalhe="Fase jurídica" />
+          <RelatorioMetrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" detalhe="Sobre a carteira filtrada" />
         </div>
         <Grade>
-          <Painel titulo="Fase amigável e jurídica" nota="Corte configurável em 60 dias — cobrança recente x encaminhamento jurídico.">
+          <RelatorioPainel titulo="Fase amigável e jurídica" nota="Corte configurável em 60 dias — cobrança recente x encaminhamento jurídico.">
             <GraficoRosca
               chave={chave}
               vazio={vazio}
@@ -1203,8 +1173,8 @@ function RelatoriosPage() {
                 { nome: `Acima de ${LIMITE_AMIGAVEL_DIAS} dias`, valor: valorAcima60, detalhe: dinheiro(valorAcima60), tom: "navy" },
               ]}
             />
-          </Painel>
-          <Painel titulo="Composição do débito" nota="Cota ordinária, taxa extra, acordo e multa — como no relatório da administradora.">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Composição do débito" nota="Cota ordinária, taxa extra, acordo e multa — como no relatório da administradora.">
             <GraficoRosca
               chave={`${chave}-grupos`}
               vazio={vazio}
@@ -1219,10 +1189,10 @@ function RelatoriosPage() {
                   tom: tomPorIndice(indice),
                 }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
         <Grade>
-          <Painel titulo="Faixas de atraso">
+          <RelatorioPainel titulo="Faixas de atraso">
             <GraficoColunas
               chave={`${chave}-faixas`}
               vazio={vazio}
@@ -1233,8 +1203,8 @@ function RelatoriosPage() {
                 tom: faixaLider && linha.nome === faixaLider.nome ? "brass" : "navy",
               }))}
             />
-          </Painel>
-          <Painel titulo="Ranking de condomínios">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Ranking de condomínios">
             <GraficoBarras
               chave={`${chave}-ranking`}
               vazio={vazio}
@@ -1244,18 +1214,18 @@ function RelatoriosPage() {
                 detalhe: `${dinheiro(linha.valor)} · ${linha.devedoras}/${linha.unidades} un.`,
               }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
-        <Painel titulo="Saldo em aberto por competência" nota="Cada ponto é o mês de referência das cobranças ainda em aberto.">
+        <RelatorioPainel titulo="Saldo em aberto por competência" nota="Cada ponto é o mês de referência das cobranças ainda em aberto.">
           <GraficoLinha chave={`${chave}-competencia`} vazio={vazio} itens={evolucaoReferencia} />
-        </Painel>
+        </RelatorioPainel>
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
           <div className="flex flex-col gap-xs">
             <h2 className="text-headline-sm text-on-surface">Por unidade</h2>
             <p className="text-body-sm text-on-surface-variant">Contatos da equipe no período filtrado cruzados com o débito em aberto na data-base.</p>
           </div>
           <Grade>
-            <Painel titulo="Mais contatos no período">
+            <RelatorioPainel titulo="Mais contatos no período">
               <GraficoBarras
                 chave={`${chave}-contatos-unidade`}
                 vazio={vazio}
@@ -1269,8 +1239,8 @@ function RelatoriosPage() {
                     tom: tomPorIndice(indice),
                   }))}
               />
-            </Painel>
-            <Painel titulo="Maior débito">
+            </RelatorioPainel>
+            <RelatorioPainel titulo="Maior débito">
               <GraficoBarras
                 chave={`${chave}-valor-unidade`}
                 vazio={vazio}
@@ -1284,10 +1254,10 @@ function RelatoriosPage() {
                     tom: linha.dias > LIMITE_AMIGAVEL_DIAS ? "critical" : tomPorIndice(indice),
                   }))}
               />
-            </Painel>
+            </RelatorioPainel>
           </Grade>
           <Grade>
-            <Painel titulo="Fase amigável x jurídica por unidade">
+            <RelatorioPainel titulo="Fase amigável x jurídica por unidade">
               <GraficoEmpilhado
                 chave={`${chave}-unidade-fase`}
                 vazio={vazio}
@@ -1301,8 +1271,8 @@ function RelatoriosPage() {
                     return { nome: linha.nome, ate, acima, detalhe: dinheiro(linha.valorAberto) };
                   })}
               />
-            </Painel>
-            <Painel titulo="Contato e débito">
+            </RelatorioPainel>
+            <RelatorioPainel titulo="Contato e débito">
               <GraficoRosca
                 chave={`${chave}-unidade-mix`}
                 vazio={vazio}
@@ -1329,28 +1299,28 @@ function RelatoriosPage() {
                   },
                 ]}
               />
-            </Painel>
+            </RelatorioPainel>
           </Grade>
         </section>
         <Grade>
-          <Painel titulo="Por advogado responsável">
+          <RelatorioPainel titulo="Por advogado responsável">
             <GraficoEmpilhado
               chave={`${chave}-adv`}
               vazio={vazio}
               itens={porAdvogadoDebito.map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))}
             />
-          </Painel>
-          <Painel titulo="Grupos: amigável x jurídico">
+          </RelatorioPainel>
+          <RelatorioPainel titulo="Grupos: amigável x jurídico">
             <GraficoEmpilhado
               chave={`${chave}-fase-grupo`}
               vazio={vazio}
               itens={porGrupo.filter((linha) => linha.valor > 0).map((linha) => ({ nome: linha.nome, ate: linha.ate, acima: linha.acima, detalhe: dinheiro(linha.valor) }))}
             />
-          </Painel>
+          </RelatorioPainel>
         </Grade>
         {(alertas.length > 0 || maiores.length > 0) && (
           <Grade>
-            <Painel titulo="Alertas jurídicos">
+            <RelatorioPainel titulo="Alertas jurídicos">
               <GraficoBarras
                 chave={`${chave}-alertas`}
                 vazio={vazio}
@@ -1360,8 +1330,8 @@ function RelatoriosPage() {
                   { nome: "Passou de 60 dias no mês", valor: passaram60.length, detalhe: String(passaram60.length), tom: "brass" },
                 ]}
               />
-            </Painel>
-            <Painel titulo="Dez maiores devedores">
+            </RelatorioPainel>
+            <RelatorioPainel titulo="Dez maiores devedores">
               <GraficoBarras
                 chave={`${chave}-devedores`}
                 vazio={vazio}
@@ -1371,7 +1341,7 @@ function RelatoriosPage() {
                   detalhe: `${linha.condominio} · ${dinheiro(linha.valor)} · ${linha.dias} dias`,
                 }))}
               />
-            </Painel>
+            </RelatorioPainel>
           </Grade>
         )}
         {alertas.length > 0 ? (
@@ -1494,11 +1464,9 @@ function RelatoriosPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-lg">
-            <Button size="sm" variant="ghost" className="self-start" onClick={voltarHub}>
-              <Icon icon={ArrowLeft} size="sm" />
-              Todos os relatórios
-            </Button>
-            <FilterBar
+            <VoltarRelatoriosHub />
+            <RelatorioFiltros>
+              <FilterBar
               searchValue={filtro.busca}
               onSearchChange={(buscaAtual) => setFiltro((atualFiltro) => ({ ...atualFiltro, busca: buscaAtual }))}
               searchPlaceholder={
@@ -1515,6 +1483,7 @@ function RelatoriosPage() {
               }}
               fields={camposFiltro}
             />
+            </RelatorioFiltros>
             <div className="flex flex-col gap-xl">{corpo}</div>
           </div>
         )}

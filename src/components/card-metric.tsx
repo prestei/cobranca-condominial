@@ -6,7 +6,7 @@ const accentBarClass: Record<CardMetricAccent, string> = {
   primary: "bg-primary-container",
   brass: "bg-brass",
   critical: "bg-status-critical",
-  tertiary: "bg-inverse-primary",
+  tertiary: "bg-tertiary-fixed-dim",
 };
 
 type CardMetricProps = {
@@ -41,20 +41,20 @@ export function CardMetric({
         className={`flex h-full min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card ${className ?? ""}`}
       >
         {accent ? (
-          <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" />
+          <div className={`w-[3px] shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col gap-xs p-lg">
-          <div className="flex items-start gap-sm">
-            <div
-              className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
-              aria-hidden="true"
-            >
-              {icon}
-            </div>
-            <p className="min-w-0 pt-0.5 text-body-sm font-medium leading-snug text-on-surface">{rotulo}</p>
+        <div className="flex min-w-0 flex-1 gap-sm p-lg">
+          <div
+            className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+            aria-hidden="true"
+          >
+            {icon}
           </div>
-          <p className="text-metric font-semibold tabular-nums text-on-surface">{valor}</p>
-          {detalhe ? <p className="text-body-sm leading-snug text-on-surface-variant">{detalhe}</p> : null}
+          <div className="flex min-w-0 flex-1 flex-col gap-xs">
+            <p className="text-body-sm font-medium leading-snug text-on-surface">{rotulo}</p>
+            <p className="text-metric font-semibold tabular-nums text-primary-container">{valor}</p>
+            {detalhe ? <p className="text-body-sm leading-snug text-on-surface-variant">{detalhe}</p> : null}
+          </div>
         </div>
       </article>
     );
@@ -64,7 +64,9 @@ export function CardMetric({
     <article
       className={`flex h-full min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card ${className ?? ""}`}
     >
-      {accent ? <div className={`w-1 shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" /> : null}
+      {accent ? (
+        <div className={`w-[3px] shrink-0 self-stretch ${accentBarClass[accent]}`} aria-hidden="true" />
+      ) : null}
       <div className="flex min-w-0 flex-1 items-center gap-md p-lg">
         <div
           className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}

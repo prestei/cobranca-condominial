@@ -67,9 +67,8 @@ Nenhuma.
 
 ## Estados de interface
 
-- Listagem: colunas **Áreas com acesso** (`ResumoPermissoesCargo` — badge por módulo; passe o mouse para ver ações) e **Colaboradores** (quantidade vinculada ao cargo).
-- Mobile: métricas em **carrossel** (`CardMetricRow` — um `CardMetric` por vez, deslize ou aguarde 5s; pontos indicam a posição); desktop em grid de 3 colunas. Indicadores no modo `rotulo` / `valor` / `detalhe` com faixa lateral (`accent`). Cards de lista com **Descrição**, **Áreas com acesso** (stacked) e **Colaboradores**.
-- Lista vazia / filtro sem resultado; sheet **wide** com cabeçalho em destaque (`primary-fixed`), título dinâmico (nome do cargo), bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e `MatrizPermissoesCargo` (barra de progresso `módulos com acesso`, atalhos **Restaurar padrão** — seeds Administrador/Atendente/Advogado ou estado ao abrir — e **Desmarcar tudo**; um cartão por área, checkboxes Consultar, Cadastrar, Alterar, Excluir, Exportar dados); rodapé **Cancelar** + **Salvar**; confirmação de exclusão e de saída com dados preenchidos.
+- Listagem: card único com badge **N cargos encontrados** (ponto âmbar), **Exportar**, tabela e paginação; coluna **Cargo** com ícone por perfil (Administrador, Advogado, Atendente); **Áreas com acesso** (`ResumoPermissoesCargo` — painel com contagem de áreas, lista em bullets e **Ver permissões** abrindo sheet somente leitura); **Colaboradores** centralizado; menu **Ação** em círculo azul claro.
+- Mobile: cards em **grid** (`grid-cols-1` → `2` → `3`), mesmo padrão de [Colaboradores](usuarios.md); filtros; lista vazia / filtro sem resultado; sheet **wide** com cabeçalho em destaque (`primary-fixed`), título dinâmico (nome do cargo), bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e `MatrizPermissoesCargo` (barra de progresso `módulos com acesso`, atalhos **Restaurar padrão** — seeds Administrador/Atendente/Advogado ou estado ao abrir — e **Desmarcar tudo**; um cartão por área, checkboxes Consultar, Cadastrar, Alterar, Excluir, Exportar dados); rodapé **Cancelar** + **Salvar**; confirmação de exclusão e de saída com dados preenchidos.
 
 ## Pendências e decisões
 

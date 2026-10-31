@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
+import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
+import { CargoIconeListagem, iconeCargoListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
-import { CardMetricRow } from "@/components/card-metric-row";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -38,6 +38,7 @@ import {
   TableBody,
   TableCell,
   TableEmpty,
+  TableExport,
   TableHead,
   TableHeader,
   TableMobileCard,
@@ -48,6 +49,7 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
+  type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
@@ -61,13 +63,18 @@ import {
   sincronizarCargosDoServidor,
 } from "@/lib/cargos/sync-cliente";
 import { usePermissao } from "@/hooks/use-permissao";
+import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 import {
   cargoTemAlgumaPermissao,
+  listarModulosPermitidos,
   parsePermissoesJson,
   permissoesVazias,
   serializarPermissoes,
 } from "@/lib/permissions/parse";
+import { MODULOS_PERMISSAO } from "@/lib/permissions/modulos";
 import { permissoesPadraoPorNome } from "@/lib/permissions/seeds";
+
+const colunasExportacao = ["Cargo", "Descrição", "Áreas com acesso", "Colaboradores"] as const;
 
 type SortKey = "nome" | "descricao";
 
@@ -87,12 +94,15 @@ export default function CargosPage() {
   const { user: sessao } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
+  const permissoesViewFormId = useId();
   const cadastros = useCadastros();
   const cargos = cadastros.cargos;
   const [search, setSearch] = useState("");
-  const [permissao, setPermissao] = useState("todas");
+  const [descricaoFiltro, setDescricaoFiltro] = useState("todos");
+  const [areaFiltro, setAreaFiltro] = useState("todas");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedPermissao, setAppliedPermissao] = useState("todas");
+  const [appliedDescricaoFiltro, setAppliedDescricaoFiltro] = useState("todos");
+  const [appliedAreaFiltro, setAppliedAreaFiltro] = useState("todas");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
@@ -104,6 +114,7 @@ export default function CargosPage() {
   const [formBaseline, setFormBaseline] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<"nome", string>>>({});
   const [salvando, setSalvando] = useState(false);
+  const [permissoesViewTarget, setPermissoesViewTarget] = useState<Cargo | null>(null);
 
   const recarregarCargos = useCallback(async () => {
     if (!sessao) return;
@@ -121,16 +132,24 @@ export default function CargosPage() {
     void recarregarCargos();
   }, [recarregarCargos]);
 
+  const metricValor = (n: number) => String(n).padStart(2, "0");
+  const totalColaboradoresVinculados = cadastros.usuarios.filter((usuario) =>
+    cargos.some((cargo) => cargo.id === usuario.cargoId),
+  ).length;
+
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = cargos
     .filter((item) => {
-      const temPermissao = cargoTemAlgumaPermissao(parsePermissoesJson(item.permissaoJson));
-      const matchesPermissao =
-        appliedPermissao === "todas" ||
-        (appliedPermissao === "com" && temPermissao) ||
-        (appliedPermissao === "sem" && !temPermissao);
+      const descricao = item.descricao.trim();
+      const matchesDescricao =
+        appliedDescricaoFiltro === "todos" ||
+        (appliedDescricaoFiltro === "com" && descricao.length > 0) ||
+        (appliedDescricaoFiltro === "sem" && descricao.length === 0);
+      const modulos = listarModulosPermitidos(parsePermissoesJson(item.permissaoJson));
+      const matchesArea =
+        appliedAreaFiltro === "todas" || modulos.some((modulo) => modulo.modulo === appliedAreaFiltro);
       const haystack = `${item.nome} ${item.descricao}`.toLocaleLowerCase("pt-BR");
-      return matchesPermissao && (query.length === 0 || haystack.includes(query));
+      return matchesDescricao && matchesArea && (query.length === 0 || haystack.includes(query));
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
@@ -142,9 +161,6 @@ export default function CargosPage() {
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const comPermissao = visible.filter((item) => cargoTemAlgumaPermissao(parsePermissoesJson(item.permissaoJson))).length;
-  const emUso = visible.filter((item) => cadastros.usuarios.some((usuario) => usuario.cargoId === item.id)).length;
-
   function contagemColaboradores(cargoId: number) {
     return cadastros.usuarios.filter((usuario) => usuario.cargoId === cargoId).length;
   }
@@ -169,16 +185,66 @@ export default function CargosPage() {
 
   function handleApply() {
     setAppliedSearch(search);
-    setAppliedPermissao(permissao);
+    setAppliedDescricaoFiltro(descricaoFiltro);
+    setAppliedAreaFiltro(areaFiltro);
     setPage(1);
   }
 
   function handleClear() {
     setSearch("");
-    setPermissao("todas");
+    setDescricaoFiltro("todos");
+    setAreaFiltro("todas");
     setAppliedSearch("");
-    setAppliedPermissao("todas");
+    setAppliedDescricaoFiltro("todos");
+    setAppliedAreaFiltro("todas");
     setPage(1);
+  }
+
+  function linhasExportacao() {
+    return visible.map((item) => [
+      item.nome,
+      item.descricao.trim() || "—",
+      listarModulosPermitidos(parsePermissoesJson(item.permissaoJson))
+        .map((modulo) => modulo.label)
+        .join(", ") || "—",
+      String(contagemColaboradores(item.id)),
+    ]);
+  }
+
+  function aoExportar(formato: TableExportFormat) {
+    if (visible.length === 0) {
+      toast({
+        variant: "info",
+        title: "Nada para exportar",
+        description: "Ajuste os filtros ou cadastre cargos.",
+      });
+      return;
+    }
+    const linhas = linhasExportacao();
+    const colunas = [...colunasExportacao];
+    const arquivoBase = `cargos-${new Date().toISOString().slice(0, 10)}`;
+    if (formato === "csv") {
+      exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
+      toast({ variant: "success", title: "CSV baixado" });
+      return;
+    }
+    if (formato === "xls") {
+      exportarExcel(`${arquivoBase}.xls`, colunas, linhas);
+      toast({ variant: "success", title: "Planilha baixada" });
+      return;
+    }
+    const abriu = exportarPdf("Cargos", `${arquivoBase}.html`, [
+      { titulo: "Listagem (filtros aplicados)", colunas, linhas },
+    ]);
+    if (abriu) {
+      toast({ variant: "success", title: "PDF", description: "Use imprimir ou salvar como PDF no navegador." });
+    } else {
+      toast({
+        variant: "info",
+        title: "Relatório baixado",
+        description: "Abra o arquivo HTML e use imprimir para salvar em PDF.",
+      });
+    }
   }
 
   function openCreate() {
@@ -339,7 +405,7 @@ export default function CargosPage() {
       description={
         cargos.length === 0
           ? "Cadastre os cargos que definem o que cada pessoa pode fazer."
-          : "Ajuste a busca ou o filtro de permissões."
+          : "Ajuste a busca ou os filtros de descrição e área."
       }
       action={
         pode("cargos", "criar") ? (
@@ -353,7 +419,19 @@ export default function CargosPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Cargos">
+    <Table
+      aria-label="Cargos"
+      showExport={false}
+      containerClassName="border-0 shadow-none rounded-none"
+      className="min-w-[52rem]"
+    >
+      <colgroup>
+        <col className="w-[12rem]" />
+        <col className="w-[15rem]" />
+        <col />
+        <col className="w-[7.5rem]" />
+        <col className="w-[4.5rem]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
@@ -362,8 +440,10 @@ export default function CargosPage() {
           <TableHead sortable sortDirection={directionFor("descricao")} onSort={() => handleSort("descricao")}>
             Descrição
           </TableHead>
-          <TableHead>Áreas com acesso</TableHead>
-          <TableHead className="text-right">Colaboradores</TableHead>
+          <TableHead className="min-w-[18rem]">Áreas com acesso</TableHead>
+          <TableHead align="center" className="w-[6.5rem]">
+            Colaboradores
+          </TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -373,17 +453,32 @@ export default function CargosPage() {
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="align-middle font-medium">{item.nome}</TableCell>
-              <TableCell className="align-middle max-w-[16rem] text-on-surface-variant">
+              <TableCell className="align-middle py-md">
+                <div className="flex items-center gap-sm">
+                  <CargoIconeListagem nome={item.nome} />
+                  <span className="font-semibold text-on-surface">{item.nome}</span>
+                </div>
+              </TableCell>
+              <TableCell className="align-middle py-md text-body-sm leading-snug text-on-surface">
                 {item.descricao || "—"}
               </TableCell>
-              <TableCell className="align-middle">
-                <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
+              <TableCell className="align-middle py-sm min-[768px]:py-md">
+                <ResumoPermissoesCargo
+                  permissaoJson={item.permissaoJson}
+                  onVerPermissoes={() => setPermissoesViewTarget(item)}
+                />
               </TableCell>
-              <TableCell className="align-middle text-right tabular-nums text-on-surface-variant">
+              <TableCell
+                align="center"
+                className="align-middle py-sm text-body-md font-medium tabular-nums text-on-surface min-[768px]:py-md"
+              >
                 {contagemColaboradores(item.id)}
               </TableCell>
-              <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
+              <TableActionsCell
+                label={`Ações de ${item.nome}`}
+                actions={acoes(item)}
+                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
+              />
             </TableRow>
           ))
         )}
@@ -399,14 +494,21 @@ export default function CargosPage() {
         {pageRows.map((item) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
+              <CargoIconeListagem nome={item.nome} />
               <TableMobileTitle>{item.nome}</TableMobileTitle>
-              <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
+              <TableActionsButton
+                label={`Ações de ${item.nome}`}
+                actions={acoes(item)}
+                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
+              />
             </TableMobileCardHeader>
             <TableMobileFields>
               <TableMobileField label="Descrição" stacked>{item.descricao || "—"}</TableMobileField>
               <TableMobileField label="Áreas com acesso" stacked>
-                <ResumoPermissoesCargo permissaoJson={item.permissaoJson} />
+                <ResumoPermissoesCargo
+                  permissaoJson={item.permissaoJson}
+                  onVerPermissoes={() => setPermissoesViewTarget(item)}
+                />
               </TableMobileField>
               <TableMobileField label="Colaboradores">
                 {String(contagemColaboradores(item.id))}
@@ -421,66 +523,100 @@ export default function CargosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Cargos"
-        description="Perfis de acesso e permissões por área do sistema. Cada colaborador herda o cargo vinculado."
+        description="Gerencie os cargos e permissões por área do sistema."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Cargos" }]}
         actions={
           pode("cargos", "criar") ? (
             <Button size="md" onClick={openCreate}>
               <Icon icon={Plus} size="sm" />
-              Novo
+              Novo cargo
             </Button>
           ) : undefined
         }
       />
       <PageContent>
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar cargo..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
-            {
-              id: "permissoes",
-              label: "Permissões",
-              value: permissao,
-              onChange: setPermissao,
-              options: [
-                { value: "todas", label: "Todas" },
-                { value: "com", label: "Com permissões" },
-                { value: "sem", label: "Sem permissões" },
-              ],
-            },
-          ]}
-        />
-        <CardMetricRow aria-label="Resumo de cargos">
+        <div
+          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3"
+          aria-label="Resumo de cargos"
+        >
           <CardMetric
             accent="primary"
-            rotulo="Cargos no recorte"
-            valor={String(visible.length).padStart(2, "0")}
-            detalhe="Total após busca e filtros."
-            iconClassName="bg-surface-subtle text-primary-container"
-            icon={<Icon icon={Shield} size="md" />}
+            rotulo="Cargos no sistema"
+            valor={metricValor(cargos.length)}
+            detalhe="Total de cargos cadastrados"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={Shield} size="md" className="text-primary-container" />}
           />
           <CardMetric
             accent="tertiary"
-            rotulo="Com permissões"
-            valor={String(comPermissao).padStart(2, "0")}
-            detalhe="Perfis com ao menos uma área marcada."
-            iconClassName="bg-surface-subtle text-on-surface-variant"
-            icon={<Icon icon={Shield} size="md" />}
+            rotulo="Áreas de acesso"
+            valor={metricValor(MODULOS_PERMISSAO.length)}
+            detalhe="Áreas disponíveis"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={LayoutGrid} size="md" className="text-tertiary-container" />}
           />
           <CardMetric
             accent="brass"
-            rotulo="Em uso"
-            valor={String(emUso).padStart(2, "0")}
-            detalhe="Cargos com colaboradores vinculados."
+            rotulo="Colaboradores vinculados"
+            valor={metricValor(totalColaboradoresVinculados)}
+            detalhe="Com cargos atribuídos"
             iconClassName="bg-gold-subtle text-brass"
             icon={<Icon icon={UserRound} size="md" className="text-brass" />}
           />
-        </CardMetricRow>
-        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
-        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </div>
+
+        <section className="flex flex-col gap-md">
+          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar cargo..."
+            onApply={handleApply}
+            onClear={handleClear}
+            fields={[
+              {
+                id: "descricao",
+                label: "Descrição",
+                value: descricaoFiltro,
+                onChange: setDescricaoFiltro,
+                options: [
+                  { value: "todos", label: "Todos" },
+                  { value: "com", label: "Com descrição" },
+                  { value: "sem", label: "Sem descrição" },
+                ],
+              },
+              {
+                id: "area",
+                label: "Área",
+                value: areaFiltro,
+                onChange: setAreaFiltro,
+                options: [
+                  { value: "todas", label: "Todas" },
+                  ...MODULOS_PERMISSAO.map((modulo) => ({ value: modulo.id, label: modulo.label })),
+                ],
+              },
+            ]}
+          />
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-md border-b border-border-subtle px-md py-sm">
+            <p className="inline-flex items-center gap-sm rounded-full border border-border-subtle bg-surface-subtle px-md py-xs text-body-sm text-on-surface">
+              <span className="size-2 shrink-0 rounded-full bg-brass" aria-hidden />
+              <span>
+                <span className="font-semibold tabular-nums">{visible.length}</span>{" "}
+                {visible.length === 1 ? "cargo encontrado" : "cargos encontrados"}
+              </span>
+            </p>
+            <TableExport onExport={aoExportar} />
+          </div>
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+          {visible.length > 0 ? (
+            <div className="border-t border-border-subtle px-md py-sm">
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            </div>
+          ) : null}
+        </section>
       </PageContent>
 
       <Sheet
@@ -542,6 +678,54 @@ export default function CargosPage() {
             </SheetBody>
             <SheetFooterForm closeLabel="Cancelar" onClose={closeSheet} saveDisabled={salvando} />
           </SheetForm>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={permissoesViewTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPermissoesViewTarget(null);
+        }}
+      >
+        <SheetContent
+          size="wide"
+          aria-labelledby={`${permissoesViewFormId}-title`}
+          aria-describedby={`${permissoesViewFormId}-desc`}
+        >
+          <SheetHeader className="border-primary-fixed-dim/35 bg-primary-fixed/45">
+            <SheetHeaderLead>
+              <SheetHeaderIcon className="border border-primary-fixed-dim/30 bg-surface-card text-primary-container">
+                <Icon
+                  icon={permissoesViewTarget ? iconeCargoListagem(permissoesViewTarget.nome) : Shield}
+                  size="md"
+                />
+              </SheetHeaderIcon>
+              <SheetHeaderText>
+                <SheetTitle id={`${permissoesViewFormId}-title`} className="text-primary-container">
+                  {permissoesViewTarget?.nome ?? "Permissões"}
+                </SheetTitle>
+                <SheetDescription id={`${permissoesViewFormId}-desc`} className="text-on-primary-fixed-variant">
+                  Matriz de permissões deste cargo (somente consulta).
+                </SheetDescription>
+              </SheetHeaderText>
+            </SheetHeaderLead>
+            <SheetClose className="text-primary-container hover:bg-primary-fixed/60 hover:text-on-primary-fixed" />
+          </SheetHeader>
+          <SheetBody className="gap-md min-[768px]:gap-lg">
+            {permissoesViewTarget ? (
+              <MatrizPermissoesCargo
+                formId={permissoesViewFormId}
+                readOnly
+                permissoes={parsePermissoesJson(permissoesViewTarget.permissaoJson)}
+                onChange={() => undefined}
+              />
+            ) : null}
+          </SheetBody>
+          <div className="flex justify-end border-t border-border-subtle px-lg py-md">
+            <Button type="button" variant="outline" size="sm" onClick={() => setPermissoesViewTarget(null)}>
+              Fechar
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 
