@@ -1,5 +1,17 @@
-import type { FormEvent } from "react";
-import { Filter, RotateCcw, Search } from "lucide-react";
+import type { FormEvent, ReactNode } from "react";
+import {
+  AlertTriangle,
+  Building2,
+  Calendar,
+  Clock,
+  Filter,
+  MapPin,
+  RotateCcw,
+  Search,
+  Upload,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select } from "@/components/input";
@@ -57,11 +69,46 @@ type FilterBarProps = {
   onClear: () => void;
   applyLabel?: string;
   clearLabel?: string;
+  /** Campo de busca apenas informativo (ex.: relatórios sem busca textual). */
+  searchReadOnly?: boolean;
   /** `toolbar`: uma linha (mockup fila de cobranças) — busca com ícone, selects «Label: valor», Filtrar com funil. */
   variant?: "default" | "toolbar";
   /** Com `variant="toolbar"`, distribui busca/cargo/situação em proporções fixas no desktop. */
   toolbarLayout?: "flex" | "proportional";
+  /** Layout mobile da fila de cobranças (somente &lt;768px). Desktop permanece toolbar. */
+  toolbarMobile?: "fila";
+  /** Variante mobile do layout `default`: grade 2 colunas em card (ex.: Inadimplência). */
+  defaultMobile?: "grid";
 };
+
+const filaMobileFieldIcons: Record<string, LucideIcon> = {
+  condominio: Building2,
+  situacao: AlertTriangle,
+  re: User,
+  retorno: RotateCcw,
+};
+
+const inadimplenciaMobileFieldIcons: Record<string, LucideIcon> = {
+  periodo: Calendar,
+  "data-base": Calendar,
+  limite: Clock,
+  condominio: Building2,
+  unidade: Building2,
+  administradora: Building2,
+  cidade: MapPin,
+  advogado: User,
+  situacao: AlertTriangle,
+  origem: Upload,
+};
+
+function FilaMobileFieldLabel({ icon, htmlFor, children }: { icon: LucideIcon; htmlFor: string; children: ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="flex items-center gap-xs text-label-lg text-primary-container">
+      <Icon icon={icon} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
+      {children}
+    </label>
+  );
+}
 
 export function FilterBar({
   searchId = "filter-search",
@@ -74,15 +121,24 @@ export function FilterBar({
   onClear,
   applyLabel = "Filtrar",
   clearLabel = "Limpar",
+  searchReadOnly = false,
   variant = "default",
   toolbarLayout = "flex",
+  toolbarMobile,
+  defaultMobile,
 }: FilterBarProps) {
+  const searchInputClass = searchReadOnly
+    ? "h-control! cursor-not-allowed bg-surface-subtle text-on-surface-variant"
+    : "h-control!";
+  /** Sobrescreve o `pl` padrão de `formControlClassName` quando há ícone absoluto à esquerda. */
+  const searchInputWithIconClass = `${searchInputClass} !pl-[calc(var(--spacing-md)+1.125rem)]`;
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onApply();
   }
 
-  function renderFieldControl(field: FilterField) {
+  function renderFieldControl(field: FilterField, options?: { toolbarPrefix?: boolean }) {
+    const useToolbarPrefix = options?.toolbarPrefix ?? variant === "toolbar";
     if (field.type === "date" || field.type === "number") {
       return (
         <Input
@@ -106,7 +162,7 @@ export function FilterBar({
         id={field.id}
         className="h-control!"
         value={field.value}
-        prefixLabel={variant === "toolbar" ? field.label : undefined}
+        prefixLabel={useToolbarPrefix ? field.label : undefined}
         onChange={(event) => field.onChange(event.target.value)}
       >
         {field.options.map((option) => (
@@ -121,23 +177,25 @@ export function FilterBar({
   if (variant === "toolbar") {
     const toolbarFormClass =
       toolbarLayout === "proportional"
-        ? "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1024px]:grid min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center min-[1024px]:gap-md"
-        : "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center";
+        ? "hidden min-[768px]:grid min-[768px]:grid-cols-2 min-[768px]:gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-md min-[768px]:shadow-card min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center"
+        : "hidden min-[768px]:flex min-[768px]:flex-col min-[768px]:gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-md min-[768px]:shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center";
 
     const searchWrapClass =
       toolbarLayout === "proportional"
-        ? "relative min-w-0"
-        : "relative min-w-[12rem] flex-1 basis-[14rem]";
+        ? "relative min-w-0 min-[1024px]:col-span-1"
+        : "relative min-w-[12rem] min-[768px]:flex-1 min-[768px]:basis-[14rem]";
 
     const fieldWrapClass =
-      toolbarLayout === "proportional" ? "min-w-0" : "min-w-[9.5rem] flex-1 basis-[11rem]";
+      toolbarLayout === "proportional"
+        ? "min-w-0"
+        : "min-w-[9.5rem] min-[768px]:flex-1 min-[768px]:basis-[11rem]";
 
     const actionsWrapClass =
       toolbarLayout === "proportional"
         ? "flex shrink-0 items-center justify-end gap-sm min-[1024px]:justify-end"
         : "flex shrink-0 items-center justify-end gap-sm min-[1100px]:ml-auto";
 
-    return (
+    const desktopToolbar = (
       <form onSubmit={handleSubmit} className={toolbarFormClass}>
         <div className={searchWrapClass}>
           <label htmlFor={searchId} className="sr-only">
@@ -151,8 +209,10 @@ export function FilterBar({
           />
           <Input
             id={searchId}
-            className="h-control! pl-[calc(var(--spacing-md)+1.125rem)]"
+            className={searchInputWithIconClass}
             value={searchValue}
+            readOnly={searchReadOnly}
+            aria-readonly={searchReadOnly}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={searchPlaceholder}
           />
@@ -179,19 +239,181 @@ export function FilterBar({
         </div>
       </form>
     );
+
+    if (toolbarMobile !== "fila") {
+      return (
+        <form
+          onSubmit={handleSubmit}
+          className={
+            toolbarLayout === "proportional"
+              ? "grid grid-cols-2 gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center"
+              : "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center"
+          }
+        >
+          <div
+            className={
+              toolbarLayout === "proportional"
+                ? "relative col-span-2 min-w-0 min-[1024px]:col-span-1"
+                : "relative min-w-0 min-[1100px]:min-w-[12rem] min-[1100px]:flex-1 min-[1100px]:basis-[14rem]"
+            }
+          >
+            <label htmlFor={searchId} className="sr-only">
+              {searchLabel}
+            </label>
+            <Icon
+              icon={Search}
+              size="sm"
+              className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
+              aria-hidden
+            />
+            <Input
+              id={searchId}
+              className={searchInputWithIconClass}
+              value={searchValue}
+              readOnly={searchReadOnly}
+              aria-readonly={searchReadOnly}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </div>
+
+          {fields.map((field) => (
+            <div
+              key={field.id}
+              className={
+                toolbarLayout === "proportional"
+                  ? "min-w-0"
+                  : "min-w-0 min-[1100px]:min-w-[9.5rem] min-[1100px]:flex-1 min-[1100px]:basis-[11rem]"
+              }
+            >
+              <label htmlFor={field.id} className="sr-only">
+                {field.label}
+              </label>
+              {renderFieldControl(field)}
+            </div>
+          ))}
+
+          <div
+            className={
+              toolbarLayout === "proportional"
+                ? "col-span-2 flex w-full items-stretch gap-sm min-[1024px]:col-span-1 min-[1024px]:w-auto min-[1024px]:justify-end"
+                : "flex w-full items-stretch gap-sm min-[1100px]:ml-auto min-[1100px]:w-auto min-[1100px]:justify-end"
+            }
+          >
+            <Button type="button" variant="outline" size="sm" className="min-h-11 flex-1 min-[1100px]:flex-none" onClick={onClear}>
+              <Icon icon={RotateCcw} size="sm" />
+              {clearLabel}
+            </Button>
+            <Button type="submit" size="sm" className="min-h-11 flex-[1.15] min-[1100px]:flex-none">
+              <Icon icon={Filter} size="sm" />
+              {applyLabel}
+            </Button>
+          </div>
+        </form>
+      );
+    }
+
+    const mobileSearchId = `${searchId}-mobile`;
+
+    return (
+      <>
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
+        >
+          <div className="flex flex-col gap-xs">
+            <FilaMobileFieldLabel icon={Building2} htmlFor={mobileSearchId}>
+              {searchLabel === "Buscar" ? "Condomínio" : searchLabel}
+            </FilaMobileFieldLabel>
+            <div className="relative">
+              <Icon
+                icon={Search}
+                size="sm"
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
+                aria-hidden
+              />
+              <Input
+                id={mobileSearchId}
+                className={searchInputWithIconClass}
+                value={searchValue}
+                readOnly={searchReadOnly}
+                aria-readonly={searchReadOnly}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={searchPlaceholder}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-sm">
+            {fields.map((field) => {
+              const fieldIcon = filaMobileFieldIcons[field.id] ?? Building2;
+              return (
+                <div key={field.id} className="flex min-w-0 flex-col gap-xs">
+                  <FilaMobileFieldLabel icon={fieldIcon} htmlFor={`${field.id}-mobile`}>
+                    {field.label}
+                  </FilaMobileFieldLabel>
+                  {field.type === "date" || field.type === "number" ? (
+                    renderFieldControl({ ...field, id: `${field.id}-mobile` }, { toolbarPrefix: false })
+                  ) : field.type === "period" ? (
+                    renderFieldControl({ ...field, id: `${field.id}-mobile` }, { toolbarPrefix: false })
+                  ) : (
+                    <Select
+                      id={`${field.id}-mobile`}
+                      className="h-control!"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    >
+                      {field.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-stretch gap-sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11 flex-[0.92] border-transparent bg-surface-subtle"
+              onClick={onClear}
+            >
+              <Icon icon={RotateCcw} size="sm" />
+              {clearLabel}
+            </Button>
+            <Button type="submit" size="sm" className="min-h-11 flex-1">
+              <Icon icon={Filter} size="sm" />
+              {applyLabel}
+            </Button>
+          </div>
+        </form>
+        {desktopToolbar}
+      </>
+    );
   }
 
-  return (
+  const desktopDefaultForm = (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
+      className={
+        defaultMobile === "grid"
+          ? "hidden flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
+          : "flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
+      }
     >
       <div className="min-w-0 flex-1 basis-[12rem]">
         <FormField label={searchLabel} htmlFor={searchId}>
           <Input
             id={searchId}
-            className="h-control!"
+            className={searchInputClass}
             value={searchValue}
+            readOnly={searchReadOnly}
+            aria-readonly={searchReadOnly}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={searchPlaceholder}
           />
@@ -217,5 +439,71 @@ export function FilterBar({
         </Button>
       </div>
     </form>
+  );
+
+  if (defaultMobile !== "grid") {
+    return desktopDefaultForm;
+  }
+
+  const mobileSearchId = `${searchId}-mobile`;
+
+  return (
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
+      >
+        <div className="flex flex-col gap-xs">
+          <FilaMobileFieldLabel icon={Search} htmlFor={mobileSearchId}>
+            {searchLabel}
+          </FilaMobileFieldLabel>
+          <Input
+            id={mobileSearchId}
+            className={searchInputClass}
+            value={searchValue}
+            readOnly={searchReadOnly}
+            aria-readonly={searchReadOnly}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={searchPlaceholder}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-sm">
+          {fields.map((field) => {
+            const fieldIcon = inadimplenciaMobileFieldIcons[field.id] ?? Building2;
+            const spanFull = field.type === "period";
+            return (
+              <div
+                key={field.id}
+                className={`flex min-w-0 flex-col gap-xs${spanFull ? " col-span-2" : ""}`}
+              >
+                <FilaMobileFieldLabel icon={fieldIcon} htmlFor={`${field.id}-mobile`}>
+                  {field.label}
+                </FilaMobileFieldLabel>
+                {renderFieldControl({ ...field, id: `${field.id}-mobile` }, { toolbarPrefix: false })}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-stretch gap-sm">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11 flex-[0.92] border-transparent bg-surface-subtle"
+            onClick={onClear}
+          >
+            <Icon icon={RotateCcw} size="sm" />
+            {clearLabel}
+          </Button>
+          <Button type="submit" size="sm" className="min-h-11 flex-1">
+            <Icon icon={Filter} size="sm" />
+            {applyLabel}
+          </Button>
+        </div>
+      </form>
+      {desktopDefaultForm}
+    </>
   );
 }

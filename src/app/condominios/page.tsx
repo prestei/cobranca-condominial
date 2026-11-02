@@ -8,6 +8,7 @@ import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
@@ -46,8 +47,6 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -78,6 +77,9 @@ import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 const etapasCondominio = ["Dados", "Endereço", "Observação"] as const;
+
+const condominiosMobileDataBarClassName =
+  "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
 
 const estados = [
   "AC",
@@ -901,24 +903,52 @@ export default function CondominiosPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Condomínios">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
-              <TableMobileTitle>{item.nome}</TableMobileTitle>
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                aria-hidden="true"
+              >
+                <Icon icon={Building2} size="sm" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {item.nome}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                {item.identificadorExterno ? (
+                  <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.identificadorExterno}</p>
+                ) : null}
+              </div>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Situação">
-                <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
-              </TableMobileField>
-              <TableMobileField label="Cidade">{item.cidade || "—"}</TableMobileField>
-              <TableMobileField label="Administradora">{item.administradora || "—"}</TableMobileField>
-              <TableMobileField label="Advogados">{rotuloAdvogadosCondominio(item)}</TableMobileField>
-              <TableMobileField label="Unidades" valueClassName="tabular-nums">
-                {contarUnidades(item.id)}
-              </TableMobileField>
-            </TableMobileFields>
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Unidades</p>
+                  <p className="text-body-md font-semibold tabular-nums text-on-surface">{contarUnidades(item.id)}</p>
+                  <p className="text-body-sm text-on-surface-variant">{item.cidade.trim() || "Sem cidade cadastrada"}</p>
+                </div>
+                <Badge variant={item.status === "Ativo" ? "success" : "secondary"} className="shrink-0">
+                  {item.status}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-sm text-body-sm">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Administradora</p>
+                  <p className="text-body-md text-on-surface">{item.administradora.trim() || "—"}</p>
+                </div>
+                <div className="min-w-0 text-end">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Advogados</p>
+                  <p className="text-body-md text-on-surface">{rotuloAdvogadosCondominio(item)}</p>
+                </div>
+              </div>
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -930,6 +960,7 @@ export default function CondominiosPage() {
           title="Condomínios"
           description="Gerencie os condomínios cadastrados no sistema, visualize informações e acompanhe a situação de cada um."
           breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
+          className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
           actions={
             pode("condominios", "criar") ? (
               <Button size="md" onClick={openCreate}>
@@ -939,40 +970,50 @@ export default function CondominiosPage() {
             ) : undefined
           }
         />
-        <PageContent>
-          <div
-            className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4"
-            aria-label="Resumo de condomínios"
-          >
-            <CardMetric
-              accent="primary"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={Building2} size="md" className="text-primary-container" />}
-              rotulo="Total de condomínios"
-              valor={metricValor(visible.length)}
-            />
-            <CardMetric
-              accent="brass"
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
-              rotulo="Ativos"
-              valor={metricValor(ativos)}
-            />
-            <CardMetric
-              accent="critical"
-              iconClassName="bg-error-container text-status-critical"
-              icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
-              rotulo="Inadimplentes"
-              valor={metricValor(inadimplentes)}
-            />
-            <CardMetric
-              accent="tertiary"
-              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-              icon={<Icon icon={MapPin} size="md" className="text-tertiary-container" />}
-              rotulo="Com endereço"
-              valor={metricValor(comEndereco)}
-            />
-          </div>
+        <PageContent className="max-md:gap-md max-md:py-md">
+          <section aria-label="Resumo de condomínios">
+            <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
+              <KpiMobileCard
+                rotulo="Total de condomínios"
+                valor={metricValor(visible.length)}
+                icon={Building2}
+                destaque
+              />
+              <KpiMobileCard rotulo="Ativos" valor={metricValor(ativos)} icon={CheckCircle2} />
+              <KpiMobileCard rotulo="Inadimplentes" valor={metricValor(inadimplentes)} icon={Receipt} />
+              <KpiMobileCard rotulo="Com endereço" valor={metricValor(comEndereco)} icon={MapPin} />
+            </div>
+            <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+              <CardMetric
+                accent="primary"
+                iconClassName="bg-primary-fixed/50 text-primary-container"
+                icon={<Icon icon={Building2} size="md" className="text-primary-container" />}
+                rotulo="Total de condomínios"
+                valor={metricValor(visible.length)}
+              />
+              <CardMetric
+                accent="brass"
+                iconClassName="bg-gold-subtle text-brass"
+                icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+                rotulo="Ativos"
+                valor={metricValor(ativos)}
+              />
+              <CardMetric
+                accent="critical"
+                iconClassName="bg-error-container text-status-critical"
+                icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
+                rotulo="Inadimplentes"
+                valor={metricValor(inadimplentes)}
+              />
+              <CardMetric
+                accent="tertiary"
+                iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+                icon={<Icon icon={MapPin} size="md" className="text-tertiary-container" />}
+                rotulo="Com endereço"
+                valor={metricValor(comEndereco)}
+              />
+            </div>
+          </section>
 
           <section className="flex flex-col gap-md">
             <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -982,6 +1023,7 @@ export default function CondominiosPage() {
               searchPlaceholder="Buscar condomínio..."
               onApply={handleApply}
               onClear={handleClear}
+              defaultMobile="grid"
               fields={[
                 {
                   id: "administradora",
@@ -1043,6 +1085,7 @@ export default function CondominiosPage() {
             onImport={abrirImportacao}
             showImport={podeImportar}
             importDisabled={importando}
+            mobileDataBarClassName={condominiosMobileDataBarClassName}
           />
           {visible.length > 0 ? (
             <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />

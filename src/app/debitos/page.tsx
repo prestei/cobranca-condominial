@@ -3,12 +3,23 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { CheckCircle2, ClipboardList, Clock, Pencil, Plus, Receipt, Scale, Trash2, Wallet } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Pencil,
+  Plus,
+  Receipt,
+  Scale,
+  Trash2,
+  Wallet,
+} from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { GraficoRosca } from "@/components/charts";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -46,7 +57,6 @@ import {
   TableMobileCardHeader,
   TableMobileEmpty,
   TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableExport,
@@ -818,30 +828,59 @@ export default function DebitosPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Inadimplência">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
-              <TableMobileTitle>{item.referencia}</TableMobileTitle>
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                aria-hidden="true"
+              >
+                <Icon icon={Receipt} size="sm" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {item.referencia}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{nomeUnidade(item.unidadeId)}</p>
+              </div>
               <TableActionsButton label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Unidade">{nomeUnidade(item.unidadeId)}</TableMobileField>
-              <TableMobileField label="Tipo">{grupoDebito(item.descricao)}</TableMobileField>
-              <TableMobileField label="Vencimento">{formatarData(item.dataVencimento)}</TableMobileField>
-              <TableMobileField label="Dias">{celulaDias(item)}</TableMobileField>
-              <TableMobileField label="Original" valueClassName="tabular-nums">
-                {formatarMoeda(item.valorOriginal)}
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Valor atualizado</p>
+                  <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                    {formatarMoeda(item.valorAtualizado)}
+                  </p>
+                  <p className="text-body-sm text-on-surface-variant">
+                    Original {formatarMoeda(item.valorOriginal)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-xs">
+                  <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+                  {celulaDias(item)}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-sm text-body-sm">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Vencimento</p>
+                  <p className="text-body-md text-on-surface">{formatarData(item.dataVencimento)}</p>
+                </div>
+                <div className="min-w-0 text-end">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
+                  <p className="text-body-md text-on-surface">{grupoDebito(item.descricao)}</p>
+                </div>
+              </div>
+              <TableMobileField label="Origem / atualização" stacked>
+                <span className="block">{rotuloFonteValores(item)}</span>
+                <span className="block tabular-nums text-on-surface-variant">{formatarData(item.atualizadoEm)}</span>
               </TableMobileField>
-              <TableMobileField label="Atualizado" valueClassName="tabular-nums">
-                {formatarMoeda(item.valorAtualizado)}
-              </TableMobileField>
-              <TableMobileField label="Situação">
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-              </TableMobileField>
-              <TableMobileField label="Origem">{rotuloFonteValores(item)}</TableMobileField>
-              <TableMobileField label="Atualizado">{formatarData(item.atualizadoEm)}</TableMobileField>
-            </TableMobileFields>
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -863,36 +902,44 @@ export default function DebitosPage() {
         }
       />
       <PageContent>
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={Receipt} size="md" className="text-brass" />}
-            rotulo="Valor original"
-            valor={moeda(totalOriginal)}
-          />
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
-            rotulo="Valor atualizado"
-            valor={moeda(totalAtualizado)}
-          />
-          <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={Clock} size="md" className="text-tertiary-container" />}
-            rotulo={`Até ${limiteDias} dias`}
-            valor={moeda(ateLimite)}
-          />
-          <CardMetric
-            accent="critical"
-            iconClassName="bg-error-container text-status-critical"
-            icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
-            rotulo={`Acima de ${limiteDias} dias`}
-            valor={moeda(acimaLimite)}
-          />
-        </div>
+        <section aria-label="Indicadores de inadimplência">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
+            <KpiMobileCard rotulo="Valor original" valor={moeda(totalOriginal)} icon={Receipt} destaque />
+            <KpiMobileCard rotulo="Valor atualizado" valor={moeda(totalAtualizado)} icon={Wallet} />
+            <KpiMobileCard rotulo={`Até ${limiteDias} dias`} valor={moeda(ateLimite)} icon={Clock} />
+            <KpiMobileCard rotulo={`Acima de ${limiteDias} dias`} valor={moeda(acimaLimite)} icon={Scale} />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+            <CardMetric
+              accent="brass"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={Receipt} size="md" className="text-brass" />}
+              rotulo="Valor original"
+              valor={moeda(totalOriginal)}
+            />
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
+              rotulo="Valor atualizado"
+              valor={moeda(totalAtualizado)}
+            />
+            <CardMetric
+              accent="tertiary"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={Clock} size="md" className="text-tertiary-container" />}
+              rotulo={`Até ${limiteDias} dias`}
+              valor={moeda(ateLimite)}
+            />
+            <CardMetric
+              accent="critical"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
+              rotulo={`Acima de ${limiteDias} dias`}
+              valor={moeda(acimaLimite)}
+            />
+          </div>
+        </section>
 
         <section className="flex flex-col gap-md">
           <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -902,6 +949,7 @@ export default function DebitosPage() {
             searchPlaceholder="Buscar débito, unidade, condomínio..."
             onApply={handleApply}
             onClear={handleClear}
+            defaultMobile="grid"
             fields={[
             {
               id: "periodo",
@@ -982,9 +1030,9 @@ export default function DebitosPage() {
           />
         </section>
 
-        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
           <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
-          <div className="grid grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[768px]:items-center">
+          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[768px]:items-center min-[768px]:gap-lg">
             <div className="flex flex-col items-center gap-sm min-[768px]:items-start">
               {unidadesCarteira > 0 ? (
                 <GraficoRosca
@@ -1018,7 +1066,7 @@ export default function DebitosPage() {
                 </p>
               ) : null}
             </div>
-            <div className="min-w-0 border-t border-border-subtle pt-lg min-[768px]:border-t-0 min-[768px]:border-l min-[768px]:pl-lg min-[768px]:pt-0">
+            <div className="min-w-0 rounded-lg border border-border-subtle/60 bg-surface-subtle/40 p-md min-[768px]:rounded-none min-[768px]:border-0 min-[768px]:border-l min-[768px]:border-border-subtle min-[768px]:bg-transparent min-[768px]:p-0 min-[768px]:pl-lg">
               <p className="text-metric text-on-surface tabular-nums">—</p>
               <p className="mt-sm text-body-sm text-on-surface-variant">Inadimplência do valor emitido</p>
               <p className="mt-xs text-body-sm text-on-surface-variant">
@@ -1026,7 +1074,7 @@ export default function DebitosPage() {
               </p>
             </div>
           </div>
-          <Alert variant="info" title="Como ler os indicadores">
+          <Alert variant="info" title="Como ler os indicadores" className="text-body-sm min-[768px]:text-body-md">
             Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias}{" "}
             dias. O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte
             dos filtros.
@@ -1034,9 +1082,11 @@ export default function DebitosPage() {
         </section>
 
         <section className="flex flex-col gap-md">
-          <div className="flex flex-wrap items-center justify-between gap-md">
+          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
             <h2 className="text-headline-sm text-on-surface">Registros de Inadimplência</h2>
-            <TableExport onExport={aoExportar} />
+            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
+              <TableExport onExport={aoExportar} />
+            </div>
           </div>
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
         </section>

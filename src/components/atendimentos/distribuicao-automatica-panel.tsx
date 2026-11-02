@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Info, Network, UserPlus } from "lucide-react";
+import { Bot, Info, Network, UserPlus } from "lucide-react";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { FormField, Select, Switch } from "@/components/input";
@@ -164,7 +164,7 @@ export function DistribuicaoAutomaticaPanel({ onDistribuido, refreshKey }: Props
       <section
         aria-busy="true"
         aria-label="Distribuição automática"
-        className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
+        className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
       >
         <p className="text-body-sm text-on-surface-variant">Carregando distribuição automática…</p>
       </section>
@@ -173,16 +173,69 @@ export function DistribuicaoAutomaticaPanel({ onDistribuido, refreshKey }: Props
 
   return (
     <section
-      aria-labelledby="distribuicao-automatica-titulo"
-      className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
+      aria-label="Distribuição automática"
+      className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
     >
-      <div className="flex flex-col gap-lg min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:gap-0">
+      <div className="flex flex-col gap-md min-[768px]:hidden">
+        <div className="flex items-start justify-between gap-md">
+          <div className="flex min-w-0 items-start gap-md">
+            <div
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary-fixed/45 text-primary-container"
+              aria-hidden
+            >
+              <Icon icon={Bot} size="md" />
+            </div>
+            <h2 id="distribuicao-automatica-titulo" className="pt-sm text-title-sm font-semibold text-primary-container">
+              Distribuição automática
+            </h2>
+          </div>
+          <Switch
+            id="distribuicao-auto-switch-mobile"
+            checked={ativada}
+            aria-label={ativada ? "Distribuição automática ativada" : "Distribuição automática desativada"}
+            onChange={(event) => void alternarAtivada(event.target.checked)}
+          />
+        </div>
+        <p className="text-body-sm leading-snug text-on-surface-variant">
+          Atribua unidades sem responsável conforme as regras de distribuição por RE.
+        </p>
+        <FormField label="Regra:" htmlFor="distribuicao-auto-regra-mobile">
+          <Select
+            id="distribuicao-auto-regra-mobile"
+            value={estrategia}
+            className="h-control! w-full bg-surface-card"
+            onChange={(event) => void alterarEstrategia(event.target.value)}
+          >
+            {(Object.keys(rotuloEstrategia) as DistribuicaoAutomaticaEstrategia[]).map((key) => (
+              <option key={key} value={key}>
+                {rotuloEstrategia[key]}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <p className="flex items-center gap-sm text-body-sm text-on-surface-variant">
+          <Info className="size-4 shrink-0" aria-hidden />
+          <span>
+            {aguardando} unidade{aguardando === 1 ? "" : "s"} aguardando atribuição
+          </span>
+        </p>
+        <Button
+          type="button"
+          size="md"
+          className="w-full"
+          disabled={!ativada || executando}
+          onClick={() => void distribuirAgora()}
+        >
+          <Icon icon={UserPlus} size="sm" />
+          {executando ? "Distribuindo…" : "Distribuir agora"}
+        </Button>
+      </div>
+
+      <div className="hidden min-[768px]:flex min-[768px]:flex-col min-[768px]:gap-md min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:gap-0">
         <div className="flex min-w-0 flex-1 items-start gap-md min-[1024px]:pr-lg">
           <Icon icon={Network} size="lg" className="mt-0.5 shrink-0 text-primary-container" />
           <div className="min-w-0 flex flex-col gap-xs">
-            <h2 id="distribuicao-automatica-titulo" className="text-title-sm font-semibold text-primary-container">
-              Distribuição automática
-            </h2>
+            <h2 className="text-title-sm font-semibold text-primary-container">Distribuição automática</h2>
             <p className="text-body-sm leading-snug text-on-surface-variant">
               Atribua unidades sem responsável conforme as regras de distribuição por RE.
             </p>

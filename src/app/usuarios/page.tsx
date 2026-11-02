@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { Briefcase, KeyRound, Pencil, Phone, Plus, Trash2, UserRound, UserX } from "lucide-react";
+import { Briefcase, KeyRound, Pencil, Plus, Trash2, UserRound, UserX } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -41,8 +42,6 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -211,7 +210,6 @@ export default function UsuariosPage() {
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const comTelefone = visible.filter((item) => item.telefone.trim().length > 0).length;
   const comAcesso = visible.filter((item) => item.ativo !== false).length;
   const cargosNoRecorte = new Set(visible.map((item) => item.cargoId)).size;
   const metricValor = (n: number) => String(n).padStart(2, "0");
@@ -623,7 +621,7 @@ export default function UsuariosPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Colaboradores">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
               <Checkbox
@@ -631,24 +629,54 @@ export default function UsuariosPage() {
                 aria-label={`Selecionar ${item.nome}`}
                 onChange={(event) => toggleRow(item.id, event.target.checked)}
               />
-              <TableMobileTitle>{item.nome}</TableMobileTitle>
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed/45 text-label-md font-semibold text-primary-container"
+                aria-hidden="true"
+              >
+                {iniciaisNome(item.nome)}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {item.nome}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
+              </div>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="E-mail">{item.email || "—"}</TableMobileField>
-              <TableMobileField label="RE">{codigoReDoUsuario(item) ?? "—"}</TableMobileField>
-              <TableMobileField label="Perfil">
-                <Badge variant="secondary" className="rounded-md bg-gold-subtle font-normal text-primary-container">
-                  {rotuloPerfil(item.cargoId)}
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Código RE</p>
+                  <p className="font-mono text-body-md font-semibold text-on-surface">
+                    {codigoReDoUsuario(item) ?? "—"}
+                  </p>
+                  <Badge
+                    variant="secondary"
+                    className="mt-xs rounded-md bg-gold-subtle font-normal text-primary-container"
+                  >
+                    {rotuloPerfil(item.cargoId)}
+                  </Badge>
+                </div>
+                <Badge variant={item.ativo === false ? "neutral" : "success"} className="shrink-0">
+                  {rotuloSituacao(item)}
                 </Badge>
-              </TableMobileField>
-              <TableMobileField label="Cargo">{nomeCargo(item.cargoId)}</TableMobileField>
-              <TableMobileField label="Telefone">{item.telefone.trim() || "—"}</TableMobileField>
-              <TableMobileField label="Situação">
-                <Badge variant={item.ativo === false ? "neutral" : "success"}>{rotuloSituacao(item)}</Badge>
-              </TableMobileField>
-              <TableMobileField label="Último acesso">—</TableMobileField>
-            </TableMobileFields>
+              </div>
+              <div className="grid grid-cols-2 gap-sm text-body-sm">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Cargo</p>
+                  <p className="text-body-md text-on-surface">{nomeCargo(item.cargoId)}</p>
+                </div>
+                <div className="min-w-0 text-end">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Telefone</p>
+                  <p className="text-body-md text-on-surface">{item.telefone.trim() || "—"}</p>
+                </div>
+              </div>
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -660,6 +688,7 @@ export default function UsuariosPage() {
         title="Colaboradores"
         description="Cadastre quem acessa o sistema, defina cargos e acompanhe situação e acesso."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Colaboradores" }]}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("usuarios", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -669,44 +698,46 @@ export default function UsuariosPage() {
           ) : undefined
         }
       />
-      <PageContent>
-        <div
-          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4"
-          aria-label="Resumo de colaboradores"
-        >
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={UserRound} size="md" className="text-primary-container" />}
-            rotulo="Total de colaboradores"
-            valor={metricValor(visible.length)}
-            detalhe="No recorte após filtrar"
-          />
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={Briefcase} size="md" className="text-brass" />}
-            rotulo="Cargos cadastrados"
-            valor={metricValor(cargosNoRecorte)}
-            detalhe="Perfis distintos na lista"
-          />
-          <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={Phone} size="md" className="text-tertiary-container" />}
-            rotulo="Colaboradores com telefone"
-            valor={metricValor(comTelefone)}
-            detalhe="Com número informado"
-          />
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={KeyRound} size="md" className="text-primary-container" />}
-            rotulo="Colaboradores com acesso ao sistema"
-            valor={metricValor(comAcesso)}
-            detalhe="Situação ativa no recorte"
-          />
-        </div>
+      <PageContent className="max-md:gap-md max-md:py-md">
+        <section aria-label="Resumo de colaboradores">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+            <KpiMobileCard
+              rotulo="Total de colaboradores"
+              valor={metricValor(visible.length)}
+              icon={UserRound}
+              destaque
+            />
+            <KpiMobileCard rotulo="Cargos cadastrados" valor={metricValor(cargosNoRecorte)} icon={Briefcase} />
+            <KpiMobileCard
+              rotulo="Com acesso ao sistema"
+              valor={metricValor(comAcesso)}
+              icon={KeyRound}
+            />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={UserRound} size="md" className="text-primary-container" />}
+              rotulo="Total de colaboradores"
+              valor={metricValor(visible.length)}
+            />
+            <CardMetric
+              accent="brass"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={Briefcase} size="md" className="text-brass" />}
+              rotulo="Cargos cadastrados"
+              valor={metricValor(cargosNoRecorte)}
+            />
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={KeyRound} size="md" className="text-primary-container" />}
+              rotulo="Colaboradores com acesso ao sistema"
+              valor={metricValor(comAcesso)}
+            />
+          </div>
+        </section>
 
         <section className="flex flex-col gap-md">
           <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -716,6 +747,7 @@ export default function UsuariosPage() {
             searchPlaceholder="Buscar colaborador..."
             onApply={handleApply}
             onClear={handleClear}
+            defaultMobile="grid"
             fields={[
               {
                 id: "cargo",
@@ -742,13 +774,12 @@ export default function UsuariosPage() {
           />
         </section>
 
-        <section className="flex flex-col gap-sm">
-          <div className="flex flex-wrap items-center justify-between gap-md">
-            <p className="text-body-md text-on-surface">
-              <span className="font-semibold tabular-nums">{visible.length}</span>{" "}
-              {visible.length === 1 ? "colaborador" : "colaboradores"}
-            </p>
-            <TableExport onExport={aoExportar} />
+        <section className="flex flex-col gap-md">
+          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
+            <h2 className="text-headline-sm text-on-surface">Listagem de colaboradores</h2>
+            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
+              <TableExport onExport={aoExportar} />
+            </div>
           </div>
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
         </section>

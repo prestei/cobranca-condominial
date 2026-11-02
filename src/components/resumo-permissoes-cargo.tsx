@@ -7,8 +7,8 @@ import { listarModulosPermitidos, parsePermissoesJson, resumoPermissoes } from "
 
 type ResumoPermissoesCargoProps = {
   permissaoJson: string;
-  /** `badges`: tags compactas (legado). `painel`: bloco da listagem de cargos. */
-  variant?: "badges" | "painel";
+  /** `badges`: tags compactas. `painel`: listagem desktop. `mobile`: card empilhado (&lt;768px). */
+  variant?: "badges" | "painel" | "mobile";
   onVerPermissoes?: () => void;
 };
 
@@ -40,6 +40,42 @@ export function ResumoPermissoesCargo({
             {item.label}
           </Badge>
         ))}
+      </div>
+    );
+  }
+
+  if (variant === "mobile") {
+    return (
+      <div
+        className="flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-subtle/40"
+        title={detalhe}
+      >
+        <div className="flex items-center gap-sm px-md py-sm">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/50 text-primary-container"
+            aria-hidden
+          >
+            <Icon icon={LayoutGrid} size="sm" className="text-primary-container" />
+          </span>
+          <span className="text-label-md font-semibold tabular-nums text-primary-container">
+            {rotuloQuantidadeAreas(modulos.length)}
+          </span>
+        </div>
+        <p className="border-t border-border-subtle/60 px-md py-sm text-body-sm leading-relaxed text-on-surface-variant break-words">
+          {rotulos}
+        </p>
+        {onVerPermissoes ? (
+          <div className="border-t border-border-subtle/60 px-md py-sm">
+            <button
+              type="button"
+              onClick={onVerPermissoes}
+              className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-sm rounded-lg bg-primary-fixed/45 px-md py-sm text-label-md font-medium text-primary-container transition-colors hover:bg-primary-fixed/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+            >
+              <Icon icon={Eye} size="sm" aria-hidden />
+              Ver permissões
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }

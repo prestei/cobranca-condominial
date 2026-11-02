@@ -228,9 +228,15 @@ type TableDataBarProps = {
   importDisabled?: boolean;
 };
 
-function TableDataBar({ onExport, onImport, showImport = false, importDisabled }: TableDataBarProps) {
+function TableDataBar({
+  onExport,
+  onImport,
+  showImport = false,
+  importDisabled,
+  className,
+}: TableDataBarProps & { className?: string }) {
   return (
-    <div className="flex flex-wrap justify-end gap-sm">
+    <div className={`flex flex-wrap justify-end gap-sm ${className ?? ""}`}>
       {showImport && onImport ? <TableImport onImport={onImport} disabled={importDisabled} /> : null}
       <TableExport onExport={onExport} />
     </div>
@@ -721,6 +727,7 @@ type ResponsiveTableProps = {
   onImport?: () => void;
   showImport?: boolean;
   importDisabled?: boolean;
+  mobileDataBarClassName?: string;
 };
 
 export function ResponsiveTable({
@@ -733,10 +740,22 @@ export function ResponsiveTable({
   onImport,
   showImport = false,
   importDisabled,
+  mobileDataBarClassName,
 }: ResponsiveTableProps) {
-  const bar =
+  const barDesktop =
     showExport && (onExport || (showImport && onImport)) ? (
       <TableDataBar
+        onExport={onExport}
+        onImport={onImport}
+        showImport={showImport}
+        importDisabled={importDisabled}
+      />
+    ) : null;
+
+  const barMobile =
+    showExport && (onExport || (showImport && onImport)) ? (
+      <TableDataBar
+        className={mobileDataBarClassName}
         onExport={onExport}
         onImport={onImport}
         showImport={showImport}
@@ -747,7 +766,7 @@ export function ResponsiveTable({
   if (viewport === "mobile") {
     return (
       <div className={`flex w-full min-w-0 flex-col gap-sm ${className ?? ""}`}>
-        {bar}
+        {barMobile}
         {mobile}
       </div>
     );
@@ -756,7 +775,7 @@ export function ResponsiveTable({
   if (viewport === "desktop") {
     return (
       <div className={`flex flex-col gap-sm ${className ?? ""}`}>
-        {bar}
+        {barDesktop}
         {desktop}
       </div>
     );
@@ -764,7 +783,8 @@ export function ResponsiveTable({
 
   return (
     <div className={`flex flex-col gap-sm ${className ?? ""}`}>
-      {bar}
+      {barDesktop ? <div className="hidden min-[768px]:block">{barDesktop}</div> : null}
+      {barMobile ? <div className="min-[768px]:hidden">{barMobile}</div> : null}
       <div className="hidden min-[768px]:block">{desktop}</div>
       <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">{mobile}</div>
     </div>

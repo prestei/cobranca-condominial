@@ -6,6 +6,7 @@ import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound } from "lucide-reac
 import { CargoIconeListagem, iconeCargoListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -44,8 +45,6 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -491,29 +490,42 @@ export default function CargosPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Cargos">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
               <CargoIconeListagem nome={item.nome} />
-              <TableMobileTitle>{item.nome}</TableMobileTitle>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {item.nome}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                <p className="mt-xs line-clamp-2 text-body-sm text-on-surface-variant">
+                  {item.descricao.trim() || "Sem descrição"}
+                </p>
+              </div>
               <TableActionsButton
                 label={`Ações de ${item.nome}`}
                 actions={acoes(item)}
                 className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
               />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Descrição" stacked>{item.descricao || "—"}</TableMobileField>
-              <TableMobileField label="Áreas com acesso" stacked>
-                <ResumoPermissoesCargo
-                  permissaoJson={item.permissaoJson}
-                  onVerPermissoes={() => setPermissoesViewTarget(item)}
-                />
-              </TableMobileField>
-              <TableMobileField label="Colaboradores">
-                {String(contagemColaboradores(item.id))}
-              </TableMobileField>
-            </TableMobileFields>
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-center justify-between gap-md">
+                <p className="text-label-sm uppercase text-on-surface-variant">Colaboradores</p>
+                <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                  {contagemColaboradores(item.id)}
+                </p>
+              </div>
+              <ResumoPermissoesCargo
+                variant="mobile"
+                permissaoJson={item.permissaoJson}
+                onVerPermissoes={() => setPermissoesViewTarget(item)}
+              />
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -525,6 +537,7 @@ export default function CargosPage() {
         title="Cargos"
         description="Gerencie os cargos e permissões por área do sistema."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Cargos" }]}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("cargos", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -534,36 +547,50 @@ export default function CargosPage() {
           ) : undefined
         }
       />
-      <PageContent>
-        <div
-          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3"
-          aria-label="Resumo de cargos"
-        >
-          <CardMetric
-            accent="primary"
-            rotulo="Cargos no sistema"
-            valor={metricValor(cargos.length)}
-            detalhe="Total de cargos cadastrados"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={Shield} size="md" className="text-primary-container" />}
-          />
-          <CardMetric
-            accent="tertiary"
-            rotulo="Áreas de acesso"
-            valor={metricValor(MODULOS_PERMISSAO.length)}
-            detalhe="Áreas disponíveis"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={LayoutGrid} size="md" className="text-tertiary-container" />}
-          />
-          <CardMetric
-            accent="brass"
-            rotulo="Colaboradores vinculados"
-            valor={metricValor(totalColaboradoresVinculados)}
-            detalhe="Com cargos atribuídos"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={UserRound} size="md" className="text-brass" />}
-          />
-        </div>
+      <PageContent className="max-md:gap-md max-md:py-md">
+        <section aria-label="Resumo de cargos">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+            <KpiMobileCard
+              rotulo="Cargos no sistema"
+              valor={metricValor(cargos.length)}
+              icon={Shield}
+              destaque
+            />
+            <KpiMobileCard
+              rotulo="Áreas de acesso"
+              valor={metricValor(MODULOS_PERMISSAO.length)}
+              icon={LayoutGrid}
+            />
+            <KpiMobileCard
+              rotulo="Colaboradores vinculados"
+              valor={metricValor(totalColaboradoresVinculados)}
+              icon={UserRound}
+            />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+            <CardMetric
+              accent="primary"
+              rotulo="Cargos no sistema"
+              valor={metricValor(cargos.length)}
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={Shield} size="md" className="text-primary-container" />}
+            />
+            <CardMetric
+              accent="tertiary"
+              rotulo="Áreas de acesso"
+              valor={metricValor(MODULOS_PERMISSAO.length)}
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={LayoutGrid} size="md" className="text-tertiary-container" />}
+            />
+            <CardMetric
+              accent="brass"
+              rotulo="Colaboradores vinculados"
+              valor={metricValor(totalColaboradoresVinculados)}
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={UserRound} size="md" className="text-brass" />}
+            />
+          </div>
+        </section>
 
         <section className="flex flex-col gap-md">
           <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -573,6 +600,7 @@ export default function CargosPage() {
             searchPlaceholder="Buscar cargo..."
             onApply={handleApply}
             onClear={handleClear}
+            defaultMobile="grid"
             fields={[
               {
                 id: "descricao",
@@ -599,24 +627,16 @@ export default function CargosPage() {
           />
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
-          <div className="flex flex-wrap items-center justify-between gap-md border-b border-border-subtle px-md py-sm">
-            <p className="inline-flex items-center gap-sm rounded-full border border-border-subtle bg-surface-subtle px-md py-xs text-body-sm text-on-surface">
-              <span className="size-2 shrink-0 rounded-full bg-brass" aria-hidden />
-              <span>
-                <span className="font-semibold tabular-nums">{visible.length}</span>{" "}
-                {visible.length === 1 ? "cargo encontrado" : "cargos encontrados"}
-              </span>
-            </p>
-            <TableExport onExport={aoExportar} />
+        <section className="flex flex-col gap-md">
+          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
+            <h2 className="text-headline-sm text-on-surface">Listagem de cargos</h2>
+            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
+              <TableExport onExport={aoExportar} />
+            </div>
           </div>
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
-          {visible.length > 0 ? (
-            <div className="border-t border-border-subtle px-md py-sm">
-              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-            </div>
-          ) : null}
         </section>
+        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
 
       <Sheet

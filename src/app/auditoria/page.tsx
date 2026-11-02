@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { Eye, ScrollText } from "lucide-react";
+import { Eye, Pencil, ScrollText, UserPlus } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
@@ -35,14 +36,18 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
+  TableExport,
   TableRow,
+  type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
+import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
+import { sincronizarUsuariosDoServidor } from "@/lib/usuarios/sync-cliente";
+import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { acoesAuditoria, formatarData, type Auditoria } from "@/data/catalogo";
 import type { PeriodValue } from "@/components/period-input";
 import { useAuth } from "@/context/auth-context";
@@ -63,6 +68,30 @@ type SortKey = "data" | "tipo" | "acao";
 
 const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
 
+const colunasExportacao = ["Quando", "Quem fez", "Onde", "O que aconteceu", "Resumo"] as const;
+
+function metricValor(valor: number) {
+  return String(valor).padStart(2, "0");
+}
+
+function filtrosPadraoAplicados(
+  appliedSearch: string,
+  appliedEntidade: string,
+  appliedAcao: string,
+  appliedAutorId: string,
+  appliedPeriodo: PeriodValue,
+) {
+  return (
+    !appliedSearch.trim() &&
+    appliedEntidade === "todas" &&
+    appliedAcao === "todas" &&
+    appliedAutorId === "todos" &&
+    appliedPeriodo.preset === "todos" &&
+    !appliedPeriodo.de.trim() &&
+    !appliedPeriodo.ate.trim()
+  );
+}
+
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-xs">
@@ -74,9 +103,10 @@ function DetalheCampo({ label, value }: { label: string; value: string }) {
 
 export default function AuditoriaPage() {
   const sheetId = useId();
+  const { toast } = useToast();
   const { user: sessao } = useAuth();
   const cadastros = useCadastros();
-  const auditoria = cadastros.auditoria;
+  const [registros, setRegistros] = useState<Auditoria[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState("");
   const [search, setSearch] = useState("");
@@ -95,7 +125,7 @@ export default function AuditoriaPage() {
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [mostrarTecnicos, setMostrarTecnicos] = useState(false);
 
-  const detalhe = detalheId === null ? null : (auditoria.find((item) => item.id === detalheId) ?? null);
+  const detalhe = detalheId === null ? null : (registros.find((item) => item.id === detalheId) ?? null);
 
   const recarregarAuditoria = useCallback(async () => {
     if (!sessao) {
@@ -105,6 +135,14 @@ export default function AuditoriaPage() {
     setCarregando(true);
     setErroCarregamento("");
     try {
+      void fetch("/api/usuarios", { credentials: "same-origin" })
+        .then(async (response) => {
+          if (!response.ok) return;
+          const payload = (await response.json()) as { usuarios?: UsuarioPublico[] };
+          if (payload.usuarios) sincronizarUsuariosDoServidor(payload.usuarios);
+        })
+        .catch(() => undefined);
+
       const params = new URLSearchParams();
       if (appliedEntidade !== "todas") params.set("entidade", appliedEntidade);
       if (appliedAcao !== "todas") params.set("acao", appliedAcao);
@@ -122,7 +160,9 @@ export default function AuditoriaPage() {
         return;
       }
       const body = (await response.json()) as { auditoria?: Auditoria[] };
-      if (body.auditoria) sincronizarAuditoriaDoServidor(body.auditoria);
+      const lista = body.auditoria ?? [];
+      sincronizarAuditoriaDoServidor(lista);
+      setRegistros(lista);
     } catch {
       setErroCarregamento("Não foi possível carregar o histórico.");
     } finally {
@@ -143,17 +183,11 @@ export default function AuditoriaPage() {
     ).values(),
   ).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
-  const entidades = Array.from(new Set(auditoria.map((item) => item.entidade))).sort((a, b) =>
-    (rotuloTipoRegistro[a] ?? a).localeCompare(rotuloTipoRegistro[b] ?? b, "pt-BR"),
-  );
+  const opcoesEntidades = Object.entries(rotuloTipoRegistro)
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
-  const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
-  const visible = auditoria
-    .filter((item) => {
-      const haystack = `${item.registroId} ${item.camposAlterados} ${item.dadosAnteriores} ${item.dadosNovos} ${rotuloAutorAuditoria(item.usuarioId)} ${resumoLinha(item)} ${rotuloTipoRegistro[item.entidade] ?? ""}`.toLocaleLowerCase("pt-BR");
-      return query.length === 0 || haystack.includes(query);
-    })
-    .sort((a, b) => {
+  const visible = [...registros].sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
       const left =
         sortKey === "tipo"
@@ -228,12 +262,66 @@ export default function AuditoriaPage() {
     setMostrarTecnicos(false);
   }
 
+  function linhasExportacao() {
+    return visible.map((item) => [
+      formatarData(item.dataHora),
+      rotuloAutorAuditoria(item.usuarioId),
+      rotuloTipoRegistro[item.entidade] ?? "Outro cadastro",
+      rotuloAcao(item.acao),
+      resumoLinha(item),
+    ]);
+  }
+
+  function aoExportar(formato: TableExportFormat) {
+    if (visible.length === 0) {
+      toast({
+        variant: "info",
+        title: "Nada para exportar",
+        description: "Ajuste os filtros ou aguarde novas movimentações no sistema.",
+      });
+      return;
+    }
+    const linhas = linhasExportacao();
+    const colunas = [...colunasExportacao];
+    const arquivoBase = `historico-alteracoes-${new Date().toISOString().slice(0, 10)}`;
+    if (formato === "csv") {
+      exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
+      toast({ variant: "success", title: "CSV baixado" });
+      return;
+    }
+    if (formato === "xls") {
+      exportarExcel(`${arquivoBase}.xls`, colunas, linhas);
+      toast({ variant: "success", title: "Planilha baixada" });
+      return;
+    }
+    const abriu = exportarPdf("Histórico de alterações", `${arquivoBase}.html`, [
+      { titulo: "Listagem (filtros aplicados)", colunas, linhas },
+    ]);
+    if (abriu) {
+      toast({ variant: "success", title: "PDF", description: "Use imprimir ou salvar como PDF no navegador." });
+    } else {
+      toast({
+        variant: "info",
+        title: "Relatório baixado",
+        description: "Abra o arquivo HTML e use imprimir para salvar em PDF.",
+      });
+    }
+  }
+
+  const semFiltrosAplicados = filtrosPadraoAplicados(
+    appliedSearch,
+    appliedEntidade,
+    appliedAcao,
+    appliedAutorId,
+    appliedPeriodo,
+  );
+
   const emptyState = (
     <EmptyState
       icon={<Icon icon={ScrollText} size="lg" />}
-      title={auditoria.length === 0 ? "Ainda não há movimentações" : "Nada encontrado com esses filtros"}
+      title={semFiltrosAplicados ? "Ainda não há movimentações" : "Nada encontrado com esses filtros"}
       description={
-        auditoria.length === 0
+        semFiltrosAplicados
           ? "Quando alguém cadastrar, alterar ou remover informações no sistema, o registro aparece aqui."
           : "Tente outra palavra na busca ou mude o tipo de registro ou o que aconteceu."
       }
@@ -252,7 +340,7 @@ export default function AuditoriaPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Histórico de alterações">
+    <Table aria-label="Histórico de alterações" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("data")} onSort={() => handleSort("data")}>
@@ -299,18 +387,50 @@ export default function AuditoriaPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Histórico de alterações">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              {botaoVer(item)}
-              <TableMobileTitle>{resumoLinha(item)}</TableMobileTitle>
-              <Badge variant={badgeAcaoVariant(item.acao)}>{rotuloAcao(item.acao)}</Badge>
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                aria-hidden="true"
+              >
+                <Icon icon={ScrollText} size="sm" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {rotuloTipoRegistro[item.entidade] ?? "Outro cadastro"}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                <p className="mt-xs text-body-sm tabular-nums text-on-surface-variant">{formatarData(item.dataHora)}</p>
+              </div>
+              <span className="size-8 shrink-0" aria-hidden="true" />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Quando">{formatarData(item.dataHora)}</TableMobileField>
-              <TableMobileField label="Quem fez">{rotuloAutorAuditoria(item.usuarioId)}</TableMobileField>
-              <TableMobileField label="Onde">{rotuloTipoRegistro[item.entidade] ?? "Outro cadastro"}</TableMobileField>
-            </TableMobileFields>
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0 flex-1">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Resumo</p>
+                  <p className="text-body-md font-medium text-on-surface">{resumoLinha(item)}</p>
+                  <p className="mt-xs text-body-sm text-on-surface-variant">{rotuloAutorAuditoria(item.usuarioId)}</p>
+                </div>
+                <Badge variant={badgeAcaoVariant(item.acao)} className="shrink-0">
+                  {rotuloAcao(item.acao)}
+                </Badge>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-10 w-full"
+                onClick={() => abrirDetalhe(item.id)}
+              >
+                <Icon icon={Eye} size="sm" aria-hidden />
+                Ver o que mudou
+              </Button>
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -322,72 +442,115 @@ export default function AuditoriaPage() {
         title="Histórico de alterações"
         description="Veja quem mudou o quê no sistema e o que existia antes, quando a alteração foi feita."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Histórico" }]}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
-      <PageContent>
+      <PageContent className="max-md:gap-md max-md:py-md">
         {erroCarregamento ? (
-          <p className="mb-md text-body-sm text-error" role="alert">{erroCarregamento}</p>
+          <p className="mb-md text-body-sm text-error" role="alert">
+            {erroCarregamento}
+          </p>
         ) : null}
-        {carregando && auditoria.length === 0 ? (
+        {carregando && registros.length === 0 ? (
           <p className="mb-md text-body-sm text-on-surface-variant">Carregando histórico…</p>
         ) : null}
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar por RE, resumo ou palavra-chave..."
-          onApply={handleApply}
-          onClear={handleClear}
-          fields={[
-            {
-              id: "periodo",
-              label: "Período",
-              type: "period",
-              value: periodo,
-              onChange: setPeriodo,
-            },
-            {
-              id: "autor",
-              label: "Quem fez",
-              value: autorId,
-              onChange: setAutorId,
-              options: [{ value: "todos", label: "Todos" }, ...opcoesAutores],
-            },
-            {
-              id: "entidade",
-              label: "Tipo de registro",
-              value: entidade,
-              onChange: setEntidade,
-              options: [
-                { value: "todas", label: "Todos" },
-                ...entidades.map((item) => ({ value: item, label: rotuloTipoRegistro[item] ?? "Outro" })),
-              ],
-            },
-            {
-              id: "acao",
-              label: "O que aconteceu",
-              value: acao,
-              onChange: setAcao,
-              options: [
-                { value: "todas", label: "Tudo" },
-                ...acoesAuditoria.map((item) => ({ value: item, label: rotuloAcao(item) })),
-              ],
-            },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(visible.length).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">na lista</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={ScrollText} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(alteracoes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">alterações</p>
-          </CardMetric>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={ScrollText} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(inclusoes + remocoes).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">cadastros e remoções</p>
-          </CardMetric>
-        </div>
-        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
+
+        <section aria-label="Resumo do histórico">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+            <KpiMobileCard
+              rotulo="Registros na lista"
+              valor={metricValor(visible.length)}
+              icon={ScrollText}
+              destaque
+            />
+            <KpiMobileCard rotulo="Alterações" valor={metricValor(alteracoes)} icon={Pencil} />
+            <KpiMobileCard
+              rotulo="Cadastros e remoções"
+              valor={metricValor(inclusoes + remocoes)}
+              icon={UserPlus}
+            />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={ScrollText} size="md" className="text-primary-container" />}
+              rotulo="Registros na lista"
+              valor={metricValor(visible.length)}
+            />
+            <CardMetric
+              accent="brass"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={Pencil} size="md" className="text-brass" />}
+              rotulo="Alterações"
+              valor={metricValor(alteracoes)}
+            />
+            <CardMetric
+              accent="tertiary"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={UserPlus} size="md" className="text-tertiary-container" />}
+              rotulo="Cadastros e remoções"
+              valor={metricValor(inclusoes + remocoes)}
+            />
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-md">
+          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por RE, resumo ou palavra-chave"
+            onApply={handleApply}
+            onClear={handleClear}
+            defaultMobile="grid"
+            fields={[
+              {
+                id: "periodo",
+                label: "Período",
+                type: "period",
+                value: periodo,
+                onChange: setPeriodo,
+              },
+              {
+                id: "autor",
+                label: "Quem fez",
+                value: autorId,
+                onChange: setAutorId,
+                options: [{ value: "todos", label: "Todos" }, ...opcoesAutores],
+              },
+              {
+                id: "entidade",
+                label: "Tipo de registro",
+                value: entidade,
+                onChange: setEntidade,
+                options: [{ value: "todas", label: "Todos" }, ...opcoesEntidades],
+              },
+              {
+                id: "acao",
+                label: "O que aconteceu",
+                value: acao,
+                onChange: setAcao,
+                options: [
+                  { value: "todas", label: "Tudo" },
+                  ...acoesAuditoria.map((item) => ({ value: item, label: rotuloAcao(item) })),
+                ],
+              },
+            ]}
+          />
+        </section>
+
+        <section className="flex flex-col gap-md">
+          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
+            <h2 className="text-headline-sm text-on-surface">
+              <span className="font-semibold tabular-nums">{visible.length}</span>{" "}
+              {visible.length === 1 ? "registro" : "registros"}
+            </h2>
+            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
+              <TableExport onExport={aoExportar} />
+            </div>
+          </div>
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+        </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>
 

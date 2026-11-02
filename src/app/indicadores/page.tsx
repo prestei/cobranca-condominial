@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -9,16 +9,17 @@ import {
   ClipboardList,
   Loader2,
   Phone,
-  TrendingDown,
-  TrendingUp,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
+import { CardMetric, type CardMetricAccent } from "@/components/card-metric";
 import { GraficoBarras, GraficoColunas, GraficoLinha, GraficoRosca, tomPorIndice } from "@/components/charts";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { PageContent, PageHeader } from "@/components/page-header";
 import {
   ResponsiveTable,
@@ -39,41 +40,48 @@ import {
 } from "@/components/table";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { formatarData } from "@/data/catalogo";
-import { diaCurto, type IndicadoresKpi, type IndicadoresPainel } from "@/lib/indicadores/service";
+import { diaCurto, type IndicadoresKpi, type IndicadoresKpiId, type IndicadoresPainel } from "@/lib/indicadores/service";
 
-function variacaoBadge(kpi: IndicadoresKpi) {
+const kpiVisual: Record<
+  IndicadoresKpiId,
+  { icon: LucideIcon; accent: CardMetricAccent; iconClassName: string; iconColorClass: string; destaqueMobile?: boolean }
+> = {
+  cobrancas: {
+    icon: ClipboardList,
+    accent: "brass",
+    iconClassName: "bg-gold-subtle text-brass",
+    iconColorClass: "text-brass",
+    destaqueMobile: true,
+  },
+  inadimplencia: {
+    icon: Wallet,
+    accent: "critical",
+    iconClassName: "bg-error-container text-status-critical",
+    iconColorClass: "text-status-critical",
+  },
+  retornos: {
+    icon: CalendarClock,
+    accent: "tertiary",
+    iconClassName: "bg-tertiary-fixed/40 text-tertiary-container",
+    iconColorClass: "text-tertiary-container",
+  },
+  produtividade: {
+    icon: Phone,
+    accent: "primary",
+    iconClassName: "bg-primary-fixed/50 text-primary-container",
+    iconColorClass: "text-primary-container",
+  },
+};
+
+function variacaoDetalhe(kpi: IndicadoresKpi): string | undefined {
   const pct = kpi.variacao.percentual;
-  if (pct == null || !Number.isFinite(pct)) return null;
-  const invertido = kpi.id === "inadimplencia";
-  const positivo = invertido ? pct < 0 : pct > 0;
-  const neutro = Math.abs(pct) < 0.05;
-  const texto = `${pct > 0 ? "+" : ""}${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`;
-  const variant = neutro ? "neutral" : positivo ? "success" : "error";
-  const Icone = pct >= 0 ? TrendingUp : TrendingDown;
-  return (
-    <Badge variant={variant} className="gap-1 tabular-nums">
-      <Icon icon={Icone} size="sm" aria-hidden />
-      {texto}
-    </Badge>
-  );
-}
-
-function KpiCard({ kpi, icon }: { kpi: IndicadoresKpi; icon: ReactNode }) {
-  return (
-    <article className="flex h-full min-w-0 flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-      <div className="flex items-start justify-between gap-sm">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-primary-container">{icon}</span>
-        {variacaoBadge(kpi)}
-      </div>
-      <p className="text-metric font-semibold tabular-nums text-on-surface">{kpi.valorFormatado}</p>
-      <p className="text-body-sm text-on-surface-variant">{kpi.rotulo}</p>
-    </article>
-  );
+  if (pct == null || !Number.isFinite(pct)) return undefined;
+  return `${pct > 0 ? "+" : ""}${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}% vs. período anterior`;
 }
 
 function PainelGrafico({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
   return (
-    <section className="flex min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+    <section className="flex min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
       <div className="flex flex-col gap-xs">
         <h2 className="text-headline-sm text-on-surface">{titulo}</h2>
         {nota ? <p className="text-body-sm text-on-surface-variant">{nota}</p> : null}
@@ -135,16 +143,6 @@ export default function IndicadoresPage() {
     <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Sem dados no recorte" description="Não há registros para exibir com os filtros atuais." />
   );
 
-  const kpiIcones = useMemo(
-    () => ({
-      cobrancas: <Icon icon={ClipboardList} size="md" />,
-      inadimplencia: <Icon icon={Wallet} size="md" className="text-brass" />,
-      retornos: <Icon icon={CalendarClock} size="md" />,
-      produtividade: <Icon icon={Phone} size="md" />,
-    }),
-    [],
-  );
-
   const grupoLider = painel?.porGrupo[0];
   const taxaMediaEficiencia =
     painel && painel.eficienciaSemanal.length
@@ -161,7 +159,7 @@ export default function IndicadoresPage() {
           { label: "Indicadores" },
         ]}
       />
-      <PageContent className="flex flex-col gap-xl">
+      <PageContent className="flex flex-col gap-md min-[768px]:gap-lg">
         {carregando ? (
           <EmptyState
             icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
@@ -188,13 +186,40 @@ export default function IndicadoresPage() {
               {formatarData(painel.dataBase)}
             </p>
 
-            <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1280px]:grid-cols-4">
-              {painel.kpis.map((kpi) => (
-                <KpiCard key={kpi.id} kpi={kpi} icon={kpiIcones[kpi.id]} />
-              ))}
-            </div>
+            <section aria-label="Indicadores operacionais">
+              <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
+                {painel.kpis.map((kpi) => {
+                  const visual = kpiVisual[kpi.id];
+                  return (
+                    <KpiMobileCard
+                      key={kpi.id}
+                      rotulo={kpi.rotulo}
+                      valor={kpi.valorFormatado}
+                      icon={visual.icon}
+                      destaque={visual.destaqueMobile}
+                    />
+                  );
+                })}
+              </div>
+              <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1280px]:grid-cols-4">
+                {painel.kpis.map((kpi) => {
+                  const visual = kpiVisual[kpi.id];
+                  return (
+                    <CardMetric
+                      key={kpi.id}
+                      accent={visual.accent}
+                      iconClassName={visual.iconClassName}
+                      icon={<Icon icon={visual.icon} size="md" className={visual.iconColorClass} />}
+                      rotulo={kpi.rotulo}
+                      valor={kpi.valorFormatado}
+                      detalhe={variacaoDetalhe(kpi)}
+                    />
+                  );
+                })}
+              </div>
+            </section>
 
-            <div className="grid grid-cols-1 gap-lg min-[961px]:grid-cols-2">
+            <div className="grid grid-cols-1 gap-md min-[768px]:gap-lg min-[961px]:grid-cols-2">
               <PainelGrafico titulo="Inadimplência por grupo de rubrica" nota="Composição do valor em aberto na data-base.">
                 <GraficoRosca
                   chave={`${chave}-grupo`}
@@ -263,7 +288,7 @@ export default function IndicadoresPage() {
               </PainelGrafico>
             </div>
 
-            <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+            <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
               <div className="flex flex-col gap-xs">
                 <h2 className="text-headline-sm text-on-surface">Ranking por condomínio</h2>
                 <p className="text-body-sm text-on-surface-variant">Condomínios com maior saldo em aberto no seu escopo de acesso.</p>

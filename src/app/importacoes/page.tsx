@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, FileUp, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -40,8 +41,6 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -427,21 +426,50 @@ export default function ImportacoesPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Importações">
-        {pageRows.map((item) => (
+        {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <span aria-hidden="true" />
-              <TableMobileTitle>{item.arquivo || rotuloTipo[item.tipo] || "Importação"}</TableMobileTitle>
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                aria-hidden="true"
+              >
+                <Icon icon={FileUp} size="sm" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                    {item.arquivo || rotuloTipo[item.tipo] || "Importação"}
+                  </TableMobileTitle>
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                  </span>
+                </div>
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.origem || "—"}</p>
+              </div>
               <TableActionsButton label={`Ações da importação ${item.arquivo || item.id}`} actions={acoes(item)} />
             </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Data">{formatarData(item.dataImportacao)}</TableMobileField>
-              <TableMobileField label="Tipo">{rotuloTipo[item.tipo] ?? item.tipo}</TableMobileField>
-              <TableMobileField label="Situação">
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{rotuloStatus[item.status] ?? item.status}</Badge>
-              </TableMobileField>
-              <TableMobileField label="Quem importou">{nomeUsuario(item.usuarioId)}</TableMobileField>
-            </TableMobileFields>
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
+                  <p className="text-body-md font-semibold text-on-surface">{rotuloTipo[item.tipo] ?? item.tipo}</p>
+                  <p className="text-body-sm text-on-surface-variant">{nomeUsuario(item.usuarioId)}</p>
+                </div>
+                <Badge variant={badgeStatus[item.status] ?? "secondary"} className="shrink-0">
+                  {rotuloStatus[item.status] ?? item.status}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-sm text-body-sm">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Data</p>
+                  <p className="text-body-md text-on-surface">{formatarData(item.dataImportacao)}</p>
+                </div>
+                <div className="min-w-0 text-end">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Erros</p>
+                  <p className="text-body-md tabular-nums text-on-surface">{item.quantidadeErros || "—"}</p>
+                </div>
+              </div>
+            </div>
           </TableMobileCard>
         ))}
       </TableMobileList>
@@ -458,7 +486,9 @@ export default function ImportacoesPage() {
       />
       <PageHeader
         title="Importações"
+        description="Histórico de envios e importação de relatórios de inadimplência (CSV ou XLS) das administradoras."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Importações" }]}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("importacoes", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -468,36 +498,42 @@ export default function ImportacoesPage() {
           ) : undefined
         }
       />
-      <PageContent>
-        <div
-          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3"
-          aria-label="Resumo de importações"
-        >
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={FileUp} size="md" className="text-primary-container" />}
-            rotulo="Importações"
-            valor={metricValor(visible.length)}
-            detalhe="No recorte atual da listagem"
-          />
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
-            rotulo="Concluídas"
-            valor={metricValor(concluidas)}
-            detalhe="Processadas com sucesso"
-          />
-          <CardMetric
-            accent="critical"
-            iconClassName="bg-error-container text-status-critical"
-            icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
-            rotulo="Com erro"
-            valor={metricValor(comErro)}
-            detalhe="Falha na validação ou gravação"
-          />
-        </div>
+      <PageContent className="max-md:gap-md max-md:py-md">
+        <section aria-label="Resumo de importações">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+            <KpiMobileCard
+              rotulo="Importações"
+              valor={metricValor(visible.length)}
+              icon={FileUp}
+              destaque
+            />
+            <KpiMobileCard rotulo="Concluídas" valor={metricValor(concluidas)} icon={CheckCircle2} />
+            <KpiMobileCard rotulo="Com erro" valor={metricValor(comErro)} icon={AlertTriangle} />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={FileUp} size="md" className="text-primary-container" />}
+              rotulo="Importações"
+              valor={metricValor(visible.length)}
+            />
+            <CardMetric
+              accent="brass"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+              rotulo="Concluídas"
+              valor={metricValor(concluidas)}
+            />
+            <CardMetric
+              accent="critical"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
+              rotulo="Com erro"
+              valor={metricValor(comErro)}
+            />
+          </div>
+        </section>
 
         <section className="flex flex-col gap-md">
           <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -507,6 +543,7 @@ export default function ImportacoesPage() {
             searchPlaceholder="Buscar importação..."
             onApply={handleApply}
             onClear={handleClear}
+            defaultMobile="grid"
             fields={[
               {
                 id: "tipo",

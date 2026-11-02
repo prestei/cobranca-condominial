@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, Users } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Handshake, Users } from "lucide-react";
 import { GraficoColunasAgrupadas, tomPorIndice } from "@/components/charts";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -12,18 +12,25 @@ import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
 import {
   Leitura,
   RelatorioFiltros,
-  RelatorioMetrica,
+  RelatorioMetricas,
   RelatorioPainel,
   RelatorioSecaoTabela,
   VoltarRelatoriosHub,
 } from "@/components/relatorios/relatorio-ui";
 import {
+  ResponsiveTable,
   Table,
   TableBody,
   TableCell,
   TableEmpty,
   TableHead,
   TableHeader,
+  TableMobileCard,
+  TableMobileCardHeader,
+  TableMobileEmpty,
+  TableMobileField,
+  TableMobileList,
+  TableMobileTitle,
   TableRow,
   TableExport,
   type TableExportFormat,
@@ -324,68 +331,122 @@ function ProdutividadePorRePage() {
           Período consultado: {periodoPainel.rotulo}. Contagens por RE usam o autor de cada ação registrada; a carteira
           atual reflete a atribuição vigente hoje.
         </Leitura>
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-5" aria-label="Indicadores de produtividade">
-          <RelatorioMetrica valor={String(totais.atendimentosRegistrados)} rotulo="atendimentos" destaque />
-          <RelatorioMetrica valor={String(totais.retornosConcluidos)} rotulo="retornos concluídos" accent="tertiary" />
-          <RelatorioMetrica valor={String(totais.negociacoesRegistradas)} rotulo="negociações" />
-          <RelatorioMetrica valor={String(totais.acoesRegistradas)} rotulo="ações agendadas" accent="tertiary" />
-          <RelatorioMetrica valor={String(totais.acordosConfirmados)} rotulo="acordos confirmados" accent="brass" detalhe="Confirmados no período" />
-        </div>
+        <RelatorioMetricas
+          desktopCols={5}
+          mobileCols={2}
+          itens={[
+            { valor: String(totais.atendimentosRegistrados), rotulo: "atendimentos", destaque: true, icon: ClipboardList },
+            {
+              valor: String(totais.retornosConcluidos),
+              rotulo: "retornos concluídos",
+              accent: "tertiary",
+              icon: CalendarClock,
+            },
+            { valor: String(totais.negociacoesRegistradas), rotulo: "negociações", icon: Handshake },
+            { valor: String(totais.acoesRegistradas), rotulo: "ações agendadas", accent: "tertiary", icon: BarChart3 },
+            {
+              valor: String(totais.acordosConfirmados),
+              rotulo: "acordos confirmados",
+              accent: "brass",
+              detalhe: "Confirmados no período",
+              icon: CheckCircle2,
+            },
+          ]}
+        />
         {gruposGrafico.length > 0 ? (
           <RelatorioPainel titulo="Comparativo por RE (5 indicadores)" nota="Sem ranking ou pontuação — apenas contagens objetivas no período.">
             <GraficoColunasAgrupadas chave={chaveConsulta} vazio={vazio} series={seriesGrafico} grupos={gruposGrafico} />
           </RelatorioPainel>
         ) : null}
         <RelatorioSecaoTabela titulo="Produtividade por pessoa (RE)" nota="Resumo por colaborador">
-            <Table showExport={false} aria-label="Produtividade por RE">
-              <TableHeader>
-                <TableRow className="border-border-subtle/50 hover:bg-transparent">
-                  {["RE", "Atendimentos", "Retornos", "Negociações", "Ações", "Acordos"].map((coluna, indice) => (
-                    <TableHead
-                      key={coluna}
-                      sortable
-                      sortDirection={colunaOrdenada === indice ? direcao : "none"}
-                      onSort={() => {
-                        if (colunaOrdenada !== indice) {
-                          setColunaOrdenada(indice);
-                          setDirecao("asc");
-                          setPagina(1);
-                          return;
-                        }
-                        if (direcao === "asc") {
-                          setDirecao("desc");
-                          setPagina(1);
-                          return;
-                        }
-                        setColunaOrdenada(null);
-                        setDirecao("none");
-                        setPagina(1);
-                      }}
-                    >
-                      {coluna}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {linhasOrdenadas.length === 0 ? (
-                  <TableEmpty colSpan={6}>{vazio}</TableEmpty>
-                ) : (
-                  recorte.map((linha, indice) => (
-                    <TableRow key={`${linha.join("-")}-${indice}`}>
-                      {linha.map((celula, coluna) => (
-                        <TableCell key={`${coluna}-${celula}`} className={coluna === 0 ? "font-medium" : "tabular-nums"}>
-                          {celula}
-                        </TableCell>
+          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+            <ResponsiveTable
+              showExport={false}
+              desktop={
+                <Table showExport={false} aria-label="Produtividade por RE" containerClassName="rounded-none border-0 shadow-none">
+                  <TableHeader>
+                    <TableRow className="border-border-subtle/50 hover:bg-transparent">
+                      {["RE", "Atendimentos", "Retornos", "Negociações", "Ações", "Acordos"].map((coluna, indice) => (
+                        <TableHead
+                          key={coluna}
+                          sortable
+                          sortDirection={colunaOrdenada === indice ? direcao : "none"}
+                          onSort={() => {
+                            if (colunaOrdenada !== indice) {
+                              setColunaOrdenada(indice);
+                              setDirecao("asc");
+                              setPagina(1);
+                              return;
+                            }
+                            if (direcao === "asc") {
+                              setDirecao("desc");
+                              setPagina(1);
+                              return;
+                            }
+                            setColunaOrdenada(null);
+                            setDirecao("none");
+                            setPagina(1);
+                          }}
+                        >
+                          {coluna}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {linhasOrdenadas.length === 0 ? (
+                      <TableEmpty colSpan={6}>{vazio}</TableEmpty>
+                    ) : (
+                      recorte.map((linha, indice) => (
+                        <TableRow key={`${linha.join("-")}-${indice}`}>
+                          {linha.map((celula, coluna) => (
+                            <TableCell key={`${coluna}-${celula}`} className={coluna === 0 ? "font-medium" : "tabular-nums"}>
+                              {celula}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              }
+              mobile={
+                linhasOrdenadas.length === 0 ? (
+                  <TableMobileEmpty>{vazio}</TableMobileEmpty>
+                ) : (
+                  <TableMobileList aria-label="Produtividade por RE">
+                    {recorte.map((linha, indice) => (
+                      <TableMobileCard key={`${linha.join("-")}-${indice}`}>
+                        <TableMobileCardHeader>
+                          <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                            {linha[0]}
+                          </TableMobileTitle>
+                        </TableMobileCardHeader>
+                        <div className="mt-sm grid grid-cols-2 gap-sm border-t border-border-subtle/30 pt-sm text-body-sm">
+                          {[
+                            ["Atendimentos", linha[1]],
+                            ["Retornos", linha[2]],
+                            ["Negociações", linha[3]],
+                            ["Ações", linha[4]],
+                            ["Acordos", linha[5]],
+                          ].map(([rotulo, valor]) => (
+                            <TableMobileField key={rotulo} label={rotulo} stacked>
+                              <span className="tabular-nums">{valor}</span>
+                            </TableMobileField>
+                          ))}
+                        </div>
+                      </TableMobileCard>
+                    ))}
+                  </TableMobileList>
+                )
+              }
+            />
             {linhasOrdenadas.length > PAGE_SIZE ? (
-              <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={setPagina} />
+              <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
+                <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={setPagina} />
+              </div>
             ) : null}
+          </div>
         </RelatorioSecaoTabela>
         <RelatorioPainel titulo="Definição dos indicadores">
           <ul className="list-disc space-y-xs pl-md text-body-sm text-on-surface-variant">
@@ -409,13 +470,15 @@ function ProdutividadePorRePage() {
           { label: "Produtividade por RE" },
         ]}
         actions={podeFiltrarPorRe && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
-      <PageContent>
+      <PageContent className="max-md:gap-md max-md:py-md">
         <div className="flex flex-col gap-lg">
           <VoltarRelatoriosHub />
           {podeFiltrarPorRe ? (
             <RelatorioFiltros>
               <FilterBar
+              defaultMobile="grid"
               searchValue=""
               onSearchChange={() => undefined}
               searchPlaceholder="Busca não aplicável neste relatório"
@@ -432,7 +495,7 @@ function ProdutividadePorRePage() {
             />
             </RelatorioFiltros>
           ) : null}
-          <div className="flex flex-col gap-xl">{corpo}</div>
+          <div className="flex flex-col gap-lg min-[768px]:gap-xl">{corpo}</div>
         </div>
       </PageContent>
     </WorkspaceShell>

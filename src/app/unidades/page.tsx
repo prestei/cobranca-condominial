@@ -8,6 +8,7 @@ import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -44,8 +45,6 @@ import {
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -85,6 +84,9 @@ import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
 const etapasCadastroUnidade = ["Unidade", "Responsável"] as const;
+
+const unidadesMobileDataBarClassName =
+  "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
 
 const formularioVazio = {
   condominioId: "",
@@ -944,25 +946,64 @@ export default function UnidadesPage() {
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
       <TableMobileList aria-label="Unidades">
-        {pageRows.map((item) => (
-          <TableMobileCard key={item.id}>
-            <TableMobileCardHeader>
-              <span aria-hidden="true" />
-              <TableMobileTitle>{item.identificacao}</TableMobileTitle>
-              <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
-            </TableMobileCardHeader>
-            <TableMobileFields>
-              <TableMobileField label="Condomínio">{nomeCondominio(item.condominioId)}</TableMobileField>
-              <TableMobileField label="Bloco">{item.bloco || "—"}</TableMobileField>
-              <TableMobileField label="Tipo">{item.tipo}</TableMobileField>
-              <TableMobileField label="Cadastro">
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-              </TableMobileField>
-              <TableMobileField label="Cobrança">{celulaCobranca(item)}</TableMobileField>
-              <TableMobileField label="Débito">{celulaDebito(item)}</TableMobileField>
-            </TableMobileFields>
-          </TableMobileCard>
-        ))}
+        {pageRows.map((item, index) => {
+          const emDebito = emDebitoOperacional(item);
+          const valorAberto = debitosAbertos.get(item.id) ?? 0;
+          return (
+            <TableMobileCard key={item.id}>
+              <TableMobileCardHeader>
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                  aria-hidden="true"
+                >
+                  <Icon icon={DoorOpen} size="sm" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                    <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                      {item.identificacao}
+                    </TableMobileTitle>
+                    <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                      {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
+                    </span>
+                  </div>
+                  <p className="mt-xs truncate text-body-sm text-on-surface-variant">
+                    {nomeCondominio(item.condominioId)}
+                  </p>
+                </div>
+                <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
+              </TableMobileCardHeader>
+              <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+                <div className="flex items-start justify-between gap-md">
+                  <div className="min-w-0">
+                    <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
+                    <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                      {emDebito ? formatarMoeda(String(valorAberto)) : "Em dia"}
+                    </p>
+                    <p className="text-body-sm text-on-surface-variant">
+                      {item.tipo}
+                      {item.bloco?.trim() ? ` · Bloco ${item.bloco.trim()}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-xs">
+                    <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+                    {celulaCobranca(item)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-sm text-body-sm">
+                  <div className="min-w-0">
+                    <p className="text-label-sm uppercase text-on-surface-variant">Bloco</p>
+                    <p className="text-body-md text-on-surface">{item.bloco?.trim() || "—"}</p>
+                  </div>
+                  <div className="min-w-0 text-end">
+                    <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
+                    <p className="text-body-md text-on-surface">{item.tipo}</p>
+                  </div>
+                </div>
+              </div>
+            </TableMobileCard>
+          );
+        })}
       </TableMobileList>
     );
 
@@ -972,6 +1013,7 @@ export default function UnidadesPage() {
         title="Unidades"
         description="Gerencie apartamentos, casas e salas dos condomínios da carteira, acompanhe a situação de cobrança e os débitos de cada unidade."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Unidades" }]}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("unidades", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -981,40 +1023,50 @@ export default function UnidadesPage() {
           ) : undefined
         }
       />
-      <PageContent>
-        <div
-          className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4"
-          aria-label="Resumo de unidades"
-        >
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={DoorOpen} size="md" className="text-primary-container" />}
-            rotulo="Total de unidades"
-            valor={metricValor(visible.length)}
-          />
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
-            rotulo="Ativas"
-            valor={metricValor(ativas)}
-          />
-          <CardMetric
-            accent="critical"
-            iconClassName="bg-error-container text-status-critical"
-            icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
-            rotulo="Inadimplentes"
-            valor={metricValor(devendo)}
-          />
-          <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={Scale} size="md" className="text-tertiary-container" />}
-            rotulo="Em cobrança"
-            valor={metricValor(emCobranca)}
-          />
-        </div>
+      <PageContent className="max-md:gap-md max-md:py-md">
+        <section aria-label="Resumo de unidades">
+          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
+            <KpiMobileCard
+              rotulo="Total de unidades"
+              valor={metricValor(visible.length)}
+              icon={DoorOpen}
+              destaque
+            />
+            <KpiMobileCard rotulo="Ativas" valor={metricValor(ativas)} icon={CheckCircle2} />
+            <KpiMobileCard rotulo="Inadimplentes" valor={metricValor(devendo)} icon={Receipt} />
+            <KpiMobileCard rotulo="Em cobrança" valor={metricValor(emCobranca)} icon={Scale} />
+          </div>
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+            <CardMetric
+              accent="primary"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={DoorOpen} size="md" className="text-primary-container" />}
+              rotulo="Total de unidades"
+              valor={metricValor(visible.length)}
+            />
+            <CardMetric
+              accent="brass"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+              rotulo="Ativas"
+              valor={metricValor(ativas)}
+            />
+            <CardMetric
+              accent="critical"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={Receipt} size="md" className="text-status-critical" />}
+              rotulo="Inadimplentes"
+              valor={metricValor(devendo)}
+            />
+            <CardMetric
+              accent="tertiary"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={Scale} size="md" className="text-tertiary-container" />}
+              rotulo="Em cobrança"
+              valor={metricValor(emCobranca)}
+            />
+          </div>
+        </section>
 
         <section className="flex flex-col gap-md">
           <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -1024,6 +1076,7 @@ export default function UnidadesPage() {
             searchPlaceholder="Buscar unidade..."
             onApply={handleApply}
             onClear={handleClear}
+            defaultMobile="grid"
             fields={[
               {
                 id: "condominio",
@@ -1086,6 +1139,7 @@ export default function UnidadesPage() {
           onImport={abrirImportacao}
           showImport={podeImportar}
           importDisabled={importando}
+          mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

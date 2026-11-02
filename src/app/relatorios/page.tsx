@@ -3,7 +3,19 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, CalendarClock, Handshake, ArrowUpRight, Phone, Users, Wallet } from "lucide-react";
+import {
+  BarChart3,
+  CalendarClock,
+  ArrowUpRight,
+  FileText,
+  Phone,
+  Users,
+  Wallet,
+  Calendar,
+  CheckCircle2,
+  MessageCircle,
+  AlertTriangle,
+} from "lucide-react";
 import {
   GraficoBarras,
   GraficoCalor,
@@ -21,13 +33,31 @@ import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
-import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow, TableExport, type TableExportFormat, type TableSortDirection } from "@/components/table";
+import {
+  ResponsiveTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableMobileCard,
+  TableMobileCardHeader,
+  TableMobileEmpty,
+  TableMobileField,
+  TableMobileList,
+  TableMobileTitle,
+  TableRow,
+  TableExport,
+  type TableExportFormat,
+  type TableSortDirection,
+} from "@/components/table";
 import { useToast } from "@/components/toast";
 import {
   Grade,
   Leitura,
   RelatorioFiltros,
-  RelatorioMetrica,
+  RelatorioMetricas,
   RelatorioPainel,
   RelatorioSecaoTabela,
   VoltarRelatoriosHub,
@@ -103,19 +133,50 @@ const RELATORIOS = [
     id: "efetividade",
     titulo: "Efetividade da cobrança",
     descricao: "Unidades contatadas que pagaram ou fizeram acordo no mês seguinte.",
-    icon: Handshake,
+    icon: Wallet,
     selo: "Resultado",
   },
   {
     id: "carteira",
     titulo: "Carteira e unidades",
     descricao: "Inadimplência da carteira, ranking, alertas e estatística unidade a unidade (contato x débito).",
-    icon: Wallet,
+    icon: FileText,
     selo: "Carteira",
   },
 ] as const;
 
 type RelatorioId = (typeof RELATORIOS)[number]["id"];
+
+const HUB_CARTAO_ESTILO: Record<
+  RelatorioId,
+  { iconClass: string; seloClass: string; badgeVariant: "primary" | "success" | "error" | "secondary" | "neutral" }
+> = {
+  produtividade: {
+    iconClass: "bg-primary-fixed/50 text-primary-container",
+    seloClass: "",
+    badgeVariant: "primary",
+  },
+  equipe: {
+    iconClass: "bg-status-settled/15 text-status-settled",
+    seloClass: "",
+    badgeVariant: "success",
+  },
+  retornos: {
+    iconClass: "bg-tertiary-fixed/70 text-tertiary-container",
+    seloClass: "",
+    badgeVariant: "neutral",
+  },
+  efetividade: {
+    iconClass: "bg-primary-fixed/40 text-primary-container",
+    seloClass: "bg-tertiary-container text-on-primary",
+    badgeVariant: "primary",
+  },
+  carteira: {
+    iconClass: "bg-status-settled/15 text-status-settled",
+    seloClass: "bg-status-pending text-on-primary",
+    badgeVariant: "secondary",
+  },
+};
 
 function ehRelatorio(valor: string | null): valor is RelatorioId {
   return RELATORIOS.some((item) => item.id === valor);
@@ -277,35 +338,68 @@ function TabelaTexto({
   }, [colunaOrdenada, direcao, linhas]);
 
   const recorte = linhasOrdenadas.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE);
+
+  const desktopTable = (
+    <Table showExport={false} aria-label={rotulo} containerClassName="rounded-none border-0 shadow-none">
+      <TableHeader>
+        <TableRow className="border-border-subtle/50 hover:bg-transparent">
+          {colunas.map((coluna, indice) => (
+            <TableHead key={coluna} sortable sortDirection={direcaoColuna(indice)} onSort={() => alternarOrdenacao(indice)}>
+              {coluna}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {linhasOrdenadas.length === 0 ? (
+          <TableEmpty colSpan={colunas.length}>{vazio}</TableEmpty>
+        ) : (
+          recorte.map((linha, indice) => (
+            <TableRow key={`${linha.join("-")}-${indice}`}>
+              {linha.map((celula, coluna) => (
+                <TableCell key={`${colunas[coluna]}-${celula}`} className={coluna === 0 ? "font-medium" : "tabular-nums"}>
+                  {celula}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  );
+
+  const mobileTable =
+    linhasOrdenadas.length === 0 ? (
+      <TableMobileEmpty>{vazio}</TableMobileEmpty>
+    ) : (
+      <TableMobileList aria-label={rotulo}>
+        {recorte.map((linha, indice) => (
+          <TableMobileCard key={`${linha.join("-")}-${indice}`}>
+            <TableMobileCardHeader>
+              <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">{linha[0] ?? "—"}</TableMobileTitle>
+            </TableMobileCardHeader>
+            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+              {colunas.slice(1).map((coluna, colunaIndice) => (
+                <TableMobileField key={coluna} label={coluna} stacked>
+                  <span className="tabular-nums">{linha[colunaIndice + 1] ?? "—"}</span>
+                </TableMobileField>
+              ))}
+            </div>
+          </TableMobileCard>
+        ))}
+      </TableMobileList>
+    );
+
   return (
     <RelatorioSecaoTabela titulo={rotulo}>
-      <Table showExport={false} aria-label={rotulo}>
-        <TableHeader>
-          <TableRow className="border-border-subtle/50 hover:bg-transparent">
-            {colunas.map((coluna, indice) => (
-              <TableHead key={coluna} sortable sortDirection={direcaoColuna(indice)} onSort={() => alternarOrdenacao(indice)}>
-                {coluna}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {linhasOrdenadas.length === 0 ? (
-            <TableEmpty colSpan={colunas.length}>{vazio}</TableEmpty>
-          ) : (
-            recorte.map((linha, indice) => (
-              <TableRow key={`${linha.join("-")}-${indice}`}>
-                {linha.map((celula, coluna) => (
-                  <TableCell key={`${colunas[coluna]}-${celula}`} className={coluna === 0 ? "font-medium" : "tabular-nums"}>
-                    {celula}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      {linhasOrdenadas.length > PAGE_SIZE ? <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={onPagina} /> : null}
+      <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+        <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+        {linhasOrdenadas.length > PAGE_SIZE ? (
+          <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
+            <Pagination page={pagina} total={linhasOrdenadas.length} onPageChange={onPagina} />
+          </div>
+        ) : null}
+      </div>
     </RelatorioSecaoTabela>
   );
 }
@@ -383,11 +477,16 @@ function RelatoriosPage() {
     };
   }
 
+  function tipoExportacao(): RelatorioId {
+    return relatorio ?? "equipe";
+  }
+
   function queryExportParams() {
     const qs = new URLSearchParams();
-    if (relatorio) qs.set("tipo", relatorio);
+    const tipo = tipoExportacao();
+    qs.set("tipo", tipo);
     if (aplicado.busca.trim()) qs.set("busca", aplicado.busca.trim());
-    if (relatorio === "carteira") {
+    if (tipo === "carteira") {
       qs.set("dataBase", dataBase);
     } else {
       if (periodo.inicio) qs.set("de", periodo.inicio);
@@ -403,7 +502,6 @@ function RelatoriosPage() {
   }
 
   async function exportarViaApi(formato: "csv" | "xls") {
-    if (!relatorio) return;
     const qs = queryExportParams();
     qs.set("formato", formato);
     try {
@@ -723,7 +821,9 @@ function RelatoriosPage() {
   );
 
   async function imprimir() {
-    if (!relatorio || !atual) return;
+    const tipo = tipoExportacao();
+    const metaRelatorio = RELATORIOS.find((item) => item.id === tipo);
+    if (!metaRelatorio) return;
     const qs = queryExportParams();
     qs.set("formato", "json");
     try {
@@ -743,7 +843,7 @@ function RelatoriosPage() {
         linhas: [[`Gerado em: ${body.payload.meta.geradoEm}`], ...body.payload.meta.filtros.map((linha) => [linha])],
       };
       const secoes = [meta, ...body.payload.secoes.map((secao) => ({ titulo: secao.titulo, colunas: secao.colunas, linhas: secao.linhas }))];
-      const abriu = exportarPdf(body.payload.titulo, `${relatorio}.html`, secoes);
+      const abriu = exportarPdf(body.payload.titulo, `${tipo}.html`, secoes);
       if (!abriu) {
         toast({ variant: "info", title: "Relatório baixado", description: "Abra o arquivo e use imprimir para salvar em PDF." });
       }
@@ -903,12 +1003,26 @@ function RelatoriosPage() {
             {metricRetornosAtrasados > 0 ? ` Há ${metricRetornosAtrasados} retorno${metricRetornosAtrasados === 1 ? "" : "s"} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}.` : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <RelatorioMetrica valor={String(metricAtendimentos)} rotulo="atendimentos" destaque />
-          <RelatorioMetrica valor={percentual(metricTaxaResposta)} rotulo="responderam" detalhe="Taxa de resposta no período" />
-          <RelatorioMetrica valor={String(metricUnidadesContatadas)} rotulo="unidades contatadas" accent="tertiary" />
-          <RelatorioMetrica valor={String(metricRetornosAbertos)} rotulo="retornos ainda abertos" detalhe="Agenda em aberto no recorte" />
-        </div>
+        <RelatorioMetricas
+          desktopCols={4}
+          mobileCols={2}
+          itens={[
+            { valor: String(metricAtendimentos), rotulo: "atendimentos", destaque: true, icon: Phone },
+            {
+              valor: percentual(metricTaxaResposta),
+              rotulo: "responderam",
+              detalhe: "Taxa de resposta no período",
+              icon: MessageCircle,
+            },
+            { valor: String(metricUnidadesContatadas), rotulo: "unidades contatadas", accent: "tertiary", icon: Users },
+            {
+              valor: String(metricRetornosAbertos),
+              rotulo: "retornos ainda abertos",
+              detalhe: "Agenda em aberto no recorte",
+              icon: CalendarClock,
+            },
+          ]}
+        />
         <RelatorioPainel
           titulo="Mapa de horário de atendimento"
           nota={
@@ -1038,11 +1152,22 @@ function RelatoriosPage() {
             Hoje: {metricRetornosHoje}. Na agenda: {metricRetornosAgenda}.
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <RelatorioMetrica valor={String(metricRetornosAtrasados)} rotulo="atrasados" destaque accent="critical" detalhe="Passaram da data combinada" />
-          <RelatorioMetrica valor={String(metricRetornosHoje)} rotulo="para hoje" accent="brass" />
-          <RelatorioMetrica valor={String(metricRetornosAgenda)} rotulo="na agenda" accent="tertiary" />
-        </div>
+        <RelatorioMetricas
+          desktopCols={3}
+          mobileCols={3}
+          itens={[
+            {
+              valor: String(metricRetornosAtrasados),
+              rotulo: "atrasados",
+              destaque: true,
+              accent: "critical",
+              detalhe: "Passaram da data combinada",
+              icon: AlertTriangle,
+            },
+            { valor: String(metricRetornosHoje), rotulo: "para hoje", accent: "brass", icon: Calendar },
+            { valor: String(metricRetornosAgenda), rotulo: "na agenda", accent: "tertiary", icon: CalendarClock },
+          ]}
+        />
         <Grade>
           <RelatorioPainel titulo="Situação da agenda">
             <GraficoRosca
@@ -1091,11 +1216,24 @@ function RelatoriosPage() {
               : `${comResultado} de ${cruzamento.length} unidades contatadas tiveram pagamento ou acordo no mês seguinte.`}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
-          <RelatorioMetrica valor={String(cruzamento.length)} rotulo="unidades contatadas" />
-          <RelatorioMetrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length)} rotulo="pagaram" destaque />
-          <RelatorioMetrica valor={String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length)} rotulo="fizeram acordo" />
-        </div>
+        <RelatorioMetricas
+          desktopCols={3}
+          mobileCols={3}
+          itens={[
+            { valor: String(cruzamento.length), rotulo: "unidades contatadas", icon: Users },
+            {
+              valor: String(cruzamento.filter((linha) => linha.resultado.startsWith("Pagou")).length),
+              rotulo: "pagaram",
+              destaque: true,
+              icon: CheckCircle2,
+            },
+            {
+              valor: String(cruzamento.filter((linha) => linha.resultado.startsWith("Acordo")).length),
+              rotulo: "fizeram acordo",
+              icon: Wallet,
+            },
+          ]}
+        />
         <Grade>
           <RelatorioPainel titulo="O que aconteceu no mês seguinte">
             <GraficoRosca
@@ -1155,12 +1293,33 @@ function RelatoriosPage() {
               : ""}
           </Leitura>
         ) : null}
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
-          <RelatorioMetrica valor={dinheiro(totalAberto)} rotulo="valor atualizado" destaque />
-          <RelatorioMetrica valor={dinheiro(valorAte60)} rotulo={`até ${LIMITE_AMIGAVEL_DIAS} dias`} accent="tertiary" detalhe="Fase amigável" />
-          <RelatorioMetrica valor={dinheiro(valorAcima60)} rotulo={`acima de ${LIMITE_AMIGAVEL_DIAS} dias`} accent="critical" detalhe="Fase jurídica" />
-          <RelatorioMetrica valor={percentual(percentualUnidades)} rotulo="unidades inadimplentes" detalhe="Sobre a carteira filtrada" />
-        </div>
+        <RelatorioMetricas
+          desktopCols={4}
+          mobileCols={2}
+          itens={[
+            { valor: dinheiro(totalAberto), rotulo: "valor atualizado", destaque: true, icon: Wallet },
+            {
+              valor: dinheiro(valorAte60),
+              rotulo: `até ${LIMITE_AMIGAVEL_DIAS} dias`,
+              accent: "tertiary",
+              detalhe: "Fase amigável",
+              icon: Calendar,
+            },
+            {
+              valor: dinheiro(valorAcima60),
+              rotulo: `acima de ${LIMITE_AMIGAVEL_DIAS} dias`,
+              accent: "critical",
+              detalhe: "Fase jurídica",
+              icon: AlertTriangle,
+            },
+            {
+              valor: percentual(percentualUnidades),
+              rotulo: "unidades inadimplentes",
+              detalhe: "Sobre a carteira filtrada",
+              icon: Users,
+            },
+          ]}
+        />
         <Grade>
           <RelatorioPainel titulo="Fase amigável e jurídica" nota="Corte configurável em 60 dias — cobrança recente x encaminhamento jurídico.">
             <GraficoRosca
@@ -1219,7 +1378,7 @@ function RelatoriosPage() {
         <RelatorioPainel titulo="Saldo em aberto por competência" nota="Cada ponto é o mês de referência das cobranças ainda em aberto.">
           <GraficoLinha chave={`${chave}-competencia`} vazio={vazio} itens={evolucaoReferencia} />
         </RelatorioPainel>
-        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
           <div className="flex flex-col gap-xs">
             <h2 className="text-headline-sm text-on-surface">Por unidade</h2>
             <p className="text-body-sm text-on-surface-variant">Contatos da equipe no período filtrado cruzados com o débito em aberto na data-base.</p>
@@ -1399,6 +1558,20 @@ function RelatoriosPage() {
     );
   }
 
+  function seloHubCartao(item: (typeof RELATORIOS)[number], atencaoRetornos: boolean, atencaoCarteira: boolean) {
+    const estilo = HUB_CARTAO_ESTILO[item.id];
+    if (item.id === "retornos" && atencaoRetornos) {
+      return { texto: "Atenção", variant: "error" as const, className: "" };
+    }
+    if (item.id === "carteira" && atencaoCarteira) {
+      return { texto: "Atenção", variant: "secondary" as const, className: "bg-status-pending text-on-primary" };
+    }
+    if (estilo.seloClass) {
+      return { texto: item.selo, variant: "neutral" as const, className: estilo.seloClass };
+    }
+    return { texto: item.selo, variant: estilo.badgeVariant, className: "" };
+  }
+
   function destaqueHub(id: RelatorioId) {
     if (id === "produtividade") {
       return podeFiltrarPorRe ? "Por RE e período · exportável" : "Exclusivo da administradora";
@@ -1419,7 +1592,18 @@ function RelatoriosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
-        title={atual?.titulo ?? "Relatórios"}
+        title={
+          relatorio ? (
+            (atual?.titulo ?? "Relatórios")
+          ) : (
+            <span className="inline-flex items-center gap-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/40 text-primary-container">
+                <Icon icon={BarChart3} size="sm" />
+              </span>
+              Relatórios
+            </span>
+          )
+        }
         description={
           atual?.descricao ??
           "Relatórios de produtividade por RE, operação da equipe, retornos, efetividade e carteira. Filtre o período e exporte pelo menu no topo."
@@ -1429,34 +1613,40 @@ function RelatoriosPage() {
           { label: "Relatórios", href: relatorio ? "/relatorios" : undefined },
           ...(atual ? [{ label: atual.titulo }] : []),
         ]}
-        actions={relatorio && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
+        actions={pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
+        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
-      <PageContent>
+      <PageContent className="max-md:gap-md max-md:py-md">
         {!relatorio ? (
-          <div className="grid min-w-0 grid-cols-1 gap-lg min-[640px]:grid-cols-2 min-[1280px]:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {relatoriosHub.map((item) => {
-              const atencao = (item.id === "retornos" && retornosAtrasados > 0) || (item.id === "carteira" && alertas.length > 0);
+              const atencaoRetornos = item.id === "retornos" && retornosAtrasados > 0;
+              const atencaoCarteira = item.id === "carteira" && alertas.length > 0;
+              const selo = seloHubCartao(item, atencaoRetornos, atencaoCarteira);
+              const estilo = HUB_CARTAO_ESTILO[item.id];
               return (
                 <article
                   key={item.id}
-                  className="flex h-full min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card min-[640px]:p-md min-[1280px]:p-lg"
+                  className="flex h-full min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
                 >
                   <div className="flex items-start justify-between gap-sm">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-primary-container">
+                    <span
+                      className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${estilo.iconClass}`}
+                    >
                       <Icon icon={item.icon} size="md" />
                     </span>
-                    <Badge variant={atencao ? "error" : "primary"} className="max-w-[55%] shrink truncate">
-                      {atencao ? "Atenção" : item.selo}
+                    <Badge variant={selo.variant} className={`max-w-[55%] shrink truncate ${selo.className}`}>
+                      {selo.texto}
                     </Badge>
                   </div>
                   <div className="flex min-w-0 flex-col gap-xs">
                     <h2 className="text-headline-sm text-on-surface">{item.titulo}</h2>
                     <p className="text-body-sm text-on-surface-variant">{item.descricao}</p>
-                    <p className="text-body-sm font-medium text-primary-container min-[1280px]:text-body-md">{destaqueHub(item.id)}</p>
+                    <p className="text-body-sm font-medium text-primary-container">{destaqueHub(item.id)}</p>
                   </div>
                   <Button className="mt-auto w-full" size="sm" onClick={() => abrirRelatorio(item.id)}>
-                    <Icon icon={ArrowUpRight} size="sm" />
                     Abrir relatório
+                    <Icon icon={ArrowUpRight} size="sm" />
                   </Button>
                 </article>
               );
@@ -1467,6 +1657,7 @@ function RelatoriosPage() {
             <VoltarRelatoriosHub />
             <RelatorioFiltros>
               <FilterBar
+              defaultMobile="grid"
               searchValue={filtro.busca}
               onSearchChange={(buscaAtual) => setFiltro((atualFiltro) => ({ ...atualFiltro, busca: buscaAtual }))}
               searchPlaceholder={
@@ -1484,7 +1675,7 @@ function RelatoriosPage() {
               fields={camposFiltro}
             />
             </RelatorioFiltros>
-            <div className="flex flex-col gap-xl">{corpo}</div>
+            <div className="flex flex-col gap-lg min-[768px]:gap-xl">{corpo}</div>
           </div>
         )}
       </PageContent>

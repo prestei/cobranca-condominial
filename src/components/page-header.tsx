@@ -7,7 +7,7 @@ export type PageHeaderBreadcrumb = {
 };
 
 type PageHeaderProps = {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   breadcrumbs?: PageHeaderBreadcrumb[];
   actions?: ReactNode;
@@ -25,9 +25,9 @@ export function PageHeader({
     <section
       className={`px-md py-md min-[768px]:px-8 ${className ?? ""}`}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-md gap-y-xs min-[768px]:items-end">
+      <div className="grid grid-cols-1 gap-y-sm min-[768px]:grid-cols-[minmax(0,1fr)_auto] min-[768px]:gap-x-md min-[768px]:gap-y-xs min-[768px]:items-end">
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav aria-label="Breadcrumb" className="col-span-2 min-w-0">
+          <nav aria-label="Breadcrumb" className="min-w-0 min-[768px]:col-span-2">
             <p className="text-body-md leading-none text-[#1B2A41]">
               {breadcrumbs.map((item, index) => {
                 const isLast = index === breadcrumbs.length - 1;
@@ -53,22 +53,22 @@ export function PageHeader({
             </p>
           </nav>
         ) : null}
-        <h1 className="col-start-1 min-w-0 self-center text-[26px] font-bold leading-none text-[#12213A] min-[768px]:self-auto">
+        <h1 className="min-w-0 text-[26px] font-bold leading-none text-[#12213A] min-[768px]:col-start-1 min-[768px]:row-start-2">
           {title}
         </h1>
+        {description ? (
+          <p className="max-w-3xl text-[15px] leading-snug text-[#33415C] min-[768px]:col-start-1 min-[768px]:row-start-3">
+            {description}
+          </p>
+        ) : null}
         {actions ? (
           <div
-            className={`col-start-2 flex shrink-0 flex-wrap items-center gap-md self-center min-[768px]:self-end ${
-              description ? "min-[768px]:row-span-2" : ""
-            }`}
+            className={`flex w-full shrink-0 flex-wrap items-center gap-md min-[768px]:col-start-2 min-[768px]:w-auto min-[768px]:self-end ${
+              description ? "min-[768px]:row-span-2 min-[768px]:row-start-2" : "min-[768px]:row-start-2"
+            } [&>*]:w-full min-[768px]:[&>*]:w-auto`}
           >
             {actions}
           </div>
-        ) : null}
-        {description ? (
-          <p className="col-span-2 max-w-3xl text-[15px] leading-none text-[#33415C] min-[768px]:col-span-1">
-            {description}
-          </p>
         ) : null}
       </div>
     </section>

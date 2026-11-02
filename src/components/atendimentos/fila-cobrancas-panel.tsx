@@ -14,6 +14,7 @@ import {
   Scale,
   Share2,
   User,
+  Users,
 } from "lucide-react";
 import { DistribuicaoAutomaticaPanel } from "@/components/atendimentos/distribuicao-automatica-panel";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
@@ -22,6 +23,7 @@ import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-s
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -51,11 +53,10 @@ import {
   TableEmpty,
   TableHead,
   TableHeader,
+  TableActionsButton,
   TableMobileCard,
   TableMobileCardHeader,
   TableMobileEmpty,
-  TableMobileField,
-  TableMobileFields,
   TableMobileList,
   TableMobileTitle,
   TableRow,
@@ -87,6 +88,9 @@ import type { FilaCobrancaItem, FilaCobrancaResumo, FilaOrdenacaoCampo } from "@
 import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { HistoricoAtribuicaoItem } from "@/lib/distribuicao/service";
 
+const filaMobileDataBarClassName =
+  "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
+
 const retornoOpcoes = [
   { value: "todos", label: "Todos" },
   { value: "atrasado", label: "Atrasados" },
@@ -98,6 +102,10 @@ const retornoOpcoes = [
 function rotuloUnidade(item: FilaCobrancaItem) {
   if (item.bloco) return `${item.identificacao} - ${item.bloco}`;
   return item.identificacao;
+}
+
+function tituloCobrancaMobile(item: FilaCobrancaItem) {
+  return `${nomeCondominio(item.condominioId)} - ${rotuloUnidade(item)}`;
 }
 
 function CelulaProximoRetorno({ data }: { data: string | null }) {
@@ -542,38 +550,61 @@ export function FilaCobrancasPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-lg">
-      <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3" aria-label="Indicadores da fila">
-        <CardMetric
-          accent="brass"
-          iconClassName="bg-gold-subtle text-brass"
-          icon={<Icon icon={Clock} size="md" className="text-brass" />}
-          rotulo="Em cobrança"
-          valor={carregando ? "—" : String(resumo.emCobranca)}
-        />
-        <CardMetric
-          accent="primary"
-          iconClassName="bg-primary-fixed/50 text-primary-container"
-          icon={<Icon icon={User} size="md" className="text-primary-container" />}
-          rotulo="Sem responsável"
-          valor={carregando ? "—" : String(resumo.semResponsavel)}
-        />
-        <CardMetric
-          accent="tertiary"
-          iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-          icon={<Icon icon={RotateCcw} size="md" className="text-tertiary-container" />}
-          rotulo="Retornos hoje"
-          valor={carregando ? "—" : String(resumo.retornosHoje)}
-        />
-      </div>
+    <div className="flex flex-col gap-md min-[768px]:gap-lg">
+      <section aria-label="Indicadores da fila">
+        <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+          <KpiMobileCard
+            rotulo="Em cobrança"
+            valor={carregando ? "—" : String(resumo.emCobranca)}
+            icon={Clock}
+            destaque
+          />
+          <KpiMobileCard
+            rotulo="Sem responsável"
+            valor={carregando ? "—" : String(resumo.semResponsavel)}
+            icon={Users}
+          />
+          <KpiMobileCard
+            rotulo="Retornos hoje"
+            valor={carregando ? "—" : String(resumo.retornosHoje)}
+            icon={RotateCcw}
+          />
+        </div>
+        <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={Clock} size="md" className="text-brass" />}
+            rotulo="Em cobrança"
+            valor={carregando ? "—" : String(resumo.emCobranca)}
+          />
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={User} size="md" className="text-primary-container" />}
+            rotulo="Sem responsável"
+            valor={carregando ? "—" : String(resumo.semResponsavel)}
+          />
+          <CardMetric
+            accent="tertiary"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={RotateCcw} size="md" className="text-tertiary-container" />}
+            rotulo="Retornos hoje"
+            valor={carregando ? "—" : String(resumo.retornosHoje)}
+          />
+        </div>
+      </section>
 
       <FilterBar
         variant="toolbar"
+        toolbarMobile="fila"
+        searchLabel="Condomínio"
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Condomínio, unidade ou RE"
         onApply={aplicarFiltros}
         onClear={limparFiltros}
+        clearLabel="Limpar filtros"
         fields={[
           {
             id: "condominio",
@@ -626,6 +657,7 @@ export function FilaCobrancasPanel() {
             onExport={(formato) => void aoExportar(formato)}
             onImport={abrirImportacao}
             showImport={podeImportar}
+            mobileDataBarClassName={filaMobileDataBarClassName}
             desktop={
               <Table aria-label="Fila de cobranças" showExport={false}>
                 <TableBody>
@@ -652,11 +684,12 @@ export function FilaCobrancasPanel() {
               </Button>
             </div>
           ) : null}
-          <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card">
+          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
             <ResponsiveTable
               onExport={(formato) => void aoExportar(formato)}
               onImport={abrirImportacao}
               showImport={podeImportar}
+              mobileDataBarClassName={filaMobileDataBarClassName}
               desktop={
                 <Table
                   aria-label="Fila de cobranças ativas"
@@ -774,43 +807,110 @@ export function FilaCobrancasPanel() {
               }
               mobile={
               <TableMobileList aria-label="Fila de cobranças">
-                {itens.map((item) => (
-                  <TableMobileCard key={item.unidadeId}>
-                    <TableMobileCardHeader>
-                      {visaoGeral ? (
-                        <Checkbox
-                          aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                          checked={selecionadas.has(item.unidadeId)}
-                          onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
-                        />
-                      ) : (
-                        <span aria-hidden="true" />
-                      )}
-                      <TableMobileTitle>
-                        {nomeCondominio(item.condominioId)} · {rotuloUnidade(item)}
-                      </TableMobileTitle>
-                    </TableMobileCardHeader>
-                    <TableMobileFields>
-                      <TableMobileField label="Inadimplência">{item.valorInadimplencia ?? "—"}</TableMobileField>
-                      <TableMobileField label="Situação">
-                        <BadgeSituacaoCobranca situacao={item.situacao} />
-                      </TableMobileField>
-                      <TableMobileField label="RE">{item.codigoRe ?? "Sem responsável"}</TableMobileField>
-                      <TableMobileField label="Retorno">{formatarProximoRetorno(item.proximoRetorno)}</TableMobileField>
-                    </TableMobileFields>
-                    <div className="mt-sm flex flex-col gap-xs">
-                      {acoesLinha(item).map((acao) => (
-                        <Button key={acao.label} type="button" variant="outline" size="sm" className="w-full" onClick={acao.onSelect}>
-                          {acao.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </TableMobileCard>
-                ))}
+                {itens.map((item, index) => {
+                  const acoes = acoesLinha(item);
+                  const acoesRapidas = acoes.filter((acao) =>
+                    ["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
+                  );
+                  const acoesExtras = acoes.filter(
+                    (acao) => !["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
+                  );
+                  return (
+                    <TableMobileCard key={item.unidadeId}>
+                      <TableMobileCardHeader>
+                        {visaoGeral ? (
+                          <Checkbox
+                            aria-label={`Selecionar ${rotuloUnidade(item)}`}
+                            checked={selecionadas.has(item.unidadeId)}
+                            onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
+                          />
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                            <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                              {tituloCobrancaMobile(item)}
+                            </TableMobileTitle>
+                            <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                              {index + 1} de {itens.length}
+                            </span>
+                          </div>
+                        </div>
+                        {acoesExtras.length > 0 ? (
+                          <TableActionsButton
+                            label={`Mais ações — ${rotuloUnidade(item)}`}
+                            actions={acoesExtras}
+                          />
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
+                      </TableMobileCardHeader>
+                      <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+                        <div className="flex items-start justify-between gap-md">
+                          <div className="min-w-0">
+                            <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
+                            <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                              {item.valorInadimplencia ?? "—"}
+                            </p>
+                            {item.diasAtrasoMax > 0 ? (
+                              <p className="text-body-sm text-on-surface-variant">{item.diasAtrasoMax} dias em atraso</p>
+                            ) : null}
+                          </div>
+                          <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-sm text-body-sm">
+                          <div className="min-w-0">
+                            <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
+                            <p className="text-body-md text-on-surface">{item.codigoRe ?? "Sem responsável"}</p>
+                          </div>
+                          <div className="min-w-0 text-end">
+                            <p className="text-label-sm uppercase text-on-surface-variant">Retorno</p>
+                            <div className="flex justify-end text-body-md">
+                              <CelulaProximoRetorno data={item.proximoRetorno} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {acoesRapidas.length > 0 ? (
+                        <div className="mt-sm flex flex-col gap-xs">
+                          {acoesRapidas.find((a) => a.label === "Registrar contato") ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="min-h-11 w-full"
+                              onClick={() => registrarAtendimento(item.unidadeId)}
+                            >
+                              <Icon icon={ClipboardList} size="sm" aria-hidden />
+                              Registrar contato
+                            </Button>
+                          ) : null}
+                          <div className="grid grid-cols-2 gap-xs">
+                            {acoesRapidas
+                              .filter((acao) => acao.label !== "Registrar contato")
+                              .map((acao) => (
+                                <Button
+                                  key={acao.label}
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="min-h-10 w-full px-sm text-body-sm"
+                                  onClick={acao.onSelect}
+                                >
+                                  <Icon icon={acao.icon} size="sm" className="shrink-0" aria-hidden />
+                                  {acao.label}
+                                </Button>
+                              ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </TableMobileCard>
+                  );
+                })}
               </TableMobileList>
               }
             />
-            <div className="border-t border-border-subtle px-md py-md">
+            <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
               <Pagination page={page} total={total} onPageChange={setPage} />
             </div>
           </div>
@@ -818,7 +918,10 @@ export function FilaCobrancasPanel() {
       )}
 
       {visaoGeral && atividade.length > 0 ? (
-        <section aria-labelledby="atividade-recente-titulo" className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+        <section
+          aria-labelledby="atividade-recente-titulo"
+          className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
+        >
           <h2 id="atividade-recente-titulo" className="mb-md flex items-center gap-sm text-title-sm text-on-surface">
             <Icon icon={Clock} size="sm" className="text-on-surface-variant" />
             Atividade recente
