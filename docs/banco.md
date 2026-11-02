@@ -21,6 +21,8 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [legal_document](#legal_document) | Metadado de documento jurídico (T17) |
 | [import](#import) | Importação de arquivo |
 | [audit_log](#audit_log) | Auditoria de alteração |
+| [internal_notification](#internal_notification) | Notificação in-app (T34) |
+| [notification_failure](#notification_failure) | Falha ao emitir notificação (T34) |
 
 ## Diagrama
 
@@ -337,6 +339,38 @@ Registro de cada alteração feita no sistema.
 | user_agent | VARCHAR | sim | | |
 | data_hora | TIMESTAMP | não | | |
 
+## internal_notification
+
+Alertas in-app por colaborador (T34). Protótipo em `NotificacaoInterna` (`catalogo.ts`).
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | INT | não | PK, autoincremento | |
+| chave_idempotencia | VARCHAR | não | único | Evita duplicidade por evento |
+| evento | VARCHAR | não | | retorno_agendado, retorno_lembrete_hoje, cobranca_atribuida |
+| destinatario_id | INT | não | FK → user.id | Caixa pessoal |
+| titulo | VARCHAR | não | | |
+| descricao | TEXT | sim | | |
+| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment |
+| registro_id | VARCHAR | não | | ID do registro relacionado |
+| unidade_id | INT | sim | FK → unit.id | Para escopo e deep link |
+| condominio_id | INT | sim | FK → condominium.id | |
+| criado_em | TIMESTAMP | não | | |
+| lida_em | TIMESTAMP | sim | | |
+
+## notification_failure
+
+Falhas ao emitir notificação (não bloqueia fluxo principal).
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | INT | não | PK, autoincremento | |
+| chave_idempotencia | VARCHAR | sim | | |
+| evento | VARCHAR | sim | | |
+| destinatario_id | INT | sim | | |
+| erro | TEXT | não | | |
+| ocorrido_em | TIMESTAMP | não | | |
+
 ## Relacionamentos
 
 | De | Para | Cardinalidade | Coluna |
@@ -365,3 +399,5 @@ Registro de cada alteração feita no sistema.
 | service_ticket | user | muitos para um | usuario_id |
 | import | user | muitos para um | usuario_id |
 | audit_log | user | muitos para um | usuario_id |
+| internal_notification | user | muitos para um | destinatario_id |
+| internal_notification | unit | muitos para um | unidade_id |

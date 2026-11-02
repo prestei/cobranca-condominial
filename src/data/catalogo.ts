@@ -252,6 +252,31 @@ export type Auditoria = {
   dataHora: string;
 };
 
+/** Alerta in-app para colaboradores (T34 — sem SMS/e-mail/WhatsApp). */
+export type NotificacaoInterna = {
+  id: number;
+  chaveIdempotencia: string;
+  evento: "retorno_agendado" | "retorno_lembrete_hoje" | "cobranca_atribuida";
+  destinatarioId: number;
+  titulo: string;
+  descricao: string;
+  entidadeTipo: "service_ticket" | "collection_assignment";
+  registroId: string;
+  unidadeId: number;
+  condominioId: number | null;
+  criadoEm: string;
+  lidaEm: string | null;
+};
+
+export type NotificacaoFalha = {
+  id: number;
+  chaveIdempotencia: string;
+  evento: string;
+  destinatarioId: number;
+  erro: string;
+  ocorridoEm: string;
+};
+
 export const tiposUnidade = ["Apartamento", "Casa", "Sala", "Loja"] as const;
 export const statusUnidade = ["Ativa", "Inativa"] as const;
 /** Sem cobrança = fora da fila de inadimplência; demais estados entram com débito/importação ou movimentação operacional. */
@@ -461,6 +486,8 @@ type Cadastros = {
   atribuicoesCobranca: AtribuicaoCobranca[];
   importacoes: Importacao[];
   auditoria: Auditoria[];
+  notificacoesInternas: NotificacaoInterna[];
+  notificacaoFalhas: NotificacaoFalha[];
 };
 
 let state: Cadastros = {
@@ -480,6 +507,8 @@ let state: Cadastros = {
   atribuicoesCobranca: atribuicoesIniciais,
   importacoes: importacoesIniciais,
   auditoria: auditoriaInicial,
+  notificacoesInternas: [],
+  notificacaoFalhas: [],
 };
 
 const listeners = new Set<() => void>();
@@ -639,6 +668,18 @@ export function setAuditoria(next: Auditoria[] | ((current: Auditoria[]) => Audi
   atualizar("auditoria", next);
 }
 
+export function setNotificacoesInternas(
+  next: NotificacaoInterna[] | ((current: NotificacaoInterna[]) => NotificacaoInterna[]),
+) {
+  atualizar("notificacoesInternas", next);
+}
+
+export function setNotificacaoFalhas(
+  next: NotificacaoFalha[] | ((current: NotificacaoFalha[]) => NotificacaoFalha[]),
+) {
+  atualizar("notificacaoFalhas", next);
+}
+
 const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
   condominios: condominiosIniciais,
   cargos: cargosIniciais,
@@ -656,6 +697,8 @@ const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
   atribuicoesCobranca: atribuicoesIniciais,
   importacoes: importacoesIniciais,
   auditoria: auditoriaInicial,
+  notificacoesInternas: [],
+  notificacaoFalhas: [],
 });
 
 /** Restaura o catálogo em memória ao seed inicial — uso exclusivo em testes automatizados. */

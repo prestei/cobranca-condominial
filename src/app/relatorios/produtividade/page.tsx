@@ -48,6 +48,7 @@ import {
   valoresSeriesGraficoProdutividade,
   type PainelProdutividadePorRe,
 } from "@/lib/relatorios/produtividade";
+import { MetaPainelIndicadores } from "@/components/indicadores/meta-painel";
 import type { RelatorioExportPayload } from "@/lib/relatorios/service";
 
 const filtroInicial = {
@@ -324,12 +325,13 @@ function ProdutividadePorRePage() {
       />
     );
   } else {
-    const { totais, periodo: periodoPainel, definicoes } = painel;
+    const { totais, periodo: periodoPainel, definicoes, meta } = painel;
     corpo = (
       <>
+        <MetaPainelIndicadores meta={meta} />
         <Leitura>
-          Período consultado: {periodoPainel.rotulo}. Contagens por RE usam o autor de cada ação registrada; a carteira
-          atual reflete a atribuição vigente hoje.
+          {periodoPainel.rotulo}. Contagens por RE usam o autor de cada ação registrada; a carteira atual reflete a
+          atribuição vigente na geração. Conferência detalhada: GET /api/indicadores/conferencia?indicador=…&de=…&ate=….
         </Leitura>
         <RelatorioMetricas
           desktopCols={5}

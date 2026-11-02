@@ -170,6 +170,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Resposta Sim/Não e motivo da pendência (catálogo) quando houve contato
 - Agendamento de retorno (data e próxima ação)
 - Agenda de retornos (T11): filtro **Retorno** na fila `/atendimentos` (ex. `?retorno=hoje`); API `GET /api/retornos` permanece para integrações; conclusão na fila via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
+- **Notificações internas (T34):** alertas in-app no sino do header e em `/notificacoes` — retorno agendado/atualizado (destinatário: carteira vigente ou autor), lembrete diário de retorno **hoje** (após 08:00 `America/Sao_Paulo`, idempotente por dia) e cobrança redistribuída (novo atendente). Chave de idempotência evita duplicidade; falhas vão para log interno sem bloquear atendimento/distribuição. WhatsApp, SMS e e-mail **desativados** até aprovação. Detalhes: [modulos/notificacoes.md](modulos/notificacoes.md)
 - Atendente conclui retornos só da carteira vigente; administradora acompanha por RE
 - Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada
 
@@ -185,6 +186,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Documentos da cobrança (metadados internos; upload/armazenamento oficial pendente)
 - **Relatórios (T19):** hub `/relatorios` (produtividade por RE, equipe, retornos, efetividade, carteira). Filtros respeitam `escopoCondominios` e permissões; exportação via `GET /api/relatorios/export` exige `relatorios.exportar` e repete os mesmos filtros da tela, com data/hora de geração e RE (não nome) para atendentes. CSV UTF-8 com BOM; XLS via XML SpreadsheetML (padrão do projeto). Sem dados ilustrativos na UI.
 - **Produtividade por RE (T23):** tela `/relatorios/produtividade` (exclusiva da administradora — `usuarios.criar`). Período obrigatório; filtros opcionais por condomínio, advogado e RE. UI consome `GET /api/relatorios/produtividade`. Indicadores objetivos por colaborador: atendimentos (autor), retornos concluídos, negociações criadas, ações agendadas no registro e acordos confirmados; exportação inclui também retornos previstos/atrasados/em aberto e carteira vigente. Definições exibidas na tela. Sem ranking, metas ou pontuação automática.
+- **Conferência de indicadores (T35):** catálogo e fórmulas em `docs/modulos/conferencia-indicadores.md` e `src/lib/indicadores/catalogo-oficial.ts`. Consulta de referência: `GET /api/indicadores/conferencia`. Separação RE autor / carteira atual / carteira na data; propostas canceladas ou recusadas fora de negociações; meta com data/hora de geração e filtros no dashboard, indicadores e produtividade. Taxa de resposta e eficiência apenas como referência operacional (não oficial).
 - Relatórios por condomínio / advogado / RE (administradora)
 - Histórico completo das ações
 - Auditoria das alterações

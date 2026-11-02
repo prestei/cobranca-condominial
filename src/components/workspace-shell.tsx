@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   ClipboardList,
@@ -26,9 +27,11 @@ import {
   AppShellNavSection,
   AppShellSidebar,
 } from "@/components/app-shell";
+import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
+import { useNotificacoes } from "@/hooks/use-notificacoes";
 import { usePermissao } from "@/hooks/use-permissao";
 import type { ModuloPermissao } from "@/lib/permissions/modulos";
 
@@ -72,15 +75,48 @@ const secoes: Array<{
 
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
   const { user: sessao, logout } = useAuth();
   const { pode } = usePermissao();
   const cadastros = useCadastros();
   const retornos = cadastros.atendimentos.filter(retornoPendente).length;
   const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
+  const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
+
+  const handleAbrirNotificacao = useCallback(
+    async (id: number) => {
+      const resultado = await abrirNotificacao(id);
+      if (!resultado.ok) {
+        toast({ variant: "error", title: "Notificação", description: resultado.error });
+        return;
+      }
+      const url = resultado.notificacao?.urlRegistro;
+      if (url) {
+        router.push(url);
+      } else {
+        router.push("/notificacoes");
+      }
+      void recarregar();
+    },
+    [abrirNotificacao, recarregar, router, toast],
+  );
 
   return (
     <AppShell
       onLogout={logout}
+      notificationCount={naoLidas}
+      notificacoes={itens.map((item) => ({
+        id: item.id,
+        titulo: item.titulo,
+        descricao: item.descricao,
+        relativo: item.relativo,
+        lida: Boolean(item.lidaEm),
+        evento: item.evento,
+      }))}
+      notificacoesCarregando={carregando}
+      onMarcarTodasNotificacoesLidas={() => void marcarTodasLidas()}
+      onAbrirNotificacao={(id) => void handleAbrirNotificacao(id)}
       sidebar={
         <AppShellSidebar>
           <AppShellBrand title="Cobrança" />
@@ -108,7 +144,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         </AppShellSidebar>
       }
       user={usuario}
-      notificationCount={retornos}
     >
       <AppShellMain>{children}</AppShellMain>
     </AppShell>

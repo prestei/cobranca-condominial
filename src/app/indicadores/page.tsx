@@ -40,6 +40,7 @@ import {
 } from "@/components/table";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { formatarData } from "@/data/catalogo";
+import { MetaPainelIndicadores } from "@/components/indicadores/meta-painel";
 import { diaCurto, type IndicadoresKpi, type IndicadoresKpiId, type IndicadoresPainel } from "@/lib/indicadores/service";
 
 const kpiVisual: Record<
@@ -181,10 +182,7 @@ export default function IndicadoresPage() {
 
         {!carregando && !erro && painel ? (
           <>
-            <p className="text-body-sm text-on-surface-variant">
-              Período operacional: {formatarData(painel.periodo.inicio)} a {formatarData(painel.periodo.fim)} · Inadimplência na data-base{" "}
-              {formatarData(painel.dataBase)}
-            </p>
+            <MetaPainelIndicadores meta={painel.meta} />
 
             <section aria-label="Indicadores operacionais">
               <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
@@ -252,8 +250,8 @@ export default function IndicadoresPage() {
                 titulo="Eficiência semanal"
                 nota={
                   taxaMediaEficiencia != null
-                    ? `Taxa média de resposta no período: ${taxaMediaEficiencia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%.`
-                    : "Percentual de contatos com resposta do morador, por dia."
+                    ? `Taxa média de resposta no período: ${taxaMediaEficiencia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%. Referência operacional — não é indicador oficial.`
+                    : "Percentual de contatos com resposta do morador, por dia (referência operacional, não oficial)."
                 }
               >
                 <GraficoLinha

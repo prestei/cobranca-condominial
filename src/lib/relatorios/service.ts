@@ -271,6 +271,8 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
     throw new RelatorioServiceError("Sem permissão para consultar relatórios.", 403);
   }
 
+  assertCondominioNoEscopo(userId, filtros.condominioId);
+
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const metaFiltros = rotulosFiltrosAplicados(filtros, tipo);
   const dataBase = filtros.dataBase || hojeIso();

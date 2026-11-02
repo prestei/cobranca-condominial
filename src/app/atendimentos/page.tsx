@@ -3,9 +3,8 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList, ListOrdered } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { FormSteps } from "@/components/form-steps";
@@ -221,17 +220,7 @@ export default function AtendimentosPage() {
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">
-        <Tabs defaultValue="fila" value="fila" className="flex flex-col gap-md min-[768px]:gap-lg">
-          <TabsList className="mb-0 hidden shrink-0 min-[768px]:inline-flex">
-            <TabsTrigger value="fila">
-              <Icon icon={ListOrdered} size="sm" className="mr-xs shrink-0" aria-hidden />
-              Fila de cobranças
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="fila" className="!rounded-none !bg-transparent !p-0 text-inherit shadow-none">
-            <FilaCobrancasPanel />
-          </TabsContent>
-        </Tabs>
+        <FilaCobrancasPanel />
       </PageContent>
 
       <Sheet

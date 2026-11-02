@@ -15,6 +15,7 @@ import type { DashboardPayload } from "@/lib/dashboard/service";
 import { DashboardAdministradoraView } from "@/components/dashboard/dashboard-administradora-view";
 import { DashboardAtendenteView } from "@/components/dashboard/dashboard-atendente-view";
 import { DashboardAdvogadoView } from "@/components/dashboard/dashboard-advogado-view";
+import { MetaPainelIndicadores } from "@/components/indicadores/meta-painel";
 
 const descricaoPorPerfil = {
   administradora: "Visão da carteira, operação da equipe e retornos.",
@@ -86,6 +87,8 @@ export function DashboardHome() {
             </div>
           </Alert>
         ) : null}
+
+        {!carregando && !erro && dados ? <MetaPainelIndicadores meta={dados.meta} /> : null}
 
         {!carregando && !erro && dados?.perfil === "administradora" ? (
           <DashboardAdministradoraView dados={dados} chaveGrafico={chaveGrafico} />

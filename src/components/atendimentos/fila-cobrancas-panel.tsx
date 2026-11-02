@@ -178,6 +178,7 @@ export function FilaCobrancasPanel() {
     condominio: string;
   } | null>(null);
   const [concluirAtendimentoId, setConcluirAtendimentoId] = useState<string | null>(null);
+  const [destaqueUnidadeId, setDestaqueUnidadeId] = useState<number | null>(null);
 
   const atendentesKey = snapshotAtendentesComRe();
   const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
@@ -203,11 +204,29 @@ export function FilaCobrancasPanel() {
       setRetorno("hoje");
       setAppliedRetorno("hoje");
     }
-  }, [searchParams]);
+    const unidadeQuery = searchParams?.get("unidade");
+    const unidadeNum = Number(unidadeQuery);
+    if (Number.isFinite(unidadeNum) && unidadeNum > 0) {
+      setDestaqueUnidadeId(unidadeNum);
+    }
+    const atendimentoQuery = searchParams?.get("atendimento")?.trim();
+    if (atendimentoQuery) {
+      const atendimento = cadastros.atendimentos.find((item) => item.id === atendimentoQuery);
+      if (atendimento) {
+        setDestaqueUnidadeId(Number(atendimento.unidadeId));
+      }
+    }
+  }, [cadastros.atendimentos, searchParams]);
 
   useEffect(() => {
     aplicarQueryInicial();
   }, [aplicarQueryInicial]);
+
+  useEffect(() => {
+    if (!destaqueUnidadeId || carregando) return;
+    const alvo = document.getElementById(`fila-unidade-${destaqueUnidadeId}`);
+    alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [carregando, destaqueUnidadeId, itens]);
 
   const recarregar = useCallback(async () => {
     setCarregando(true);
@@ -761,7 +780,11 @@ export function FilaCobrancasPanel() {
                   </TableHeader>
                   <TableBody>
                     {itens.map((item) => (
-                      <TableRow key={item.unidadeId}>
+                      <TableRow
+                        key={item.unidadeId}
+                        id={`fila-unidade-${item.unidadeId}`}
+                        className={destaqueUnidadeId === item.unidadeId ? "bg-[#FFF8E6]" : undefined}
+                      >
                         {visaoGeral ? (
                           <TableCell align="center" className="w-12">
                             <div className="flex justify-center">

@@ -69,7 +69,8 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
             : ""}
           {percentual(dados.parteJuridicaPercentual)} do valor está com mais de {dados.limiteDias} dias sem pagar. Na semana:{" "}
           {dados.operacao.contatos} contato{dados.operacao.contatos === 1 ? "" : "s"},{" "}
-          {percentual(dados.operacao.taxaResposta)} com retorno do morador. Fila: {dados.fila.emCobranca} em cobrança
+          {percentual(dados.operacao.taxaResposta)} com retorno do morador (referência operacional, não oficial). Fila:{" "}
+          {dados.fila.emCobranca} em cobrança
           {dados.fila.semResponsavel > 0 ? `, ${dados.fila.semResponsavel} sem RE` : ""}.
         </Leitura>
       ) : null}
@@ -225,11 +226,11 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
           <CardMetric
             iconClassName="bg-gold-subtle text-brass"
             icon={<Icon icon={MessageCircle} size="md" className="text-brass" />}
-            rotulo="Morador respondeu"
+            rotulo="Morador respondeu (ref.)"
             valor={percentual(dados.operacao.taxaResposta)}
             detalhe={
               dados.operacao.contatos > 0
-                ? `${dados.operacao.responderam} de ${dados.operacao.contatos} contatos.`
+                ? `${dados.operacao.responderam} de ${dados.operacao.contatos} contatos. Indicador não oficial.`
                 : "Nenhum contato no período."
             }
           />
@@ -262,7 +263,7 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
               }))}
             />
           </SubPainel>
-          <SubPainel titulo="Respondeu ou não">
+          <SubPainel titulo="Respondeu ou não" nota="Referência operacional — não é indicador oficial de desempenho.">
             <GraficoRosca
               chave={`${chaveGrafico}-resposta`}
               vazio={vazioGrafico}

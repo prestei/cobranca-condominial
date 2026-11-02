@@ -31,7 +31,9 @@ Advogados e atendentes veem apenas condomínios/unidades do seu escopo.
 
 - **Auth:** sessão + `relatorios.ler`
 - **Query opcional:** `dataBase`, `limiteDias`
-- **Resposta:** `{ painel: IndicadoresPainel }`
+- **Resposta:** `{ painel: IndicadoresPainel }` (inclui `meta.geradoEm` e filtros)
+
+Conferência detalhada e catálogo de fórmulas: [conferencia-indicadores.md](conferencia-indicadores.md).
 
 Agregação: `src/lib/indicadores/service.ts`.
 

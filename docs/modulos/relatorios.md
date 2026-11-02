@@ -44,11 +44,17 @@ Atendentes são identificados por **RE** (`usuario.codigo_re`) em filtros e expo
 - **Auth:** sessão + `relatorios.ler`
 - **Resposta:** `{ opcoes: { condominios, advogados, atendentesRe, podeFiltrarPorRe } }`
 
+### `GET /api/indicadores/conferencia`
+
+- **Auth:** sessão + `relatorios.ler`; consulta detalhada por indicador exige administradora (`usuarios.criar`)
+- **Query:** `indicador`, filtros iguais à produtividade (`de`, `ate`, `condominio`, `advogado`, `codigoRe`) ou catálogo sem indicador
+- Ver [conferencia-indicadores.md](conferencia-indicadores.md)
+
 ### `GET /api/relatorios/produtividade`
 
 - **Auth:** sessão + `relatorios.ler` + administradora (`usuarios.criar`)
 - **Query:** filtros de período (`de`, `ate` obrigatórios), `condominio`, `advogado`, `codigoRe`
-- **Resposta:** `{ painel: { periodo, definicoes, linhas, totais } }`
+- **Resposta:** `{ painel: { periodo, definicoes, meta, linhas, totais } }`
 
 ### `GET /api/relatorios/export`
 

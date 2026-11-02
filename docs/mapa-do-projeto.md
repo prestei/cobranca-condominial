@@ -100,6 +100,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | usuarios | `/login`, `/usuarios` | `login/page.tsx`, `usuarios/page.tsx` | [usuarios.md](modulos/usuarios.md) | `Usuario`; sessão `useAuth` | `user` | cargos, atendimentos, auditoria; API `/api/usuarios`, `src/lib/usuarios/*`, `/api/auth/*` |
 | cargos | `/cargos`, `/acesso-negado` | `cargos/page.tsx`, `lib/permissions/*`, `middleware.ts` | [cargos.md](modulos/cargos.md) | `Cargo` | `role` | usuarios, auditoria; API `/api/cargos`, `src/lib/cargos/*` |
 | auditoria | `/auditoria` | `auditoria/page.tsx` | [auditoria.md](modulos/auditoria.md) | `Auditoria` | `audit_log` (futuro PG) | todos os módulos com mutação; API `GET /api/auditoria`, `src/lib/auditoria/*` |
+| notificacoes | `/notificacoes` (sino no header) | `notificacoes/page.tsx`, `hooks/use-notificacoes.ts` | [notificacoes.md](modulos/notificacoes.md) | `NotificacaoInterna`, `NotificacaoFalha` | `internal_notification`, `notification_failure` | atendimentos (T11), distribuição (T09), dashboard (T18); API `/api/notificacoes/*` |
 | integracao-superlogica | — | (a definir em `src/lib` / API) | [integracao-superlogica.md](modulos/integracao-superlogica.md) | `origensDebito` | `debt`, `import` | importacoes, debitos |
 
 **Shell de navegação:** menu lateral em `src/components/workspace-shell.tsx` (rotas acima).
@@ -126,7 +127,7 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | T16 Parcelas, pagamentos e acordos | `/api/propostas/:id/parcelas`, `/api/propostas/:id/pagamentos`, `AcordoAcompanhamentoBlock`, `src/lib/acordos/*`, `agreement_installment`, `agreement_payment`, [negociacoes.md](modulos/negociacoes.md) |
 | T17 Encaminhamento jurídico | `/juridico`, `/api/juridico/encaminhamentos`, `EncaminhamentoJuridicoSheet`, linha do tempo, [juridico.md](modulos/juridico.md) |
 | §2.2 Permissões | cargos, usuarios, [regra-negocio.md](regra-negocio.md) |
-| §2.5 Alertas de retorno | atendimentos, dashboard |
+| §2.5 Alertas de retorno | atendimentos, dashboard, [notificacoes](modulos/notificacoes.md) (T34) |
 | Relatórios e gráficos | relatorios, atendimentos, debitos |
 | Projeto 2 / Superlógica | integracao-superlogica, importacoes, debitos |
 | Cadastro condomínios e unidades | condominios, unidades |

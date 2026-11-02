@@ -17,6 +17,7 @@ Documentação **por módulo funcional**. Cada implementação ou alteração re
 | Usuários | [usuarios.md](usuarios.md) | `/usuarios` |
 | Cargos / perfis | [cargos.md](cargos.md) | `/cargos` |
 | Auditoria | [auditoria.md](auditoria.md) | `/auditoria` |
+| Notificações internas | [notificacoes.md](notificacoes.md) | `/notificacoes` (sino no header) |
 | Integração Superlógica | [integracao-superlogica.md](integracao-superlogica.md) | (backend / jobs) |
 
 Documentos marcados com link ainda podem estar em esboço — criar ou completar na primeira implementação do módulo.

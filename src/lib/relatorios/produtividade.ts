@@ -3,15 +3,16 @@ import {
   formatarData,
   getCadastros,
   hojeIso,
-  situacaoRetorno,
-  type Atendimento,
   type Condominio,
 } from "@/data/catalogo";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
+import type { IndicadorProdutividadeId } from "@/lib/indicadores/catalogo-oficial";
+import { geradoEmBr } from "@/lib/indicadores/meta";
+import { listarEventosProdutividade } from "@/lib/indicadores/produtividade-eventos";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import type { RelatorioFiltros } from "@/lib/relatorios/service";
-import { RelatorioServiceError } from "@/lib/relatorios/service";
+import { RelatorioServiceError, rotulosFiltrosAplicados } from "@/lib/relatorios/service";
 
 export const SERIES_GRAFICO_PRODUTIVIDADE = [
   { id: "atendimentos", rotulo: "Atendimentos" },
@@ -24,13 +25,14 @@ export const SERIES_GRAFICO_PRODUTIVIDADE = [
 export const DEFINICOES_INDICADORES_PRODUTIVIDADE = [
   "Atendimentos registrados: tentativas de cobrança gravadas pelo RE autor do registro (data/hora do atendimento dentro do período).",
   "Retornos concluídos: retornos marcados como concluídos no período (data de conclusão), atribuídos ao RE que concluiu a ação.",
-  "Negociações: propostas de negociação criadas no período pelo RE autor do registro.",
+  "Negociações: propostas de negociação criadas no período pelo RE autor do registro (exclui canceladas e recusadas).",
   "Ações agendadas: atendimentos registrados no período pelo RE em que foi definida data de retorno ou próxima ação.",
   "Acordos confirmados: propostas aceitas com confirmação no período, atribuídas ao RE que confirmou o acordo (quando informado).",
   "Retornos previstos: agendamentos com data prevista no período, atribuídos ao RE que registrou o atendimento (independente do responsável atual da carteira).",
   "Retornos atrasados: entre os retornos previstos no período, os que seguem em aberto com data prevista anterior a hoje (RE que agendou).",
   "Retornos em aberto: entre os retornos previstos no período, os que seguem em aberto com data prevista hoje ou futura (RE que agendou).",
   "Cobranças na carteira: unidades com atribuição vigente ao RE na data da consulta (snapshot atual).",
+  "Responsável atual da carteira ≠ autor do evento: redistribuição altera só a carteira vigente; autoria histórica permanece no RE que registrou.",
 ] as const;
 
 export type ProdutividadePorReLinha = {
@@ -60,16 +62,25 @@ export function valoresSeriesGraficoProdutividade(linha: ProdutividadePorReLinha
 export type PainelProdutividadePorRe = {
   periodo: { de: string; ate: string; rotulo: string };
   definicoes: readonly string[];
+  meta: { geradoEm: string; filtros: string[] };
   linhas: ProdutividadePorReLinha[];
   totais: Omit<ProdutividadePorReLinha, "codigoRe" | "porMeio"> & { porMeio: Record<string, number> };
 };
 
-function dentro(data: string, inicio: string, fim: string) {
-  const dia = data.slice(0, 10);
-  if (!dia) return false;
-  if (inicio && dia < inicio) return false;
-  if (fim && dia > fim) return false;
-  return true;
+const INDICADORES_PAINEL: IndicadorProdutividadeId[] = [
+  "atendimentos_registrados",
+  "retornos_previstos",
+  "retornos_concluidos",
+  "retornos_atrasados",
+  "retornos_em_aberto",
+  "negociacoes_criadas",
+  "acoes_agendadas",
+  "cobrancas_carteira",
+  "acordos_confirmados",
+];
+
+function contarEventos(userId: number, filtros: RelatorioFiltros, indicador: IndicadorProdutividadeId) {
+  return listarEventosProdutividade(userId, filtros, indicador).length;
 }
 
 function usuarioIdsPorRe(codigoRe: string): number[] {
@@ -86,23 +97,6 @@ function combinaCarteira(condominio: Condominio | undefined, filtros: RelatorioF
   return true;
 }
 
-function condominioDaUnidade(unidadeId: string | number) {
-  const unidade = getCadastros().unidades.find((item) => String(item.id) === String(unidadeId));
-  if (!unidade) return undefined;
-  return getCadastros().condominios.find((item) => item.id === unidade.condominioId);
-}
-
-function atendimentoNoEscopo(userId: number, item: Atendimento, filtros: RelatorioFiltros) {
-  const idsCondominio = new Set(escopoCondominios(getCadastros(), userId).map((c) => c.id));
-  const condominio = condominioDaUnidade(item.unidadeId);
-  if (!condominio || !idsCondominio.has(condominio.id)) return false;
-  return combinaCarteira(condominio, filtros);
-}
-
-function retornoEmAberto(item: Atendimento) {
-  return Boolean(item.dataProximaAcao?.trim()) && !item.retornoConcluidoEm?.trim();
-}
-
 export function podeAcessarPainelProdutividadeGlobal(userId: number) {
   const perm = permissoesDoUsuarioId(userId);
   return temPermissao(perm, "usuarios", "criar");
@@ -115,6 +109,22 @@ export function assertPeriodoProdutividade(filtros: RelatorioFiltros) {
   if (filtros.de > filtros.ate) {
     throw new RelatorioServiceError("A data inicial não pode ser posterior à data final.", 400);
   }
+}
+
+function linhaFromContagens(codigoRe: string, contagens: Record<IndicadorProdutividadeId, number>, porMeio: Record<string, number>) {
+  return {
+    codigoRe,
+    atendimentosRegistrados: contagens.atendimentos_registrados,
+    retornosPrevistos: contagens.retornos_previstos,
+    retornosConcluidos: contagens.retornos_concluidos,
+    retornosAtrasados: contagens.retornos_atrasados,
+    retornosEmAberto: contagens.retornos_em_aberto,
+    negociacoesRegistradas: contagens.negociacoes_criadas,
+    acoesRegistradas: contagens.acoes_agendadas,
+    cobrancasAtribuidas: contagens.cobrancas_carteira,
+    acordosConfirmados: contagens.acordos_confirmados,
+    porMeio,
+  };
 }
 
 export function montarPainelProdutividadePorRe(userId: number, filtros: RelatorioFiltros): PainelProdutividadePorRe {
@@ -131,7 +141,6 @@ export function montarPainelProdutividadePorRe(userId: number, filtros: Relatori
   const de = filtros.de.trim();
   const ate = filtros.ate.trim();
   const hoje = hojeIso();
-  const cadastros = getCadastros();
 
   const atendentes = listarAtendentesComRe();
   let resRe = atendentes.map((item) => item.codigoRe);
@@ -143,95 +152,19 @@ export function montarPainelProdutividadePorRe(userId: number, filtros: Relatori
     }
   }
 
-  const atendimentosEscopo = cadastros.atendimentos.filter((item) => atendimentoNoEscopo(userId, item, filtros));
-
   const linhas: ProdutividadePorReLinha[] = resRe.map((codigoRe) => {
-    const ids = new Set(usuarioIdsPorRe(codigoRe));
+    const filtrosRe = { ...filtros, codigoRe };
+    const contagens = Object.fromEntries(
+      INDICADORES_PAINEL.map((id) => [id, contarEventos(userId, filtrosRe, id)]),
+    ) as Record<IndicadorProdutividadeId, number>;
+
     const porMeio: Record<string, number> = {};
-
-    let atendimentosRegistrados = 0;
-    let retornosPrevistos = 0;
-    let retornosConcluidos = 0;
-    let retornosAtrasados = 0;
-    let retornosEmAberto = 0;
-    let acoesRegistradas = 0;
-
-    for (const item of atendimentosEscopo) {
-      if (dentro(item.dataHora, de, ate) && ids.has(item.usuarioId)) {
-        atendimentosRegistrados += 1;
-        const meio = item.canal?.trim() || "—";
-        porMeio[meio] = (porMeio[meio] ?? 0) + 1;
-        if (item.dataProximaAcao?.trim() || item.proximaAcao?.trim()) {
-          acoesRegistradas += 1;
-        }
-      }
-
-      if (item.dataProximaAcao?.trim() && ids.has(item.usuarioId) && dentro(item.dataProximaAcao, de, ate)) {
-        retornosPrevistos += 1;
-      }
-
-      if (item.retornoConcluidoEm?.trim() && item.retornoConcluidoPorId != null && ids.has(item.retornoConcluidoPorId)) {
-        if (dentro(item.retornoConcluidoEm, de, ate)) {
-          retornosConcluidos += 1;
-        }
-      }
-
-      if (
-        retornoEmAberto(item) &&
-        ids.has(item.usuarioId) &&
-        dentro(item.dataProximaAcao, de, ate)
-      ) {
-        const situacao = situacaoRetorno(item.dataProximaAcao);
-        if (situacao === "atrasado") {
-          retornosAtrasados += 1;
-        } else {
-          retornosEmAberto += 1;
-        }
-      }
+    for (const ev of listarEventosProdutividade(userId, filtrosRe, "atendimentos_registrados")) {
+      const meio = ev.meio?.trim() || "—";
+      porMeio[meio] = (porMeio[meio] ?? 0) + 1;
     }
 
-    const idsUsuario = [...ids][0];
-    let cobrancasAtribuidas = 0;
-    if (idsUsuario != null) {
-      for (const atrib of cadastros.atribuicoesCobranca) {
-        if (atrib.encerradoEm || !ids.has(atrib.atendenteId)) continue;
-        const unidade = cadastros.unidades.find((u) => u.id === atrib.unidadeId);
-        const condominio = unidade ? cadastros.condominios.find((c) => c.id === unidade.condominioId) : undefined;
-        if (!combinaCarteira(condominio, filtros)) continue;
-        cobrancasAtribuidas += 1;
-      }
-    }
-
-    let negociacoesRegistradas = 0;
-    let acordosConfirmados = 0;
-    for (const proposta of cadastros.propostasNegociacao) {
-      const condominio = cadastros.condominios.find((c) => c.id === proposta.condominioId);
-      if (!combinaCarteira(condominio, filtros)) continue;
-
-      if (ids.has(proposta.usuarioId) && proposta.criadoEm?.trim() && dentro(proposta.criadoEm, de, ate)) {
-        negociacoesRegistradas += 1;
-      }
-
-      if (proposta.status !== "Aceita" || !proposta.acordoConfirmadoEm?.trim()) continue;
-      const autorId = proposta.acordoConfirmadoPorId ?? proposta.usuarioId;
-      if (!ids.has(autorId)) continue;
-      if (!dentro(proposta.acordoConfirmadoEm, de, ate)) continue;
-      acordosConfirmados += 1;
-    }
-
-    return {
-      codigoRe,
-      atendimentosRegistrados,
-      retornosPrevistos,
-      retornosConcluidos,
-      retornosAtrasados,
-      retornosEmAberto,
-      negociacoesRegistradas,
-      acoesRegistradas,
-      cobrancasAtribuidas,
-      acordosConfirmados,
-      porMeio,
-    };
+    return linhaFromContagens(codigoRe, contagens, porMeio);
   });
 
   linhas.sort((a, b) => a.codigoRe.localeCompare(b.codigoRe, "pt-BR"));
@@ -273,6 +206,10 @@ export function montarPainelProdutividadePorRe(userId: number, filtros: Relatori
       rotulo: `${formatarData(de)} a ${formatarData(ate)} (consulta em ${formatarData(hoje)})`,
     },
     definicoes: DEFINICOES_INDICADORES_PRODUTIVIDADE,
+    meta: {
+      geradoEm: geradoEmBr(),
+      filtros: rotulosFiltrosAplicados(filtros, "produtividade"),
+    },
     linhas,
     totais: { ...totais, porMeio: porMeioTotais },
   };

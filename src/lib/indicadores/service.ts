@@ -16,6 +16,8 @@ import { listarDebitos, obterIndicadoresDebitos } from "@/lib/debitos/service";
 import { listarEncaminhamentosJuridicos } from "@/lib/juridico/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { metaIndicadoresOperacionais } from "@/lib/indicadores/meta";
+import type { MetaPainelIndicadores } from "@/lib/indicadores/meta";
 import { listarRetornosAgenda } from "@/lib/retornos/service";
 
 export class IndicadoresServiceError extends Error {
@@ -61,6 +63,7 @@ export type IndicadoresRankingCondominio = {
 export type IndicadoresPainel = {
   dataBase: string;
   periodo: { inicio: string; fim: string };
+  meta: MetaPainelIndicadores;
   kpis: IndicadoresKpi[];
   porGrupo: IndicadoresDistribuicao[];
   porMeio: IndicadoresDistribuicao[];
@@ -336,6 +339,7 @@ export function obterPainelIndicadores(
   return {
     dataBase,
     periodo,
+    meta: metaIndicadoresOperacionais(dataBase, limiteDias, periodo),
     kpis,
     porGrupo: distribuicaoGrupos(debitosAbertos, totalAberto),
     porMeio: distribuicaoMeio(atendimentosAtual),

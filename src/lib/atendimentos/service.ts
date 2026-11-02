@@ -11,6 +11,7 @@ import {
   type Atendimento,
   type AtribuicaoCobranca,
 } from "@/data/catalogo";
+import { emitirNotificacaoRetornoAgendado } from "@/lib/notificacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -248,6 +249,7 @@ export function criarAtendimento(
     userId,
     meta,
   );
+  emitirNotificacaoRetornoAgendado(registro);
   return registro;
 }
 
@@ -302,6 +304,12 @@ export function atualizarAtendimento(
     userId,
     meta,
   );
+  if (
+    atualizado.dataProximaAcao.trim() &&
+    (anterior.dataProximaAcao !== atualizado.dataProximaAcao || !anterior.dataProximaAcao.trim())
+  ) {
+    emitirNotificacaoRetornoAgendado(atualizado);
+  }
   return atualizado;
 }
 

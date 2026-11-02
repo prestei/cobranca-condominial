@@ -35,11 +35,24 @@ type AppShellContextValue = {
 
 const AppShellContext = createContext<AppShellContextValue | null>(null);
 
+export type AppShellNotificacao = {
+  id: number;
+  titulo: string;
+  descricao: string;
+  relativo: string;
+  lida: boolean;
+  evento: string;
+};
+
 type AppShellProps = {
   sidebar: ReactNode;
   children: ReactNode;
   user?: AppShellUser;
   notificationCount?: number;
+  notificacoes?: AppShellNotificacao[];
+  notificacoesCarregando?: boolean;
+  onMarcarTodasNotificacoesLidas?: () => void;
+  onAbrirNotificacao?: (id: number) => void;
   onLogout?: () => void;
   className?: string;
 };
@@ -49,6 +62,10 @@ export function AppShell({
   children,
   user,
   notificationCount = 0,
+  notificacoes = [],
+  notificacoesCarregando = false,
+  onMarcarTodasNotificacoesLidas,
+  onAbrirNotificacao,
   onLogout,
   className,
 }: AppShellProps) {
@@ -130,9 +147,13 @@ export function AppShell({
           <AppShellHeader
             user={user}
             notificationCount={notificationCount}
+            notificacoes={notificacoes}
+            notificacoesCarregando={notificacoesCarregando}
             notifOpen={notifOpen}
             userOpen={userOpen}
             onLogout={onLogout}
+            onMarcarTodasNotificacoesLidas={onMarcarTodasNotificacoesLidas}
+            onAbrirNotificacao={onAbrirNotificacao}
             onToggleSidebar={toggleMobileNav}
             toggleLabel={toggleLabel}
             onToggleNotif={() => {
@@ -297,22 +318,36 @@ export function AppShellSidebarFooter({ children, className, ...props }: AppShel
 type AppShellHeaderProps = {
   user?: AppShellUser;
   notificationCount: number;
+  notificacoes: AppShellNotificacao[];
+  notificacoesCarregando: boolean;
   notifOpen: boolean;
   userOpen: boolean;
   toggleLabel: string;
   onLogout?: () => void;
+  onMarcarTodasNotificacoesLidas?: () => void;
+  onAbrirNotificacao?: (id: number) => void;
   onToggleSidebar: () => void;
   onToggleNotif: () => void;
   onToggleUser: () => void;
 };
 
+function corDotNotificacao(evento: string) {
+  if (evento === "retorno_lembrete_hoje") return "bg-status-critical";
+  if (evento === "cobranca_atribuida") return "bg-primary-container";
+  return "bg-[#E8A317]";
+}
+
 function AppShellHeader({
   user,
   notificationCount,
+  notificacoes,
+  notificacoesCarregando,
   notifOpen,
   userOpen,
   toggleLabel,
   onLogout,
+  onMarcarTodasNotificacoesLidas,
+  onAbrirNotificacao,
   onToggleSidebar,
   onToggleNotif,
   onToggleUser,
@@ -353,26 +388,41 @@ function AppShellHeader({
           >
             <div className="flex items-center justify-between px-md py-sm">
               <p className="text-body-lg font-bold text-on-surface">Notificações</p>
-              <button type="button" className="text-body-md font-semibold text-primary-container">
+              <button
+                type="button"
+                className="text-body-md font-semibold text-primary-container disabled:opacity-50"
+                disabled={notificationCount === 0 || !onMarcarTodasNotificacoesLidas}
+                onClick={() => onMarcarTodasNotificacoesLidas?.()}
+              >
                 Marcar como lidas
               </button>
             </div>
-            <AppShellNotificationItem
-              dotClassName="bg-[#E8A317]"
-              title="Condomínio Horizonte está pendente"
-              description="Situação aguardando regularização na carteira."
-            />
-            <AppShellNotificationItem
-              dotClassName="bg-[#2F4A6F]"
-              title="[Título da notificação]"
-              description="[Descrição] · [tempo]"
-            />
-            <button
-              type="button"
+            {notificacoesCarregando ? (
+              <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
+                Carregando…
+              </p>
+            ) : notificacoes.length === 0 ? (
+              <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
+                Nenhuma notificação recente.
+              </p>
+            ) : (
+              notificacoes.map((item) => (
+                <AppShellNotificationItem
+                  key={item.id}
+                  dotClassName={corDotNotificacao(item.evento)}
+                  title={item.titulo}
+                  description={`${item.descricao}${item.relativo ? ` · ${item.relativo}` : ""}`}
+                  unread={!item.lida}
+                  onClick={() => onAbrirNotificacao?.(item.id)}
+                />
+              ))
+            )}
+            <Link
+              href="/notificacoes"
               className="flex min-h-11 w-full items-center justify-center border-t border-[#EEF1F6] text-body-md font-semibold text-primary-container hover:bg-[#F8FAFC]"
             >
               Ver todas as notificações
-            </button>
+            </Link>
           </div>
         ) : null}
       </div>
@@ -437,19 +487,27 @@ function AppShellNotificationItem({
   dotClassName,
   title,
   description,
+  unread = false,
+  onClick,
 }: {
   dotClassName: string;
   title: string;
   description: string;
+  unread?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex gap-md border-t border-[#EEF1F6] px-md py-sm hover:bg-[#F8FAFC]">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full gap-md border-t border-[#EEF1F6] px-md py-sm text-left hover:bg-[#F8FAFC]"
+    >
       <span className={`mt-[6px] size-[10px] shrink-0 rounded-full ${dotClassName}`} aria-hidden="true" />
-      <div>
-        <p className="text-[15px] font-semibold text-on-surface">{title}</p>
+      <div className="min-w-0 flex-1">
+        <p className={`text-[15px] font-semibold text-on-surface ${unread ? "" : "font-medium opacity-90"}`}>{title}</p>
         <p className="mt-[2px] text-body-sm text-[#52607A]">{description}</p>
       </div>
-    </div>
+    </button>
   );
 }
 

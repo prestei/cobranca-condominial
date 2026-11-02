@@ -11,6 +11,7 @@ import {
   type Unidade,
 } from "@/data/catalogo";
 import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re";
+import { emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -378,6 +379,10 @@ export function distribuirUnidades(
   }
 
   setAtribuicoesCobranca(atualizados);
+
+  for (const registro of novosRegistros) {
+    emitirNotificacaoCobrancaAtribuida(registro);
+  }
 
   return {
     atribuidas: novosRegistros.length,

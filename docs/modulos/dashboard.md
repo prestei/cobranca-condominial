@@ -45,7 +45,7 @@ Não há tabela própria de dashboard; valores monetários usam totais persistid
 
 Query opcional: `dataBase` (ISO date), `limiteDias` (padrão 60).
 
-`DashboardPayload` é união discriminada por `perfil`: `administradora` | `atendente` | `advogado`. Inclui `dataBase`, `limiteDias`, `cargoNome` e blocos descritos na tabela de perfis acima.
+`DashboardPayload` é união discriminada por `perfil`: `administradora` | `atendente` | `advogado`. Inclui `dataBase`, `limiteDias`, `cargoNome`, `meta` (`geradoEm`, filtros aplicados) e blocos descritos na tabela de perfis acima.
 
 ## Fluxos principais
 

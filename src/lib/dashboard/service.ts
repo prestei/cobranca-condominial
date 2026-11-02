@@ -20,6 +20,8 @@ import { resumoFilaCobranca } from "@/lib/fila/service";
 import { listarEncaminhamentosJuridicos } from "@/lib/juridico/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import type { MetaPainelIndicadores } from "@/lib/indicadores/meta";
+import { metaDashboard } from "@/lib/indicadores/meta";
 import { listarRetornosAgenda, type RetornoAgendaItem } from "@/lib/retornos/service";
 
 export class DashboardServiceError extends Error {
@@ -90,6 +92,7 @@ type DashboardComum = {
   dataBase: string;
   limiteDias: number;
   cargoNome: string;
+  meta: MetaPainelIndicadores;
 };
 
 export type DashboardAdministradora = DashboardComum & {
@@ -323,7 +326,7 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
   const hoje = hojeIso();
   const perfil = resolverPerfil(userId);
   const cargoNome = cargoDoUsuario(userId);
-  const comum = { dataBase, limiteDias, cargoNome };
+  const comum = { dataBase, limiteDias, cargoNome, meta: metaDashboard(dataBase, limiteDias) };
 
   if (perfil === "administradora") {
     const indicadores = indicadoresEscopo(userId, dataBase, limiteDias);
