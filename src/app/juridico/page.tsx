@@ -373,7 +373,6 @@ export default function JuridicoPage() {
       <PageHeader
         title="Jurídico"
         description="Encaminhamentos para análise jurídica e acompanhamento pelos advogados responsáveis. O sistema não ajuíza ações nem envia documentos a tribunais."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Jurídico" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">
@@ -438,7 +437,6 @@ export default function JuridicoPage() {
             searchPlaceholder="Buscar unidade, condomínio ou advogado…"
             onApply={handleApply}
             onClear={handleClear}
-            defaultMobile="grid"
             fields={[
               {
                 id: "status",
@@ -475,14 +473,7 @@ export default function JuridicoPage() {
         </section>
 
         <section className="flex flex-col gap-md">
-          <div className="flex flex-col gap-xs min-[768px]:gap-sm">
-            <h2 className="text-headline-sm text-on-surface">Encaminhamentos</h2>
-            <p className="text-body-md text-on-surface">
-              <span className="font-semibold tabular-nums">{visible.length}</span>{" "}
-              {visible.length === 1 ? "encaminhamento" : "encaminhamentos"}
-            </p>
-          </div>
-          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+          <div className="flex min-w-0 flex-col gap-sm min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
             <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
             {visible.length > 0 ? (
               <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">

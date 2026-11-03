@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
+import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound, Eye } from "lucide-react";
 import { CargoIconeListagem, iconeCargoListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -12,7 +12,6 @@ import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
-import { ResumoPermissoesCargo } from "@/components/resumo-permissoes-cargo";
 import { FormField, Input } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
@@ -39,7 +38,6 @@ import {
   TableBody,
   TableCell,
   TableEmpty,
-  TableExport,
   TableHead,
   TableHeader,
   TableMobileCard,
@@ -73,7 +71,7 @@ import {
 import { MODULOS_PERMISSAO } from "@/lib/permissions/modulos";
 import { permissoesPadraoPorNome } from "@/lib/permissions/seeds";
 
-const colunasExportacao = ["Cargo", "Descrição", "Áreas com acesso", "Colaboradores"] as const;
+const colunasExportacao = ["Cargo", "Descrição", "Colaboradores"] as const;
 
 type SortKey = "nome" | "descricao";
 
@@ -203,9 +201,6 @@ export default function CargosPage() {
     return visible.map((item) => [
       item.nome,
       item.descricao.trim() || "—",
-      listarModulosPermitidos(parsePermissoesJson(item.permissaoJson))
-        .map((modulo) => modulo.label)
-        .join(", ") || "—",
       String(contagemColaboradores(item.id)),
     ]);
   }
@@ -330,7 +325,9 @@ export default function CargosPage() {
   }
 
   function acoes(item: Cargo) {
-    const lista = [];
+    const lista = [
+      { label: "Ver permissões", icon: Eye, onSelect: () => setPermissoesViewTarget(item) },
+    ];
     if (pode("cargos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
     if (pode("cargos", "excluir"))
       lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
@@ -422,11 +419,10 @@ export default function CargosPage() {
       aria-label="Cargos"
       showExport={false}
       containerClassName="border-0 shadow-none rounded-none"
-      className="min-w-[52rem]"
+      className="min-w-[36rem]"
     >
       <colgroup>
         <col className="w-[12rem]" />
-        <col className="w-[15rem]" />
         <col />
         <col className="w-[7.5rem]" />
         <col className="w-[4.5rem]" />
@@ -439,7 +435,6 @@ export default function CargosPage() {
           <TableHead sortable sortDirection={directionFor("descricao")} onSort={() => handleSort("descricao")}>
             Descrição
           </TableHead>
-          <TableHead className="min-w-[18rem]">Áreas com acesso</TableHead>
           <TableHead align="center" className="w-[6.5rem]">
             Colaboradores
           </TableHead>
@@ -448,7 +443,7 @@ export default function CargosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={4}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -460,12 +455,6 @@ export default function CargosPage() {
               </TableCell>
               <TableCell className="align-middle py-md text-body-sm leading-snug text-on-surface">
                 {item.descricao || "—"}
-              </TableCell>
-              <TableCell className="align-middle py-sm min-[768px]:py-md">
-                <ResumoPermissoesCargo
-                  permissaoJson={item.permissaoJson}
-                  onVerPermissoes={() => setPermissoesViewTarget(item)}
-                />
               </TableCell>
               <TableCell
                 align="center"
@@ -520,11 +509,6 @@ export default function CargosPage() {
                   {contagemColaboradores(item.id)}
                 </p>
               </div>
-              <ResumoPermissoesCargo
-                variant="mobile"
-                permissaoJson={item.permissaoJson}
-                onVerPermissoes={() => setPermissoesViewTarget(item)}
-              />
             </div>
           </TableMobileCard>
         ))}
@@ -536,7 +520,6 @@ export default function CargosPage() {
       <PageHeader
         title="Cargos"
         description="Gerencie os cargos e permissões por área do sistema."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Cargos" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("cargos", "criar") ? (
@@ -600,7 +583,6 @@ export default function CargosPage() {
             searchPlaceholder="Buscar cargo..."
             onApply={handleApply}
             onClear={handleClear}
-            defaultMobile="grid"
             fields={[
               {
                 id: "descricao",
@@ -628,13 +610,7 @@ export default function CargosPage() {
         </section>
 
         <section className="flex flex-col gap-md">
-          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
-            <h2 className="text-headline-sm text-on-surface">Listagem de cargos</h2>
-            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
-              <TableExport onExport={aoExportar} />
-            </div>
-          </div>
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

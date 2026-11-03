@@ -361,7 +361,7 @@ function ProdutividadePorRePage() {
           </RelatorioPainel>
         ) : null}
         <RelatorioSecaoTabela titulo="Produtividade por pessoa (RE)" nota="Resumo por colaborador">
-          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+          <div className="flex min-w-0 flex-col gap-sm min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
             <ResponsiveTable
               showExport={false}
               desktop={
@@ -466,11 +466,6 @@ function ProdutividadePorRePage() {
       <PageHeader
         title="Produtividade por RE"
         description="Relatório de produtividade por pessoa (RE): atendimentos, retornos, negociações e ações no período selecionado."
-        breadcrumbs={[
-          { label: "Início", href: "/" },
-          { label: "Relatórios", href: "/relatorios" },
-          { label: "Produtividade por RE" },
-        ]}
         actions={podeFiltrarPorRe && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
@@ -480,7 +475,6 @@ function ProdutividadePorRePage() {
           {podeFiltrarPorRe ? (
             <RelatorioFiltros>
               <FilterBar
-              defaultMobile="grid"
               searchValue=""
               onSearchChange={() => undefined}
               searchPlaceholder="Busca não aplicável neste relatório"

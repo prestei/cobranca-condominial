@@ -392,7 +392,7 @@ function TabelaTexto({
 
   return (
     <RelatorioSecaoTabela titulo={rotulo}>
-      <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+      <div className="flex min-w-0 flex-col gap-sm min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
         {linhasOrdenadas.length > PAGE_SIZE ? (
           <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
@@ -1608,11 +1608,6 @@ function RelatoriosPage() {
           atual?.descricao ??
           "Relatórios de produtividade por RE, operação da equipe, retornos, efetividade e carteira. Filtre o período e exporte pelo menu no topo."
         }
-        breadcrumbs={[
-          { label: "Início", href: "/" },
-          { label: "Relatórios", href: relatorio ? "/relatorios" : undefined },
-          ...(atual ? [{ label: atual.titulo }] : []),
-        ]}
         actions={pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
@@ -1657,7 +1652,6 @@ function RelatoriosPage() {
             <VoltarRelatoriosHub />
             <RelatorioFiltros>
               <FilterBar
-              defaultMobile="grid"
               searchValue={filtro.busca}
               onSearchChange={(buscaAtual) => setFiltro((atualFiltro) => ({ ...atualFiltro, busca: buscaAtual }))}
               searchPlaceholder={

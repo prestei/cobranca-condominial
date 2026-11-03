@@ -614,17 +614,15 @@ export function FilaCobrancasPanel() {
         </div>
       </section>
 
-      <FilterBar
-        variant="toolbar"
-        toolbarMobile="fila"
-        searchLabel="Condomínio"
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Condomínio, unidade ou RE"
-        onApply={aplicarFiltros}
-        onClear={limparFiltros}
-        clearLabel="Limpar filtros"
-        fields={[
+      <section className="flex flex-col gap-md">
+        <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FilterBar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Condomínio, unidade ou RE"
+          onApply={aplicarFiltros}
+          onClear={limparFiltros}
+          fields={[
           {
             id: "condominio",
             label: "Condomínio",
@@ -662,7 +660,8 @@ export function FilaCobrancasPanel() {
             options: retornoOpcoes.map((item) => ({ value: item.value, label: item.label })),
           },
         ]}
-      />
+        />
+      </section>
 
       {visaoGeral ? (
         <DistribuicaoAutomaticaPanel refreshKey={atribuicoesKey} onDistribuido={() => void recarregar()} />
@@ -703,7 +702,7 @@ export function FilaCobrancasPanel() {
               </Button>
             </div>
           ) : null}
-          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+          <div className="flex min-w-0 flex-col gap-sm min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
             <ResponsiveTable
               onExport={(formato) => void aoExportar(formato)}
               onImport={abrirImportacao}

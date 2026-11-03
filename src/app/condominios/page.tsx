@@ -959,7 +959,6 @@ export default function CondominiosPage() {
         <PageHeader
           title="Condomínios"
           description="Gerencie os condomínios cadastrados no sistema, visualize informações e acompanhe a situação de cada um."
-          breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
           className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
           actions={
             pode("condominios", "criar") ? (
@@ -1023,7 +1022,6 @@ export default function CondominiosPage() {
               searchPlaceholder="Buscar condomínio..."
               onApply={handleApply}
               onClear={handleClear}
-              defaultMobile="grid"
               fields={[
                 {
                   id: "administradora",

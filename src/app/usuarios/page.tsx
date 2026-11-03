@@ -36,7 +36,6 @@ import {
   TableBody,
   TableCell,
   TableEmpty,
-  TableExport,
   TableHead,
   TableHeader,
   TableMobileCard,
@@ -687,7 +686,6 @@ export default function UsuariosPage() {
       <PageHeader
         title="Colaboradores"
         description="Cadastre quem acessa o sistema, defina cargos e acompanhe situação e acesso."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Colaboradores" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("usuarios", "criar") ? (
@@ -747,7 +745,6 @@ export default function UsuariosPage() {
             searchPlaceholder="Buscar colaborador..."
             onApply={handleApply}
             onClear={handleClear}
-            defaultMobile="grid"
             fields={[
               {
                 id: "cargo",
@@ -775,13 +772,7 @@ export default function UsuariosPage() {
         </section>
 
         <section className="flex flex-col gap-md">
-          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
-            <h2 className="text-headline-sm text-on-surface">Listagem de colaboradores</h2>
-            <div className="flex w-full min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
-              <TableExport onExport={aoExportar} />
-            </div>
-          </div>
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
+          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

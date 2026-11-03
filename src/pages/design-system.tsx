@@ -147,13 +147,23 @@ const buttonRows = [
     ],
   },
   {
+    name: "Surface",
+    detail: "Toolbar de listagem (Importar, Exportar, Limpar)",
+    variant: "surface" as const,
+    samples: [
+      { size: "sm" as const, label: "Exportar", icon: true },
+      { size: "sm" as const, label: "Importar", icon: true },
+      { size: "sm" as const, label: "Limpar", icon: true },
+    ],
+  },
+  {
     name: "Outline",
-    detail: "Ação neutra",
+    detail: "Destaque em formulários (ex.: cancelar)",
     variant: "outline" as const,
     samples: [
-      { size: "sm" as const, label: "Filtro" },
-      { size: "md" as const, label: "Exportar" },
-      { size: "lg" as const, label: "Cancelar" },
+      { size: "sm" as const, label: "Cancelar" },
+      { size: "md" as const, label: "Voltar" },
+      { size: "lg" as const, label: "Fechar" },
     ],
   },
   {
@@ -964,7 +974,7 @@ export default function DesignSystemPage() {
         <Showcase id="layout" title="Layout da aplicação">
           <p className="text-body-sm text-on-surface-variant">
             Barra lateral recolhível (264px / 84px), badge de carteira, header com busca, notificações e conta, faixa
-            de página com breadcrumb e ações, filtros, métricas e tabela. No smartphone, menu em drawer.
+            de página com título e ações, filtros, métricas e tabela. No smartphone, menu em drawer.
           </p>
           <div className="overflow-hidden rounded-lg border border-border-subtle shadow-card">
             <AppShell
@@ -980,11 +990,6 @@ export default function DesignSystemPage() {
                 <PageHeader
                   title="Condomínios"
                   description="Acompanhe unidades, situação e ações da carteira."
-                  breadcrumbs={[
-                    { label: "Início", href: "/" },
-                    { label: "Carteira", href: "/design-system" },
-                    { label: "Condomínios" },
-                  ]}
                   actions={
                     <Button size="md">
                       <Plus className="size-4" strokeWidth={2} aria-hidden="true" />

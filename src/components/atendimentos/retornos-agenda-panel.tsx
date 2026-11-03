@@ -348,13 +348,15 @@ export function RetornosAgendaPanel() {
         </Alert>
       ) : null}
 
-      <FilterBar
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Buscar condomínio, unidade ou ação..."
-        onApply={aplicarFiltros}
-        onClear={limparFiltros}
-        fields={[
+      <section className="flex flex-col gap-md">
+        <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FilterBar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar condomínio, unidade ou ação..."
+          onApply={aplicarFiltros}
+          onClear={limparFiltros}
+          fields={[
           {
             id: "estado",
             label: "Estado",
@@ -396,7 +398,8 @@ export function RetornosAgendaPanel() {
           { id: "de", label: "Período — de", value: de, onChange: setDe, type: "date" as const },
           { id: "ate", label: "Período — até", value: ate, onChange: setAte, type: "date" as const },
         ]}
-      />
+        />
+      </section>
 
       {carregando ? (
         <p className="text-body-md text-on-surface-variant">Carregando agenda de retornos…</p>

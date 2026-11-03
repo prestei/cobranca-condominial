@@ -155,10 +155,6 @@ export default function IndicadoresPage() {
       <PageHeader
         title="Relatórios e indicadores"
         description="Visão operacional dos indicadores de cobrança, inadimplência e produtividade por condomínio."
-        breadcrumbs={[
-          { label: "Início", href: "/" },
-          { label: "Indicadores" },
-        ]}
       />
       <PageContent className="flex flex-col gap-md min-[768px]:gap-lg">
         {carregando ? (
