@@ -16,13 +16,13 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Fila de cobranças** — tela operacional única: KPIs, filtros, tabela, distribuição automática (Administradora), atividade recente |
+| `/atendimentos` | **Fila de cobranças** — KPIs, filtros, tabela; **Configurar distribuição** no header (Administradora) abre Sheet com regra e execução da distribuição automática |
 | `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (substitui a aba Retornos) |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
 | `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; distribuição automática `src/components/atendimentos/distribuicao-automatica-panel.tsx`. Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
+Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; configuração `distribuicao-automatica-sheet.tsx` + `distribuicao-automatica-config.tsx`.
 
 ## Perfis e permissões
 
@@ -48,7 +48,7 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 | GET | `/api/distribuicao/historico` | `usuarios.criar` | Histórico de `collection_assignment` (`unidadeId`, `limit`) |
 | POST | `/api/distribuicao/atribuicoes` | `usuarios.criar` | Body: `{ unidadeIds, codigoRe, motivo? }` — distribuição atômica em lote |
 | GET/PATCH | `/api/distribuicao/automatica` | `usuarios.criar` | Configuração (ativada, estrategia) e contagem aguardando atribuição |
-| POST | `/api/distribuicao/automatica/executar` | `usuarios.criar` | Distribui unidades sem RE (estratégia **carga** = carteira equilibrada) |
+| POST | `/api/distribuicao/automatica/executar` | `usuarios.criar` | Distribui unidades sem RE conforme `estrategia` da config (`carga`, `condominio`, `volume`, `rodizio`) |
 | GET | `/api/retornos` | `atendimentos.ler` | Agenda paginada: `estado` (pendente/concluido/todos), `situacao`, `de`, `ate`, `condominioId`, `codigoRe`, `q`, `page`, `pageSize` |
 | POST | `/api/atendimentos/[id]/concluir-retorno` | `atendimentos.editar` | Marca retorno agendado como realizado; grava `retorno_concluido_em` e autor; preserva `data_proxima_acao` |
 | GET | `/api/unidades/:id/historico` | `unidades.ler` ou `atendimentos.ler` | Linha do tempo da unidade (T12); ver [unidades](unidades.md) |
@@ -64,12 +64,13 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 - RE responsável: vigência em `AtribuicaoCobranca` / `collection_assignment` (`encerrado_em` nulo = vigente).
 - Redistribuição encerra a vigência anterior, grava `anterior_atendente_id`, autor (`atribuido_por_id`), data/hora e motivo opcional; **não altera** `usuario_id` dos atendimentos já registrados.
 - Distribuição múltipla: validação completa antes de persistir; falha em qualquer unidade cancela o lote.
+- **Distribuição automática:** só unidades da fila **sem RE**; respeita `estrategia` salva na configuração — carga (menos unidades), condomínio (RE com mais unidades no mesmo condomínio, fallback carga), volume (menor valor de inadimplência em aberto na carteira após atribuir) e rodízio (REs ativos em ordem de código RE).
 - Não implementar regra automática de entrada na cobrança (decisão pendente).
 
 ## Fluxos
 
 1. Operador abre **Atendimentos** (fila única) → identifica cobranças pelos KPIs e filtros. Barra de filtros (`FilterBar` variante `toolbar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
-2. **Administradora** — painel **Distribuição automática** (ativar regra, **Distribuir agora**) ou seleção manual na tabela + atribuição por RE.
+2. **Administradora** — sheet **Configurar distribuição** (ativar regra e **Salvar** — dispara atribuição automática) ou seleção manual na tabela + atribuição por RE.
 3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
 4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).
 5. **Registrar contato** — menu de ações ou `?novo=1&unidade=` → `POST /api/atendimentos`.
@@ -98,4 +99,3 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 ## Pendências
 
 - Persistir fila, atribuições, config de distribuição automática e tickets no PostgreSQL (hoje catálogo em memória compartilhado via API).
-- Refinar estratégias `rodizio`, `condominio` e `volume` além da **carga equilibrada** já disponível; ver [DECISOES_PENDENTES.md](../DECISOES_PENDENTES.md).

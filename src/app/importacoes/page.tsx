@@ -486,7 +486,7 @@ export default function ImportacoesPage() {
       />
       <PageHeader
         title="Importações"
-        description="Histórico de envios e importação de relatórios de inadimplência (CSV ou XLS) das administradoras."
+        description="Importação e histórico de relatórios de inadimplência."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("importacoes", "criar") ? (

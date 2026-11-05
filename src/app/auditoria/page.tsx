@@ -439,7 +439,7 @@ export default function AuditoriaPage() {
     <WorkspaceShell>
       <PageHeader
         title="Histórico de alterações"
-        description="Veja quem mudou o quê no sistema e o que existia antes, quando a alteração foi feita."
+        description="Quem alterou o quê no sistema e quando."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">

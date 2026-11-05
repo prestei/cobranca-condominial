@@ -820,8 +820,29 @@ export function opcoesAdvogadosResponsaveis(cadastros: { usuarios: Usuario[]; ca
   return [...new Set([...advogados, ...nomesUsuarios])].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
+/** Unidades com atribuição de cobrança vigente para o atendente (carteira RE). */
+export function unidadesCarteiraVigenteAtendente(cadastros: Cadastros, atendenteId: number): Unidade[] {
+  const ids = new Set(
+    cadastros.atribuicoesCobranca
+      .filter((item) => !item.encerradoEm && item.atendenteId === atendenteId)
+      .map((item) => item.unidadeId),
+  );
+  return cadastros.unidades.filter((item) => ids.has(item.id));
+}
+
 export function escopoUnidades(cadastros: Cadastros, usuarioId?: number): Unidade[] {
-  const ids = new Set(escopoCondominios(cadastros, usuarioId).map((item) => item.id));
+  const id = idUsuarioEscopo(usuarioId);
+  const usuario = cadastros.usuarios.find((item) => item.id === id);
+  if (!usuario) return [];
+  const perm = permissoesDoUsuarioId(id, cadastros);
+  if (temPermissao(perm, "usuarios", "criar")) {
+    const ids = new Set(escopoCondominios(cadastros, id).map((item) => item.id));
+    return cadastros.unidades.filter((item) => ids.has(item.condominioId));
+  }
+  if (temPermissao(perm, "atendimentos", "ler") && !temPermissao(perm, "condominios", "ler")) {
+    return unidadesCarteiraVigenteAtendente(cadastros, id);
+  }
+  const ids = new Set(escopoCondominios(cadastros, id).map((item) => item.id));
   return cadastros.unidades.filter((item) => ids.has(item.condominioId));
 }
 
@@ -837,14 +858,19 @@ export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Con
     return cadastros.condominios.filter((item) => item.advogados.includes(usuario.nome));
   }
   if (temPermissao(perm, "atendimentos", "ler")) {
-    return cadastros.condominios.filter((item) => item.status === "Ativo");
+    const idsCondominio = new Set(
+      unidadesCarteiraVigenteAtendente(cadastros, id).map((item) => item.condominioId),
+    );
+    return cadastros.condominios.filter((item) => idsCondominio.has(item.id) && item.status === "Ativo");
   }
   return [];
 }
 
 export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }, userId?: number) {
-  const sessaoId = idUsuarioEscopo(userId);
-  const usuario = cadastros.usuarios.find((item) => item.id === sessaoId) ?? cadastros.usuarios[0];
+  if (userId == null) {
+    return { name: "", initials: "…", menuSubtitle: "" };
+  }
+  const usuario = cadastros.usuarios.find((item) => item.id === userId);
   if (!usuario) {
     return { name: "—", initials: "—", menuSubtitle: "" };
   }

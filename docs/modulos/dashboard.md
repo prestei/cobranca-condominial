@@ -19,9 +19,9 @@ Rota inicial (`/`) com indicadores operacionais **por perfil** (administradora, 
 
 | Perfil | Detecção (servidor) | Conteúdo principal |
 | --- | --- | --- |
-| **Administradora** | `usuarios.criar` | Carteira completa, fila de cobranças, inadimplência (KPIs e gráficos), operação dos últimos 7 dias, retornos da equipe (RE) |
-| **Atendente** | demais com `atendimentos.ler` | Fila da carteira (RE), atendimentos do dia, semana de contatos, retornos próprios |
-| **Advogado** | `juridico.ler` + `condominios.ler` | Condomínios vinculados, indicadores de débitos no escopo, ranking por condomínio, resumo jurídico |
+| **Administradora** | `usuarios.criar` | Inadimplência (4 KPIs + top condomínios), operação 7 dias, retornos da equipe |
+| **Atendente** | demais com `atendimentos.ler` | Fila e totais da carteira, semana de contatos, retornos |
+| **Advogado** | `juridico.ler` + `condominios.ler` | Condomínios vinculados, KPIs de débito, jurídico, retornos (se houver) |
 
 Requer `dashboard.ler` em todos os casos. Sem permissão → API **403**; frontend exibe erro com retry.
 
@@ -69,7 +69,9 @@ Nenhuma direta.
 
 - Carregamento: empty state com spinner.
 - Erro de API: alerta + “Tentar novamente”.
-- Ausência de dados: empty states em gráficos e tabelas (sem números ilustrativos).
+- Home **resumida**: seções em card branco (`SecaoBloco`), título com barra `brass`, métricas `DashboardMetric` (ícone circular colorido) e listas/tabelas integradas no mesmo card; detalhes em **Relatórios** / **Indicadores**.
+- Cabeçalho: saudação + linha `Base {data} · amigável até {N} dias` (mesmos parâmetros do `GET /api/dashboard`).
+- Ausência de dados: empty states pontuais (sem números ilustrativos).
 
 ## Pendências e decisões
 

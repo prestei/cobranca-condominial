@@ -4,7 +4,6 @@ import { Building, FileBarChart, HelpCircle, Inbox, Pencil, Plus, Settings, Shie
 import { Alert } from "@/components/alert";
 import {
   AppShell,
-  AppShellBrand,
   AppShellMain,
   AppShellNav,
   AppShellNavLink,
@@ -891,7 +890,6 @@ function CondominiumsTableEmpty({ viewport = "auto" }: { viewport?: "auto" | "de
 function DemoSidebar() {
   return (
     <AppShellSidebar>
-      <AppShellBrand title="Cobrança" />
       <AppShellNav>
         <AppShellNavSection title="Carteira">
           <AppShellNavLink href="/design-system" icon={Building} active count={3}>
@@ -989,7 +987,7 @@ export default function DesignSystemPage() {
               <AppShellMain>
                 <PageHeader
                   title="Condomínios"
-                  description="Acompanhe unidades, situação e ações da carteira."
+                  description="Acompanhe unidades e ações da carteira."
                   actions={
                     <Button size="md">
                       <Plus className="size-4" strokeWidth={2} aria-hidden="true" />

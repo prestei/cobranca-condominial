@@ -1,5 +1,6 @@
 import {
   escopoCondominios,
+  escopoUnidades,
   getCadastros,
   setResponsaveis,
   setUnidades,
@@ -9,6 +10,8 @@ import {
   type Unidade,
   type Vinculo,
 } from "@/data/catalogo";
+import { temPermissao } from "@/lib/permissions/check";
+import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 /** Mescla unidades retornadas pela API (escopo do usuário) no catálogo do cliente. */
 function normalizarUnidadeApi(unidade: Unidade): Unidade {
@@ -20,12 +23,24 @@ function normalizarUnidadeApi(unidade: Unidade): Unidade {
 }
 
 export function sincronizarUnidadesDoServidor(unidades: Unidade[], userId?: number) {
-  const scopeIds = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  const idsServidor = new Set(unidades.map((item) => item.id));
+  const cadastros = getCadastros();
+  const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  const idsUnidade = new Set(escopoUnidades(cadastros, userId).map((item) => item.id));
+  const perm = permissoesDoUsuarioId(userId ?? -1, cadastros);
+  const escopoAdministrativo =
+    temPermissao(perm, "condominios", "criar") || temPermissao(perm, "condominios", "editar");
   const doServidor = unidades.map(normalizarUnidadeApi);
   setUnidades((current) => {
-    const foraEscopo = current.filter((item) => !scopeIds.has(item.condominioId) && !idsServidor.has(item.id));
-    return [...foraEscopo, ...doServidor];
+    if (escopoAdministrativo) {
+      const filtradas = doServidor.filter(
+        (item) => idsCondominio.has(item.condominioId) && idsUnidade.has(item.id),
+      );
+      const foraDoEscopoVisivel = current.filter(
+        (item) => !idsCondominio.has(item.condominioId) || !idsUnidade.has(item.id),
+      );
+      return [...foraDoEscopoVisivel, ...filtradas];
+    }
+    return [...doServidor];
   });
 }
 

@@ -519,7 +519,7 @@ export default function CargosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Cargos"
-        description="Gerencie os cargos e permissões por área do sistema."
+        description="Cargos e permissões por área do sistema."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("cargos", "criar") ? (

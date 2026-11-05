@@ -14,9 +14,8 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
-import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
-import { GraficoRosca } from "@/components/charts";
+import { GraficoBarras, GraficoRosca } from "@/components/charts";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
@@ -67,7 +66,6 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   acimaDoLimite,
-  dataCorteLimite,
   debitoAbertoNaData,
   diasDeAtraso,
   formatarData,
@@ -185,11 +183,27 @@ export default function DebitosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user: sessao } = useAuth();
+  const { user: sessao, loading: sessaoCarregando } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
-  const debitos = cadastros.debitos;
+  const userIdEscopo = sessao?.userId;
+  const condominiosVisiveis = useMemo(
+    () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
+  const unidadesVisiveis = useMemo(
+    () => (userIdEscopo == null ? [] : escopoUnidades(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
+  const idsUnidadesVisiveis = useMemo(
+    () => new Set(unidadesVisiveis.map((item) => item.id)),
+    [unidadesVisiveis],
+  );
+  const debitos = useMemo(
+    () => cadastros.debitos.filter((item) => idsUnidadesVisiveis.has(item.unidadeId)),
+    [cadastros.debitos, idsUnidadesVisiveis],
+  );
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState(periodoTodos);
   const [dataBase, setDataBase] = useState(hojeIso);
@@ -220,26 +234,26 @@ export default function DebitosPage() {
   const [errors, setErrors] = useState<Partial<Record<ErroCampo, string>>>({});
   const [carregandoEdicao, setCarregandoEdicao] = useState(false);
 
-  const condominiosVisiveis = escopoCondominios(cadastros, sessao?.userId);
-  const unidadesVisiveis = escopoUnidades(cadastros, sessao?.userId);
-
   async function sincronizarCadastrosRelacionados() {
-    await garantirCondominiosPersistidosNoServidor(sessao?.userId);
+    if (userIdEscopo == null) return;
+    await garantirCondominiosPersistidosNoServidor(userIdEscopo);
     const response = await fetch("/api/unidades", { credentials: "same-origin" });
     if (response.ok) {
       const payload = (await response.json()) as { unidades?: Unidade[] };
-      if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, sessao?.userId);
+      if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, userIdEscopo);
     }
   }
 
   async function recarregarDebitosDoServidor() {
+    if (userIdEscopo == null) return;
     const response = await fetch("/api/debitos", { credentials: "same-origin" });
     if (!response.ok) return;
     const payload = (await response.json()) as { debitos?: Debito[] };
-    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, sessao?.userId);
+    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, userIdEscopo);
   }
 
   useEffect(() => {
+    if (sessaoCarregando || userIdEscopo == null) return;
     let cancelled = false;
     void (async () => {
       await sincronizarCadastrosRelacionados();
@@ -250,7 +264,7 @@ export default function DebitosPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessao?.userId]);
+  }, [userIdEscopo]);
 
   useEffect(() => {
     const unidadeQuery = searchParams?.get("unidade");
@@ -327,14 +341,13 @@ export default function DebitosPage() {
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const limiteDias = limiteNumerico(appliedLimite);
-  const corte = dataCorteLimite(appliedDataBase, limiteDias);
   const emAbertoNaData = visible.filter((item) => debitoAbertoNaData(item, appliedDataBase));
   const condominiosNoFiltro = cadastros.condominios.filter((item) => {
     const matchesCondominio = appliedCondominioId === "todos" || String(item.id) === appliedCondominioId;
     const matchesCidade = appliedCidade === "todas" || item.cidade.trim() === appliedCidade;
     return matchesCondominio && matchesCidade;
   });
-  const unidadesCarteira = cadastros.unidades.filter((item) =>
+  const unidadesCarteira = unidadesVisiveis.filter((item) =>
     condominiosNoFiltro.some((condominio) => condominio.id === item.condominioId),
   ).length;
   const indicadores = calcularIndicadoresInadimplencia({
@@ -350,9 +363,13 @@ export default function DebitosPage() {
   const unidadesDevedoras = indicadores.unidadesDevedoras;
   const percentualUnidades = indicadores.percentualUnidades;
   const unidadesEmDia = Math.max(0, unidadesCarteira - unidadesDevedoras);
+  const percentualValorAcima =
+    totalAtualizado > 0 ? (acimaLimite / totalAtualizado) * 100 : null;
+  const percentualValorAte =
+    totalAtualizado > 0 ? (ateLimite / totalAtualizado) * 100 : null;
   const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
   const vazioGrafico = (
-    <p className="text-body-md text-on-surface-variant">Sem unidades ou débitos no recorte para exibir o gráfico.</p>
+    <p className="py-lg text-center text-body-sm text-on-surface-variant">Sem dados no recorte dos filtros.</p>
   );
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -889,7 +906,7 @@ export default function DebitosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Inadimplência"
-        description="Débitos em aberto na data-base, com valor original, valor atualizado e o corte entre a fase amigável e o jurídico."
+        description="Débitos em aberto na data-base e corte amigável x jurídico."
         actions={
           pode("debitos", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -1029,53 +1046,75 @@ export default function DebitosPage() {
 
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
           <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
-          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[768px]:items-center min-[768px]:gap-lg">
-            <div className="flex flex-col items-center gap-sm min-[768px]:items-start">
+          <div className="grid grid-cols-1 gap-xl min-[768px]:grid-cols-2 min-[768px]:gap-lg">
+            <article className="flex min-w-0 flex-col gap-md">
+              <h3 className="text-title-sm font-semibold text-on-surface">Inadimplência das unidades</h3>
               {unidadesCarteira > 0 ? (
-                <GraficoRosca
-                  chave={chaveGraficos}
-                  vazio={vazioGrafico}
-                  semLegenda
-                  centro={percentualUnidades === null ? "—" : percentual(percentualUnidades)}
-                  legenda="unidades"
-                  fatias={[
-                    {
-                      nome: "Com débito vencido",
-                      valor: unidadesDevedoras,
-                      detalhe: String(unidadesDevedoras),
-                      tom: "critical",
-                    },
-                    {
-                      nome: "Sem débito vencido",
-                      valor: unidadesEmDia,
-                      detalhe: String(unidadesEmDia),
-                      tom: "navy",
-                    },
-                  ]}
-                />
+                <>
+                  <div className="flex justify-center min-[768px]:justify-start">
+                    <GraficoRosca
+                      chave={`${chaveGraficos}-unidades`}
+                      vazio={vazioGrafico}
+                      centro={percentualUnidades === null ? "—" : percentual(percentualUnidades)}
+                      legenda="unidades inadimplentes"
+                      fatias={[
+                        {
+                          nome: "Com débito vencido",
+                          valor: unidadesDevedoras,
+                          detalhe: `${unidadesDevedoras} (${percentualUnidades === null ? "—" : percentual(percentualUnidades)})`,
+                          tom: "critical",
+                        },
+                        {
+                          nome: "Sem débito vencido",
+                          valor: unidadesEmDia,
+                          detalhe: `${unidadesEmDia} (${percentualUnidades === null ? "—" : percentual(100 - percentualUnidades)})`,
+                          tom: "navy",
+                        },
+                      ]}
+                    />
+                  </div>
+                  <p className="text-body-sm text-on-surface-variant">
+                    <span className="font-medium tabular-nums text-on-surface">{unidadesDevedoras}</span> de{" "}
+                    <span className="tabular-nums">{unidadesCarteira}</span> unidades na carteira filtrada.
+                  </p>
+                </>
               ) : (
                 vazioGrafico
               )}
-              <p className="text-body-sm text-on-surface-variant">Inadimplência das unidades</p>
-              {unidadesCarteira > 0 ? (
-                <p className="text-body-sm text-on-surface-variant">
-                  {unidadesDevedoras} de {unidadesCarteira} unidades com débito vencido na data-base
-                </p>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-lg border border-border-subtle/60 bg-surface-subtle/40 p-md min-[768px]:rounded-none min-[768px]:border-0 min-[768px]:border-l min-[768px]:border-border-subtle min-[768px]:bg-transparent min-[768px]:p-0 min-[768px]:pl-lg">
-              <p className="text-metric text-on-surface tabular-nums">—</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">Inadimplência do valor emitido</p>
-              <p className="mt-xs text-body-sm text-on-surface-variant">
-                Depende do total emitido no período filtrado (ainda não vem na importação).
-              </p>
-            </div>
+            </article>
+
+            <article className="flex min-w-0 flex-col gap-md min-[768px]:border-l min-[768px]:border-border-subtle min-[768px]:pl-lg">
+              <h3 className="text-title-sm font-semibold text-on-surface">Valor por faixa de atraso</h3>
+              {totalAtualizado > 0 ? (
+                <>
+                  <GraficoBarras
+                    chave={`${chaveGraficos}-valor`}
+                    vazio={vazioGrafico}
+                    itens={[
+                      {
+                        nome: `Até ${limiteDias} dias`,
+                        valor: ateLimite,
+                        detalhe: `${moeda(ateLimite)} · ${percentualValorAte === null ? "—" : percentual(percentualValorAte)}`,
+                        tom: "navy",
+                      },
+                      {
+                        nome: `Acima de ${limiteDias} dias`,
+                        valor: acimaLimite,
+                        detalhe: `${moeda(acimaLimite)} · ${percentualValorAcima === null ? "—" : percentual(percentualValorAcima)}`,
+                        tom: "critical",
+                      },
+                    ]}
+                  />
+                  <p className="text-body-sm text-on-surface-variant">
+                    Total atualizado em aberto:{" "}
+                    <span className="font-medium tabular-nums text-on-surface">{moeda(totalAtualizado)}</span>
+                  </p>
+                </>
+              ) : (
+                vazioGrafico
+              )}
+            </article>
           </div>
-          <Alert variant="info" title="Como ler os indicadores" className="text-body-sm min-[768px]:text-body-md">
-            Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias}{" "}
-            dias. O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte
-            dos filtros.
-          </Alert>
         </section>
 
         <section className="flex flex-col gap-md">

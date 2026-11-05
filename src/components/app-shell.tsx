@@ -44,10 +44,16 @@ export type AppShellNotificacao = {
   evento: string;
 };
 
+type AppShellHeaderPage = {
+  label: string;
+  icon: LucideIcon;
+};
+
 type AppShellProps = {
   sidebar: ReactNode;
   children: ReactNode;
   user?: AppShellUser;
+  headerPage?: AppShellHeaderPage;
   notificationCount?: number;
   notificacoes?: AppShellNotificacao[];
   notificacoesCarregando?: boolean;
@@ -61,6 +67,7 @@ export function AppShell({
   sidebar,
   children,
   user,
+  headerPage,
   notificationCount = 0,
   notificacoes = [],
   notificacoesCarregando = false,
@@ -146,6 +153,7 @@ export function AppShell({
         <div className="app-main flex min-w-0 flex-1 flex-col">
           <AppShellHeader
             user={user}
+            headerPage={headerPage}
             notificationCount={notificationCount}
             notificacoes={notificacoes}
             notificacoesCarregando={notificacoesCarregando}
@@ -202,7 +210,7 @@ export function AppShellBrand({
 }: AppShellBrandProps) {
   return (
     <div
-      className={`flex min-h-[4.5rem] items-center gap-md border-b border-[#31496C] px-md py-lg ${className ?? ""}`}
+      className={`sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b border-[#31496C] bg-primary-container px-[18px] ${className ?? ""}`}
     >
       <span
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-brass text-label-lg font-bold text-[#1A1300]"
@@ -210,9 +218,9 @@ export function AppShellBrand({
       >
         {initials}
       </span>
-      <div className="min-w-0">
-        <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">{eyebrow}</p>
-        <p className="text-headline-sm font-bold text-on-primary">{title}</p>
+      <div className="min-w-0 leading-none">
+        <p className="truncate text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">{eyebrow}</p>
+        <p className="mt-0.5 truncate text-headline-sm font-bold leading-6 text-on-primary">{title}</p>
       </div>
     </div>
   );
@@ -317,6 +325,7 @@ export function AppShellSidebarFooter({ children, className, ...props }: AppShel
 
 type AppShellHeaderProps = {
   user?: AppShellUser;
+  headerPage?: AppShellHeaderPage;
   notificationCount: number;
   notificacoes: AppShellNotificacao[];
   notificacoesCarregando: boolean;
@@ -339,6 +348,7 @@ function corDotNotificacao(evento: string) {
 
 function AppShellHeader({
   user,
+  headerPage,
   notificationCount,
   notificacoes,
   notificacoesCarregando,
@@ -353,13 +363,45 @@ function AppShellHeader({
   onToggleUser,
 }: AppShellHeaderProps) {
   return (
-    <header className="relative z-30 flex min-h-[4.5rem] shrink-0 items-center gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
-      <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
-        <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
-      </AppShellIconButton>
+    <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-sm">
+        <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
+          <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
+        </AppShellIconButton>
 
-      <div className="min-w-0 flex-1" aria-hidden="true" />
+        {headerPage ? (
+          <div className="flex min-w-0 items-center gap-sm">
+            <span
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#EDF1F6] text-primary-container"
+              aria-hidden="true"
+            >
+              <Icon icon={headerPage.icon} size="sm" />
+            </span>
+            <p className="truncate text-body-lg font-bold leading-tight text-[#12213A]">{headerPage.label}</p>
+          </div>
+        ) : (
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-sm rounded-lg py-1 pr-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          >
+            <span
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-container text-label-md font-bold text-on-primary"
+              aria-hidden="true"
+            >
+              LC
+            </span>
+            <span className="hidden min-w-0 min-[480px]:block">
+              <span className="block truncate text-label-sm font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                Lex Condominial
+              </span>
+              <span className="block truncate text-body-md font-bold leading-tight text-[#12213A]">Cobrança</span>
+            </span>
+          </Link>
+        )}
+      </div>
 
+      <div className="flex shrink-0 items-center gap-sm">
+        <div className="flex items-center gap-0 rounded-xl border border-border-subtle bg-[#F4F7FB] px-0.5">
       <AppShellIconButton label="Ajuda">
         <HelpCircle className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
       </AppShellIconButton>
@@ -382,7 +424,7 @@ function AppShellHeader({
 
         {notifOpen ? (
           <div
-            className="absolute right-0 top-14 z-30 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
+            className="absolute right-0 top-full z-30 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
             role="dialog"
             aria-label="Notificações"
           >
@@ -426,6 +468,7 @@ function AppShellHeader({
           </div>
         ) : null}
       </div>
+        </div>
 
       {user ? (
         <>
@@ -450,7 +493,7 @@ function AppShellHeader({
 
             {userOpen ? (
               <div
-                className="absolute right-0 top-14 z-30 w-[260px] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
+                className="absolute right-0 top-full z-30 w-[260px] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
                 role="menu"
                 aria-label="Conta"
               >
@@ -479,6 +522,7 @@ function AppShellHeader({
           </div>
         </>
       ) : null}
+      </div>
     </header>
   );
 }

@@ -12,7 +12,6 @@ import { usePathname } from "next/navigation";
 import { Building, FileBarChart, HelpCircle, Settings, User } from "lucide-react";
 import {
   AppShell,
-  AppShellBrand,
   AppShellCarteiraBadge,
   AppShellMain,
   AppShellNav,
@@ -74,7 +73,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const sidebar = (
     <AppShellSidebar>
-      <AppShellBrand title="Cobrança" />
       <AppShellCarteiraBadge />
       <AppShellNav>
         <AppShellNavSection title="Carteira">

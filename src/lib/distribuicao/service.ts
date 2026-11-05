@@ -1,5 +1,6 @@
 import {
   agoraIso,
+  debitoEmAberto,
   escopoCondominios,
   escopoUnidades,
   getCadastros,
@@ -57,8 +58,21 @@ export type DistribuirResultado = {
   atribuicoes: AtribuicaoCobranca[];
 };
 
-/** Estratégias de distribuição automática (protótipo — carga equilibrada como padrão). */
+/** Estratégias de distribuição automática da fila sem responsável. */
 export type DistribuicaoAutomaticaEstrategia = "carga" | "rodizio" | "condominio" | "volume";
+
+export const descricaoEstrategiaDistribuicaoAutomatica: Record<DistribuicaoAutomaticaEstrategia, string> = {
+  carga:
+    "Cada cobrança vai para o RE com menos unidades na carteira vigente. Empates: menor código RE.",
+  rodizio:
+    "Distribui em sequência fixa entre os REs ativos (ordem alfabética do código RE), uma unidade por vez.",
+  condominio:
+    "Mantém o mesmo RE que já cuida da maior parte das unidades daquele condomínio. Se ninguém atende o condomínio ainda, usa carga equilibrada.",
+  volume:
+    "Equilibra o valor total em aberto (débitos pendentes/vencidos) entre as carteiras, não só a quantidade de unidades.",
+};
+
+type AtendenteComRe = { id: number; codigoRe: string };
 
 export type DistribuicaoAutomaticaConfig = {
   ativada: boolean;
@@ -104,22 +118,148 @@ export function contarUnidadesAguardandoAtribuicao(userId: number): number {
   return listarFilaCobranca(userId).filter((item) => !item.codigoRe).length;
 }
 
-function escolherReCargaEquilibrada(userId: number, contagem: Map<number, number>) {
+function listarAtendentesAtivosComRe(): AtendenteComRe[] {
   const atendentes = listarAtendentesComRe();
   if (atendentes.length === 0) {
     throw new DistribuicaoServiceError("Não há atendentes com RE cadastrado.", 400);
   }
+  return atendentes;
+}
+
+function compararAtendentesPorRe(a: AtendenteComRe, b: AtendenteComRe) {
+  return a.codigoRe.localeCompare(b.codigoRe, "pt-BR");
+}
+
+function escolherReCargaEquilibrada(contagem: Map<number, number>): AtendenteComRe {
+  const atendentes = listarAtendentesAtivosComRe();
   let escolhido = atendentes[0];
   let menor = contagem.get(escolhido.id) ?? 0;
   for (const atendente of atendentes) {
     const total = contagem.get(atendente.id) ?? 0;
-    if (total < menor) {
+    if (total < menor || (total === menor && compararAtendentesPorRe(atendente, escolhido) < 0)) {
       menor = total;
       escolhido = atendente;
     }
   }
-  void userId;
   return escolhido;
+}
+
+function escolherReRodizio(indice: number): { atendente: AtendenteComRe; proximoIndice: number } {
+  const atendentes = listarAtendentesAtivosComRe();
+  const atendente = atendentes[indice % atendentes.length];
+  return { atendente, proximoIndice: indice + 1 };
+}
+
+function contagemUnidadesPorReNoCondominio(userId: number, condominioId: number): Map<number, number> {
+  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const contagem = new Map<number, number>();
+  for (const registro of getCadastros().atribuicoesCobranca) {
+    if (registro.encerradoEm) continue;
+    if (!idsEscopo.has(registro.unidadeId)) continue;
+    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
+    if (unidade.condominioId !== condominioId) continue;
+    contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
+  }
+  return contagem;
+}
+
+function escolherRePorCondominio(
+  userId: number,
+  condominioId: number,
+  contagemGlobal: Map<number, number>,
+): AtendenteComRe {
+  const atendentes = listarAtendentesAtivosComRe();
+  const noCondominio = contagemUnidadesPorReNoCondominio(userId, condominioId);
+  let melhor: AtendenteComRe | null = null;
+  let maior = 0;
+  for (const atendente of atendentes) {
+    const total = noCondominio.get(atendente.id) ?? 0;
+    if (total > maior) {
+      maior = total;
+      melhor = atendente;
+    } else if (total === maior && total > 0 && melhor && compararAtendentesPorRe(atendente, melhor) < 0) {
+      melhor = atendente;
+    }
+  }
+  if (maior > 0 && melhor) return melhor;
+  return escolherReCargaEquilibrada(contagemGlobal);
+}
+
+function valorNumericoInadimplenciaUnidade(unidadeId: number): number {
+  let total = 0;
+  for (const debito of getCadastros().debitos) {
+    if (debito.unidadeId !== unidadeId || !debitoEmAberto(debito)) continue;
+    const valor = Number.parseFloat(debito.valorAtualizado || debito.valor || "0");
+    if (Number.isFinite(valor)) total += valor;
+  }
+  return total;
+}
+
+function montarVolumeInadimplenciaPorRe(userId: number): Map<number, number> {
+  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const volume = new Map<number, number>();
+  for (const registro of getCadastros().atribuicoesCobranca) {
+    if (registro.encerradoEm) continue;
+    if (!idsEscopo.has(registro.unidadeId)) continue;
+    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
+    volume.set(
+      registro.atendenteId,
+      (volume.get(registro.atendenteId) ?? 0) + valorNumericoInadimplenciaUnidade(registro.unidadeId),
+    );
+  }
+  return volume;
+}
+
+function escolherReVolumeEquilibrado(contagemVolume: Map<number, number>, unidadeId: number): AtendenteComRe {
+  const atendentes = listarAtendentesAtivosComRe();
+  const valorNova = valorNumericoInadimplenciaUnidade(unidadeId);
+  let escolhido = atendentes[0];
+  let menorProjecao = (contagemVolume.get(escolhido.id) ?? 0) + valorNova;
+  for (const atendente of atendentes) {
+    const projecao = (contagemVolume.get(atendente.id) ?? 0) + valorNova;
+    if (
+      projecao < menorProjecao ||
+      (projecao === menorProjecao && compararAtendentesPorRe(atendente, escolhido) < 0)
+    ) {
+      menorProjecao = projecao;
+      escolhido = atendente;
+    }
+  }
+  return escolhido;
+}
+
+function escolherReParaUnidadePendente(
+  userId: number,
+  item: { unidadeId: number; condominioId: number },
+  estrategia: DistribuicaoAutomaticaEstrategia,
+  contagemUnidades: Map<number, number>,
+  contagemVolume: Map<number, number>,
+  indiceRodizio: number,
+): { atendente: AtendenteComRe; proximoIndiceRodizio: number } {
+  switch (estrategia) {
+    case "rodizio": {
+      const { atendente, proximoIndice } = escolherReRodizio(indiceRodizio);
+      return { atendente, proximoIndiceRodizio: proximoIndice };
+    }
+    case "condominio":
+      return {
+        atendente: escolherRePorCondominio(userId, item.condominioId, contagemUnidades),
+        proximoIndiceRodizio: indiceRodizio,
+      };
+    case "volume":
+      return {
+        atendente: escolherReVolumeEquilibrado(contagemVolume, item.unidadeId),
+        proximoIndiceRodizio: indiceRodizio,
+      };
+    case "carga":
+    default:
+      return {
+        atendente: escolherReCargaEquilibrada(contagemUnidades),
+        proximoIndiceRodizio: indiceRodizio,
+      };
+  }
 }
 
 export function executarDistribuicaoAutomatica(
@@ -137,24 +277,32 @@ export function executarDistribuicaoAutomatica(
   }
 
   const carteiras = listarCarteiraPorRe(userId);
-  const contagem = new Map<number, number>(carteiras.map((item) => [item.atendenteId, item.totalUnidades]));
+  const contagemUnidades = new Map<number, number>(carteiras.map((item) => [item.atendenteId, item.totalUnidades]));
+  const contagemVolume = montarVolumeInadimplenciaPorRe(userId);
+  const estrategia = configDistribuicaoAutomatica.estrategia;
 
   let atribuidas = 0;
   let ignoradasMesmoResponsavel = 0;
   const atribuicoes: AtribuicaoCobranca[] = [];
+  let indiceRodizio = 0;
 
   for (const item of pendentes) {
-    const atendente =
-      configDistribuicaoAutomatica.estrategia === "carga"
-        ? escolherReCargaEquilibrada(userId, contagem)
-        : escolherReCargaEquilibrada(userId, contagem);
+    const { atendente, proximoIndiceRodizio } = escolherReParaUnidadePendente(
+      userId,
+      item,
+      estrategia,
+      contagemUnidades,
+      contagemVolume,
+      indiceRodizio,
+    );
+    indiceRodizio = proximoIndiceRodizio;
 
     const resultado = distribuirUnidades(
       userId,
       {
         unidadeIds: [item.unidadeId],
         codigoRe: atendente.codigoRe,
-        motivo: "Distribuição automática",
+        motivo: `Distribuição automática (${estrategia})`,
       },
       meta,
     );
@@ -162,7 +310,13 @@ export function executarDistribuicaoAutomatica(
     ignoradasMesmoResponsavel += resultado.ignoradasMesmoResponsavel;
     atribuicoes.push(...resultado.atribuicoes);
     if (resultado.atribuidas > 0) {
-      contagem.set(atendente.id, (contagem.get(atendente.id) ?? 0) + resultado.atribuidas);
+      contagemUnidades.set(atendente.id, (contagemUnidades.get(atendente.id) ?? 0) + resultado.atribuidas);
+      if (estrategia === "volume") {
+        contagemVolume.set(
+          atendente.id,
+          (contagemVolume.get(atendente.id) ?? 0) + valorNumericoInadimplenciaUnidade(item.unidadeId),
+        );
+      }
     }
   }
 

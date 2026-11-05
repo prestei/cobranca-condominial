@@ -1,10 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { BarChart3, Building2, Scale, Wallet } from "lucide-react";
+import { Building2, Scale, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
-import { CardMetric } from "@/components/card-metric";
-import { GraficoBarras, GraficoRosca } from "@/components/charts";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import {
@@ -16,13 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/table";
-import { formatarData } from "@/data/catalogo";
 import type { DashboardAdvogado } from "@/lib/dashboard/service";
 import {
   SecaoBloco,
-  Grade,
-  SubPainel,
-  Leitura,
+  ListaValorCompacta,
+  DashboardMetric,
+  GradeMetricasTres,
   dinheiro,
   percentual,
 } from "@/components/dashboard/dashboard-shared";
@@ -33,32 +30,14 @@ type Props = {
   chaveGrafico: string;
 };
 
-export function DashboardAdvogadoView({ dados, chaveGrafico }: Props) {
+export function DashboardAdvogadoView({ dados }: Props) {
   const router = useRouter();
   const ind = dados.indicadores;
-  const vazioGrafico = (
-    <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Sem dados" description="Não há valores para exibir no momento." />
-  );
-
-  const grupoLider = ind
-    ? [...dados.rankingCondominio].sort((a, b) => b.valor - a.valor)[0]
-    : undefined;
 
   return (
     <>
-      <Leitura>
-        Você acompanha {dados.condominios.total} condomínio{dados.condominios.total === 1 ? "" : "s"}.
-        {ind ? ` Em aberto: ${dinheiro(ind.totalAtualizado)} (base ${formatarData(dados.dataBase)}).` : ""}
-        {dados.juridico ? ` ${dados.juridico.abertos} encaminhamento${dados.juridico.abertos === 1 ? "" : "s"} jurídico${dados.juridico.abertos === 1 ? "" : "s"} em andamento.` : ""}
-      </Leitura>
-
-      <SecaoBloco
-        selo="Carteira"
-        titulo="Condomínios sob sua responsabilidade"
-        linkLabel="Ver condomínios"
-        onLink={() => router.push("/condominios")}
-      >
-        <div className="overflow-hidden rounded-lg border border-border-subtle">
+      <SecaoBloco titulo="Condomínios" linkLabel="Cadastro" onLink={() => router.push("/condominios")}>
+        <div className="overflow-hidden rounded-lg border border-border-subtle/40">
           <Table aria-label="Condomínios no escopo">
             <TableHeader>
               <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -70,7 +49,7 @@ export function DashboardAdvogadoView({ dados, chaveGrafico }: Props) {
               {dados.condominios.itens.length === 0 ? (
                 <TableEmpty colSpan={2}>Nenhum condomínio vinculado ao seu cadastro.</TableEmpty>
               ) : (
-                dados.condominios.itens.map((item) => (
+                dados.condominios.itens.slice(0, 8).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.nome}</TableCell>
                     <TableCell>
@@ -82,128 +61,85 @@ export function DashboardAdvogadoView({ dados, chaveGrafico }: Props) {
             </TableBody>
           </Table>
         </div>
+        {dados.condominios.total > 8 ? (
+          <p className="text-body-sm text-on-surface-variant">+ {dados.condominios.total - 8} no cadastro</p>
+        ) : null}
       </SecaoBloco>
 
       {ind ? (
         <SecaoBloco
-          selo="Inadimplência"
-          titulo="Indicadores"
-          descricao={`Valores persistidos na data-base ${formatarData(dados.dataBase)}.`}
-          linkLabel="Relatórios"
+          titulo="Inadimplência"
+          linkLabel="Relatório"
           onLink={() => router.push("/relatorios?relatorio=carteira")}
         >
-          <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
+          <GradeMetricasTres>
+            <DashboardMetric
+              tom="brass"
               icon={<Icon icon={Wallet} size="md" className="text-brass" />}
-              rotulo="Total em aberto"
+              rotulo="Em aberto"
               valor={dinheiro(ind.totalAtualizado)}
-              detalhe="No escopo dos seus condomínios."
             />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
+            <DashboardMetric
+              tom="settled"
               icon={<Icon icon={Scale} size="md" />}
               rotulo={`Acima de ${dados.limiteDias} dias`}
               valor={dinheiro(ind.acimaLimite)}
-              detalhe="Faixa jurídica operacional."
             />
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={Building2} size="md" className="text-brass" />}
+            <DashboardMetric
+              tom="primary"
+              icon={<Icon icon={Building2} size="md" />}
               rotulo="Unidades devendo"
               valor={percentual(ind.percentualUnidades)}
-              detalhe={`${ind.unidadesDevedoras} unidades com débito em aberto.`}
+              detalhe={`${ind.unidadesDevedoras} un.`}
             />
-          </div>
-
-          <Grade>
-            <SubPainel titulo="Atraso recente x antigo">
-              <GraficoRosca
-                chave={chaveGrafico}
-                vazio={vazioGrafico}
-                centro={
-                  ind.totalAtualizado > 0
-                    ? percentual((ind.acimaLimite / ind.totalAtualizado) * 100)
-                    : "—"
-                }
-                legenda={`+${dados.limiteDias} dias`}
-                fatias={[
-                  {
-                    nome: `Até ${dados.limiteDias} dias`,
-                    valor: ind.ateLimite,
-                    detalhe: dinheiro(ind.ateLimite),
-                    tom: "brass",
-                  },
-                  {
-                    nome: `Acima de ${dados.limiteDias} dias`,
-                    valor: ind.acimaLimite,
-                    detalhe: dinheiro(ind.acimaLimite),
-                    tom: "navy",
-                  },
-                ]}
-              />
-            </SubPainel>
-            <SubPainel titulo="Condomínios com mais débito">
-              <GraficoBarras
-                chave={`${chaveGrafico}-rank`}
-                vazio={vazioGrafico}
-                itens={dados.rankingCondominio.map((linha) => ({
-                  nome: linha.nome,
-                  valor: linha.valor,
-                  detalhe: `${dinheiro(linha.valor)} · ${linha.unidadesDevedoras} unidade${linha.unidadesDevedoras === 1 ? "" : "s"}`,
-                }))}
-              />
-            </SubPainel>
-          </Grade>
-          {grupoLider && grupoLider.valor > 0 ? (
-            <p className="text-body-sm text-on-surface-variant">
-              Maior concentração: {grupoLider.nome} ({dinheiro(grupoLider.valor)}).
-            </p>
-          ) : null}
+          </GradeMetricasTres>
+          <ListaValorCompacta
+            integrada
+            itens={dados.rankingCondominio.map((linha) => ({
+              chave: String(linha.condominioId),
+              nome: linha.nome,
+              valor: dinheiro(linha.valor),
+              secundario: `${linha.unidadesDevedoras} unidade${linha.unidadesDevedoras === 1 ? "" : "s"}`,
+            }))}
+            vazio="Sem débitos no escopo."
+          />
         </SecaoBloco>
       ) : (
-        <EmptyState title="Indicadores indisponíveis" description="Sem permissão para consultar débitos ou não há dados." />
+        <EmptyState title="Débitos indisponíveis" description="Sem permissão ou sem dados no escopo." />
       )}
 
       {dados.juridico ? (
-        <SecaoBloco
-          selo="Jurídico"
-          titulo="Encaminhamentos"
-          linkLabel="Abrir jurídico"
-          onLink={() => router.push("/juridico")}
-        >
-          <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2">
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
+        <SecaoBloco titulo="Jurídico" linkLabel="Encaminhamentos" onLink={() => router.push("/juridico")}>
+          <GradeMetricasTres>
+            <DashboardMetric
+              tom="primary"
               icon={<Icon icon={Scale} size="md" />}
-              rotulo="Total registrado"
+              rotulo="Registrados"
               valor={dados.juridico.total}
             />
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
+            <DashboardMetric
+              tom="brass"
               icon={<Icon icon={Scale} size="md" className="text-brass" />}
               rotulo="Em andamento"
               valor={dados.juridico.abertos}
             />
-          </div>
+          </GradeMetricasTres>
           {dados.juridico.porStatus.length > 0 ? (
-            <SubPainel titulo="Por status">
-              <ul className="flex flex-col gap-sm">
-                {dados.juridico.porStatus.map((linha) => (
-                  <li key={linha.status} className="flex justify-between text-body-sm">
-                    <span>{linha.status}</span>
-                    <span className="font-medium tabular-nums">{linha.quantidade}</span>
-                  </li>
-                ))}
-              </ul>
-            </SubPainel>
+            <ul className="divide-y divide-border-subtle/60 border-t border-border-subtle/60 pt-md">
+              {dados.juridico.porStatus.slice(0, 5).map((linha) => (
+                <li key={linha.status} className="flex justify-between py-sm text-body-sm first:pt-0">
+                  <span className="text-on-surface-variant">{linha.status}</span>
+                  <span className="font-semibold tabular-nums text-on-surface">{linha.quantidade}</span>
+                </li>
+              ))}
+            </ul>
           ) : null}
         </SecaoBloco>
       ) : null}
 
-      {dados.retornos ? (
-        <SecaoBloco selo="Agenda" titulo="Retornos no escopo" descricao="Visão operacional dos condomínios vinculados.">
-          <DashboardRetornosTable itens={dados.retornos.itens} />
+      {dados.retornos && dados.retornos.itens.length > 0 ? (
+        <SecaoBloco titulo="Retornos">
+          <DashboardRetornosTable integrada itens={dados.retornos.itens.slice(0, 6)} />
         </SecaoBloco>
       ) : null}
     </>

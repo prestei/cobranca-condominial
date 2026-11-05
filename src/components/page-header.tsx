@@ -7,8 +7,8 @@ type PageHeaderProps = {
   className?: string;
 };
 
-/** Bloco título + descrição: largura limitada e estável (não encolhe com títulos curtos). */
-const headerLeadClass = "min-w-0 w-full max-w-2xl";
+/** Bloco título + descrição: no desktop ocupa no máximo metade da linha (ação fica na outra metade). */
+const headerLeadClass = "min-w-0 w-full max-w-2xl min-[768px]:max-w-[50%]";
 
 export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
   return (

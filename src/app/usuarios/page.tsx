@@ -685,7 +685,7 @@ export default function UsuariosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Colaboradores"
-        description="Cadastre quem acessa o sistema, defina cargos e acompanhe situação e acesso."
+        description="Colaboradores, cargos e acesso ao sistema."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("usuarios", "criar") ? (

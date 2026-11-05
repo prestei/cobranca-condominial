@@ -465,7 +465,7 @@ function ProdutividadePorRePage() {
     <WorkspaceShell>
       <PageHeader
         title="Produtividade por RE"
-        description="Relatório de produtividade por pessoa (RE): atendimentos, retornos, negociações e ações no período selecionado."
+        description="Produtividade por RE no período selecionado."
         actions={podeFiltrarPorRe && pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />

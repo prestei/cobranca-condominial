@@ -54,6 +54,7 @@ export function linhasFilaExport(
     diasAtrasoMax: number;
     situacao: string;
     codigoRe: string | null;
+    nomeAtendente?: string | null;
     ultimoAtendimento: string | null;
     proximoRetorno: string | null;
     retornoSituacao: string;
@@ -67,7 +68,9 @@ export function linhasFilaExport(
     item.valorInadimplencia ?? "—",
     item.diasAtrasoMax > 0 ? String(item.diasAtrasoMax) : "0",
     item.situacao,
-    item.codigoRe ?? "—",
+    item.nomeAtendente && item.codigoRe
+      ? `${item.nomeAtendente} (${item.codigoRe})`
+      : item.codigoRe ?? "—",
     item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—",
     item.proximoRetorno ? formatarData(item.proximoRetorno) : "—",
     item.retornoSituacao || "—",
@@ -80,7 +83,7 @@ export const colunasFilaExport = [
   "Inadimplência",
   "Dias atraso (máx.)",
   "Situação",
-  "RE responsável",
+  "Responsável",
   "Último atendimento",
   "Próximo retorno",
   "Retorno",

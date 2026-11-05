@@ -3,8 +3,9 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Network } from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
+import { DistribuicaoAutomaticaSheet } from "@/components/atendimentos/distribuicao-automatica-sheet";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { FormSteps } from "@/components/form-steps";
@@ -42,6 +43,7 @@ import {
 } from "@/data/catalogo";
 import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 
 const etapas = ["Registro", "Retorno"] as const;
 const formularioVazio = {
@@ -64,7 +66,11 @@ export default function AtendimentosPage() {
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
+  const { pode } = usePermissao();
+  const podeConfigurarDistribuicao = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [distribuicaoSheetOpen, setDistribuicaoSheetOpen] = useState(false);
+  const [filaRecarregarSinal, setFilaRecarregarSinal] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(formularioVazio);
@@ -215,12 +221,26 @@ export default function AtendimentosPage() {
     <WorkspaceShell>
       <PageHeader
         title="Fila de cobranças"
-        description="Acompanhe, distribua e gerencie as cobranças em um só lugar."
+        description="Fila de cobranças, retornos e distribuição em um só lugar."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
+        actions={
+          podeConfigurarDistribuicao ? (
+            <Button type="button" variant="secondary" size="sm" onClick={() => setDistribuicaoSheetOpen(true)}>
+              <Icon icon={Network} size="sm" />
+              Configurar distribuição
+            </Button>
+          ) : undefined
+        }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
-        <FilaCobrancasPanel />
+        <FilaCobrancasPanel recarregarSinal={filaRecarregarSinal} />
       </PageContent>
+
+      <DistribuicaoAutomaticaSheet
+        open={distribuicaoSheetOpen}
+        onOpenChange={setDistribuicaoSheetOpen}
+        onSalvo={() => setFilaRecarregarSinal((n) => n + 1)}
+      />
 
       <Sheet
         open={sheetOpen}

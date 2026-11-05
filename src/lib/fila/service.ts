@@ -33,6 +33,7 @@ export type FilaCobrancaItem = {
   bloco: string;
   situacao: string;
   codigoRe: string | null;
+  nomeAtendente: string | null;
   atendenteId: number | null;
   valorInadimplencia: string | null;
   diasAtrasoMax: number;
@@ -129,6 +130,7 @@ function montarItem(unidade: Unidade): FilaCobrancaItem {
     bloco: unidade.bloco,
     situacao: situacaoCobrancaUnidade(unidade),
     codigoRe: atendente ? codigoReDoUsuario(atendente) : null,
+    nomeAtendente: atendente?.nome.trim() || null,
     atendenteId: vigente?.atendenteId ?? null,
     valorInadimplencia: inad.valor,
     diasAtrasoMax: inad.diasMax,
@@ -183,7 +185,7 @@ function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros 
     const cadastros = getCadastros();
     lista = lista.filter((item) => {
       const condominio = cadastros.condominios.find((c) => c.id === item.condominioId)?.nome ?? "";
-      const texto = `${condominio} ${item.identificacao} ${item.bloco} ${item.codigoRe ?? ""}`.toLocaleLowerCase(
+      const texto = `${condominio} ${item.identificacao} ${item.bloco} ${item.nomeAtendente ?? ""} ${item.codigoRe ?? ""}`.toLocaleLowerCase(
         "pt-BR",
       );
       return texto.includes(termo);

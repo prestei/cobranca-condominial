@@ -154,7 +154,7 @@ export default function IndicadoresPage() {
     <WorkspaceShell>
       <PageHeader
         title="Relatórios e indicadores"
-        description="Visão operacional dos indicadores de cobrança, inadimplência e produtividade por condomínio."
+        description="Indicadores de cobrança e inadimplência por condomínio."
       />
       <PageContent className="flex flex-col gap-md min-[768px]:gap-lg">
         {carregando ? (

@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  Bell,
   ClipboardList,
   DoorOpen,
   FileBarChart,
@@ -18,7 +19,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
-  AppShellBrand,
   AppShellMain,
   AppShellNav,
   AppShellNavLink,
@@ -69,15 +69,49 @@ const secoes: Array<{
   },
 ];
 
+const headerPageExtras: Record<string, { label: string; icon: LucideIcon }> = {
+  "/notificacoes": { label: "Notificações", icon: Bell },
+  "/importacoes": { label: "Importações", icon: ClipboardList },
+  "/indicadores": { label: "Indicadores", icon: FileBarChart },
+  "/acesso-negado": { label: "Acesso restrito", icon: Shield },
+};
+
+function resolveHeaderPage(pathname: string) {
+  if (pathname === "/") {
+    return undefined;
+  }
+
+  for (const secao of secoes) {
+    for (const link of secao.links) {
+      if (link.href === "/") {
+        continue;
+      }
+      if (pathname === link.href || pathname.startsWith(`${link.href}/`)) {
+        return { label: link.label, icon: link.icon };
+      }
+    }
+  }
+
+  return headerPageExtras[pathname];
+}
+
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [layoutMontado, setLayoutMontado] = useState(false);
+  useEffect(() => {
+    setLayoutMontado(true);
+  }, []);
   const { toast } = useToast();
-  const { user: sessao, logout } = useAuth();
+  const { user: sessao, loading: sessaoCarregando, logout } = useAuth();
   const { pode } = usePermissao();
   const cadastros = useCadastros();
-  const retornos = cadastros.atendimentos.filter(retornoPendente).length;
-  const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
+  const retornosBadge =
+    layoutMontado && !sessaoCarregando && sessao?.userId
+      ? cadastros.atendimentos.filter(retornoPendente).length
+      : 0;
+  const usuario =
+    sessaoCarregando || !sessao?.userId ? undefined : usuarioSessaoApp(cadastros, sessao.userId);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
 
   const handleAbrirNotificacao = useCallback(
@@ -101,6 +135,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   return (
     <AppShell
       onLogout={logout}
+      headerPage={layoutMontado ? resolveHeaderPage(pathname ?? "/") : undefined}
       notificationCount={naoLidas}
       notificacoes={itens.map((item) => ({
         id: item.id,
@@ -115,7 +150,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       onAbrirNotificacao={(id) => void handleAbrirNotificacao(id)}
       sidebar={
         <AppShellSidebar>
-          <AppShellBrand title="Cobrança" />
           <AppShellNav>
             {secoes.map((secao) => {
               const links = secao.links.filter((link) => pode(link.modulo, "ler"));
@@ -128,7 +162,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                       href={link.href}
                       icon={link.icon}
                       active={pathname === link.href}
-                      count={link.count === "retornos" && retornos > 0 ? retornos : undefined}
+                      count={link.count === "retornos" && retornosBadge > 0 ? retornosBadge : undefined}
                     >
                       {link.label}
                     </AppShellNavLink>

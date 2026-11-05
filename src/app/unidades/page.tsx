@@ -57,6 +57,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
 import {
   escopoCondominios,
+  escopoUnidades,
   formatarMoeda,
   getCadastros,
   nomeCondominio,
@@ -123,16 +124,20 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 export default function UnidadesPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
-  const condominiosVisiveis = escopoCondominios(cadastros, user?.userId);
-  const unidades = useMemo(() => {
-    const ids = new Set(condominiosVisiveis.map((item) => item.id));
-    return cadastros.unidades.filter((item) => ids.has(item.condominioId));
-  }, [cadastros.unidades, condominiosVisiveis]);
+  const userIdEscopo = user?.userId;
+  const condominiosVisiveis = useMemo(
+    () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
+  const unidades = useMemo(
+    () => (userIdEscopo == null ? [] : escopoUnidades(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [search, setSearch] = useState("");
@@ -984,7 +989,7 @@ export default function UnidadesPage() {
     <WorkspaceShell>
       <PageHeader
         title="Unidades"
-        description="Gerencie apartamentos, casas e salas dos condomínios da carteira, acompanhe a situação de cobrança e os débitos de cada unidade."
+        description="Unidades da carteira e situação de cobrança."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("unidades", "criar") ? (

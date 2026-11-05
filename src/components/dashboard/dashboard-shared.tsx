@@ -39,7 +39,7 @@ export function SecaoBloco({
   onLink,
   children,
 }: {
-  selo: string;
+  selo?: string;
   titulo: string;
   descricao?: string;
   linkLabel?: string;
@@ -47,22 +47,123 @@ export function SecaoBloco({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-lg rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-      <div className="flex flex-wrap items-start justify-between gap-md border-b border-border-subtle pb-md">
-        <div className="flex min-w-0 flex-col gap-xs">
-          <p className="text-label-md uppercase text-brass">{selo}</p>
-          <h2 className="text-headline-sm text-on-surface">{titulo}</h2>
-          {descricao ? <p className="text-body-sm text-on-surface-variant">{descricao}</p> : null}
+    <section className="flex flex-col gap-md">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <div className="flex min-w-0 items-center gap-sm">
+          <div className="h-5 w-1 shrink-0 rounded-full bg-brass" aria-hidden="true" />
+          <div className="flex min-w-0 flex-col gap-xs">
+            {selo ? <p className="text-label-md uppercase text-brass">{selo}</p> : null}
+            <h2 className="text-headline-sm font-semibold text-on-surface">{titulo}</h2>
+            {descricao ? <p className="text-body-sm text-on-surface-variant">{descricao}</p> : null}
+          </div>
         </div>
         {linkLabel && onLink ? (
-          <Button size="sm" variant="ghost" className="shrink-0 text-on-surface-variant" onClick={onLink}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 gap-xs text-body-sm font-medium text-on-surface"
+            onClick={onLink}
+          >
             {linkLabel}
             <Icon icon={ArrowUpRight} size="sm" />
           </Button>
         ) : null}
       </div>
-      {children}
+      <div className="rounded-xl border border-border-subtle/40 bg-surface-card p-lg shadow-card">{children}</div>
     </section>
+  );
+}
+
+export type DashboardMetricTom = "brass" | "settled" | "primary" | "violet";
+
+const tomMetricaClass: Record<DashboardMetricTom, string> = {
+  brass: "bg-gold-subtle text-brass",
+  settled: "bg-[color-mix(in_srgb,var(--color-status-settled)_14%,white)] text-status-settled",
+  primary: "bg-primary-fixed/50 text-primary-container",
+  violet: "bg-tertiary-fixed/45 text-tertiary-container",
+};
+
+export function DashboardMetric({
+  tom,
+  icon,
+  rotulo,
+  valor,
+  detalhe,
+}: {
+  tom: DashboardMetricTom;
+  icon: ReactNode;
+  rotulo: string;
+  valor: ReactNode;
+  detalhe?: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-sm">
+      <div
+        className={`flex size-11 shrink-0 items-center justify-center rounded-full ${tomMetricaClass[tom]}`}
+        aria-hidden="true"
+      >
+        {icon}
+      </div>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-body-md text-on-surface-variant">{rotulo}</p>
+        <p className="text-headline-sm font-semibold tabular-nums leading-snug text-on-surface">{valor}</p>
+        {detalhe ? <p className="text-body-sm text-on-surface-variant">{detalhe}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function GradeMetricas({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-x-md gap-y-lg min-[768px]:grid-cols-4">{children}</div>;
+}
+
+export function GradeMetricasTres({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-x-md gap-y-lg min-[768px]:grid-cols-3">{children}</div>;
+}
+
+export function ListaValorCompacta({
+  itens,
+  limite = 5,
+  vazio = "Sem registros.",
+  integrada = false,
+}: {
+  itens: { chave: string; nome: string; valor: string; secundario?: string }[];
+  limite?: number;
+  vazio?: string;
+  /** Lista dentro do card da seção (sem caixa extra). */
+  integrada?: boolean;
+}) {
+  const visiveis = itens.slice(0, limite);
+  if (visiveis.length === 0) {
+    return (
+      <p className={`text-body-sm text-on-surface-variant ${integrada ? "border-t border-border-subtle/60 pt-md" : ""}`}>
+        {vazio}
+      </p>
+    );
+  }
+  return (
+    <ul
+      className={
+        integrada
+          ? "divide-y divide-border-subtle/60 border-t border-border-subtle/60 pt-md"
+          : "overflow-hidden rounded-lg border border-border-subtle/60 bg-surface-card divide-y divide-border-subtle/60"
+      }
+    >
+      {visiveis.map((item) => (
+        <li
+          key={item.chave}
+          className={`flex items-baseline justify-between gap-md ${integrada ? "py-sm first:pt-0" : "px-md py-sm"}`}
+        >
+          <div className="min-w-0">
+            <p className="truncate text-body-md font-semibold text-on-surface">{item.nome}</p>
+            {item.secundario ? (
+              <p className="truncate text-body-sm text-on-surface-variant">{item.secundario}</p>
+            ) : null}
+          </div>
+          <span className="shrink-0 text-body-md font-semibold tabular-nums text-on-surface">{item.valor}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -17,7 +17,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
-| `CardMetric` | `card-metric.tsx` | Cartão de métrica (`p-lg`, ícone `size-11`). Modo indicador: props `rotulo`, `valor`, `detalhe` (linha de apoio reserva altura mesmo vazia) e `accent` (`primary`, `brass`, `critical`, `tertiary`) para faixa lateral interna. Quatro indicadores em listagem: grid `1 / 2 / 4` colunas (como Inadimplência). |
+| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9`). Modo indicador: `rotulo`, `valor`, `detalhe` opcional. Valor em `text-headline-sm`; sem faixa lateral colorida. Grid típico `2 / 4` colunas na home e listagens. |
 | `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão 3). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |

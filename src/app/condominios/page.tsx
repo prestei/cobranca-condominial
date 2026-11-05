@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, CheckCircle2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, Receipt, RotateCcw, Trash2 } from "lucide-react";
@@ -140,12 +140,16 @@ const formularioVazio: Omit<Condominio, "id"> = {
 export default function CondominiosPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const formId = useId();
   const cadastros = useCadastros();
+  const userIdEscopo = user?.userId;
   const opcoesAdvogados = opcoesAdvogadosResponsaveis(cadastros);
-  const condominios = escopoCondominios(cadastros, user?.userId);
+  const condominios = useMemo(
+    () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
   const unidades = cadastros.unidades;
   const unidadesPorCondominio = new Map<number, number>();
   for (const unidade of unidades) {
@@ -184,9 +188,10 @@ export default function CondominiosPage() {
   const podeImportar = pode("condominios", "criar");
 
   useEffect(() => {
+    if (authLoading || userIdEscopo == null) return;
     let cancelled = false;
     void (async () => {
-      const sync = await garantirCondominiosPersistidosNoServidor(user?.userId);
+      const sync = await garantirCondominiosPersistidosNoServidor(userIdEscopo);
       if (cancelled) return;
       if (!sync.ok) {
         toast({
@@ -199,7 +204,7 @@ export default function CondominiosPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.userId, toast]);
+  }, [authLoading, userIdEscopo, toast]);
 
   useEffect(() => {
     const digitos = digitosCep(form.cep);
@@ -958,7 +963,7 @@ export default function CondominiosPage() {
     <WorkspaceShell>
         <PageHeader
           title="Condomínios"
-          description="Gerencie os condomínios cadastrados no sistema, visualize informações e acompanhe a situação de cada um."
+          description="Condomínios da carteira e situação de cada um."
           className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
           actions={
             pode("condominios", "criar") ? (

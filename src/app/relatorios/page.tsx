@@ -111,35 +111,35 @@ const RELATORIOS = [
   {
     id: "produtividade",
     titulo: "Produtividade por RE",
-    descricao: "Indicadores objetivos por colaborador (RE): atendimentos, retornos e carteira no período.",
+    descricao: "Atendimentos, retornos e carteira por RE no período.",
     icon: Users,
     selo: "Gestão",
   },
   {
     id: "equipe",
     titulo: "Produtividade da equipe",
-    descricao: "Volume, resposta, motivos e comparativos — o relatório da palitagem para a administradora.",
+    descricao: "Volume e desempenho da palitagem da equipe.",
     icon: Phone,
     selo: "Operação",
   },
   {
     id: "retornos",
     titulo: "Retornos pendentes",
-    descricao: "Atrasados, de hoje e da semana, por atendente e condomínio.",
+    descricao: "Retornos atrasados, de hoje e da semana.",
     icon: CalendarClock,
     selo: "Agenda",
   },
   {
     id: "efetividade",
     titulo: "Efetividade da cobrança",
-    descricao: "Unidades contatadas que pagaram ou fizeram acordo no mês seguinte.",
+    descricao: "Contatos que viraram pagamento ou acordo no mês seguinte.",
     icon: Wallet,
     selo: "Resultado",
   },
   {
     id: "carteira",
     titulo: "Carteira e unidades",
-    descricao: "Inadimplência da carteira, ranking, alertas e estatística unidade a unidade (contato x débito).",
+    descricao: "Inadimplência, ranking e visão unidade a unidade.",
     icon: FileText,
     selo: "Carteira",
   },
@@ -1606,7 +1606,7 @@ function RelatoriosPage() {
         }
         description={
           atual?.descricao ??
-          "Relatórios de produtividade por RE, operação da equipe, retornos, efetividade e carteira. Filtre o período e exporte pelo menu no topo."
+          "Relatórios operacionais com filtros e exportação."
         }
         actions={pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
