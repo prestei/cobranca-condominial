@@ -4,7 +4,7 @@ Registro de requisitos que dependem de aprovação antes de implementação comp
 
 | Tema | Status | Notas |
 | --- | --- | --- |
-| Algoritmo de **distribuição automática** da carteira (rodízio, carga, condomínio, volume ou outro) | Parcial | Protótipo com **carga equilibrada** (`POST /api/distribuicao/automatica/executar`); demais estratégias ainda não implementadas. |
+| Algoritmo de **distribuição automática** da carteira (rodízio, carga, condomínio, volume ou outro) | Implementado (protótipo) | Quatro estratégias em `executarDistribuicaoAutomatica`; config em memória até persistência PostgreSQL. |
 | Regra de **entrada automática** na cobrança ao importar débitos | Pendente | T08/T13 — unidade permanece fora da fila até movimentação operacional ou importação futura. |
 | **Formato(s) oficial(is)** de relatório por administradora (PDF, Excel proprietário, colunas) | Pendente | T13 entrega `planilha-inadimplencia-v1` (CSV/XLS genérico); leitores por modelo a definir. |
 | **Política de atualização** quando o saldo da fonte difere do cadastro | Pendente | T13 atualiza só com identificador externo ou equivalência explícita; não sobrescreve manual sem ID. |

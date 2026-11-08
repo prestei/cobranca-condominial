@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bell,
@@ -139,14 +139,22 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: sessao, logout } = useAuth();
+  const { user: sessao, loading: sessaoCarregando, logout } = useAuth();
+  const [layoutMontado, setLayoutMontado] = useState(false);
+  useEffect(() => {
+    setLayoutMontado(true);
+  }, []);
   const { permissoes, pode } = usePermissao();
   const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
   const retornoNaUrl = searchParams?.get("retorno") ?? null;
   const menuSecoes = perfil === "atendente" ? secoesAtendente : secoes;
   const cadastros = useCadastros();
-  const retornos = cadastros.atendimentos.filter(retornoPendente).length;
-  const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
+  const retornos =
+    layoutMontado && !sessaoCarregando && sessao?.userId
+      ? cadastros.atendimentos.filter(retornoPendente).length
+      : 0;
+  const usuario =
+    sessaoCarregando || !sessao?.userId ? undefined : usuarioSessaoApp(cadastros, sessao.userId);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
 
   const handleAbrirNotificacao = useCallback(

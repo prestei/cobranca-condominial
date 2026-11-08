@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Icon } from "@/components/icon";
+import { Button } from "@/components/button";
 import { Checkbox } from "@/components/input";
 
 const formatosExportacao: Array<{ id: string; label: string; description: string; icon: LucideIcon }> = [
@@ -140,13 +141,14 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
 
   return (
     <>
-      <button
+      <Button
         ref={buttonRef}
         type="button"
+        variant="surface"
+        size="sm"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="inline-flex h-control-sm cursor-pointer items-center gap-sm rounded-md border border-border-subtle bg-surface-card px-md text-label-md text-on-surface shadow-card transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
         onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -161,7 +163,7 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
         <Icon icon={Download} size="sm" />
         Exportar
         <Icon icon={ChevronDown} size="sm" className={open ? "rotate-180 transition-transform" : "transition-transform"} />
-      </button>
+      </Button>
       {open && isClient
         ? createPortal(
             <div
@@ -209,15 +211,10 @@ function TableImport({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      className="inline-flex h-control-sm cursor-pointer items-center gap-sm rounded-md border border-border-subtle bg-surface-card px-md text-label-md text-on-surface shadow-card transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass disabled:cursor-not-allowed disabled:opacity-50"
-      onClick={() => onImport?.()}
-    >
+    <Button type="button" variant="surface" size="sm" disabled={disabled} onClick={() => onImport?.()}>
       <Icon icon={Upload} size="sm" />
       Importar
-    </button>
+    </Button>
   );
 }
 
@@ -264,7 +261,7 @@ export function Table({
   ...props
 }: TableProps) {
   return (
-    <div className="flex flex-col gap-sm">
+    <div className="flex min-w-0 w-full flex-col gap-sm">
       {showExport ? (
         <TableDataBar
           onExport={onExport}
@@ -274,10 +271,10 @@ export function Table({
         />
       ) : null}
       <div
-        className={`overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
+        className={`min-w-0 w-full overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
       >
         <table
-          className={`w-full min-w-[32rem] table-fixed border-collapse text-left text-body-md ${className ?? ""}`}
+          className={`w-full min-w-max border-collapse text-left text-body-md ${className ?? ""}`}
           {...props}
         >
           {children}
@@ -416,7 +413,7 @@ export function TableHead({
     return (
       <th
         scope="col"
-        className={`w-12 px-md py-md text-center ${className ?? ""}`}
+        className={`w-12 shrink-0 px-md py-md text-center ${className ?? ""}`}
         {...props}
       >
         <div className="flex justify-center">
@@ -436,7 +433,7 @@ export function TableHead({
     return (
       <th
         scope="col"
-        className={`w-20 px-md py-md text-center text-label-lg text-primary-container ${className ?? ""}`}
+        className={`w-20 shrink-0 whitespace-nowrap px-md py-md text-center text-label-lg text-primary-container ${className ?? ""}`}
         {...props}
       >
         Ação
@@ -444,7 +441,7 @@ export function TableHead({
     );
   }
 
-  const headClass = `px-md py-md text-label-lg text-primary-container ${alignClass[align]} ${className ?? ""}`;
+  const headClass = `min-w-0 whitespace-nowrap px-md py-md text-label-lg text-primary-container ${alignClass[align]} ${className ?? ""}`;
 
   if (!sortable) {
     return (
@@ -459,7 +456,7 @@ export function TableHead({
       <button
         type="button"
         onClick={onSort}
-        className="inline-flex cursor-pointer items-center gap-0.5 rounded-sm text-label-lg text-primary-container transition-colors hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+        className="inline-flex max-w-full cursor-pointer items-center gap-0.5 whitespace-nowrap rounded-sm text-label-lg text-primary-container transition-colors hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
         aria-label={
           sortDirection === "asc"
             ? `Ordenar ${children} decrescente`
@@ -481,7 +478,10 @@ type TableCellProps = TdHTMLAttributes<HTMLTableCellElement> & {
 
 export function TableCell({ className, align = "left", ...props }: TableCellProps) {
   return (
-    <td className={`px-md py-sm text-on-surface ${alignClass[align]} ${className ?? ""}`} {...props} />
+    <td
+      className={`min-w-0 align-top break-words px-md py-sm text-on-surface ${alignClass[align]} ${className ?? ""}`}
+      {...props}
+    />
   );
 }
 
@@ -500,7 +500,7 @@ export function TableSelectCell({
   ...props
 }: TableSelectCellProps) {
   return (
-    <TableCell align="center" className={`w-12 px-md ${className ?? ""}`}>
+    <TableCell align="center" className={`w-12 shrink-0 px-md ${className ?? ""}`}>
       <div className="flex justify-center">
         <Checkbox
           checked={checked}
@@ -693,7 +693,7 @@ export function TableActionsCell({
   ...props
 }: TableActionsButtonProps) {
   return (
-    <TableCell align="center" className={`w-14 px-sm ${className ?? ""}`}>
+    <TableCell align="center" className={`w-14 shrink-0 whitespace-nowrap px-sm ${className ?? ""}`}>
       <div className="flex justify-center">
         <TableActionsButton label={label} actions={actions} {...props} />
       </div>
@@ -774,7 +774,7 @@ export function ResponsiveTable({
 
   if (viewport === "desktop") {
     return (
-      <div className={`flex flex-col gap-sm ${className ?? ""}`}>
+      <div className={`flex min-w-0 w-full flex-col gap-sm ${className ?? ""}`}>
         {barDesktop}
         {desktop}
       </div>
@@ -782,10 +782,10 @@ export function ResponsiveTable({
   }
 
   return (
-    <div className={`flex flex-col gap-sm ${className ?? ""}`}>
-      {barDesktop ? <div className="hidden min-[768px]:block">{barDesktop}</div> : null}
+    <div className={`flex min-w-0 w-full flex-col gap-sm ${className ?? ""}`}>
+      {barDesktop ? <div className="hidden min-w-0 min-[768px]:block">{barDesktop}</div> : null}
       {barMobile ? <div className="min-[768px]:hidden">{barMobile}</div> : null}
-      <div className="hidden min-[768px]:block">{desktop}</div>
+      <div className="hidden min-w-0 min-[768px]:block">{desktop}</div>
       <div className="flex w-full min-w-0 flex-col gap-sm min-[768px]:hidden">{mobile}</div>
     </div>
   );

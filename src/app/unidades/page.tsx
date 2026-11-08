@@ -57,6 +57,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
 import {
   escopoCondominios,
+  escopoUnidades,
   formatarMoeda,
   getCadastros,
   nomeCondominio,
@@ -122,16 +123,20 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 export default function UnidadesPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
-  const condominiosVisiveis = escopoCondominios(cadastros, user?.userId);
-  const unidades = useMemo(() => {
-    const ids = new Set(condominiosVisiveis.map((item) => item.id));
-    return cadastros.unidades.filter((item) => ids.has(item.condominioId));
-  }, [cadastros.unidades, condominiosVisiveis]);
+  const userIdEscopo = user?.userId;
+  const condominiosVisiveis = useMemo(
+    () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
+  const unidades = useMemo(
+    () => (userIdEscopo == null ? [] : escopoUnidades(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [search, setSearch] = useState("");
@@ -511,8 +516,6 @@ export default function UnidadesPage() {
   const colunasExportacao = [
     "Unidade",
     "Condomínio",
-    "Bloco",
-    "Tipo",
     "Cadastro",
     "Cobrança",
     "Débito",
@@ -533,8 +536,6 @@ export default function UnidadesPage() {
     return visible.map((item) => [
       item.identificacao,
       nomeCondominio(item.condominioId),
-      item.bloco?.trim() ? item.bloco : "—",
-      item.tipo,
       item.status,
       situacaoCobrancaUnidade(item),
       textoDebitoExport(item),
@@ -802,10 +803,6 @@ export default function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("condominio")} onSort={() => handleSort("condominio")}>
             Condomínio
           </TableHead>
-          <TableHead>Bloco</TableHead>
-          <TableHead sortable sortDirection={directionFor("tipo")} onSort={() => handleSort("tipo")}>
-            Tipo
-          </TableHead>
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
@@ -818,7 +815,7 @@ export default function UnidadesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={8}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -832,9 +829,6 @@ export default function UnidadesPage() {
                   </span>
                   <div className="flex min-w-0 flex-col gap-xs">
                     <span>{item.identificacao}</span>
-                    {item.bloco?.trim() ? (
-                      <span className="text-body-sm text-on-surface-variant">Bloco {item.bloco.trim()}</span>
-                    ) : null}
                   </div>
                 </div>
               </TableCell>
@@ -844,8 +838,6 @@ export default function UnidadesPage() {
                   <span>{nomeCondominio(item.condominioId)}</span>
                 </div>
               </TableCell>
-              <TableCell>{item.bloco || "—"}</TableCell>
-              <TableCell>{item.tipo}</TableCell>
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
@@ -898,24 +890,10 @@ export default function UnidadesPage() {
                     <p className="text-body-md font-semibold tabular-nums text-on-surface">
                       {emDebito ? formatarMoeda(String(valorAberto)) : "Em dia"}
                     </p>
-                    <p className="text-body-sm text-on-surface-variant">
-                      {item.tipo}
-                      {item.bloco?.trim() ? ` · Bloco ${item.bloco.trim()}` : ""}
-                    </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-xs">
                     <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
                     {celulaCobranca(item)}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-sm text-body-sm">
-                  <div className="min-w-0">
-                    <p className="text-label-sm uppercase text-on-surface-variant">Bloco</p>
-                    <p className="text-body-md text-on-surface">{item.bloco?.trim() || "—"}</p>
-                  </div>
-                  <div className="min-w-0 text-end">
-                    <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
-                    <p className="text-body-md text-on-surface">{item.tipo}</p>
                   </div>
                 </div>
               </div>
@@ -929,8 +907,7 @@ export default function UnidadesPage() {
     <WorkspaceShell>
       <PageHeader
         title="Unidades"
-        description="Gerencie apartamentos, casas e salas dos condomínios da carteira, acompanhe a situação de cobrança e os débitos de cada unidade."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Unidades" }]}
+        description="Unidades da carteira e situação de cobrança."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           pode("unidades", "criar") ? (
@@ -994,7 +971,6 @@ export default function UnidadesPage() {
             searchPlaceholder="Buscar unidade..."
             onApply={handleApply}
             onClear={handleClear}
-            defaultMobile="grid"
             fields={[
               {
                 id: "condominio",

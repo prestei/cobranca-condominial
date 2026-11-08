@@ -1,18 +1,24 @@
 import { escopoCondominios, getCadastros, setCondominios, type Condominio } from "@/data/catalogo";
+import { temPermissao } from "@/lib/permissions/check";
+import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export type ResultadoSyncCondominios = { ok: true } | { ok: false; error: string };
 
 /** Mescla condomínios retornados pela API (escopo do usuário) no catálogo do cliente. */
 export function sincronizarCondominiosDoServidor(condominios: Condominio[], userId?: number) {
-  const scopeIds = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  const idsServidor = new Set(condominios.map((item) => item.id));
+  const cadastros = getCadastros();
+  const scopeIds = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  const perm = permissoesDoUsuarioId(userId ?? -1, cadastros);
+  const escopoAdministrativo =
+    temPermissao(perm, "condominios", "criar") || temPermissao(perm, "condominios", "editar");
   setCondominios((current) => {
-    const foraEscopo = current.filter((item) => !scopeIds.has(item.id) && !idsServidor.has(item.id));
-    const porId = new Map(foraEscopo.map((item) => [item.id, item]));
-    for (const item of condominios) {
-      porId.set(item.id, item);
+    if (escopoAdministrativo) {
+      const noEscopo = condominios.filter((item) => scopeIds.has(item.id));
+      const foraDoEscopoVisivel = current.filter((item) => !scopeIds.has(item.id));
+      return [...foraDoEscopoVisivel, ...noEscopo].sort((a, b) => a.id - b.id);
     }
-    return [...porId.values()].sort((a, b) => a.id - b.id);
+    // Perfil restrito: a API já devolve só a carteira; não filtrar pelo catálogo local desatualizado.
+    return [...condominios].sort((a, b) => a.id - b.id);
   });
 }
 

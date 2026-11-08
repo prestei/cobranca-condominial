@@ -18,16 +18,24 @@ type Props = {
   itens: DashboardRetornoLinha[];
   mostrarRe?: boolean;
   vazio?: string;
+  integrada?: boolean;
 };
 
 export function DashboardRetornosTable({
   itens,
   mostrarRe = true,
   vazio = "Nenhum retorno atrasado, de hoje ou dos próximos 7 dias.",
+  integrada = false,
 }: Props) {
   return (
-    <div className="min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border-subtle">
-      <Table aria-label="Retornos agendados" className="min-w-[36rem]">
+    <div
+      className={
+        integrada
+          ? "min-w-0 overflow-x-auto overflow-y-hidden border-t border-border-subtle/60 pt-md"
+          : "min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border-subtle"
+      }
+    >
+      <Table aria-label="Retornos agendados" className="min-w-[36rem]" showExport={false}>
         <TableHeader>
           <TableRow className="border-border-subtle/50 hover:bg-transparent">
             <TableHead>Quando</TableHead>

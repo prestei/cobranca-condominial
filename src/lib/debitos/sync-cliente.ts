@@ -1,16 +1,18 @@
-import { escopoCondominios, getCadastros, setDebitos, type Debito } from "@/data/catalogo";
+import { escopoCondominios, escopoUnidades, getCadastros, setDebitos, type Debito } from "@/data/catalogo";
 
 export function sincronizarDebitosDoServidor(debitos: Debito[], userId?: number) {
   const idsCondominio = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  const idsServidor = new Set(debitos.map((item) => item.id));
+  const idsUnidade = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
   setDebitos((current) => {
-    const foraEscopo = current.filter(
-      (item) => !idsCondominio.has(item.condominioId) && !idsServidor.has(item.id),
+    const foraDoEscopoVisivel = current.filter(
+      (item) => !idsCondominio.has(item.condominioId) || !idsUnidade.has(item.unidadeId),
     );
-    const mapa = new Map<number, Debito>();
-    for (const item of foraEscopo) mapa.set(item.id, item);
-    for (const item of debitos) mapa.set(item.id, item);
-    return [...mapa.values()].sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id);
+    const noEscopo = debitos.filter(
+      (item) => idsCondominio.has(item.condominioId) && idsUnidade.has(item.unidadeId),
+    );
+    return [...foraDoEscopoVisivel, ...noEscopo].sort(
+      (a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id,
+    );
   });
 }
 

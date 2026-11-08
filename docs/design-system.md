@@ -8,7 +8,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 
 | Componente | Arquivo | Uso |
 | --- | --- | --- |
-| `Button` | `button.tsx` | Ações. Variantes: `primary`, `secondary`, `outline`, `ghost`, `critical` (`status-critical`). Tamanhos: `sm`, `md`, `lg`. |
+| `Button` | `button.tsx` | Ações. Variantes: `primary`, `secondary`, `surface` (toolbar: Importar, Exportar, Limpar), `outline`, `ghost`, `critical`. Tamanhos: `sm`, `md`, `lg`. Filtrar em `FilterBar` usa `primary`. |
 | `Input`, `Textarea`, `Select` | `input.tsx` | Campos de formulário compactos, sem ícone interno. O `Select` abre com o campo Buscar. Prop `invalid` para erro. |
 | `PeriodInput` | `period-input.tsx` | Um campo de período: atalhos (hoje, ontem, 7 dias, 30 dias, este mês, todos) e intervalo personalizado no mesmo controle. |
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
@@ -17,7 +17,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
-| `CardMetric` | `card-metric.tsx` | Cartão de métrica (`p-lg`, ícone `size-11`). Modo indicador: props `rotulo`, `valor`, `detalhe` (linha de apoio reserva altura mesmo vazia) e `accent` (`primary`, `brass`, `critical`, `tertiary`) para faixa lateral interna. Quatro indicadores em listagem: grid `1 / 2 / 4` colunas (como Inadimplência). |
+| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9`). Modo indicador: `rotulo`, `valor`, `detalhe` opcional. Valor em `text-headline-sm`; sem faixa lateral colorida. Grid típico `2 / 4` colunas na home e listagens. |
 | `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão 3). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
@@ -35,7 +35,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
-| `PageHeader`, `PageContent` | `page-header.tsx` | Título, breadcrumb, descrição, ações e container da página. No mobile, título e ações na mesma linha; no desktop, ações à direita alinhadas à base do bloco. |
+| `PageHeader`, `PageContent` | `page-header.tsx` | Título e descrição opcional (`text-body-sm`, bloco até `max-w-2xl`) e ações. Layout em flex: texto não encolhe com títulos curtos; ações à direita no desktop. |
 
 ## Gráficos
 
@@ -105,7 +105,7 @@ Use `CheckboxField`, `RadioField` ou `SwitchField` para label clicável ao lado.
 
 ## Filtros
 
-`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período ficam na primeira linha, cada um com rótulo acima do campo (`FormField`). Campo com `type: "date"` renderiza data; `type: "number"` renderiza número; `type: "period"` renderiza o `PeriodInput`; os demais são selects. No desktop (a partir de 768px), cada campo ocupa 1/4 da linha e a altura do controle sobe para `h-control`. O rótulo da busca é `searchLabel` (padrão **Buscar**); o de cada campo é `label`. Limpar e Filtrar ficam na linha de baixo, alinhados à direita, com Filtrar por último. Filtrar envia o formulário; Limpar chama `onClear`.
+`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período usam rótulo acima do campo (`FormField`). No desktop (a partir de 768px), a grade tem **no máximo 4 colunas** de largura igual; a busca ocupa uma coluna como os demais campos. No mobile, a grade usa 2 colunas (busca e período em largura total). Limpar e Filtrar ficam na última linha, alinhados à direita, com Filtrar por último. **Limpar** usa `Button` variante **`surface`**, `size="sm"`; **Filtrar** usa **`primary`**, `size="sm"`.
 
 ```tsx
 <FilterBar
@@ -152,7 +152,7 @@ Pill com `text-body-sm` e variantes de status/marca. Use `neutral` para etiqueta
 
 Acima da tabela, alinhado à direita, o controle **Exportar** abre o menu de formato (CSV, XLS e PDF). Por enquanto o menu é só visual: escolher um formato fecha o painel e não gera arquivo. No celular, o mesmo controle fica acima dos cards.
 
-Cabeçalho compacto (`py-sm`, `text-label-md`), fundo `surface-subtle`. Colunas de dados: `TableHead` com `sortable`, `sortDirection` (`asc` | `desc` | `none`) e `onSort`. Coluna de menu: `TableHead actions` + `TableActionsCell` (ícone de três pontos). O clique abre um menu com `actions` (`label`, `onSelect`, `icon` opcional, `destructive` opcional). No card mobile, o mesmo menu fica em `TableActionsButton`. Linhas com borda inferior bem suave (`border-border-subtle/30`).
+Cabeçalho compacto (`py-sm`, `text-label-md`), fundo `surface-subtle`. Colunas de dados: `TableHead` com `sortable`, `sortDirection` (`asc` | `desc` | `none`) e `onSort`. Coluna de menu: `TableHead actions` + `TableActionsCell` (ícone de três pontos). O clique abre um menu com `actions` (`label`, `onSelect`, `icon` opcional, `destructive` opcional). No card mobile, o mesmo menu fica em `TableActionsButton`. Linhas com borda inferior bem suave (`border-border-subtle/30`). A tabela usa largura automática (`min-w-max`) dentro de um contêiner com `overflow-x-auto`: colunas não são comprimidas com texto quebrado letra a letra; em telas estreitas aparece rolagem horizontal.
 
 ```tsx
 <Table aria-label="Condomínios">
@@ -369,7 +369,7 @@ app-layout
 └── app-main
     ├── header (busca, notificações, conta)
     └── main
-        ├── PageHeader (breadcrumb, título e ações)
+        ├── PageHeader (título e ações)
         └── PageContent (FilterBar, métricas, tabela responsiva, etc.)
 ```
 
@@ -398,7 +398,6 @@ Compor telas internas com `AppShell` + `PageHeader` + `PageContent`. Passe `user
       <PageHeader
         title="Condomínios"
         description="Texto de apoio."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Condomínios" }]}
         actions={<Button>Novo</Button>}
       />
       {/* conteúdo */}

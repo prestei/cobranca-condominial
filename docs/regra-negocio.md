@@ -117,7 +117,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Condomínios e unidades
 
-- Cadastro de condomínios (`/condominios`, `GET|POST /api/condominios`, `PATCH|DELETE /api/condominios/:id`): nome obrigatório, ao menos um advogado responsável, identificador externo único quando informado; inativação preserva unidades, débitos e atendimentos; exclusão só sem unidades nem histórico de cobrança. Escopo: advogado vê condomínios em que está vinculado; atendente vê condomínios **Ativos**; administradora vê a carteira completa. Mutações registradas em `audit_log`.
+- Cadastro de condomínios (`/condominios`, `GET|POST /api/condominios`, `PATCH|DELETE /api/condominios/:id`): nome obrigatório, ao menos um advogado responsável, identificador externo único quando informado; inativação preserva unidades, débitos e atendimentos; exclusão só sem unidades nem histórico de cobrança. Escopo: advogado vê condomínios em que está vinculado; **atendente** vê apenas condomínios/unidades da **carteira vigente** (atribuição `collection_assignment` ativa); administradora vê a carteira completa. Mutações registradas em `audit_log`.
 - Responsável jurídico (advogados no cadastro do condomínio)
 - Cadastro de unidades
 - Proprietários e responsáveis financeiros
@@ -156,7 +156,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - A cobrança passa a aparecer na carteira do novo RE e deixa de ser vigente para o anterior; **atendimentos (`service_ticket`) mantêm o autor original**.
 - Distribuição em lote é **atômica**: se alguma unidade falhar na validação, nenhuma alteração é aplicada.
 - Produtividade e relatórios históricos contam ações pelo autor do registro, não pelo responsável atual da carteira.
-- Distribuição **automática** (rodízio, carga, etc.): não implementada — ver [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
+- Distribuição **automática** (Administradora): configuração em memória (`GET/PATCH /api/distribuicao/automatica`); ao **salvar** com opção ativa, o sistema executa `POST /api/distribuicao/automatica/executar` para atribuir cobranças sem RE. Regras: **carga equilibrada**, **por condomínio**, **por volume** e **rodízio** (detalhes em `descricaoEstrategiaDistribuicaoAutomatica` no serviço).
 
 ### Palitagem
 

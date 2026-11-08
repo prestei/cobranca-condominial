@@ -9,10 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
-import { Building, FileBarChart, HelpCircle, Settings, ShieldCheck, User } from "lucide-react";
+import { Building, FileBarChart, HelpCircle, Settings, User } from "lucide-react";
 import {
   AppShell,
-  AppShellBrand,
   AppShellCarteiraBadge,
   AppShellMain,
   AppShellNav,
@@ -74,7 +73,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const sidebar = (
     <AppShellSidebar>
-      <AppShellBrand title="Cobrança" />
       <AppShellCarteiraBadge />
       <AppShellNav>
         <AppShellNavSection title="Carteira">
@@ -98,9 +96,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppShellNavSection title="Análise">
           <AppShellNavLink href="/relatorios" icon={FileBarChart} active={isActivePath(pathname, "/relatorios")}>
             Relatórios
-          </AppShellNavLink>
-          <AppShellNavLink href="/indicadores" icon={ShieldCheck} active={isActivePath(pathname, "/indicadores")}>
-            Indicadores
           </AppShellNavLink>
         </AppShellNavSection>
       </AppShellNav>

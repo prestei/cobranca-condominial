@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/auth/types";
 import { setUsuarioLogadoId } from "@/lib/auth/usuario-logado";
 
@@ -26,7 +25,6 @@ async function fetchSession(): Promise<SessionUser | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,9 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     setUser(null);
     setUsuarioLogadoId(null);
-    router.replace("/login");
-    router.refresh();
-  }, [router]);
+    window.location.assign("/login");
+  }, []);
 
   const value = useMemo(
     () => ({

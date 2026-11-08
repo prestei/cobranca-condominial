@@ -227,17 +227,16 @@ export function SheetToggleRow({
   className,
 }: SheetToggleRowProps) {
   return (
-    <div className={`flex items-start justify-between gap-md ${className ?? ""}`}>
-      <div className="flex min-w-0 flex-1 flex-col gap-xs">
-        <label htmlFor={htmlFor} className="cursor-pointer text-label-lg text-on-surface">
-          {label}
-        </label>
-        {description ? <p className="text-body-sm text-on-surface-variant">{description}</p> : null}
-      </div>
-      <label htmlFor={htmlFor} className="shrink-0 cursor-pointer">
-        {children}
-      </label>
-    </div>
+    <label
+      htmlFor={htmlFor}
+      className={`flex cursor-pointer items-start justify-between gap-md ${className ?? ""}`}
+    >
+      <span className="flex min-w-0 flex-1 flex-col gap-xs">
+        <span className="text-label-lg text-on-surface">{label}</span>
+        {description ? <span className="text-body-sm text-on-surface-variant">{description}</span> : null}
+      </span>
+      <span className="shrink-0">{children}</span>
+    </label>
   );
 }
 

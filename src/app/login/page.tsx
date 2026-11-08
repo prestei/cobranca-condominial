@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/button";
 import { FormField, Input } from "@/components/input";
@@ -15,6 +15,11 @@ function LoginForm() {
   const [password, setPassword] = useState("12345");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [montado, setMontado] = useState(false);
+
+  useEffect(() => {
+    setMontado(true);
+  }, []);
 
   const destino = searchParams?.get("from") ?? null;
   const redirectTo = destino && destino.startsWith("/") && !destino.startsWith("//") ? destino : "/";
@@ -50,6 +55,14 @@ function LoginForm() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!montado) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] text-body-md text-on-surface-variant">
+        Carregando…
+      </div>
+    );
   }
 
   return (
