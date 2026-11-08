@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { FileText, FolderOpen, Scale } from "lucide-react";
+import { Flag, FileText, FolderOpen, Scale, UserRound } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
@@ -305,6 +305,7 @@ export function EncaminhamentoJuridicoSheet({
           <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
             <FormField label="Status">
               <Select
+                icon={Flag}
                 value={statusAtual}
                 onChange={(event) => setStatusPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
               >
@@ -394,6 +395,7 @@ export function EncaminhamentoJuridicoSheet({
                 <div className="mt-md flex flex-col gap-md">
                   <FormField label="Advogado responsável">
                     <Select
+                      icon={UserRound}
                       value={advogadoResponsavel}
                       onChange={(event) => setAdvogadoResponsavel(event.target.value)}
                     >

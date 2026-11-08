@@ -6,12 +6,16 @@ import type { ChangeEvent, FormEvent } from "react";
 import {
   Building2,
   CheckCircle2,
+  Flag,
+  Star,
   CreditCard,
   DoorOpen,
   Eye,
   FileText,
   Hash,
   Layers,
+  LayoutGrid,
+  Link2,
   Mail,
   MessageCircle,
   Pencil,
@@ -22,6 +26,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -459,8 +464,8 @@ export default function UnidadesPage() {
         nome: responsavelForm.nome.trim(),
         cpfCnpj: responsavelForm.cpfCnpj.trim(),
         tipoPessoa: responsavelForm.tipoPessoa,
-        telefone: responsavelForm.telefone.trim(),
-        whatsapp: responsavelForm.whatsapp.trim(),
+        telefone: digitosTelefone(responsavelForm.telefone),
+        whatsapp: digitosTelefone(responsavelForm.whatsapp),
         email: responsavelForm.email.trim(),
         endereco: "",
         observacoes: "",
@@ -686,8 +691,8 @@ export default function UnidadesPage() {
                 nome: responsavelForm.nome.trim(),
                 cpfCnpj: responsavelForm.cpfCnpj.trim(),
                 tipoPessoa: responsavelForm.tipoPessoa,
-                telefone: responsavelForm.telefone.trim(),
-                whatsapp: responsavelForm.whatsapp.trim(),
+                telefone: digitosTelefone(responsavelForm.telefone),
+                whatsapp: digitosTelefone(responsavelForm.whatsapp),
                 email: responsavelForm.email.trim(),
                 endereco: "",
                 observacoes: "",
@@ -1077,6 +1082,7 @@ export default function UnidadesPage() {
               <FormField label="Condomínio" htmlFor={`${formId}-condominio`} required error={errors.condominioId}>
                 <Select
                   id={`${formId}-condominio`}
+                  icon={Building2}
                   value={form.condominioId}
                   invalid={Boolean(errors.condominioId)}
                   onChange={(event) => setForm((current) => ({ ...current, condominioId: event.target.value }))}
@@ -1112,6 +1118,7 @@ export default function UnidadesPage() {
                 <FormField label="Tipo" htmlFor={`${formId}-tipo`} required error={errors.tipo}>
                   <Select
                     id={`${formId}-tipo`}
+                    icon={LayoutGrid}
                     value={form.tipo}
                     invalid={Boolean(errors.tipo)}
                     onChange={(event) => setForm((current) => ({ ...current, tipo: event.target.value }))}
@@ -1127,6 +1134,7 @@ export default function UnidadesPage() {
                 <FormField label="Situação cadastral" htmlFor={`${formId}-status`} required error={errors.status}>
                   <Select
                     id={`${formId}-status`}
+                    icon={Flag}
                     value={form.status}
                     invalid={Boolean(errors.status)}
                     onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
@@ -1142,6 +1150,7 @@ export default function UnidadesPage() {
               <FormField label="Situação de cobrança" htmlFor={`${formId}-situacao`} error={errors.situacao}>
                 <Select
                   id={`${formId}-situacao`}
+                  icon={Flag}
                   value={form.situacao}
                   invalid={Boolean(errors.situacao)}
                   onChange={(event) =>
@@ -1171,6 +1180,7 @@ export default function UnidadesPage() {
                   <FormField label="Origem" htmlFor={`${formId}-modo-resp`}>
                     <Select
                       id={`${formId}-modo-resp`}
+                      icon={UserRound}
                       value={responsavelForm.modo}
                       onChange={(event) =>
                         setResponsavelForm((current) => ({
@@ -1187,6 +1197,7 @@ export default function UnidadesPage() {
                     <FormField label="Responsável" htmlFor={`${formId}-resp`} error={errorsResponsavel.responsavelId}>
                       <Select
                         id={`${formId}-resp`}
+                        icon={UserRound}
                         value={responsavelForm.responsavelId}
                         invalid={Boolean(errorsResponsavel.responsavelId)}
                         onChange={(event) =>
@@ -1229,6 +1240,7 @@ export default function UnidadesPage() {
                         <FormField label="Tipo de pessoa" htmlFor={`${formId}-tipo-pessoa-resp`}>
                           <Select
                             id={`${formId}-tipo-pessoa-resp`}
+                            icon={LayoutGrid}
                             value={responsavelForm.tipoPessoa}
                             onChange={(event) =>
                               setResponsavelForm((current) => ({ ...current, tipoPessoa: event.target.value }))
@@ -1247,10 +1259,15 @@ export default function UnidadesPage() {
                           <Input
                             id={`${formId}-tel-resp`}
                             icon={Phone}
+                            inputMode="tel"
+                            autoComplete="tel"
                             placeholder="(00) 00000-0000"
                             value={responsavelForm.telefone}
                             onChange={(event) =>
-                              setResponsavelForm((current) => ({ ...current, telefone: event.target.value }))
+                              setResponsavelForm((current) => ({
+                                ...current,
+                                telefone: formatarTelefone(event.target.value),
+                              }))
                             }
                           />
                         </FormField>
@@ -1258,10 +1275,15 @@ export default function UnidadesPage() {
                           <Input
                             id={`${formId}-wa-resp`}
                             icon={MessageCircle}
+                            inputMode="tel"
+                            autoComplete="tel"
                             placeholder="(00) 00000-0000"
                             value={responsavelForm.whatsapp}
                             onChange={(event) =>
-                              setResponsavelForm((current) => ({ ...current, whatsapp: event.target.value }))
+                              setResponsavelForm((current) => ({
+                                ...current,
+                                whatsapp: formatarTelefone(event.target.value),
+                              }))
                             }
                           />
                         </FormField>
@@ -1282,6 +1304,7 @@ export default function UnidadesPage() {
                   <FormField label="Vínculo" htmlFor={`${formId}-tipo-vinculo`} error={errorsResponsavel.tipoVinculo}>
                     <Select
                       id={`${formId}-tipo-vinculo`}
+                      icon={Link2}
                       value={responsavelForm.tipoVinculo}
                       invalid={Boolean(errorsResponsavel.tipoVinculo)}
                       onChange={(event) =>
@@ -1298,6 +1321,7 @@ export default function UnidadesPage() {
                   <FormField label="Responsável financeiro principal" htmlFor={`${formId}-principal-resp`}>
                     <Select
                       id={`${formId}-principal-resp`}
+                      icon={Star}
                       value={responsavelForm.principal ? "sim" : "nao"}
                       onChange={(event) =>
                         setResponsavelForm((current) => ({ ...current, principal: event.target.value === "sim" }))

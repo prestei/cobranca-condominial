@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
+import { Calendar, Flag } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { FormField, Input, Select } from "@/components/input";
@@ -238,6 +239,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
           <p className="text-label-sm text-on-surface">Registrar pagamento</p>
           <FormField label="Parcela">
             <Select
+              icon={Calendar}
               value={parcelaPagamentoId}
               onChange={(event) => setParcelaPagamentoId(event.target.value)}
             >
@@ -270,6 +272,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
           </FormField>
           <FormField label="Confirmação">
             <Select
+              icon={Flag}
               value={confirmacaoPagamento}
               onChange={(event) => setConfirmacaoPagamento(event.target.value)}
             >

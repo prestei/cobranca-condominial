@@ -120,6 +120,8 @@ type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
   /** Ex.: «Condomínio» → botão mostra «Condomínio: Todos». */
   prefixLabel?: string;
+  /** Ícone à esquerda (formulários de Sheet). */
+  icon?: LucideIcon;
 };
 
 type OpcaoSelect = {
@@ -165,6 +167,7 @@ export function Select({
   className,
   invalid,
   prefixLabel,
+  icon,
   children,
   value,
   defaultValue,
@@ -331,7 +334,7 @@ export function Select({
         }
         aria-required={required || undefined}
         aria-invalid={invalid || undefined}
-        className={`${formControlBaseClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${paddingCampo} ${controlStateClass(invalid)} ${className ?? ""}`}
+        className={`${formControlBaseClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${icon ? paddingComIcone : paddingCampo} ${controlStateClass(invalid)} ${className ?? ""}`}
         onClick={() => (aberto ? fechar() : abrir())}
       >
         <span className={`truncate ${selecionada ? "" : "text-on-surface-variant"}`}>
@@ -341,6 +344,13 @@ export function Select({
         </span>
       </button>
       {name ? <input type="hidden" name={name} value={valor} /> : null}
+      {icon ? (
+        <Icon
+          icon={icon}
+          size="sm"
+          className={`${iconeEsquerdaClassName} peer-disabled:opacity-60`}
+        />
+      ) : null}
       <Icon
         icon={ChevronDown}
         size="sm"

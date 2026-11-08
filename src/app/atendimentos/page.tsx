@@ -6,9 +6,13 @@ import type { FormEvent } from "react";
 import {
   Building2,
   CalendarClock,
+  Flag,
+  Reply,
   ClipboardList,
   DoorOpen,
   FileText,
+  LayoutGrid,
+  Phone,
 } from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
 import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
@@ -261,6 +265,7 @@ export default function AtendimentosPage() {
                   <FormField label="Condomínio" htmlFor={`${formId}-condominio`} required error={errors.condominioId}>
                     <Select
                       id={`${formId}-condominio`}
+                      icon={Building2}
                       value={form.condominioId}
                       invalid={Boolean(errors.condominioId)}
                       onChange={(event) => escolherCondominio(event.target.value)}
@@ -276,6 +281,7 @@ export default function AtendimentosPage() {
                   <FormField label="Unidade" htmlFor={`${formId}-unidade`} required error={errors.unidadeId}>
                     <Select
                       id={`${formId}-unidade`}
+                      icon={DoorOpen}
                       value={form.unidadeId}
                       invalid={Boolean(errors.unidadeId)}
                       disabled={!form.condominioId}
@@ -304,6 +310,7 @@ export default function AtendimentosPage() {
                   <FormField label="Canal" htmlFor={`${formId}-canal`} required error={errors.canal}>
                     <Select
                       id={`${formId}-canal`}
+                      icon={Phone}
                       value={form.canal}
                       invalid={Boolean(errors.canal)}
                       onChange={(event) => setForm((current) => ({ ...current, canal: event.target.value }))}
@@ -319,6 +326,7 @@ export default function AtendimentosPage() {
                   <FormField label="O condômino respondeu?" htmlFor={`${formId}-respondeu`} required error={errors.respondeu}>
                     <Select
                       id={`${formId}-respondeu`}
+                      icon={Reply}
                       value={form.respondeu}
                       invalid={Boolean(errors.respondeu)}
                       onChange={(event) =>
@@ -338,6 +346,7 @@ export default function AtendimentosPage() {
                     <FormField label="Motivo da pendência" htmlFor={`${formId}-motivo`} required error={errors.motivo}>
                       <Select
                         id={`${formId}-motivo`}
+                        icon={LayoutGrid}
                         value={form.motivo}
                         invalid={Boolean(errors.motivo)}
                         onChange={(event) => setForm((current) => ({ ...current, motivo: event.target.value }))}
@@ -359,6 +368,7 @@ export default function AtendimentosPage() {
                   <FormField label="Situação" htmlFor={`${formId}-status`} required error={errors.status}>
                     <Select
                       id={`${formId}-status`}
+                      icon={Flag}
                       value={form.status}
                       invalid={Boolean(errors.status)}
                       onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
-import { Calendar, CalendarClock, FileText } from "lucide-react";
+import { Calendar, CalendarClock, FileText, Flag } from "lucide-react";
 import { Button } from "@/components/button";
 import { FormField, Input, Select, Textarea } from "@/components/input";
 import { Icon } from "@/components/icon";
@@ -138,6 +138,7 @@ export function AtendimentoSituacaoRetornoSheet({
               <FormField label="Situação" htmlFor={`${formId}-status`} required>
                 <Select
                   id={`${formId}-status`}
+                  icon={Flag}
                   value={status}
                   onChange={(event) => setStatus(event.target.value)}
                 >

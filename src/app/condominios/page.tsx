@@ -1157,6 +1157,7 @@ export default function CondominiosPage() {
                       <FormField label="Estado" htmlFor={`${formId}-estado`}>
                         <Select
                           id={`${formId}-estado`}
+                          icon={MapPin}
                           value={form.estado}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, estado: event.target.value }))}

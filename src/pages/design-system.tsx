@@ -6,6 +6,7 @@ import {
   FileText,
   Hash,
   HelpCircle,
+  LayoutGrid,
   Inbox,
   KeyRound,
   Mail,
@@ -1137,7 +1138,7 @@ export default function DesignSystemPage() {
                 </FormField>
               </div>
               <FormField label="Área de interesse" htmlFor="ds-subject">
-                <Select id="ds-subject" name="subject" defaultValue="">
+                <Select id="ds-subject" name="subject" icon={LayoutGrid} defaultValue="">
                   <option value="" disabled>
                     Selecione
                   </option>

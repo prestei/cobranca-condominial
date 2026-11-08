@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Shuffle } from "lucide-react";
 import { Button } from "@/components/button";
 import { FormField, Select, Switch } from "@/components/input";
 import { SheetToggleRow } from "@/components/sheet";
@@ -190,6 +191,7 @@ export function DistribuicaoAutomaticaConfigForm({
       <FormField label="Regra de distribuição" htmlFor={`${idsPrefix}-estrategia`}>
         <Select
           id={`${idsPrefix}-estrategia`}
+          icon={Shuffle}
           value={estrategia}
           className="h-control! w-full bg-surface-card"
           disabled={!ativada}

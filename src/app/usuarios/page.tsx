@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Briefcase,
+  Power,
   KeyRound,
   Lock,
   Mail,
@@ -76,6 +77,7 @@ import {
 import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { usePermissao } from "@/hooks/use-permissao";
 import { codigoReDoUsuario, usuarioEhAtendente } from "@/lib/colaboradores/re";
+import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
 import { idsCondominiosDoAdvogado } from "@/lib/usuarios/advogado-condominios";
 
 type SortKey = "nome" | "codigoRe" | "email" | "telefone" | "cargo" | "ativo";
@@ -259,7 +261,7 @@ export default function UsuariosPage() {
       codigoReDoUsuario(item) ?? "—",
       item.codigo,
       item.email || "—",
-      item.telefone.trim() || "—",
+      item.telefone.trim() ? formatarTelefone(item.telefone) : "—",
       nomeCargo(item.cargoId),
       rotuloSituacao(item),
     ]);
@@ -314,7 +316,7 @@ export default function UsuariosPage() {
       cargoId: String(item.cargoId),
       codigo: item.codigo,
       nome: item.nome,
-      telefone: item.telefone,
+      telefone: formatarTelefone(item.telefone),
       email: item.email,
       senha: "",
       ativo: item.ativo !== false,
@@ -448,7 +450,7 @@ export default function UsuariosPage() {
       codigo,
       cargoId: Number(form.cargoId),
       nome,
-      telefone: form.telefone.trim(),
+      telefone: digitosTelefone(form.telefone),
       email,
       ativo: form.ativo,
       ...(senha ? { senha } : {}),
@@ -564,7 +566,9 @@ export default function UsuariosPage() {
               </TableCell>
               <TableCell>
                 <div className="min-w-0">
-                  <p className="text-on-surface">{item.telefone.trim() || "—"}</p>
+                  <p className="text-on-surface">
+                    {item.telefone.trim() ? formatarTelefone(item.telefone) : "—"}
+                  </p>
                   <p className="truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
                 </div>
               </TableCell>
@@ -617,7 +621,9 @@ export default function UsuariosPage() {
                 </div>
                 <div className="min-w-0 text-end">
                   <p className="text-label-sm uppercase text-on-surface-variant">Contato</p>
-                  <p className="text-body-md text-on-surface">{item.telefone.trim() || "—"}</p>
+                  <p className="text-body-md text-on-surface">
+                    {item.telefone.trim() ? formatarTelefone(item.telefone) : "—"}
+                  </p>
                   <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
                 </div>
               </div>
@@ -767,6 +773,7 @@ export default function UsuariosPage() {
               <FormField label="Cargo" htmlFor={`${formId}-cargo`} required error={errors.cargoId}>
                 <Select
                   id={`${formId}-cargo`}
+                  icon={Briefcase}
                   value={form.cargoId}
                   invalid={Boolean(errors.cargoId)}
                   onChange={(event) =>
@@ -817,9 +824,16 @@ export default function UsuariosPage() {
                   <Input
                     id={`${formId}-telefone`}
                     icon={Phone}
+                    inputMode="tel"
+                    autoComplete="tel"
                     placeholder="(00) 00000-0000"
                     value={form.telefone}
-                    onChange={(event) => setForm((current) => ({ ...current, telefone: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        telefone: formatarTelefone(event.target.value),
+                      }))
+                    }
                   />
                 </FormField>
                 <FormField label="E-mail" htmlFor={`${formId}-email`} required error={errors.email}>
@@ -856,6 +870,7 @@ export default function UsuariosPage() {
               <FormField label="Situação" htmlFor={`${formId}-situacao`}>
                 <Select
                   id={`${formId}-situacao`}
+                  icon={Power}
                   value={form.ativo ? "ativo" : "inativo"}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, ativo: event.target.value === "ativo" }))

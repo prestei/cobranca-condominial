@@ -7,9 +7,11 @@ import {
   ClipboardList,
   CreditCard,
   DoorOpen,
+  LayoutGrid,
   FileText,
   Link2,
   Pencil,
+  Star,
   Plus,
   Receipt,
   Trash2,
@@ -446,6 +448,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
               <FormField label="Origem" htmlFor={`${formId}-modo`}>
                 <Select
                   id={`${formId}-modo`}
+                  icon={UserRound}
                   value={modoNovoResponsavel ? "novo" : "existente"}
                   onChange={(event) => setModoNovoResponsavel(event.target.value === "novo")}
                 >
@@ -474,6 +477,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   <FormField label="Tipo de pessoa" htmlFor={`${formId}-tipo-pessoa`}>
                     <Select
                       id={`${formId}-tipo-pessoa`}
+                      icon={LayoutGrid}
                       value={vinculoForm.tipoPessoa}
                       onChange={(event) => setVinculoForm((c) => ({ ...c, tipoPessoa: event.target.value }))}
                     >
@@ -489,6 +493,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                 <FormField label="Responsável" htmlFor={`${formId}-resp`} required>
                   <Select
                     id={`${formId}-resp`}
+                    icon={UserRound}
                     value={vinculoForm.responsavelId}
                     onChange={(event) => setVinculoForm((c) => ({ ...c, responsavelId: event.target.value }))}
                   >
@@ -504,6 +509,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
               <FormField label="Vínculo" htmlFor={`${formId}-tipo-vinculo`} required>
                 <Select
                   id={`${formId}-tipo-vinculo`}
+                  icon={Link2}
                   value={vinculoForm.tipoVinculo}
                   onChange={(event) => setVinculoForm((c) => ({ ...c, tipoVinculo: event.target.value }))}
                 >
@@ -517,6 +523,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
               <FormField label="Responsável financeiro principal" htmlFor={`${formId}-principal`}>
                 <Select
                   id={`${formId}-principal`}
+                  icon={Star}
                   value={vinculoForm.principal ? "sim" : "nao"}
                   onChange={(event) => setVinculoForm((c) => ({ ...c, principal: event.target.value === "sim" }))}
                 >

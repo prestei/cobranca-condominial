@@ -9,7 +9,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | Componente | Arquivo | Uso |
 | --- | --- | --- |
 | `Button` | `button.tsx` | Ações. Variantes: `primary`, `secondary`, `surface` (toolbar: Importar, Exportar, Limpar), `outline`, `ghost`, `critical`. Tamanhos: `sm`, `md`, `lg`. Filtrar em `FilterBar` usa `primary`. |
-| `Input`, `Textarea`, `Select` | `input.tsx` | Campos de formulário compactos. Em Sheets de cadastro, `Input` e `Textarea` aceitam `icon?: LucideIcon` à esquerda; `Select` só exibe `ChevronDown` à direita (sem ícone à esquerda). FilterBar sem ícone. O `Select` abre com o campo Buscar. Prop `invalid` para erro. |
+| `Input`, `Textarea`, `Select` | `input.tsx` | Campos de formulário compactos. Em Sheets de cadastro, `Input`, `Textarea` e `Select` aceitam `icon?: LucideIcon` à esquerda (o `Select` mantém também o `ChevronDown` à direita). **FilterBar** e painéis de filtro **sem** ícone interno. O `Select` abre com o campo Buscar. Prop `invalid` para erro. |
 | `PeriodInput` | `period-input.tsx` | Um campo de período: atalhos (hoje, ontem, 7 dias, 30 dias, este mês, todos) e intervalo personalizado no mesmo controle. |
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
@@ -64,7 +64,7 @@ Barras de rolagem finas e discretas em todo o sistema (`globals.css`, camada `ba
 
 ### Ícone no campo
 
-- **Formulários de Sheet (cadastro/edição):** `Input` e `Textarea` aceitam `icon?: LucideIcon`, exibido à esquerda do valor (como em `src/app/usuarios/page.tsx`). Escolha ícones coerentes com o campo (`Building2`, `Hash`, `Mail`, `Phone`, `Lock`, `MapPin`, `UserRound`, `Briefcase`, `Calendar`, `FileText`, etc.). **`Select` não usa `icon`** — apenas o `ChevronDown` à direita.
+- **Formulários de Sheet (cadastro/edição):** `Input`, `Textarea` e `Select` aceitam `icon?: LucideIcon`, exibido à esquerda do valor (como em `src/app/usuarios/page.tsx`). Escolha ícones coerentes com o campo (`Building2`, `Hash`, `Mail`, `Phone`, `Lock`, `MapPin`, `UserRound`, `Briefcase`, `Flag`, `Power`, `Star`, `Reply`, `Calendar`, `FileText`, `DoorOpen`, `Link2`, `LayoutGrid`, etc.). No `Select`, o `ChevronDown` à direita permanece.
 - **FilterBar e painéis de filtro:** busca e selects **sem** `icon` — só rótulo acima do campo.
 - **Dicas sob o campo:** use `SheetHelpText` (ícone Info + texto), não `<p className="text-body-sm…">` solto.
 

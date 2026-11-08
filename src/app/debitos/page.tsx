@@ -7,11 +7,13 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  Flag,
   ClipboardList,
   Clock,
   DoorOpen,
   FileText,
   Hash,
+  Layers,
   Link2,
   Pencil,
   Percent,
@@ -1184,6 +1186,7 @@ export default function DebitosPage() {
                   <FormField label="Condomínio" htmlFor={`${formId}-condominio`} required error={errors.condominioId}>
                     <Select
                       id={`${formId}-condominio`}
+                      icon={Building2}
                       value={form.condominioId}
                       invalid={Boolean(errors.condominioId)}
                       onChange={(event) =>
@@ -1201,6 +1204,7 @@ export default function DebitosPage() {
                   <FormField label="Unidade" htmlFor={`${formId}-unidade`} required error={errors.unidadeId}>
                     <Select
                       id={`${formId}-unidade`}
+                      icon={DoorOpen}
                       value={form.unidadeId}
                       invalid={Boolean(errors.unidadeId)}
                       onChange={(event) => setForm((current) => ({ ...current, unidadeId: event.target.value }))}
@@ -1233,6 +1237,7 @@ export default function DebitosPage() {
                   <FormField label="Origem" htmlFor={`${formId}-origem`}>
                     <Select
                       id={`${formId}-origem`}
+                      icon={Layers}
                       value={form.origem}
                       onChange={(event) => setForm((current) => ({ ...current, origem: event.target.value }))}
                     >
@@ -1270,6 +1275,7 @@ export default function DebitosPage() {
                   <FormField label="Situação" htmlFor={`${formId}-status`} required error={errors.status}>
                     <Select
                       id={`${formId}-status`}
+                      icon={Flag}
                       value={form.status}
                       invalid={Boolean(errors.status)}
                       onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}

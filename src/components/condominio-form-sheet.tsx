@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useId, useState } from "react";
-import { Building, Building2, DoorOpen, FileText, Hash, MapPin } from "lucide-react";
+import { Building, Building2, DoorOpen, FileText, Hash, MapPin, Power } from "lucide-react";
 import { FormField, Input, Select, Textarea } from "@/components/input";
 import {
   Sheet,
@@ -228,6 +228,7 @@ export function CondominioFormSheet({
               <FormField label="Situação na carteira" htmlFor={`${formId}-situation`}>
                 <Select
                   id={`${formId}-situation`}
+                  icon={Power}
                   name="situation"
                   value={values.situation}
                   onChange={(event) =>
