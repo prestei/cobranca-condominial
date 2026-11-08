@@ -225,6 +225,8 @@ export type PagamentoAcordo = {
 
 export type Importacao = {
   id: number;
+  /** UUID do envio (Ticket 11 — rastreio ponta a ponta). */
+  processoId?: string;
   origem: string;
   tipo: string;
   arquivo: string;
@@ -232,9 +234,17 @@ export type Importacao = {
   quantidadeRegistros: string;
   quantidadeImportados: string;
   quantidadeAtualizados: string;
+  quantidadeIgnorados?: string;
   quantidadeErros: string;
   observacaoInterna: string;
+  /** Colaborador que iniciou o envio. */
   usuarioId: number;
+  /** Momento do recebimento do arquivo. */
+  iniciadoEm?: string;
+  /** Colaborador que aprovou a gravação (quando houver). */
+  usuarioAprovacaoId?: number | null;
+  aprovadoEm?: string | null;
+  /** Data de referência na listagem (aprovação ou início). */
   dataImportacao: string;
 };
 
@@ -328,8 +338,20 @@ export const statusEncaminhamentoJuridico = [
 ] as const;
 export const confirmacaoPagamentoAcordo = ["Informado", "Confirmado"] as const;
 export const statusParcelaAcordo = ["Prevista", "Vencida", "Quitada"] as const;
-export const tiposImportacao = ["debitos", "responsaveis", "unidades"] as const;
-export const statusImportacao = ["Processando", "Concluida", "Erro", "Cancelada"] as const;
+export const tiposImportacao = ["debitos", "responsaveis", "unidades", "condominios"] as const;
+export const statusImportacao = [
+  "Em processamento",
+  "Aguardando conferencia",
+  "Aguardando aprovacao",
+  "Aprovada",
+  "Concluida",
+  "Concluida parcialmente",
+  "Cancelada",
+  "Rejeitada",
+  "Falhou",
+  "Processando",
+  "Erro",
+] as const;
 export const acoesAuditoria = ["INSERT", "UPDATE", "DELETE"] as const;
 
 const condominiosIniciais: Condominio[] = condominiosBaseTeste;
@@ -706,6 +728,35 @@ export function resetCadastrosParaTestes() {
   state = structuredClone(cadastrosSnapshotParaTestes);
   atualizarCadastrosSnapshot();
   emit();
+}
+
+/**
+ * Executa mutações no catálogo em memória de forma atômica (rollback em falha).
+ * Contrato espelha `prisma.$transaction` até a persistência PostgreSQL substituir o protótipo.
+ */
+export function executarTransacaoCatalogo<T>(fn: () => T): T {
+  const snapshot = structuredClone(state);
+  try {
+    return fn();
+  } catch (error) {
+    state = snapshot;
+    atualizarCadastrosSnapshot();
+    emit();
+    throw error;
+  }
+}
+
+/** Variante assíncrona de {@link executarTransacaoCatalogo}. */
+export async function executarTransacaoCatalogoAsync<T>(fn: () => Promise<T>): Promise<T> {
+  const snapshot = structuredClone(state);
+  try {
+    return await fn();
+  } catch (error) {
+    state = snapshot;
+    atualizarCadastrosSnapshot();
+    emit();
+    throw error;
+  }
 }
 
 export function registrarAuditoria(

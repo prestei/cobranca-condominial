@@ -54,7 +54,8 @@ export const MODULOS_PERMISSAO = [
   {
     id: "importacoes",
     label: "Importações",
-    description: "Enviar e acompanhar arquivos de débitos e cadastros.",
+    description:
+      "Histórico (consultar), envio e prévia (cadastrar), correção na conferência e aprovação para gravar (alterar).",
     acoes: ["ler", "criar", "editar", "excluir"] as const,
   },
   {

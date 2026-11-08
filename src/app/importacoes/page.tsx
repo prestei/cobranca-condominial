@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, FileUp, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, CheckCircle2, Eye, FileUp, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -20,6 +21,7 @@ import {
   SheetClose,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetFooterForm,
   SheetForm,
   SheetHeader,
@@ -54,44 +56,68 @@ import { usePermissao } from "@/hooks/use-permissao";
 import {
   formatarData,
   nomeUsuario,
-  origensDebito,
-  registrarAuditoria,
-  setImportacoes,
-  statusImportacao,
   tiposImportacao,
   type Importacao,
 } from "@/data/catalogo";
-import type { PreviewImportacaoDebitos, ResultadoConfirmacaoDebitos } from "@/lib/importacoes/debitos-service";
-import { FORMATO_IMPORTACAO_DEBITOS_V1 } from "@/lib/importacoes/importar-debitos-planilha";
+import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
+  configWizardImportacao,
+  MODULOS_WIZARD_IMPORTACAO,
+  moduloWizardValido,
+  type ModuloWizardImportacao,
+} from "@/lib/importacoes/config-wizard-importacao";
+import {
+  aplicarImportacaoExcluida,
   aplicarImportacaoSalva,
+  mesclarCondominiosImportacao,
   mesclarDebitosDoServidor,
+  mesclarResponsaveisImportacao,
+  mesclarUnidadesImportacao,
   sincronizarImportacoesDoServidor,
 } from "@/lib/importacoes/sync-cliente";
+import { ImportacaoPreVisualizacao } from "@/components/importacao-pre-visualizacao/importacao-pre-visualizacao";
+import { ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
+import {
+  ImportacaoAprovacao,
+  podeEnviarAprovacaoImportacao,
+} from "@/components/importacao-aprovacao/importacao-aprovacao";
+import { ImportacaoResultado } from "@/components/importacao-aprovacao/importacao-resultado";
+import { linhaSeraGravada } from "@/lib/importacao-centro/pre-visualizacao";
+import { agoraIso } from "@/data/catalogo";
+import { ImportacaoHistoricoDetalheSheet } from "@/components/importacao-historico/importacao-historico-detalhe-sheet";
+import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-auditoria";
+import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
+import {
+  SITUACOES_IMPORTACAO,
+  badgeVariantSituacaoImportacao,
+  normalizarSituacaoImportacao,
+  rotuloSituacaoImportacao,
+} from "@/lib/importacao-centro/situacao-importacao";
 
-const etapas = ["Arquivo", "Prévia", "Resultado"] as const;
-const rotuloTipo: Record<string, string> = { debitos: "Débitos", responsaveis: "Responsáveis", unidades: "Unidades" };
-const rotuloStatus: Record<string, string> = { Processando: "Processando", Concluida: "Concluída", Erro: "Erro", Cancelada: "Cancelada" };
-const badgeStatus: Record<string, "primary" | "success" | "error" | "secondary"> = {
-  Processando: "primary",
-  Concluida: "success",
-  Erro: "error",
-  Cancelada: "secondary",
+const etapas = ["Arquivo", "Prévia", "Aprovação", "Resultado"] as const;
+const rotuloTipo: Record<string, string> = {
+  debitos: "Débitos",
+  condominios: "Condomínios",
+  responsaveis: "Responsáveis",
+  unidades: "Unidades",
 };
-const rotuloSituacaoLinha: Record<string, string> = {
-  novo: "Novo",
-  atualizacao: "Atualização",
-  duplicado: "Duplicado",
-  erro: "Erro",
-  manual_protegido: "Manual protegido",
-};
-
+function rotuloStatusBadge(status: string) {
+  return rotuloSituacaoImportacao(status);
+}
+function variantStatusBadge(status: string) {
+  return badgeVariantSituacaoImportacao(status);
+}
 type SortKey = "data" | "arquivo" | "status";
 
 export default function ImportacoesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user: sessao } = useAuth();
   const { pode } = usePermissao();
+  const podeIniciarImportacao = pode("importacoes", "criar");
+  const podeAprovarImportacao = pode("importacoes", "editar");
+  const podeCorrigirPrevia = pode("importacoes", "editar");
   const formId = useId();
   const arquivoRef = useRef<HTMLInputElement>(null);
   const cadastros = useCadastros();
@@ -107,14 +133,24 @@ export default function ImportacoesPage() {
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [confirmImportOpen, setConfirmImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Importacao | null>(null);
+  const [detalheOpen, setDetalheOpen] = useState(false);
+  const [detalheCarregando, setDetalheCarregando] = useState(false);
+  const [detalheImportacao, setDetalheImportacao] = useState<ImportacaoConsulta | null>(null);
+  const [retomadaDetalhe, setRetomadaDetalhe] = useState<RetomadaImportacaoHistorico | null>(null);
+  const [retomandoDetalhe, setRetomandoDetalhe] = useState(false);
+  const [confirmacaoMarcada, setConfirmacaoMarcada] = useState(false);
+  const [cienciaParcial, setCienciaParcial] = useState(false);
+  const [confirmacaoJaEnviada, setConfirmacaoJaEnviada] = useState(false);
   const [step, setStep] = useState(0);
   const [origem, setOrigem] = useState("");
   const [nomeArquivo, setNomeArquivo] = useState("");
-  const [conteudoArquivo, setConteudoArquivo] = useState("");
-  const [preview, setPreview] = useState<PreviewImportacaoDebitos | null>(null);
-  const [resultado, setResultado] = useState<ResultadoConfirmacaoDebitos | null>(null);
+  const [processoId, setProcessoId] = useState("");
+  const [hashRecebimento, setHashRecebimento] = useState("");
+  const [moduloWizard, setModuloWizard] = useState<ModuloWizardImportacao>("debitos");
+  const [preview, setPreview] = useState<PreviewImportacaoModulo | null>(null);
+  const [dataHoraPrevia, setDataHoraPrevia] = useState("");
+  const [resultado, setResultado] = useState<ResultadoConfirmacaoModulo | null>(null);
   const [processando, setProcessando] = useState(false);
   const [erroOrigem, setErroOrigem] = useState("");
   const [erroArquivo, setErroArquivo] = useState("");
@@ -134,10 +170,25 @@ export default function ImportacoesPage() {
     void recarregarImportacoes();
   }, [recarregarImportacoes]);
 
+  const configModulo = useMemo(() => configWizardImportacao(moduloWizard), [moduloWizard]);
+
+  useEffect(() => {
+    const moduloParam = searchParams.get("modulo");
+    const abrir = searchParams.get("abrir") === "1";
+    if (moduloParam && moduloWizardValido(moduloParam) && abrir && pode("importacoes", "criar")) {
+      setModuloWizard(moduloParam);
+      resetWizardForModulo(moduloParam);
+      setSheetOpen(true);
+      router.replace("/importacoes", { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abre uma vez via query string
+  }, [searchParams, pode, router]);
+
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = importacoes
     .filter((item) => {
-      const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
+      const matchesStatus =
+        appliedStatus === "todos" || normalizarSituacaoImportacao(item.status) === normalizarSituacaoImportacao(appliedStatus);
       const matchesTipo = appliedTipo === "todos" || item.tipo === appliedTipo;
       const haystack = `${item.arquivo} ${item.origem} ${item.observacaoInterna}`.toLocaleLowerCase("pt-BR");
       return matchesStatus && matchesTipo && (query.length === 0 || haystack.includes(query));
@@ -152,8 +203,11 @@ export default function ImportacoesPage() {
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const concluidas = visible.filter((item) => item.status === "Concluida").length;
-  const comErro = visible.filter((item) => item.status === "Erro").length;
+  const concluidas = visible.filter((item) => {
+    const s = normalizarSituacaoImportacao(item.status);
+    return s === "Concluida" || s === "Concluida parcialmente" || s === "Aprovada";
+  }).length;
+  const comErro = visible.filter((item) => normalizarSituacaoImportacao(item.status) === "Falhou").length;
   const metricValor = (n: number) => String(n).padStart(2, "0");
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -191,19 +245,30 @@ export default function ImportacoesPage() {
     setPage(1);
   }
 
-  function resetWizard() {
+  function resetWizardForModulo(modulo: ModuloWizardImportacao) {
+    setModuloWizard(modulo);
     setStep(0);
-    setOrigem("");
+    const cfg = configWizardImportacao(modulo);
+    setOrigem(cfg.origemPadraoCarteira);
     setNomeArquivo("");
-    setConteudoArquivo("");
+    setProcessoId("");
+    setHashRecebimento("");
     setPreview(null);
+    setDataHoraPrevia("");
     setResultado(null);
     setErroOrigem("");
     setErroArquivo("");
+    setConfirmacaoMarcada(false);
+    setCienciaParcial(false);
+    setConfirmacaoJaEnviada(false);
   }
 
-  function openCreate() {
-    resetWizard();
+  function resetWizard() {
+    resetWizardForModulo(moduloWizard);
+  }
+
+  function openCreate(modulo: ModuloWizardImportacao = "debitos") {
+    resetWizardForModulo(modulo);
     setSheetOpen(true);
   }
 
@@ -221,23 +286,143 @@ export default function ImportacoesPage() {
     resetWizard();
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    registrarAuditoria({
-      entidade: "import",
-      registroId: String(deleteTarget.id),
-      acao: "DELETE",
-      dadosAnteriores: deleteTarget.arquivo,
-      dadosNovos: "",
-      camposAlterados: "arquivo",
+  async function excluirImportacaoHistorico(id: number) {
+    const response = await fetch(`/api/importacoes/${id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
     });
-    setImportacoes((current) => current.filter((item) => item.id !== deleteTarget.id));
-    toast({ variant: "success", title: "Importação excluída" });
-    setDeleteTarget(null);
+    const body = (await response.json()) as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      throw new Error(body.error ?? "Não foi possível excluir.");
+    }
+    aplicarImportacaoExcluida(id);
+    if (detalheImportacao?.id === id) {
+      setDetalheOpen(false);
+      setDetalheImportacao(null);
+      setRetomadaDetalhe(null);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      await excluirImportacaoHistorico(deleteTarget.id);
+      toast({ variant: "success", title: "Importação excluída" });
+      setDeleteTarget(null);
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Não foi possível excluir",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+      });
+    }
+  }
+
+  async function abrirDetalhe(item: Importacao) {
+    setDetalheOpen(true);
+    setDetalheCarregando(true);
+    setDetalheImportacao(null);
+    setRetomadaDetalhe(null);
+    try {
+      const response = await fetch(`/api/importacoes/${item.id}`, { credentials: "same-origin" });
+      const body = (await response.json()) as {
+        importacao?: ImportacaoConsulta;
+        retomada?: RetomadaImportacaoHistorico;
+        error?: string;
+      };
+      if (response.ok && body.importacao) {
+        setDetalheImportacao(body.importacao);
+        setRetomadaDetalhe(body.retomada ?? null);
+      } else {
+        toast({ variant: "error", title: "Detalhe indisponível", description: body.error ?? "Tente novamente." });
+        setDetalheOpen(false);
+      }
+    } catch {
+      toast({ variant: "error", title: "Erro de rede", description: "Não foi possível carregar o histórico." });
+      setDetalheOpen(false);
+    } finally {
+      setDetalheCarregando(false);
+    }
+  }
+
+  async function retomarImportacaoDoDetalhe() {
+    if (!retomadaDetalhe?.disponivel || !moduloWizardValido(retomadaDetalhe.modulo)) return;
+    setRetomandoDetalhe(true);
+    try {
+      const cfg = configWizardImportacao(retomadaDetalhe.modulo);
+      setModuloWizard(retomadaDetalhe.modulo);
+      setOrigem(retomadaDetalhe.origem);
+      setNomeArquivo(retomadaDetalhe.arquivo);
+      setProcessoId(retomadaDetalhe.processoId);
+      setHashRecebimento(retomadaDetalhe.hashArquivo);
+      setPreview(null);
+      setResultado(null);
+      setConfirmacaoMarcada(false);
+      setCienciaParcial(false);
+      setConfirmacaoJaEnviada(false);
+      setErroOrigem("");
+      setErroArquivo("");
+      setDetalheOpen(false);
+
+      const response = await fetch(`${cfg.apiBase}/preview`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origem: retomadaDetalhe.origem,
+          arquivo: retomadaDetalhe.arquivo,
+          processoId: retomadaDetalhe.processoId,
+          hashArquivo: retomadaDetalhe.hashArquivo,
+        }),
+      });
+      const body = (await response.json()) as { preview?: PreviewImportacaoModulo; error?: string };
+      if (!response.ok || !body.preview) {
+        toast({
+          variant: "error",
+          title: "Não foi possível retomar",
+          description: body.error ?? "Valide o arquivo novamente.",
+        });
+        return;
+      }
+      setPreview(body.preview);
+      setDataHoraPrevia(agoraIso());
+      setStep(1);
+      setSheetOpen(true);
+    } catch {
+      toast({ variant: "error", title: "Erro de rede", description: "Não foi possível retomar a conferência." });
+    } finally {
+      setRetomandoDetalhe(false);
+    }
+  }
+
+  function solicitarExclusaoDetalhe() {
+    if (!detalheImportacao) return;
+    setDetalheOpen(false);
+    setDeleteTarget({
+      id: detalheImportacao.id,
+      origem: detalheImportacao.origem,
+      tipo: detalheImportacao.tipo,
+      arquivo: detalheImportacao.arquivo,
+      status: detalheImportacao.status,
+      quantidadeRegistros: detalheImportacao.quantidadeRegistros,
+      quantidadeImportados: detalheImportacao.quantidadeImportados,
+      quantidadeAtualizados: detalheImportacao.quantidadeAtualizados,
+      quantidadeErros: detalheImportacao.quantidadeErros,
+      observacaoInterna: detalheImportacao.observacaoInterna,
+      usuarioId: detalheImportacao.usuarioId,
+      dataImportacao: detalheImportacao.dataImportacao,
+      processoId: detalheImportacao.processoId,
+      quantidadeIgnorados: detalheImportacao.quantidadeIgnorados,
+      iniciadoEm: detalheImportacao.iniciadoEm,
+      usuarioAprovacaoId: detalheImportacao.usuarioAprovacaoId ?? undefined,
+      aprovadoEm: detalheImportacao.aprovadoEm ?? undefined,
+    });
   }
 
   function acoes(item: Importacao) {
     const lista = [];
+    if (pode("importacoes", "ler"))
+      lista.push({ label: "Ver detalhes", icon: Eye, onSelect: () => void abrirDetalhe(item) });
     if (pode("importacoes", "excluir"))
       lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });
     return lista;
@@ -248,14 +433,37 @@ export default function ImportacoesPage() {
     event.target.value = "";
     if (!arquivo) return;
     setErroArquivo("");
+    setProcessando(true);
     try {
-      const conteudo = await arquivo.text();
-      setConteudoArquivo(conteudo);
-      setNomeArquivo(arquivo.name);
+      const formData = new FormData();
+      formData.set("modulo", moduloWizard);
+      formData.set("arquivo", arquivo);
+      const response = await fetch("/api/importacoes/arquivo", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData,
+      });
+      const body = (await response.json()) as {
+        recebimento?: { processoId: string; nomeArquivo: string; hashArquivo: string };
+        error?: string;
+      };
+      if (!response.ok || !body.recebimento) {
+        setErroArquivo(body.error ?? "Não foi possível validar o arquivo.");
+        setProcessoId("");
+        setHashRecebimento("");
+        setNomeArquivo("");
+        return;
+      }
+      setProcessoId(body.recebimento.processoId);
+      setHashRecebimento(body.recebimento.hashArquivo);
+      setNomeArquivo(body.recebimento.nomeArquivo);
     } catch {
-      setErroArquivo("Não foi possível ler o arquivo.");
-      setConteudoArquivo("");
+      setErroArquivo("Não foi possível enviar o arquivo.");
+      setProcessoId("");
+      setHashRecebimento("");
       setNomeArquivo("");
+    } finally {
+      setProcessando(false);
     }
   }
 
@@ -266,10 +474,41 @@ export default function ImportacoesPage() {
       return;
     }
     if (step === 1) {
-      setConfirmImportOpen(true);
+      if (!podeAprovarImportacao) {
+        toast({
+          variant: "error",
+          title: "Sem permissão",
+          description: "Você não pode aprovar importações. Solicite a permissão de alterar no módulo Importações.",
+        });
+        return;
+      }
+      if (!preview?.resumoAprovacao?.podeConfirmar && !preview?.arquivoJaImportado) return;
+      setConfirmacaoMarcada(false);
+      setCienciaParcial(false);
+      setStep(2);
+      if (processoId) {
+        void fetch(`/api/importacoes/processo/${encodeURIComponent(processoId)}/aprovacao`, {
+          method: "POST",
+          credentials: "same-origin",
+        }).then(() => recarregarImportacoes());
+      }
       return;
     }
     if (step === 2) {
+      if (
+        !preview?.resumoAprovacao ||
+        !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
+          processando,
+          confirmacaoJaEnviada,
+          permissaoAprovar: podeAprovarImportacao,
+        })
+      ) {
+        return;
+      }
+      void executarImportacao();
+      return;
+    }
+    if (step === 3) {
       setSheetOpen(false);
       resetWizard();
     }
@@ -277,20 +516,25 @@ export default function ImportacoesPage() {
 
   async function validarArquivo() {
     const errosOrigem = !origem ? "Selecione a origem dos dados." : "";
-    const errosArquivo = !conteudoArquivo.trim() ? "Selecione um arquivo CSV ou XLS exportado." : "";
+    const errosArquivo = !processoId ? `Selecione um arquivo válido para ${ROTULO_MODULO_IMPORTACAO[moduloWizard] ?? "importação"}.` : "";
     setErroOrigem(errosOrigem);
     setErroArquivo(errosArquivo);
     if (errosOrigem || errosArquivo) return;
 
     setProcessando(true);
     try {
-      const response = await fetch("/api/importacoes/debitos/preview", {
+      const response = await fetch(`${configModulo.apiBase}/preview`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ origem, arquivo: nomeArquivo, conteudo: conteudoArquivo }),
+        body: JSON.stringify({
+          origem,
+          arquivo: nomeArquivo,
+          processoId,
+          hashArquivo: hashRecebimento,
+        }),
       });
-      const body = (await response.json()) as { preview?: PreviewImportacaoDebitos; error?: string };
+      const body = (await response.json()) as { preview?: PreviewImportacaoModulo; error?: string };
       if (!response.ok || !body.preview) {
         toast({
           variant: "error",
@@ -300,6 +544,7 @@ export default function ImportacoesPage() {
         return;
       }
       setPreview(body.preview);
+      setDataHoraPrevia(agoraIso());
       setStep(1);
     } catch {
       toast({ variant: "error", title: "Erro de rede", description: "Não foi possível validar o arquivo." });
@@ -309,24 +554,30 @@ export default function ImportacoesPage() {
   }
 
   async function executarImportacao() {
-    if (!preview) return;
-    setConfirmImportOpen(false);
+    if (!preview?.resumoAprovacao) return;
     setProcessando(true);
+    setConfirmacaoJaEnviada(true);
     try {
-      const response = await fetch("/api/importacoes/debitos/confirmar", {
+      const response = await fetch(`${configModulo.apiBase}/confirmar`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           origem: preview.origem,
           arquivo: preview.arquivo,
-          conteudo: conteudoArquivo,
+          processoId,
           hashArquivo: preview.hashArquivo,
+          confirmacaoExplicita: true,
+          cienciaImportacaoParcial: preview.resumoAprovacao.importacaoParcial ? cienciaParcial : undefined,
         }),
       });
       const body = (await response.json()) as {
-        resultado?: ResultadoConfirmacaoDebitos;
+        resultado?: ResultadoConfirmacaoModulo;
         debitos?: import("@/data/catalogo").Debito[];
+        condominios?: import("@/data/catalogo").Condominio[];
+        unidades?: import("@/data/catalogo").Unidade[];
+        responsaveis?: import("@/data/catalogo").Responsavel[];
+        vinculos?: import("@/data/catalogo").Vinculo[];
         error?: string;
       };
       if (!response.ok || !body.resultado) {
@@ -338,27 +589,34 @@ export default function ImportacoesPage() {
         return;
       }
       if (body.debitos) mesclarDebitosDoServidor(body.debitos);
+      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.id);
+      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.id);
+      if (body.responsaveis || body.vinculos) {
+        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+      }
       aplicarImportacaoSalva(body.resultado.importacao);
       setResultado(body.resultado);
-      setStep(2);
+      setStep(3);
       await recarregarImportacoes();
       toast({
         variant: "success",
         title: preview.arquivoJaImportado ? "Arquivo já importado" : "Importação concluída",
         description: preview.arquivoJaImportado
-          ? "Nenhum débito duplicado foi gravado."
+          ? "Nenhum registro duplicado foi gravado."
           : `${body.resultado.novos} novo(s), ${body.resultado.atualizados} atualizado(s).`,
       });
     } catch {
       toast({ variant: "error", title: "Erro de rede", description: "Não foi possível gravar a importação." });
+      setConfirmacaoJaEnviada(false);
     } finally {
       setProcessando(false);
     }
   }
 
-  const linhasComProblema =
-    preview?.linhas.filter((item) => item.situacao === "erro" || item.situacao === "manual_protegido").slice(0, 15) ??
-    [];
+  const gravacaoNaPrevia = useMemo(() => {
+    if (!preview) return 0;
+    return preview.linhas.filter((item) => linhaSeraGravada(item)).length;
+  }, [preview]);
 
   const emptyState = (
     <EmptyState
@@ -370,10 +628,10 @@ export default function ImportacoesPage() {
           : "Ajuste a busca, o tipo ou a situação."
       }
       action={
-        pode("importacoes", "criar") ? (
-          <Button size="sm" onClick={openCreate}>
+        podeIniciarImportacao ? (
+          <Button size="sm" onClick={() => openCreate("debitos")}>
             <Icon icon={Plus} size="sm" />
-            Importar inadimplência
+            Nova importação
           </Button>
         ) : undefined
       }
@@ -408,7 +666,7 @@ export default function ImportacoesPage() {
               <TableCell>{item.arquivo || "—"}</TableCell>
               <TableCell>{rotuloTipo[item.tipo] ?? item.tipo}</TableCell>
               <TableCell>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{rotuloStatus[item.status] ?? item.status}</Badge>
+                <Badge variant={variantStatusBadge(item.status)}>{rotuloStatusBadge(item.status)}</Badge>
               </TableCell>
               <TableCell align="right" className="tabular-nums">
                 {item.quantidadeErros || "—"}
@@ -455,8 +713,8 @@ export default function ImportacoesPage() {
                   <p className="text-body-md font-semibold text-on-surface">{rotuloTipo[item.tipo] ?? item.tipo}</p>
                   <p className="text-body-sm text-on-surface-variant">{nomeUsuario(item.usuarioId)}</p>
                 </div>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"} className="shrink-0">
-                  {rotuloStatus[item.status] ?? item.status}
+                <Badge variant={variantStatusBadge(item.status)} className="shrink-0">
+                  {rotuloStatusBadge(item.status)}
                 </Badge>
               </div>
               <div className="grid grid-cols-2 gap-sm text-body-sm">
@@ -480,20 +738,20 @@ export default function ImportacoesPage() {
       <input
         ref={arquivoRef}
         type="file"
-        accept=".csv,.xls,.txt,text/csv,application/vnd.ms-excel"
+        accept={configModulo.accept}
         className="sr-only"
         onChange={handleArquivoSelecionado}
       />
       <PageHeader
         title="Importações"
-        description="Histórico de envios e importação de relatórios de inadimplência (CSV ou XLS) das administradoras."
+        description="Central de importação: inadimplência, condomínios, unidades e responsáveis — com validação, prévia e aprovação antes de gravar."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Importações" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
-          pode("importacoes", "criar") ? (
-            <Button size="md" onClick={openCreate}>
+          podeIniciarImportacao ? (
+            <Button size="md" onClick={() => openCreate("debitos")}>
               <Icon icon={Plus} size="sm" />
-              Importar inadimplência
+              Nova importação
             </Button>
           ) : undefined
         }
@@ -562,7 +820,7 @@ export default function ImportacoesPage() {
                 onChange: setStatus,
                 options: [
                   { value: "todos", label: "Todas" },
-                  ...statusImportacao.map((item) => ({ value: item, label: rotuloStatus[item] ?? item })),
+                  ...SITUACOES_IMPORTACAO.map((item) => ({ value: item, label: rotuloSituacaoImportacao(item) })),
                 ],
               },
             ]}
@@ -580,7 +838,11 @@ export default function ImportacoesPage() {
           else closeSheet();
         }}
       >
-        <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
+        <SheetContent
+          size={step === 1 ? "wide" : "default"}
+          aria-labelledby={`${formId}-title`}
+          aria-describedby={`${formId}-desc`}
+        >
           <SheetForm onSubmit={handleFormSubmit}>
             <SheetHeader>
               <SheetHeaderLead>
@@ -588,10 +850,9 @@ export default function ImportacoesPage() {
                   <Icon icon={FileUp} size="md" />
                 </SheetHeaderIcon>
                 <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>Importar inadimplência</SheetTitle>
+                  <SheetTitle id={`${formId}-title`}>{configModulo.tituloSheet}</SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Formato {FORMATO_IMPORTACAO_DEBITOS_V1}: CSV (;) ou XLS. Quem executa é o login atual (
-                    {sessao?.nome ?? "—"}).
+                    Formato {configModulo.formato}. Quem executa é o login atual ({sessao?.nome ?? "—"}).
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -601,6 +862,22 @@ export default function ImportacoesPage() {
               <FormSteps steps={etapas} current={step} />
               {step === 0 ? (
                 <>
+                  <FormField label="O que importar" htmlFor={`${formId}-modulo`} required>
+                    <Select
+                      id={`${formId}-modulo`}
+                      value={moduloWizard}
+                      onChange={(event) => {
+                        const valor = event.target.value;
+                        if (moduloWizardValido(valor)) resetWizardForModulo(valor);
+                      }}
+                    >
+                      {MODULOS_WIZARD_IMPORTACAO.map((item) => (
+                        <option key={item} value={item}>
+                          {ROTULO_MODULO_IMPORTACAO[item] ?? item}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
                   <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
                     <Select
                       id={`${formId}-origem`}
@@ -609,7 +886,7 @@ export default function ImportacoesPage() {
                       onChange={(event) => setOrigem(event.target.value)}
                     >
                       <option value="">Selecione</option>
-                      {origensDebito.map((item) => (
+                      {configModulo.origens.map((item) => (
                         <option key={item} value={item}>
                           {item}
                         </option>
@@ -622,7 +899,7 @@ export default function ImportacoesPage() {
                         Escolher arquivo
                       </Button>
                       <p className="text-body-sm text-on-surface-variant">
-                        {nomeArquivo ? nomeArquivo : "CSV ou planilha XLS com colunas Unidade, Condomínio, Referência, Vencimento e valor."}
+                        {nomeArquivo ? nomeArquivo : configModulo.descricaoArquivo}
                       </p>
                     </div>
                   </FormField>
@@ -630,107 +907,108 @@ export default function ImportacoesPage() {
               ) : null}
 
               {step === 1 && preview ? (
-                <div className="flex flex-col gap-md">
-                  {preview.arquivoJaImportado ? (
-                    <p className="flex items-start gap-sm rounded-md bg-gold-subtle px-md py-sm text-body-sm text-on-surface">
-                      <Icon icon={AlertTriangle} size="sm" className="mt-0.5 shrink-0 text-brass" />
-                      Este arquivo já foi importado com sucesso. Uma nova confirmação não duplicará débitos.
-                    </p>
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-sm text-body-sm min-[480px]:grid-cols-3">
-                    <p>
-                      <span className="text-on-surface-variant">Lidas:</span> {preview.quantidadeRegistros}
-                    </p>
-                    <p>
-                      <span className="text-on-surface-variant">Novos:</span> {preview.novos}
-                    </p>
-                    <p>
-                      <span className="text-on-surface-variant">Atualizações:</span> {preview.atualizacoes}
-                    </p>
-                    <p>
-                      <span className="text-on-surface-variant">Duplicadas:</span> {preview.duplicados}
-                    </p>
-                    <p>
-                      <span className="text-on-surface-variant">Erros:</span> {preview.erros}
-                    </p>
-                    <p>
-                      <span className="text-on-surface-variant">Manuais protegidos:</span> {preview.manualProtegido}
-                    </p>
-                  </div>
-                  {preview.amostraValida.length > 0 ? (
-                    <div>
-                      <p className="mb-sm text-label text-on-surface-variant">Amostra do que será gravado</p>
-                      <ul className="space-y-xs text-body-sm">
-                        {preview.amostraValida.map((item) => (
-                          <li key={`${item.linha}-${item.resumo?.referencia}`}>
-                            Linha {item.linha}: {item.resumo?.unidade} — {item.resumo?.referencia} (
-                            {item.resumo?.valorAtualizado})
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {linhasComProblema.length > 0 ? (
-                    <div>
-                      <p className="mb-sm text-label text-on-surface-variant">Linhas com erro ou ignoradas</p>
-                      <ul className="max-h-48 space-y-xs overflow-y-auto text-body-sm">
-                        {linhasComProblema.map((item) => (
-                          <li key={`err-${item.linha}`}>
-                            Linha {item.linha} ({rotuloSituacaoLinha[item.situacao]}): {item.mensagem}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {preview.novos + preview.atualizacoes === 0 && !preview.arquivoJaImportado ? (
-                    <p className="text-body-sm text-on-surface-variant">
-                      Nenhuma linha será gravada. Corrija o arquivo ou cancela a operação.
-                    </p>
-                  ) : null}
-                </div>
+                <ImportacaoPreVisualizacao
+                  cabecalho={{
+                    nomeArquivo: preview.arquivo,
+                    moduloDestino: preview.moduloDestino,
+                    moduloRotulo: ROTULO_MODULO_IMPORTACAO[preview.moduloDestino] ?? "Inadimplência",
+                    usuarioResponsavel: sessao?.nome ?? "—",
+                    dataHoraImportacao: dataHoraPrevia,
+                    origem: preview.origem,
+                    quantidadeRegistros: preview.quantidadeRegistros,
+                    contagens: preview.contagensPrevia,
+                    arquivoJaImportado: preview.arquivoJaImportado,
+                  }}
+                  linhas={preview.linhas}
+                  sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
+                  hashArquivo={preview.hashArquivo}
+                  onPreviewAtualizado={setPreview}
+                  onVoltarArquivo={() => {
+                    setStep(0);
+                    setPreview(null);
+                    setDataHoraPrevia("");
+                  }}
+                  onCancelar={closeSheet}
+                  permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
+                />
               ) : null}
 
-              {step === 2 && resultado ? (
-                <div className="space-y-sm text-body-sm">
-                  <p className="font-medium text-on-surface">Relatório da importação</p>
-                  <p>Arquivo: {resultado.importacao.arquivo}</p>
-                  <p>Situação: {rotuloStatus[resultado.importacao.status] ?? resultado.importacao.status}</p>
-                  <p>Novos débitos: {resultado.novos}</p>
-                  <p>Atualizados: {resultado.atualizados}</p>
-                  <p>Duplicados/ignorados: {resultado.duplicados}</p>
-                  <p>Erros na leitura: {resultado.erros}</p>
-                  <p>Registros manuais protegidos: {resultado.manualProtegido}</p>
-                </div>
+              {step === 2 && preview?.resumoAprovacao ? (
+                <ImportacaoAprovacao
+                  resumo={preview.resumoAprovacao}
+                  usuarioResponsavel={sessao?.nome ?? "—"}
+                  confirmacaoMarcada={confirmacaoMarcada}
+                  onConfirmacaoMarcadaChange={setConfirmacaoMarcada}
+                  cienciaParcial={cienciaParcial}
+                  onCienciaParcialChange={setCienciaParcial}
+                  confirmacaoJaEnviada={confirmacaoJaEnviada}
+                />
+              ) : null}
+
+              {step === 3 && resultado ? (
+                <ImportacaoResultado
+                  resultado={resultado}
+                  moduloDestino={moduloWizard}
+                  exibirManualProtegido={moduloWizard === "debitos"}
+                />
               ) : null}
             </SheetBody>
-            <SheetFooterForm
-              onClose={closeSheet}
-              onBack={
-                step === 1
-                  ? () => setStep(0)
-                  : step === 2
-                    ? undefined
-                    : undefined
-              }
-              saveLabel={
-                step === 0
-                  ? processando
-                    ? "Validando…"
-                    : "Validar arquivo"
-                  : step === 1
+            {step === 3 ? (
+              <SheetFooter>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    resetWizard();
+                  }}
+                >
+                  Fechar
+                </Button>
+              </SheetFooter>
+            ) : (
+              <SheetFooterForm
+                onClose={closeSheet}
+                onBack={
+                  step === 1
+                    ? () => setStep(0)
+                    : step === 2
+                      ? () => {
+                          setStep(1);
+                          setConfirmacaoMarcada(false);
+                          setCienciaParcial(false);
+                        }
+                      : undefined
+                }
+                saveLabel={
+                  step === 0
                     ? processando
-                      ? "Gravando…"
-                      : "Confirmar importação"
-                    : "Fechar"
-              }
-              saveDisabled={
-                processando ||
-                (step === 1 &&
-                  preview !== null &&
-                  preview.novos + preview.atualizacoes === 0 &&
-                  !preview.arquivoJaImportado)
-              }
-            />
+                      ? "Validando…"
+                      : "Validar arquivo"
+                    : step === 1
+                      ? "Revisar aprovação"
+                      : processando
+                        ? "Gravando…"
+                        : "Confirmar e gravar"
+                }
+                saveDisabled={
+                  processando ||
+                  confirmacaoJaEnviada ||
+                  (step === 1 && !podeAprovarImportacao) ||
+                  (step === 1 &&
+                    preview !== null &&
+                    gravacaoNaPrevia === 0 &&
+                    !preview.arquivoJaImportado &&
+                    !preview.resumoAprovacao?.podeConfirmar) ||
+                  (step === 2 &&
+                    preview?.resumoAprovacao !== undefined &&
+                    !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
+                      processando,
+                      confirmacaoJaEnviada,
+                      permissaoAprovar: podeAprovarImportacao,
+                    }))
+                }
+              />
+            )}
           </SheetForm>
         </SheetContent>
       </Sheet>
@@ -745,22 +1023,25 @@ export default function ImportacoesPage() {
         confirmVariant="critical"
         onConfirm={confirmLeave}
       />
-      <ConfirmDialog
-        open={confirmImportOpen}
-        onOpenChange={setConfirmImportOpen}
-        title="Confirmar importação?"
-        description="Linhas inválidas não serão gravadas. Débitos manuais sem ID externo não serão sobrescritos."
-        confirmLabel="Importar"
-        cancelLabel="Voltar"
-        onConfirm={() => void executarImportacao()}
+      <ImportacaoHistoricoDetalheSheet
+        open={detalheOpen}
+        onOpenChange={setDetalheOpen}
+        importacao={detalheImportacao}
+        carregando={detalheCarregando}
+        retomada={retomadaDetalhe}
+        podeExcluir={pode("importacoes", "excluir")}
+        onRetomar={() => void retomarImportacaoDoDetalhe()}
+        onExcluir={solicitarExclusaoDetalhe}
+        retomando={retomandoDetalhe}
       />
+
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
         title="Excluir importação?"
-        description="O histórico deste arquivo será removido. Os débitos já gravados permanecem."
+        description="O histórico deste arquivo será removido. Os registros já gravados permanecem."
         confirmLabel="Excluir"
         cancelLabel="Cancelar"
         onConfirm={confirmDelete}

@@ -1,8 +1,23 @@
 import { origensDebito, statusDebito } from "@/data/catalogo";
+import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import {
+  normalizarCodigoIdentificacaoImportacao,
+  normalizarDataImportacao,
+  normalizarNomeImportacao,
+  normalizarStatusDebitoImportacao,
+  normalizarValorMonetarioImportacao,
+} from "@/lib/importacao-centro/normalizacao-campos";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
 
 /** Formato extensível v1 — CSV (;) ou XML Spreadsheet (.xls exportado pelo sistema). */
 export const FORMATO_IMPORTACAO_DEBITOS_V1 = "planilha-inadimplencia-v1";
+
+export type MetadadosOrigemDebitoImportacao = {
+  pagina?: number;
+  linhaRelatorio?: number;
+  responsavel?: string;
+  interpretacaoSegura: boolean;
+};
 
 export type DebitoImportRow = {
   condominioId: number;
@@ -20,6 +35,14 @@ export type DebitoImportRow = {
   dataPagamento: string;
   valorPago: string;
   identificadorExterno: string;
+  metaOrigem?: MetadadosOrigemDebitoImportacao;
+};
+
+export type ResultadoInterpretacaoDebitos = {
+  linhas: ResultadoLinhaImportacaoDebito[];
+  validos: DebitoImportRow[];
+  formato: string;
+  inconsistenciasArquivo?: import("@/lib/importacao-centro/motor-validacao/types").InconsistenciaValidacao[];
 };
 
 export type ResultadoLinhaImportacaoDebito = {
@@ -33,20 +56,16 @@ export type ResumoParseDebitos = {
   validos: DebitoImportRow[];
 };
 
-function normalizarCabecalho(valor: string) {
-  return valor
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, " ");
-}
-
 type CampoPlanilha =
   | keyof DebitoImportRow
   | "condominioNome"
   | "condominioId"
-  | "condominioIdentificador";
+  | "condominioIdentificador"
+  | "responsavel"
+  | "categoria"
+  | "pagina"
+  | "linhaRelatorio"
+  | "interpretacaoSegura";
 
 const mapaCabecalho: Record<string, CampoPlanilha> = {
   unidade: "unidadeId",
@@ -64,6 +83,18 @@ const mapaCabecalho: Record<string, CampoPlanilha> = {
   referência: "referencia",
   descricao: "descricao",
   descrição: "descricao",
+  categoria: "categoria",
+  "categoria do debito": "categoria",
+  "categoria do débito": "categoria",
+  responsavel: "responsavel",
+  responsável: "responsavel",
+  total: "valorAtualizado",
+  pagina: "pagina",
+  página: "pagina",
+  "linha relatorio": "linhaRelatorio",
+  "linha relatório": "linhaRelatorio",
+  "interpretacao segura": "interpretacaoSegura",
+  "interpretação segura": "interpretacaoSegura",
   vencimento: "dataVencimento",
   "data vencimento": "dataVencimento",
   valor: "valor",
@@ -83,37 +114,37 @@ const mapaCabecalho: Record<string, CampoPlanilha> = {
 };
 
 function parseMoeda(raw: string | undefined, obrigatorio: boolean): { valor?: string; erro?: string } {
-  const texto = raw?.trim() ?? "";
-  if (!texto) {
-    return obrigatorio ? { erro: "Informe o valor." } : { valor: "0.00" };
+  const resultado = normalizarValorMonetarioImportacao(raw, {
+    obrigatorio,
+    valorSeVazio: obrigatorio ? null : "0.00",
+  });
+  if (resultado.erro) return { erro: resultado.erro };
+  if (resultado.normalizado === null) {
+    return obrigatorio ? { erro: resultado.erro ?? "Informe o valor." } : { valor: "0.00" };
   }
-  let normalizado = texto.replace(/\s/g, "").replace(/R\$/gi, "");
-  if (normalizado.includes(",") && normalizado.includes(".")) {
-    normalizado = normalizado.replace(/\./g, "").replace(",", ".");
-  } else if (normalizado.includes(",")) {
-    normalizado = normalizado.replace(",", ".");
-  }
-  const numero = Number(normalizado);
-  if (!Number.isFinite(numero)) {
-    return { erro: "Valor monetário inválido." };
-  }
-  return { valor: numero.toFixed(2) };
+  return { valor: resultado.normalizado };
 }
 
 function parseData(raw: string | undefined): { data?: string; erro?: string } {
-  const texto = raw?.trim() ?? "";
-  if (!texto) return { erro: "Informe a data de vencimento." };
-  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return { data: texto };
-  const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (br) {
-    const dia = br[1].padStart(2, "0");
-    const mes = br[2].padStart(2, "0");
-    return { data: `${br[3]}-${mes}-${dia}` };
-  }
-  return { erro: "Data inválida (use AAAA-MM-DD ou DD/MM/AAAA)." };
+  const resultado = normalizarDataImportacao(raw, {
+    obrigatorio: true,
+    mensagemVazio: "Informe a data de vencimento.",
+    mensagemInvalida: "Data inválida (use AAAA-MM-DD ou DD/MM/AAAA).",
+  });
+  if (resultado.erro) return { erro: resultado.erro };
+  if (!resultado.normalizado) return { erro: "Informe a data de vencimento." };
+  return { data: resultado.normalizado };
 }
 
-function resolverCondominioId(
+export type ReferenciaCadastralMatrizDebito = {
+  condominioNome?: string;
+  condominioId?: string;
+  condominioIdentificador?: string;
+  unidade: string;
+  bloco?: string;
+};
+
+export function resolverCondominioIdImportacaoDebitos(
   valores: Partial<Record<CampoPlanilha, string>>,
   condominios: Array<{ id: number; nome: string; identificadorExterno: string }>,
 ): number | null {
@@ -129,22 +160,30 @@ function resolverCondominioId(
     );
     if (porId) return porId.id;
   }
-  const nome = valores.condominioNome?.trim();
+  const nomeNorm = normalizarNomeImportacao(valores.condominioNome);
+  const nome = nomeNorm.normalizado ?? "";
   if (nome) {
-    const alvo = normalizarCabecalho(nome);
-    const porNome = condominios.find((item) => normalizarCabecalho(item.nome) === alvo);
+    const alvo = normalizarCabecalhoPlanilha(nome);
+    const porNome = condominios.find((item) => normalizarCabecalhoPlanilha(item.nome) === alvo);
     if (porNome) return porNome.id;
+
+    const candidatos = condominios.filter((item) => {
+      const norm = normalizarCabecalhoPlanilha(item.nome);
+      return norm === alvo || norm.includes(alvo) || alvo.includes(norm);
+    });
+    if (candidatos.length === 1) return candidatos[0].id;
   }
   return null;
 }
 
-function resolverUnidadeId(
+export function resolverUnidadeIdImportacaoDebitos(
   condominioId: number,
   identificacaoRaw: string | undefined,
   blocoRaw: string | undefined,
   unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>,
 ): { unidadeId?: number; erro?: string } {
-  const identificacao = identificacaoRaw?.trim() ?? "";
+  const identNorm = normalizarCodigoIdentificacaoImportacao(identificacaoRaw);
+  const identificacao = identNorm.normalizado ?? "";
   if (!identificacao) return { erro: "Informe a unidade." };
   const bloco = blocoRaw?.trim().replace(/^—$/, "") ?? "";
   const candidatas = unidades.filter(
@@ -179,18 +218,24 @@ function montarPayload(
   blocoTexto: string | undefined,
   condominios: Array<{ id: number; nome: string; identificadorExterno: string }>,
   unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>,
-): { payload?: DebitoImportRow; erro?: string } {
-  const condominioId = resolverCondominioId(valores, condominios);
+): { payload?: DebitoImportRow; erro?: string; interpretacaoInsegura?: boolean } {
+  const condominioId = resolverCondominioIdImportacaoDebitos(valores, condominios);
   if (!condominioId) {
     return { erro: "Condomínio inválido ou fora do escopo." };
   }
 
-  const { unidadeId, erro: erroUnidade } = resolverUnidadeId(condominioId, unidadeTexto, blocoTexto, unidades);
+  const { unidadeId, erro: erroUnidade } = resolverUnidadeIdImportacaoDebitos(
+    condominioId,
+    unidadeTexto,
+    blocoTexto,
+    unidades,
+  );
   if (erroUnidade || !unidadeId) {
     return { erro: erroUnidade ?? "Unidade inválida." };
   }
 
-  const referencia = valores.referencia?.trim() ?? "";
+  const referenciaNorm = normalizarCodigoIdentificacaoImportacao(valores.referencia);
+  const referencia = referenciaNorm.normalizado ?? "";
   if (!referencia) {
     return { erro: "Informe a referência da cobrança." };
   }
@@ -209,10 +254,13 @@ function montarPayload(
   const juros = parseMoeda(valores.juros, false);
   const correcao = parseMoeda(valores.correcao, false);
 
-  const statusRaw = valores.status?.trim() || "Vencido";
-  if (!statusDebito.includes(statusRaw as (typeof statusDebito)[number])) {
-    return { erro: `Status inválido (${statusDebito.join(", ")}).` };
+  const statusResultado = normalizarStatusDebitoImportacao(valores.status, statusDebito, {
+    padraoSeVazio: "Vencido",
+  });
+  if (statusResultado.erro || !statusResultado.normalizado) {
+    return { erro: statusResultado.erro ?? `Status inválido (${statusDebito.join(", ")}).` };
   }
+  const statusRaw = statusResultado.normalizado;
 
   const dataPagamentoRaw = valores.dataPagamento?.trim();
   let dataPagamento = "";
@@ -224,12 +272,20 @@ function montarPayload(
 
   const valorPago = parseMoeda(valores.valorPago, false);
 
+  const pagina = valores.pagina?.trim() ? Number(valores.pagina.trim()) : undefined;
+  const linhaRelatorio = valores.linhaRelatorio?.trim() ? Number(valores.linhaRelatorio.trim()) : undefined;
+  const responsavel = valores.responsavel?.trim() ?? "";
+  const categoria = valores.categoria?.trim() ?? valores.descricao?.trim() ?? "";
+  const interpretacaoRaw = (valores.interpretacaoSegura ?? "").trim().toLocaleLowerCase("pt-BR");
+  const interpretacaoSegura =
+    interpretacaoRaw === "" || interpretacaoRaw === "sim" || interpretacaoRaw === "true" || interpretacaoRaw === "1";
+
   return {
     payload: {
       condominioId,
       unidadeId,
       referencia,
-      descricao: valores.descricao?.trim() ?? "",
+      descricao: categoria,
       dataVencimento,
       valor: valorPrincipal.valor ?? valorAtualizado.valor ?? "0.00",
       valorOriginal: valorOriginal.valor ?? valorPrincipal.valor ?? valorAtualizado.valor ?? "0.00",
@@ -240,21 +296,100 @@ function montarPayload(
       status: statusRaw,
       dataPagamento,
       valorPago: valorPago.valor ?? "",
-      identificadorExterno: valores.identificadorExterno?.trim() ?? "",
+      identificadorExterno:
+        normalizarCodigoIdentificacaoImportacao(valores.identificadorExterno).normalizado ?? "",
+      metaOrigem: {
+        pagina: Number.isFinite(pagina) ? pagina : undefined,
+        linhaRelatorio: Number.isFinite(linhaRelatorio) ? linhaRelatorio : undefined,
+        responsavel: responsavel || undefined,
+        interpretacaoSegura,
+      },
     },
+    interpretacaoInsegura: !interpretacaoSegura,
   };
+}
+
+/** Referências de condomínio/unidade presentes no arquivo (sem validar débitos). */
+export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): ReferenciaCadastralMatrizDebito[] {
+  if (matriz.length < 2) return [];
+
+  const cabecalho = matriz[0].map(normalizarCabecalhoPlanilha);
+  const indices = cabecalho.map((coluna) => mapaCabecalho[coluna] ?? null);
+  const temUnidade = indices.some((item) => item === "unidadeId") || cabecalho.some((item) => item === "unidade");
+  const temCondominio = indices.some(
+    (item) => item === "condominioNome" || item === "condominioId" || item === "condominioIdentificador",
+  );
+  if (!temUnidade || !temCondominio) return [];
+
+  const vistos = new Set<string>();
+  const resultado: ReferenciaCadastralMatrizDebito[] = [];
+
+  for (let i = 1; i < matriz.length; i += 1) {
+    const row = matriz[i];
+    const valores: Partial<Record<CampoPlanilha, string>> = {};
+    let unidadeTexto = "";
+    let blocoTexto: string | undefined;
+
+    for (let c = 0; c < indices.length; c += 1) {
+      const campo = indices[c];
+      const celula = row[c]?.trim() ?? "";
+      if (!campo) continue;
+      if (campo === "unidadeId") {
+        unidadeTexto = celula;
+        continue;
+      }
+      if ((campo as string) === "bloco") {
+        blocoTexto = celula;
+        continue;
+      }
+      valores[campo] = celula;
+    }
+
+    if (!unidadeTexto.trim() && !valores.condominioNome?.trim() && !valores.condominioId?.trim()) {
+      continue;
+    }
+
+    const unidadeNorm = normalizarCodigoIdentificacaoImportacao(unidadeTexto).normalizado ?? unidadeTexto.trim();
+    if (!unidadeNorm) continue;
+
+    const chave = [
+      valores.condominioId?.trim() ?? "",
+      valores.condominioIdentificador?.trim() ?? "",
+      valores.condominioNome?.trim() ?? "",
+      unidadeNorm,
+      blocoTexto?.trim() ?? "",
+    ].join("|");
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+
+    resultado.push({
+      condominioNome: valores.condominioNome,
+      condominioId: valores.condominioId,
+      condominioIdentificador: valores.condominioIdentificador,
+      unidade: unidadeNorm,
+      bloco: blocoTexto,
+    });
+  }
+
+  return resultado;
 }
 
 export function interpretarPlanilhaDebitos(
   matriz: string[][],
   condominiosEscopo: Array<{ id: number; nome: string; identificadorExterno: string }>,
   unidadesEscopo: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>,
-): ResumoParseDebitos {
+  opcoes?: { formato?: string; inconsistenciasArquivo?: ResultadoInterpretacaoDebitos["inconsistenciasArquivo"] },
+): ResultadoInterpretacaoDebitos {
   if (matriz.length === 0) {
-    return { linhas: [{ linha: 1, erro: "Planilha vazia." }], validos: [] };
+    return {
+      linhas: [{ linha: 1, erro: "Planilha vazia." }],
+      validos: [],
+      formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+      inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
+    };
   }
 
-  const cabecalho = matriz[0].map(normalizarCabecalho);
+  const cabecalho = matriz[0].map(normalizarCabecalhoPlanilha);
   const indices = cabecalho.map((coluna) => mapaCabecalho[coluna] ?? null);
 
   const temUnidade = indices.some((item) => item === "unidadeId") || cabecalho.some((item) => item === "unidade");
@@ -262,24 +397,32 @@ export function interpretarPlanilhaDebitos(
     return {
       linhas: [{ linha: 1, erro: 'Cabeçalho inválido: inclua a coluna "Unidade".' }],
       validos: [],
+      formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+      inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
     };
   }
   if (!indices.some((item) => item === "condominioNome" || item === "condominioId" || item === "condominioIdentificador")) {
     return {
       linhas: [{ linha: 1, erro: 'Cabeçalho inválido: inclua "Condomínio" ou identificador do condomínio.' }],
       validos: [],
+      formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+      inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
     };
   }
   if (!indices.some((item) => item === "referencia")) {
     return {
       linhas: [{ linha: 1, erro: 'Cabeçalho inválido: inclua a coluna "Referência".' }],
       validos: [],
+      formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+      inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
     };
   }
   if (!indices.some((item) => item === "dataVencimento")) {
     return {
       linhas: [{ linha: 1, erro: 'Cabeçalho inválido: inclua a coluna "Vencimento".' }],
       validos: [],
+      formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+      inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
     };
   }
 
@@ -315,7 +458,13 @@ export function interpretarPlanilhaDebitos(
     if (linhaVazia) continue;
 
     const numeroLinha = i + 1;
-    const { payload, erro } = montarPayload(valores, unidadeTexto, blocoTexto, condominiosEscopo, unidadesEscopo);
+    const { payload, erro, interpretacaoInsegura } = montarPayload(
+      valores,
+      unidadeTexto,
+      blocoTexto,
+      condominiosEscopo,
+      unidadesEscopo,
+    );
     if (erro) {
       linhas.push({ linha: numeroLinha, erro });
       continue;
@@ -330,15 +479,24 @@ export function interpretarPlanilhaDebitos(
     linhas.push({ linha: 2, erro: "Nenhuma linha de dados encontrada." });
   }
 
-  return { linhas, validos };
+  return {
+    linhas,
+    validos,
+    formato: opcoes?.formato ?? FORMATO_IMPORTACAO_DEBITOS_V1,
+    inconsistenciasArquivo: opcoes?.inconsistenciasArquivo,
+  };
 }
+
+/** Compatibilidade com chamadas legadas que esperavam apenas linhas/validos. */
+export type ResumoParseDebitos = Pick<ResultadoInterpretacaoDebitos, "linhas" | "validos">;
 
 export function interpretarArquivoDebitos(
   conteudo: string,
   condominiosEscopo: Array<{ id: number; nome: string; identificadorExterno: string }>,
   unidadesEscopo: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>,
-): ResumoParseDebitos {
-  const matriz = lerMatrizPlanilha(conteudo);
+  matrizPreCarregada?: string[][],
+): ResultadoInterpretacaoDebitos {
+  const matriz = matrizPreCarregada ?? lerMatrizPlanilha(conteudo);
   return interpretarPlanilhaDebitos(matriz, condominiosEscopo, unidadesEscopo);
 }
 

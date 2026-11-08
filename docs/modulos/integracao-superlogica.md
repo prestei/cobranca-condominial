@@ -38,7 +38,7 @@ Ver `docs/proposta-oficial.md` Projeto 2.
 
 ## Integrações
 
-Superlógica API; arquivos PDF/CSV quando aplicável.
+Superlógica API; relatórios PDF Gestão Condominial (Condomínio21) e planilhas CSV/XLS via [importacoes](importacoes.md).
 
 ## Estados de interface
 

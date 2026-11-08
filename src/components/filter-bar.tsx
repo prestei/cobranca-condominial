@@ -79,7 +79,59 @@ type FilterBarProps = {
   toolbarMobile?: "fila";
   /** Variante mobile do layout `default`: grade 2 colunas em card (ex.: Inadimplência). */
   defaultMobile?: "grid";
+  /** `false` evita `<form>` aninhado quando o FilterBar está dentro de outro formulário (ex.: prévia no Sheet). */
+  useFormElement?: boolean;
 };
+
+type FilterShellProps = {
+  useFormElement: boolean;
+  onApply: () => void;
+  className?: string;
+  children: ReactNode;
+};
+
+function FilterShell({ useFormElement, onApply, className, children }: FilterShellProps) {
+  if (useFormElement) {
+    return (
+      <form
+        className={className}
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          onApply();
+        }}
+      >
+        {children}
+      </form>
+    );
+  }
+
+  return (
+    <div
+      role="search"
+      className={className}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.defaultPrevented) return;
+        const target = event.target;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLSelectElement ||
+          target instanceof HTMLTextAreaElement
+        ) {
+          event.preventDefault();
+          onApply();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function applyButtonProps(useFormElement: boolean, onApply: () => void) {
+  return useFormElement
+    ? ({ type: "submit" as const })
+    : ({ type: "button" as const, onClick: () => onApply() });
+}
 
 const filaMobileFieldIcons: Record<string, LucideIcon> = {
   condominio: Building2,
@@ -126,16 +178,14 @@ export function FilterBar({
   toolbarLayout = "flex",
   toolbarMobile,
   defaultMobile,
+  useFormElement = true,
 }: FilterBarProps) {
   const searchInputClass = searchReadOnly
     ? "h-control! cursor-not-allowed bg-surface-subtle text-on-surface-variant"
     : "h-control!";
   /** Sobrescreve o `pl` padrão de `formControlClassName` quando há ícone absoluto à esquerda. */
   const searchInputWithIconClass = `${searchInputClass} !pl-[calc(var(--spacing-md)+1.125rem)]`;
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onApply();
-  }
+  const filtrarButtonProps = applyButtonProps(useFormElement, onApply);
 
   function renderFieldControl(field: FilterField, options?: { toolbarPrefix?: boolean }) {
     const useToolbarPrefix = options?.toolbarPrefix ?? variant === "toolbar";
@@ -196,7 +246,7 @@ export function FilterBar({
         : "flex shrink-0 items-center justify-end gap-sm min-[1100px]:ml-auto";
 
     const desktopToolbar = (
-      <form onSubmit={handleSubmit} className={toolbarFormClass}>
+      <FilterShell useFormElement={useFormElement} onApply={onApply} className={toolbarFormClass}>
         <div className={searchWrapClass}>
           <label htmlFor={searchId} className="sr-only">
             {searchLabel}
@@ -232,18 +282,19 @@ export function FilterBar({
             <Icon icon={RotateCcw} size="sm" />
             {clearLabel}
           </Button>
-          <Button type="submit" size="sm">
+          <Button size="sm" {...filtrarButtonProps}>
             <Icon icon={Filter} size="sm" />
             {applyLabel}
           </Button>
         </div>
-      </form>
+      </FilterShell>
     );
 
     if (toolbarMobile !== "fila") {
       return (
-        <form
-          onSubmit={handleSubmit}
+        <FilterShell
+          useFormElement={useFormElement}
+          onApply={onApply}
           className={
             toolbarLayout === "proportional"
               ? "grid grid-cols-2 gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center"
@@ -304,12 +355,12 @@ export function FilterBar({
               <Icon icon={RotateCcw} size="sm" />
               {clearLabel}
             </Button>
-            <Button type="submit" size="sm" className="min-h-11 flex-[1.15] min-[1100px]:flex-none">
+            <Button size="sm" className="min-h-11 flex-[1.15] min-[1100px]:flex-none" {...filtrarButtonProps}>
               <Icon icon={Filter} size="sm" />
               {applyLabel}
             </Button>
           </div>
-        </form>
+        </FilterShell>
       );
     }
 
@@ -317,8 +368,9 @@ export function FilterBar({
 
     return (
       <>
-        <form
-          onSubmit={handleSubmit}
+        <FilterShell
+          useFormElement={useFormElement}
+          onApply={onApply}
           className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
         >
           <div className="flex flex-col gap-xs">
@@ -386,20 +438,21 @@ export function FilterBar({
               <Icon icon={RotateCcw} size="sm" />
               {clearLabel}
             </Button>
-            <Button type="submit" size="sm" className="min-h-11 flex-1">
+            <Button size="sm" className="min-h-11 flex-1" {...filtrarButtonProps}>
               <Icon icon={Filter} size="sm" />
               {applyLabel}
             </Button>
           </div>
-        </form>
+        </FilterShell>
         {desktopToolbar}
       </>
     );
   }
 
   const desktopDefaultForm = (
-    <form
-      onSubmit={handleSubmit}
+    <FilterShell
+      useFormElement={useFormElement}
+      onApply={onApply}
       className={
         defaultMobile === "grid"
           ? "hidden flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
@@ -433,12 +486,12 @@ export function FilterBar({
           <Icon icon={RotateCcw} size="sm" />
           {clearLabel}
         </Button>
-        <Button type="submit" size="sm">
+        <Button size="sm" {...filtrarButtonProps}>
           <Icon icon={Filter} size="sm" />
           {applyLabel}
         </Button>
       </div>
-    </form>
+    </FilterShell>
   );
 
   if (defaultMobile !== "grid") {
@@ -449,8 +502,9 @@ export function FilterBar({
 
   return (
     <>
-      <form
-        onSubmit={handleSubmit}
+      <FilterShell
+        useFormElement={useFormElement}
+        onApply={onApply}
         className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
       >
         <div className="flex flex-col gap-xs">
@@ -497,12 +551,12 @@ export function FilterBar({
             <Icon icon={RotateCcw} size="sm" />
             {clearLabel}
           </Button>
-          <Button type="submit" size="sm" className="min-h-11 flex-1">
+          <Button size="sm" className="min-h-11 flex-1" {...filtrarButtonProps}>
             <Icon icon={Filter} size="sm" />
             {applyLabel}
           </Button>
         </div>
-      </form>
+      </FilterShell>
       {desktopDefaultForm}
     </>
   );

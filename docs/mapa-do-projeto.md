@@ -103,6 +103,8 @@ Atualizar esta tabela quando criar rota, tela, tipo em `catalogo`, tabela no ban
 | notificacoes | `/notificacoes` (sino no header) | `notificacoes/page.tsx`, `hooks/use-notificacoes.ts` | [notificacoes.md](modulos/notificacoes.md) | `NotificacaoInterna`, `NotificacaoFalha` | `internal_notification`, `notification_failure` | atendimentos (T11), distribuição (T09), dashboard (T18); API `/api/notificacoes/*` |
 | integracao-superlogica | — | (a definir em `src/lib` / API) | [integracao-superlogica.md](modulos/integracao-superlogica.md) | `origensDebito` | `debt`, `import` | importacoes, debitos |
 
+**Épico central de importação (Fase 1 — auditoria T01):** [MATRIZ_AUDITORIA_IMPORTACAO_FASE1_T01.md](MATRIZ_AUDITORIA_IMPORTACAO_FASE1_T01.md).
+
 **Shell de navegação:** menu lateral em `src/components/workspace-shell.tsx` (rotas acima).
 
 **Autenticação:** `src/proxy.ts`, `src/lib/auth/*`, `src/app/api/auth/*`, `src/context/auth-context.tsx`. Rotas da aplicação exigem cookie `lc_session`, exceto `/login` e `/api/auth/*`.

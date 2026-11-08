@@ -1,12 +1,13 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
-import { listarImportacoes } from "@/lib/importacoes/debitos-service";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
+import { listarImportacoesHistorico } from "@/lib/importacoes/historico-service";
 
 export async function GET() {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "importacoes", "ler");
+  const denied = requirePermissaoAcaoImportacao(session, "consultarHistorico");
   if (denied) return denied;
 
-  const importacoes = listarImportacoes(session.userId);
+  const importacoes = listarImportacoesHistorico(session.userId);
   return Response.json({ importacoes });
 }

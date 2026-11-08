@@ -73,7 +73,6 @@ import {
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
-import { interpretarArquivoUnidades } from "@/lib/unidades/importar-planilha";
 import {
   aplicarUnidadeExcluida,
   aplicarUnidadeSalva,
@@ -160,9 +159,7 @@ export default function UnidadesPage() {
   const [errors, setErrors] = useState<ErrosUnidade>({});
   const [errorsResponsavel, setErrorsResponsavel] = useState<ErrosResponsavel>({});
   const [detalheVersao, setDetalheVersao] = useState(0);
-  const [importando, setImportando] = useState(false);
-  const importArquivoRef = useRef<HTMLInputElement>(null);
-  const podeImportar = pode("unidades", "criar");
+  const podeImportar = pode("importacoes", "criar");
 
   async function recarregarUnidadesDoServidor() {
     const response = await fetch("/api/unidades", { credentials: "same-origin" });
@@ -582,87 +579,8 @@ export default function UnidadesPage() {
   }
 
   function abrirImportacao() {
-    importArquivoRef.current?.click();
-  }
-
-  async function handleArquivoImportacao(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    event.target.value = "";
-    if (!arquivo) return;
-
-    setImportando(true);
-    try {
-      const conteudo = await arquivo.text();
-      const { linhas, importaveis } = interpretarArquivoUnidades(conteudo, condominiosVisiveis);
-      const errosParse = linhas.filter((item) => item.erro);
-      if (importaveis.length === 0) {
-        toast({
-          variant: "error",
-          title: "Importação não realizada",
-          description:
-            errosParse[0]?.erro ??
-            "Verifique o cabeçalho (Unidade, Condomínio, Tipo…) e o formato CSV ou XLS exportado pelo sistema.",
-        });
-        return;
-      }
-
-      let criadas = 0;
-      let duplicadas = 0;
-      let falhas = errosParse.length;
-
-      for (const payload of importaveis) {
-        const { response, body } = await salvarUnidadeApi({
-          condominioId: payload.condominioId,
-          identificacao: payload.identificacao,
-          bloco: payload.bloco ?? "",
-          tipo: payload.tipo,
-          status: payload.status,
-          situacao: payload.situacao ?? SITUACAO_COBRANCA_PADRAO,
-        });
-        if (response.ok && body.unidade) {
-          aplicarUnidadeSalva(body.unidade, "INSERT");
-          criadas += 1;
-          continue;
-        }
-        if (response.status === 409) {
-          duplicadas += 1;
-          continue;
-        }
-        falhas += 1;
-      }
-
-      if (criadas > 0) {
-        await recarregarUnidadesDoServidor();
-      }
-
-      if (criadas === 0 && duplicadas > 0 && falhas === 0) {
-        toast({
-          variant: "info",
-          title: "Nenhuma unidade nova",
-          description: "Todas as linhas já existiam no condomínio informado.",
-        });
-        return;
-      }
-
-      const partes: string[] = [];
-      if (criadas > 0) partes.push(`${criadas} criada(s)`);
-      if (duplicadas > 0) partes.push(`${duplicadas} ignorada(s) (duplicadas)`);
-      if (falhas > 0) partes.push(`${falhas} com erro`);
-
-      toast({
-        variant: criadas > 0 ? "success" : "info",
-        title: criadas > 0 ? "Importação concluída" : "Importação parcial",
-        description: partes.join(" · "),
-      });
-    } catch {
-      toast({
-        variant: "error",
-        title: "Erro ao ler arquivo",
-        description: "Use CSV (;) ou planilha XLS exportada por esta tela.",
-      });
-    } finally {
-      setImportando(false);
-    }
+    if (!podeImportar) return;
+    router.push("/importacoes?modulo=unidades&abrir=1");
   }
 
   function acoes(item: Unidade) {
@@ -1123,22 +1041,13 @@ export default function UnidadesPage() {
           />
         </section>
 
-        <input
-          ref={importArquivoRef}
-          type="file"
-          accept=".csv,.xls,text/csv,application/vnd.ms-excel"
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden
-          onChange={handleArquivoImportacao}
-        />
         <ResponsiveTable
           desktop={desktopTable}
           mobile={mobileTable}
           onExport={aoExportar}
           onImport={abrirImportacao}
           showImport={podeImportar}
-          importDisabled={importando}
+          importDisabled={false}
           mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}

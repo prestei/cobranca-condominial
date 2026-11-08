@@ -31,6 +31,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: contador e barra de progresso, **Restaurar padrão** / **Desmarcar tudo**, cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
 | `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: painel com **N áreas**, lista de módulos e **Ver permissões**; variante `badges` para tags compactas. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
+| `ImportacaoPreVisualizacao` | `importacao-pre-visualizacao/importacao-pre-visualizacao.tsx` | Pré-visualização obrigatória de importações (Ticket 07): cabeçalho, KPIs, tabela de conferência, filtros, detalhe por linha. Colunas por módulo em `config-modulos.ts`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |

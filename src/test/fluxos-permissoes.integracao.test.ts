@@ -18,6 +18,7 @@ import { distribuirUnidades } from "@/lib/distribuicao/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
 import { obterHistoricoUnidade } from "@/lib/historico-unidade/service";
 import {
+  ImportacaoDebitosError,
   confirmarImportacaoDebitos,
   previewImportacaoDebitos,
 } from "@/lib/importacoes/debitos-service";
@@ -302,10 +303,10 @@ describe("T21 — produtividade por RE e período", () => {
 });
 
 describe("T21 — importação inválida", () => {
-  test("prévia com erros não altera débitos existentes", () => {
+  test("prévia com erros não altera débitos existentes", async () => {
     const antes = getCadastros().debitos.length;
     const conteudo = "coluna-invalida;outra\nxxx;yyy\n";
-    const preview = previewImportacaoDebitos(ADMIN_ID, {
+    const preview = await previewImportacaoDebitos(ADMIN_ID, {
       origem: "Outra administradora",
       arquivo: "invalido.csv",
       conteudo,
@@ -313,14 +314,17 @@ describe("T21 — importação inválida", () => {
     assert.ok(preview.erros > 0);
     assert.equal(preview.novos, 0);
 
-    const resultado = confirmarImportacaoDebitos(ADMIN_ID, {
-      origem: "Outra administradora",
-      arquivo: "invalido.csv",
-      conteudo,
-    });
+    await assert.rejects(
+      () =>
+        confirmarImportacaoDebitos(ADMIN_ID, {
+          origem: "Outra administradora",
+          arquivo: "invalido.csv",
+          conteudo,
+        }),
+      (err: unknown) =>
+        err instanceof ImportacaoDebitosError && err.status === 400 && /impeditiv/i.test(err.message),
+    );
     assert.equal(getCadastros().debitos.length, antes);
-    assert.equal(resultado.novos, 0);
-    assert.equal(resultado.importacao.status, "Erro");
   });
 });
 

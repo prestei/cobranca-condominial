@@ -10,6 +10,10 @@ import type {
   Unidade,
   Vinculo,
 } from "@/data/catalogo";
+import {
+  condominioResidencialDoMarSeed,
+  unidadesResidencialDoMar,
+} from "@/data/seed-residencial-do-mar";
 
 const ISO_SEED = "2026-10-01T12:00:00.000Z";
 
@@ -45,6 +49,7 @@ function debitoBase(
 }
 
 export const condominiosBaseTeste: Condominio[] = [
+  condominioResidencialDoMarSeed,
   {
     id: 1,
     nome: "Condomínio Teste 1",
@@ -78,6 +83,7 @@ export const condominiosBaseTeste: Condominio[] = [
 ];
 
 export const unidadesBaseTeste: Unidade[] = [
+  ...unidadesResidencialDoMar,
   {
     id: 1,
     condominioId: 1,

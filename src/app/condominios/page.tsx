@@ -66,7 +66,6 @@ import {
   type Condominio,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
-import { interpretarArquivoCondominios } from "@/lib/condominios/importar-planilha";
 import {
   aplicarCondominioExcluido,
   aplicarCondominioSalvo,
@@ -178,10 +177,8 @@ export default function CondominiosPage() {
   const [cepErro, setCepErro] = useState("");
   const [enderecoLiberado, setEnderecoLiberado] = useState(false);
   const ultimoCepBuscado = useRef("");
-  const importArquivoRef = useRef<HTMLInputElement>(null);
-  const [importando, setImportando] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const podeImportar = pode("condominios", "criar");
+  const podeImportar = pode("importacoes", "criar");
 
   useEffect(() => {
     let cancelled = false;
@@ -678,98 +675,8 @@ export default function CondominiosPage() {
   }
 
   function abrirImportacao() {
-    importArquivoRef.current?.click();
-  }
-
-  async function handleArquivoImportacao(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    event.target.value = "";
-    if (!arquivo || !podeImportar) return;
-
-    setImportando(true);
-    try {
-      const conteudo = await arquivo.text();
-      const { linhas, importaveis } = interpretarArquivoCondominios(conteudo, opcoesAdvogados);
-      const errosParse = linhas.filter((item) => item.erro);
-      if (importaveis.length === 0) {
-        toast({
-          variant: "error",
-          title: "Importação não realizada",
-          description:
-            errosParse[0]?.erro ??
-            'Use CSV (;) ou XLS exportado por esta tela, com colunas "Nome" e "Advogados".',
-        });
-        return;
-      }
-
-      const base = getCadastros().condominios;
-      const identificadoresUsados = new Set(
-        base
-          .map((item) => item.identificadorExterno.trim().toLocaleLowerCase("pt-BR"))
-          .filter(Boolean),
-      );
-      let criadas = 0;
-      let duplicadas = 0;
-      let falhas = errosParse.length;
-
-      for (const payload of importaveis) {
-        const identificador = payload.identificadorExterno.trim();
-        if (identificador) {
-          const chave = identificador.toLocaleLowerCase("pt-BR");
-          if (identificadoresUsados.has(chave)) {
-            duplicadas += 1;
-            continue;
-          }
-          identificadoresUsados.add(chave);
-        }
-
-        const response = await fetch("/api/condominios", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const body = (await response.json()) as { condominio?: Condominio; error?: string };
-        if (response.ok && body.condominio) {
-          aplicarCondominioSalvo(body.condominio, "INSERT");
-          criadas += 1;
-          continue;
-        }
-        if (response.status === 409) {
-          duplicadas += 1;
-          continue;
-        }
-        falhas += 1;
-      }
-
-      if (criadas === 0 && duplicadas > 0 && falhas === 0) {
-        toast({
-          variant: "info",
-          title: "Nenhum condomínio novo",
-          description: "Todos os identificadores da planilha já existem na carteira.",
-        });
-        return;
-      }
-
-      const partes: string[] = [];
-      if (criadas > 0) partes.push(`${criadas} criado(s)`);
-      if (duplicadas > 0) partes.push(`${duplicadas} ignorado(s) (identificador duplicado)`);
-      if (falhas > 0) partes.push(`${falhas} com erro`);
-
-      toast({
-        variant: criadas > 0 ? "success" : "info",
-        title: criadas > 0 ? "Importação concluída" : "Importação parcial",
-        description: partes.join(" · "),
-      });
-    } catch {
-      toast({
-        variant: "error",
-        title: "Erro ao ler arquivo",
-        description: "Use CSV (;) ou planilha XLS exportada por esta tela.",
-      });
-    } finally {
-      setImportando(false);
-    }
+    if (!podeImportar) return;
+    router.push("/importacoes?modulo=condominios&abrir=1");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -1069,22 +976,13 @@ export default function CondominiosPage() {
             />
           </section>
 
-          <input
-            ref={importArquivoRef}
-            type="file"
-            accept=".csv,.xls,text/csv,application/vnd.ms-excel"
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden
-            onChange={handleArquivoImportacao}
-          />
-          <ResponsiveTable
+        <ResponsiveTable
             desktop={desktopTable}
             mobile={mobileTable}
             onExport={aoExportar}
             onImport={abrirImportacao}
             showImport={podeImportar}
-            importDisabled={importando}
+            importDisabled={false}
             mobileDataBarClassName={condominiosMobileDataBarClassName}
           />
           {visible.length > 0 ? (

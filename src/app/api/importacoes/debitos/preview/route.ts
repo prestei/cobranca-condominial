@@ -1,19 +1,30 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { ImportacaoDebitosError, previewImportacaoDebitos } from "@/lib/importacoes/debitos-service";
 
-function parseBody(body: unknown): { origem: string; arquivo: string; conteudo: string } | null {
+function parseBody(
+  body: unknown,
+): {
+  origem: string;
+  arquivo?: string;
+  conteudo?: string;
+  processoId?: string;
+  hashArquivo?: string;
+} | null {
   if (!body || typeof body !== "object") return null;
   const record = body as Record<string, unknown>;
   const origem = typeof record.origem === "string" ? record.origem : "";
-  const arquivo = typeof record.arquivo === "string" ? record.arquivo : "";
-  const conteudo = typeof record.conteudo === "string" ? record.conteudo : "";
-  return { origem, arquivo, conteudo };
+  const arquivo = typeof record.arquivo === "string" ? record.arquivo : undefined;
+  const conteudo = typeof record.conteudo === "string" ? record.conteudo : undefined;
+  const processoId = typeof record.processoId === "string" ? record.processoId : undefined;
+  const hashArquivo = typeof record.hashArquivo === "string" ? record.hashArquivo : undefined;
+  return { origem, arquivo, conteudo, processoId, hashArquivo };
 }
 
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "importacoes", "criar");
+  const denied = requirePermissaoAcaoImportacao(session, "visualizarPrevia");
   if (denied) return denied;
 
   let body: unknown;
@@ -29,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const preview = previewImportacaoDebitos(session.userId, input);
+    const preview = await previewImportacaoDebitos(session.userId, input);
     return Response.json({ preview });
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {

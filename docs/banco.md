@@ -312,14 +312,19 @@ Histórico de importação de arquivos: débitos, unidades, responsáveis e outr
 | origem | VARCHAR | sim | | Administradora ou formato. Ex.: Superlógica, PDF |
 | tipo | VARCHAR | não | | debitos, responsaveis, unidades |
 | arquivo | VARCHAR | sim | | Nome ou caminho do arquivo |
-| status | VARCHAR | não | | Processando, Concluida, Erro, Cancelada |
-| quantidade_registros | INT | sim | | |
+| processo_id | UUID | sim | UNIQUE opcional | Identificador do envio (Ticket 11) |
+| status | VARCHAR | não | | Em processamento, Aguardando conferencia, Aguardando aprovacao, Aprovada, Concluida, Concluida parcialmente, Cancelada, Rejeitada, Falhou (legado: Processando, Erro) |
+| quantidade_registros | INT | sim | | Processados |
 | quantidade_importados | INT | sim | | |
 | quantidade_atualizados | INT | sim | | |
+| quantidade_ignorados | INT | sim | | |
 | quantidade_erros | INT | sim | | |
-| observacao_interna | TEXT | sim | | JSON opcional: `hashArquivo`, `formato` (ex. `planilha-inadimplencia-v1`), `relatorio` com erros/ignorados |
-| usuario_id | INT | não | FK → user.id | Quem executou a importação |
-| data_importacao | TIMESTAMP | não | | |
+| observacao_interna | TEXT | sim | | JSON: `hashArquivo`, `formato`, `relatorio`, `resumoInconsistencias`, `resultadoFinanceiro`, `acoes[]` |
+| usuario_id | INT | não | FK → user.id | Quem iniciou |
+| iniciado_em | TIMESTAMP | sim | | Recebimento do arquivo |
+| usuario_aprovacao_id | INT | sim | FK → user.id | Quem aprovou a gravação |
+| aprovado_em | TIMESTAMP | sim | | |
+| data_importacao | TIMESTAMP | não | | Referência de listagem (aprovação ou início) |
 
 ## audit_log
 

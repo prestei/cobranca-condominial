@@ -5,8 +5,11 @@ import "./globals.css";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" className={openSans.variable}>
-      <body className="bg-background font-sans text-on-background">
+    <html lang="pt-BR" className={openSans.variable} suppressHydrationWarning>
+      <body
+        className="bg-background font-sans text-on-background"
+        suppressHydrationWarning
+      >
         <Providers>{children}</Providers>
       </body>
     </html>
