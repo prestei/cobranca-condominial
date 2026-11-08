@@ -216,6 +216,16 @@ export function FilaCobrancasPanel() {
         setDestaqueUnidadeId(Number(atendimento.unidadeId));
       }
     }
+    const codigoReQuery = searchParams?.get("codigoRe")?.trim();
+    if (codigoReQuery) {
+      setFiltroRe(codigoReQuery);
+      setAppliedFiltroRe(codigoReQuery);
+    }
+    const buscaQuery = searchParams?.get("q")?.trim() ?? searchParams?.get("busca")?.trim();
+    if (buscaQuery) {
+      setSearch(buscaQuery);
+      setAppliedSearch(buscaQuery);
+    }
   }, [cadastros.atendimentos, searchParams]);
 
   useEffect(() => {

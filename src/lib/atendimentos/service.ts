@@ -11,7 +11,16 @@ import {
   type Atendimento,
   type AtribuicaoCobranca,
 } from "@/data/catalogo";
-import { emitirNotificacaoRetornoAgendado } from "@/lib/notificacoes/service";
+import {
+  listarAtendimentosIndicadorOperacional,
+  type IndicadorOperacionalAtendenteId,
+} from "@/lib/dashboard/indicadores-operacionais-atendente";
+import {
+  emitirNotificacaoAtendimentoAtribuido,
+  emitirNotificacaoMovimentacaoAtendimento,
+  emitirNotificacaoRetornoAgendado,
+} from "@/lib/notificacoes/service";
+import { retornoAgendaAtivo, retornoFoiCancelado, retornoFoiConcluido } from "@/lib/retornos/status";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -29,6 +38,9 @@ function serializarAtendimentoAuditoria(atendimento: Atendimento): string {
     proximaAcao: atendimento.proximaAcao,
     retornoConcluidoEm: atendimento.retornoConcluidoEm ?? "",
     retornoConcluidoPorId: atendimento.retornoConcluidoPorId ?? null,
+    retornoCanceladoEm: atendimento.retornoCanceladoEm ?? "",
+    retornoCanceladoPorId: atendimento.retornoCanceladoPorId ?? null,
+    retornoCanceladoMotivo: atendimento.retornoCanceladoMotivo ?? "",
   });
 }
 
@@ -61,6 +73,9 @@ export type AtendimentoFiltros = {
   status?: string;
   canal?: string;
   busca?: string;
+  operacional?: IndicadorOperacionalAtendenteId;
+  de?: string;
+  ate?: string;
 };
 
 function usuarioVeCarteiraGeral(userId: number) {
@@ -183,6 +198,12 @@ function assertNaoDuplicadoRecente(userId: number, unidadeId: number, dados: Ret
 }
 
 export function listarAtendimentos(userId: number, filtros?: AtendimentoFiltros): Atendimento[] {
+  if (filtros?.operacional) {
+    const periodo =
+      filtros.de && filtros.ate ? { inicio: filtros.de, fim: filtros.ate } : undefined;
+    return listarAtendimentosIndicadorOperacional(userId, filtros.operacional, periodo);
+  }
+
   const idsUnidade = idsUnidadeNoEscopo(userId);
   const geral = usuarioVeCarteiraGeral(userId);
   let lista = getCadastros().atendimentos.filter((item) => idsUnidade.has(Number(item.unidadeId)));
@@ -234,6 +255,9 @@ export function criarAtendimento(
     proximaAcao: dados.proximaAcao,
     retornoConcluidoEm: "",
     retornoConcluidoPorId: null,
+    retornoCanceladoEm: "",
+    retornoCanceladoPorId: null,
+    retornoCanceladoMotivo: "",
   };
 
   setAtendimentos((current) => [...current, registro]);
@@ -250,6 +274,7 @@ export function criarAtendimento(
     meta,
   );
   emitirNotificacaoRetornoAgendado(registro);
+  emitirNotificacaoAtendimentoAtribuido(registro, userId);
   return registro;
 }
 
@@ -289,6 +314,9 @@ export function atualizarAtendimento(
     proximaAcao: dados.proximaAcao,
     retornoConcluidoEm: anterior.retornoConcluidoEm ?? "",
     retornoConcluidoPorId: anterior.retornoConcluidoPorId ?? null,
+    retornoCanceladoEm: anterior.retornoCanceladoEm ?? "",
+    retornoCanceladoPorId: anterior.retornoCanceladoPorId ?? null,
+    retornoCanceladoMotivo: anterior.retornoCanceladoMotivo ?? "",
   };
 
   setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
@@ -310,6 +338,7 @@ export function atualizarAtendimento(
   ) {
     emitirNotificacaoRetornoAgendado(atualizado);
   }
+  emitirNotificacaoMovimentacaoAtendimento(atualizado, anterior, userId);
   return atualizado;
 }
 
@@ -344,6 +373,266 @@ export function excluirAtendimento(userId: number, id: string, meta?: { ip?: str
     userId,
     meta,
   );
+}
+
+export type RetornoAgendamentoInput = {
+  dataProximaAcao: string;
+  proximaAcao?: string;
+  descricao?: string;
+};
+
+function normalizarDataRetorno(valor: string) {
+  const texto = valor.trim();
+  if (!texto) {
+    throw new AtendimentoServiceError("Informe a data do retorno.", 400);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return `${texto}T00:00:00`;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(texto)) return `${texto}:00`;
+  return texto;
+}
+
+function assertAtendimentoComRetornoEditavel(userId: number, id: string) {
+  const perm = permissoesDoUsuarioId(userId);
+  if (!temPermissao(perm, "atendimentos", "editar")) {
+    throw new AtendimentoServiceError("Sem permissão para alterar retornos.", 403);
+  }
+
+  const anterior = getCadastros().atendimentos.find((item) => item.id === id);
+  if (!anterior) {
+    throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
+  }
+  if (!anterior.dataProximaAcao.trim()) {
+    throw new AtendimentoServiceError("Este atendimento não possui retorno agendado.", 400);
+  }
+  if (retornoFoiConcluido(anterior)) {
+    throw new AtendimentoServiceError("Retorno já foi marcado como realizado.", 409);
+  }
+  if (retornoFoiCancelado(anterior)) {
+    throw new AtendimentoServiceError("Retorno cancelado não pode ser alterado.", 409);
+  }
+
+  const unidadeId = Number(anterior.unidadeId);
+  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
+    throw new AtendimentoServiceError("Atendimento fora do seu escopo de acesso.", 403);
+  }
+  assertCarteiraParaRegistrar(userId, unidadeId);
+  return anterior;
+}
+
+export function obterAtendimentoNoEscopo(userId: number, id: string): Atendimento {
+  const perm = permissoesDoUsuarioId(userId);
+  if (!temPermissao(perm, "atendimentos", "ler")) {
+    throw new AtendimentoServiceError("Sem permissão para consultar atendimentos.", 403);
+  }
+  const item = getCadastros().atendimentos.find((a) => a.id === id);
+  if (!item) {
+    throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
+  }
+  const unidadeId = Number(item.unidadeId);
+  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
+    throw new AtendimentoServiceError("Atendimento fora do seu escopo de acesso.", 403);
+  }
+  if (!usuarioVeCarteiraGeral(userId)) {
+    const vigente = atribuicaoVigente(unidadeId);
+    if (!vigente || vigente.atendenteId !== userId) {
+      throw new AtendimentoServiceError("Atendimento fora da sua carteira vigente.", 403);
+    }
+  }
+  return item;
+}
+
+export function agendarRetornoEmAtendimento(
+  userId: number,
+  id: string,
+  input: RetornoAgendamentoInput,
+  meta?: { ip?: string; userAgent?: string },
+): Atendimento {
+  const anterior = getCadastros().atendimentos.find((item) => item.id === id);
+  if (!anterior) {
+    throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
+  }
+  const perm = permissoesDoUsuarioId(userId);
+  if (!temPermissao(perm, "atendimentos", "editar")) {
+    throw new AtendimentoServiceError("Sem permissão para agendar retorno.", 403);
+  }
+  const unidadeId = Number(anterior.unidadeId);
+  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
+    throw new AtendimentoServiceError("Atendimento fora do seu escopo de acesso.", 403);
+  }
+  assertCarteiraParaRegistrar(userId, unidadeId);
+
+  if (retornoAgendaAtivo(anterior)) {
+    throw new AtendimentoServiceError("Já existe um retorno pendente neste atendimento. Reprograme ou cancele o atual.", 409);
+  }
+
+  const dataProximaAcao = normalizarDataRetorno(input.dataProximaAcao);
+  const proximaAcao = input.proximaAcao?.trim() ?? "";
+  if (!proximaAcao) {
+    throw new AtendimentoServiceError("Informe a descrição do retorno.", 400);
+  }
+
+  const atualizado: Atendimento = {
+    ...anterior,
+    dataProximaAcao,
+    proximaAcao,
+    descricao: input.descricao?.trim() ?? anterior.descricao,
+    retornoConcluidoEm: "",
+    retornoConcluidoPorId: null,
+    retornoCanceladoEm: "",
+    retornoCanceladoPorId: null,
+    retornoCanceladoMotivo: "",
+  };
+
+  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
+  registrarAuditoria(
+    {
+      entidade: "service_ticket",
+      registroId: id,
+      acao: "UPDATE",
+      dadosAnteriores: serializarAtendimentoAuditoria(anterior),
+      dadosNovos: serializarAtendimentoAuditoria(atualizado),
+      camposAlterados: "retorno_agendado",
+    },
+    userId,
+    meta,
+  );
+  emitirNotificacaoRetornoAgendado(atualizado);
+  return atualizado;
+}
+
+export function atualizarRetornoAgendado(
+  userId: number,
+  id: string,
+  input: RetornoAgendamentoInput,
+  meta?: { ip?: string; userAgent?: string },
+): Atendimento {
+  const anterior = assertAtendimentoComRetornoEditavel(userId, id);
+  const dataProximaAcao = input.dataProximaAcao.trim()
+    ? normalizarDataRetorno(input.dataProximaAcao)
+    : anterior.dataProximaAcao;
+  const proximaAcao = input.proximaAcao?.trim() ? input.proximaAcao.trim() : anterior.proximaAcao;
+
+  const atualizado: Atendimento = {
+    ...anterior,
+    dataProximaAcao,
+    proximaAcao,
+    descricao: input.descricao !== undefined ? input.descricao.trim() : anterior.descricao,
+  };
+
+  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
+  registrarAuditoria(
+    {
+      entidade: "service_ticket",
+      registroId: id,
+      acao: "UPDATE",
+      dadosAnteriores: JSON.stringify({
+        dataProximaAcao: anterior.dataProximaAcao,
+        proximaAcao: anterior.proximaAcao,
+        descricao: anterior.descricao,
+      }),
+      dadosNovos: JSON.stringify({
+        dataProximaAcao: atualizado.dataProximaAcao,
+        proximaAcao: atualizado.proximaAcao,
+        descricao: atualizado.descricao,
+      }),
+      camposAlterados: "retorno_atualizado",
+    },
+    userId,
+    meta,
+  );
+  if (anterior.dataProximaAcao !== atualizado.dataProximaAcao) {
+    emitirNotificacaoRetornoAgendado(atualizado);
+  }
+  return atualizado;
+}
+
+export function reprogramarRetornoAgendado(
+  userId: number,
+  id: string,
+  input: RetornoAgendamentoInput,
+  meta?: { ip?: string; userAgent?: string },
+): Atendimento {
+  const anterior = assertAtendimentoComRetornoEditavel(userId, id);
+  const dataProximaAcao = normalizarDataRetorno(input.dataProximaAcao);
+  const proximaAcao = input.proximaAcao?.trim() ? input.proximaAcao.trim() : anterior.proximaAcao;
+  if (!proximaAcao) {
+    throw new AtendimentoServiceError("Informe a descrição do retorno.", 400);
+  }
+
+  const atualizado: Atendimento = {
+    ...anterior,
+    dataProximaAcao,
+    proximaAcao,
+    descricao: input.descricao !== undefined ? input.descricao.trim() : anterior.descricao,
+  };
+
+  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
+  registrarAuditoria(
+    {
+      entidade: "service_ticket",
+      registroId: id,
+      acao: "UPDATE",
+      dadosAnteriores: JSON.stringify({
+        dataProximaAcao: anterior.dataProximaAcao,
+        proximaAcao: anterior.proximaAcao,
+        descricao: anterior.descricao,
+      }),
+      dadosNovos: JSON.stringify({
+        dataProximaAcao: atualizado.dataProximaAcao,
+        proximaAcao: atualizado.proximaAcao,
+        descricao: atualizado.descricao,
+      }),
+      camposAlterados: "reprogramacao_retorno",
+    },
+    userId,
+    meta,
+  );
+  emitirNotificacaoRetornoAgendado(atualizado);
+  return atualizado;
+}
+
+export function cancelarRetornoAgendado(
+  userId: number,
+  id: string,
+  justificativa: string,
+  meta?: { ip?: string; userAgent?: string },
+): Atendimento {
+  const anterior = assertAtendimentoComRetornoEditavel(userId, id);
+  const motivo = justificativa.trim();
+  if (!motivo) {
+    throw new AtendimentoServiceError("Informe a justificativa do cancelamento.", 400);
+  }
+
+  const atualizado: Atendimento = {
+    ...anterior,
+    retornoCanceladoEm: agoraIso(),
+    retornoCanceladoPorId: userId,
+    retornoCanceladoMotivo: motivo,
+  };
+
+  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
+  registrarAuditoria(
+    {
+      entidade: "service_ticket",
+      registroId: id,
+      acao: "UPDATE",
+      dadosAnteriores: JSON.stringify({
+        dataProximaAcao: anterior.dataProximaAcao,
+        proximaAcao: anterior.proximaAcao,
+        retornoCanceladoEm: "",
+      }),
+      dadosNovos: JSON.stringify({
+        dataProximaAcao: atualizado.dataProximaAcao,
+        proximaAcao: atualizado.proximaAcao,
+        retornoCanceladoEm: atualizado.retornoCanceladoEm,
+        retornoCanceladoMotivo: atualizado.retornoCanceladoMotivo,
+      }),
+      camposAlterados: "retorno_cancelado",
+    },
+    userId,
+    meta,
+  );
+  return atualizado;
 }
 
 export function concluirRetornoAgendado(

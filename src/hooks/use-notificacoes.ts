@@ -11,7 +11,10 @@ import {
 export type NotificacaoUi = NotificacaoInterna & {
   urlRegistro: string | null;
   relativo: string;
+  criadoEmFormatado: string;
 };
+
+const INTERVALO_SINCRONIZACAO_MS = 45_000;
 
 export function useNotificacoes() {
   const { user } = useAuth();
@@ -49,6 +52,24 @@ export function useNotificacoes() {
   useEffect(() => {
     void recarregar();
   }, [recarregar]);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+
+    const intervalo = window.setInterval(() => {
+      if (document.visibilityState === "visible") void recarregar();
+    }, INTERVALO_SINCRONIZACAO_MS);
+
+    const aoVisivel = () => {
+      if (document.visibilityState === "visible") void recarregar();
+    };
+    document.addEventListener("visibilitychange", aoVisivel);
+
+    return () => {
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoVisivel);
+    };
+  }, [recarregar, user?.userId]);
 
   const marcarTodasLidas = useCallback(async () => {
     const response = await fetch("/api/notificacoes/marcar-todas-lidas", {

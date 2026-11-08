@@ -31,6 +31,7 @@ import { DashboardRetornosTable } from "@/components/dashboard/dashboard-retorno
 type Props = {
   dados: DashboardAdvogado;
   chaveGrafico: string;
+  filtrosQuery?: string;
 };
 
 export function DashboardAdvogadoView({ dados, chaveGrafico }: Props) {

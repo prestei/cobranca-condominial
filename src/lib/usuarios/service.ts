@@ -177,6 +177,30 @@ export function listarUsuarios(): UsuarioPublico[] {
   return getCadastros().usuarios.map(usuarioParaResposta);
 }
 
+export type PerfilMinhaConta = {
+  nome: string;
+  email: string;
+  telefone: string;
+  codigoRe?: string;
+  cargoNome: string;
+};
+
+/** Perfil do colaborador autenticado (somente leitura, sem permissão administrativa). */
+export function obterPerfilMinhaConta(usuarioId: number): PerfilMinhaConta | null {
+  const cadastros = getCadastros();
+  const usuario = cadastros.usuarios.find((item) => item.id === usuarioId);
+  if (!usuario) return null;
+  const publico = usuarioParaResposta(usuario);
+  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
+  return {
+    nome: publico.nome,
+    email: publico.email,
+    telefone: publico.telefone,
+    ...(publico.codigoRe ? { codigoRe: publico.codigoRe } : {}),
+    cargoNome: cargo?.nome ?? "—",
+  };
+}
+
 export async function criarUsuario(
   actorUserId: number,
   input: UsuarioInput,

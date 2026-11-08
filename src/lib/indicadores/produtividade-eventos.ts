@@ -62,7 +62,11 @@ function atendimentoNoEscopo(userId: number, item: Atendimento, filtros: Relator
 }
 
 function retornoEmAberto(item: Atendimento) {
-  return Boolean(item.dataProximaAcao?.trim()) && !item.retornoConcluidoEm?.trim();
+  return (
+    Boolean(item.dataProximaAcao?.trim()) &&
+    !item.retornoConcluidoEm?.trim() &&
+    !item.retornoCanceladoEm?.trim()
+  );
 }
 
 function reCarteiraAtualUnidade(unidadeId: number): string | null {

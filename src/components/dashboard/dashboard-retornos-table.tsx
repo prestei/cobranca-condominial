@@ -26,8 +26,8 @@ export function DashboardRetornosTable({
   vazio = "Nenhum retorno atrasado, de hoje ou dos próximos 7 dias.",
 }: Props) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border-subtle">
-      <Table aria-label="Retornos agendados">
+    <div className="min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border-subtle">
+      <Table aria-label="Retornos agendados" className="min-w-[36rem]">
         <TableHeader>
           <TableRow className="border-border-subtle/50 hover:bg-transparent">
             <TableHead>Quando</TableHead>

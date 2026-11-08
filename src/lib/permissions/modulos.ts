@@ -86,6 +86,7 @@ export type PermissoesCargo = {
 
 export const ROTAS_MODULO: Array<{ prefix: string; modulo: ModuloPermissao }> = [
   { prefix: "/atendimentos", modulo: "atendimentos" },
+  { prefix: "/minha-agenda", modulo: "atendimentos" },
   { prefix: "/debitos", modulo: "debitos" },
   { prefix: "/juridico", modulo: "juridico" },
   { prefix: "/condominios", modulo: "condominios" },

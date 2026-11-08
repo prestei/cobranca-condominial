@@ -9,10 +9,14 @@ export function geradoEmBr(): string {
   return new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
-export function metaDashboard(dataBase: string, limiteDias: number): MetaPainelIndicadores {
+export function metaDashboard(dataBase: string, limiteDias: number, extras: string[] = []): MetaPainelIndicadores {
   return {
     geradoEm: geradoEmBr(),
-    filtros: [`Data-base: ${formatarData(dataBase)}`, `Limite cobrança amigável: ${limiteDias} dias`],
+    filtros: [
+      `Data-base: ${formatarData(dataBase)}`,
+      `Limite cobrança amigável: ${limiteDias} dias`,
+      ...extras,
+    ],
   };
 }
 

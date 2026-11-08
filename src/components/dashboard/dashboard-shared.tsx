@@ -74,6 +74,21 @@ export function Leitura({ children }: { children: ReactNode }) {
   );
 }
 
+/** Agrupa seções principais do dashboard com espaçamento uniforme (T36). */
+export function DashboardLayout({ children }: { children: ReactNode }) {
+  return <div className="flex min-w-0 flex-col gap-xl">{children}</div>;
+}
+
+/** Título de bloco secundário dentro de uma seção (indicadores de apoio). */
+export function SubsecaoTitulo({ titulo, descricao }: { titulo: string; descricao?: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-xs">
+      <h3 className="text-body-md font-semibold text-on-surface">{titulo}</h3>
+      {descricao ? <p className="text-body-sm text-on-surface-variant">{descricao}</p> : null}
+    </div>
+  );
+}
+
 export function diaCurto(iso: string) {
   const texto = formatarData(iso.slice(0, 10));
   return texto === "—" ? iso : texto.slice(0, 5);

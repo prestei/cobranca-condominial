@@ -104,6 +104,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - **Atendente:** fila da carteira (atribuição vigente), atendimentos do dia, contatos da semana na autoria do usuário, retornos próprios.
 - **Advogado:** condomínios vinculados, indicadores de débitos no escopo, ranking por condomínio, resumo de encaminhamentos jurídicos quando `juridico.ler`.
 - Valores monetários formatados em pt-BR; estados de carregamento, erro e ausência de dados; sem metas ou pontuações inventadas.
+- **Busca global e exportação da carteira (T35):** busca textual na home (`GET /api/dashboard/busca`) com resultados por categoria (RE, condomínio, unidade, cobrança, atendimento), respeitando escopo e permissões; exportação CSV/XLS no servidor (`GET /api/dashboard/export`) das listagens autorizadas (fila ou atendimentos) com os **mesmos filtros** do dashboard, colunas conforme perfil (valores monetários só com `debitos.ler`), data/hora de geração, limite de volume e registro em auditoria — sem dados de carteira de outros colaboradores fora do escopo.
 
 ### Colaboradores e permissões
 
@@ -169,8 +170,9 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Meios: WhatsApp, telefone, e-mail e demais canais do catálogo
 - Resposta Sim/Não e motivo da pendência (catálogo) quando houve contato
 - Agendamento de retorno (data e próxima ação)
-- Agenda de retornos (T11): filtro **Retorno** na fila `/atendimentos` (ex. `?retorno=hoje`); API `GET /api/retornos` permanece para integrações; conclusão na fila via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
-- **Notificações internas (T34):** alertas in-app no sino do header e em `/notificacoes` — retorno agendado/atualizado (destinatário: carteira vigente ou autor), lembrete diário de retorno **hoje** (após 08:00 `America/Sao_Paulo`, idempotente por dia) e cobrança redistribuída (novo atendente). Chave de idempotência evita duplicidade; falhas vão para log interno sem bloquear atendimento/distribuição. WhatsApp, SMS e e-mail **desativados** até aprovação. Detalhes: [modulos/notificacoes.md](modulos/notificacoes.md)
+- **Minha agenda (T31):** rota `/minha-agenda` com KPIs (hoje, atrasados, próximos dias, futuros, realizados), listagem e calendário sobre `GET /api/retornos`; edição, reprogramação, cancelamento com justificativa e histórico via APIs dedicadas; atalhos legados `/retornos` e `?retorno=` redirecionam para a agenda
+- Agenda na fila (T11): filtro **Retorno** em `/atendimentos` permanece; conclusão via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original)
+- **Notificações internas (T34):** central no sino do header e em `/notificacoes` — atribuição/transferência de carteira, atendimentos e movimentações, retornos (agendado, próximo, atrasado, lembrete do dia), alteração de situação da unidade e pendências da central T30. Destinatário: carteira vigente ou colaborador impactado; idempotência por evento; atualização automática no cliente (polling). Falhas vão para log interno sem bloquear fluxos. WhatsApp, SMS e e-mail **desativados** até aprovação. Detalhes: [modulos/notificacoes.md](modulos/notificacoes.md)
 - Atendente conclui retornos só da carteira vigente; administradora acompanha por RE
 - Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada
 
@@ -186,6 +188,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Documentos da cobrança (metadados internos; upload/armazenamento oficial pendente)
 - **Relatórios (T19):** hub `/relatorios` (produtividade por RE, equipe, retornos, efetividade, carteira). Filtros respeitam `escopoCondominios` e permissões; exportação via `GET /api/relatorios/export` exige `relatorios.exportar` e repete os mesmos filtros da tela, com data/hora de geração e RE (não nome) para atendentes. CSV UTF-8 com BOM; XLS via XML SpreadsheetML (padrão do projeto). Sem dados ilustrativos na UI.
 - **Produtividade por RE (T23):** tela `/relatorios/produtividade` (exclusiva da administradora — `usuarios.criar`). Período obrigatório; filtros opcionais por condomínio, advogado e RE. UI consome `GET /api/relatorios/produtividade`. Indicadores objetivos por colaborador: atendimentos (autor), retornos concluídos, negociações criadas, ações agendadas no registro e acordos confirmados; exportação inclui também retornos previstos/atrasados/em aberto e carteira vigente. Definições exibidas na tela. Sem ranking, metas ou pontuação automática.
+- **Minha produtividade (T29):** tela `/minha-produtividade` (atendente — exige `atendimentos.ler` e nega administradora). API `GET /api/minha-produtividade` com período obrigatório; drill-down por `indicador`. Contagens pela autoria do usuário autenticado; conclusões e reaberturas derivadas de auditoria `service_ticket`. Taxa de conclusão documentada na tela. Sem metas, ranking ou pontuação.
 - **Conferência de indicadores (T35):** catálogo e fórmulas em `docs/modulos/conferencia-indicadores.md` e `src/lib/indicadores/catalogo-oficial.ts`. Consulta de referência: `GET /api/indicadores/conferencia`. Separação RE autor / carteira atual / carteira na data; propostas canceladas ou recusadas fora de negociações; meta com data/hora de geração e filtros no dashboard, indicadores e produtividade. Taxa de resposta e eficiência apenas como referência operacional (não oficial).
 - Relatórios por condomínio / advogado / RE (administradora)
 - Histórico completo das ações

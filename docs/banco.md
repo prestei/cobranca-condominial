@@ -352,11 +352,11 @@ Alertas in-app por colaborador (T34). Protótipo em `NotificacaoInterna` (`catal
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | chave_idempotencia | VARCHAR | não | único | Evita duplicidade por evento |
-| evento | VARCHAR | não | | retorno_agendado, retorno_lembrete_hoje, cobranca_atribuida |
+| evento | VARCHAR | não | | Ver [notificacoes.md](modulos/notificacoes.md) (T34) |
 | destinatario_id | INT | não | FK → user.id | Caixa pessoal |
 | titulo | VARCHAR | não | | |
 | descricao | TEXT | sim | | |
-| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment |
+| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment, unit |
 | registro_id | VARCHAR | não | | ID do registro relacionado |
 | unidade_id | INT | sim | FK → unit.id | Para escopo e deep link |
 | condominio_id | INT | sim | FK → condominium.id | |

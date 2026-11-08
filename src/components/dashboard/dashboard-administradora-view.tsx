@@ -40,6 +40,7 @@ import { DashboardRetornosTable } from "@/components/dashboard/dashboard-retorno
 type Props = {
   dados: DashboardAdministradora;
   chaveGrafico: string;
+  filtrosQuery?: string;
 };
 
 export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
@@ -293,7 +294,7 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
         titulo="Retornos da equipe"
         descricao="O que precisa fazer ligação de novo."
         linkLabel="Abrir fila"
-        onLink={() => router.push("/atendimentos?retorno=hoje")}
+        onLink={() => router.push("/minha-agenda?secao=hoje")}
       >
         <div className="mb-md grid grid-cols-2 gap-md min-[640px]:grid-cols-4">
           <CardMetric

@@ -68,6 +68,10 @@ import {
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
+  vencimentoParaFaixaDashboard,
+  type FaixaAtrasoDashboardId,
+} from "@/lib/dashboard/graficos-atendente";
+import {
   acimaDoLimite,
   dataCorteLimite,
   debitoAbertoNaData,
@@ -89,6 +93,7 @@ import {
 } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
+import { querySessaoParaDebitos } from "@/lib/dashboard/filtros-favoritos";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
 import {
@@ -256,15 +261,62 @@ export default function DebitosPage() {
   }, [sessao?.userId]);
 
   useEffect(() => {
-    const unidadeQuery = searchParams?.get("unidade");
-    if (!unidadeQuery) return;
-    const existe = cadastros.unidades.some((item) => String(item.id) === unidadeQuery);
-    if (!existe) return;
-    setUnidadeId(unidadeQuery);
-    setAppliedUnidadeId(unidadeQuery);
+    if (!searchParams) return;
+    if (!searchParams.toString()) {
+      const herdado = querySessaoParaDebitos();
+      if (herdado) {
+        router.replace(`/debitos?${herdado}`);
+      }
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    let changed = false;
+
+    const dataBaseQuery = params.get("dataBase");
+    if (dataBaseQuery && /^\d{4}-\d{2}-\d{2}$/.test(dataBaseQuery)) {
+      setDataBase(dataBaseQuery);
+      setAppliedDataBase(dataBaseQuery);
+      changed = true;
+      params.delete("dataBase");
+    }
+
+    const condominioQuery = params.get("condominio") ?? params.get("condominioId");
+    if (condominioQuery && cadastros.condominios.some((item) => String(item.id) === condominioQuery)) {
+      setCondominioId(condominioQuery);
+      setAppliedCondominioId(condominioQuery);
+      changed = true;
+      params.delete("condominio");
+    }
+
+    const unidadeQuery = params.get("unidade");
+    if (unidadeQuery && cadastros.unidades.some((item) => String(item.id) === unidadeQuery)) {
+      setUnidadeId(unidadeQuery);
+      setAppliedUnidadeId(unidadeQuery);
+      changed = true;
+      params.delete("unidade");
+    }
+
+    const faixaQuery = params.get("faixaAtraso");
+    if (faixaQuery) {
+      const base = dataBaseQuery || appliedDataBase;
+      const intervalo = vencimentoParaFaixaDashboard(faixaQuery as FaixaAtrasoDashboardId, base);
+      if (intervalo) {
+        const periodoFaixa: PeriodValue = {
+          preset: "personalizado",
+          de: intervalo.vencimentoDe ?? "",
+          ate: intervalo.vencimentoAte ?? "",
+        };
+        setPeriodo(periodoFaixa);
+        setAppliedPeriodo(periodoFaixa);
+        changed = true;
+        params.delete("faixaAtraso");
+      }
+    }
+
+    if (!changed) return;
     setPage(1);
-    router.replace("/debitos");
-  }, [cadastros.unidades, router, searchParams]);
+    router.replace(params.toString() ? `/debitos?${params.toString()}` : "/debitos");
+  }, [appliedDataBase, cadastros.condominios, cadastros.unidades, router, searchParams]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const cidades = [...new Set(cadastros.condominios.map((item) => item.cidade.trim()).filter(Boolean))].sort((a, b) =>

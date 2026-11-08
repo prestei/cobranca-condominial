@@ -19,6 +19,7 @@ import {
   type Unidade,
   type Vinculo,
 } from "@/data/catalogo";
+import { emitirNotificacaoSituacaoAlterada } from "@/lib/notificacoes/service";
 import { responsavelParaResposta } from "@/lib/privacidade/dados-pessoais";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -208,8 +209,11 @@ export function atualizarUnidade(
   assertCondominioValido(input.condominioId);
   assertCondominioNoEscopo(userId, input.condominioId);
   const dados = validarEntrada(input, unidadeId);
+  const situacaoAnterior = situacaoCobrancaUnidade(atual);
   const atualizada: Unidade = { id: unidadeId, ...dados };
   setUnidades((current) => current.map((item) => (item.id === unidadeId ? atualizada : item)));
+  const situacaoNova = situacaoCobrancaUnidade(atualizada);
+  emitirNotificacaoSituacaoAlterada(unidadeId, situacaoAnterior, situacaoNova, userId);
   registrarAuditoria(
     {
       entidade: "unit",

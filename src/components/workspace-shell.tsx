@@ -1,14 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Bell,
   Building2,
+  BarChart3,
+  CalendarClock,
   ClipboardList,
   DoorOpen,
   FileBarChart,
   FileUp,
+  HelpCircle,
   LayoutDashboard,
   Receipt,
   Scale,
@@ -16,6 +20,7 @@ import {
   Shield,
   ShieldCheck,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -33,12 +38,56 @@ import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { useNotificacoes } from "@/hooks/use-notificacoes";
 import { usePermissao } from "@/hooks/use-permissao";
+import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import type { ModuloPermissao } from "@/lib/permissions/modulos";
 
-const secoes: Array<{
-  title: string;
-  links: Array<{ href: string; label: string; icon: LucideIcon; count?: "retornos"; modulo: ModuloPermissao }>;
-}> = [
+type NavLink = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  modulo: ModuloPermissao;
+  count?: "retornos" | "notificacoes";
+  /** Destaque quando a fila de atendimentos está aberta sem filtro de retorno na URL. */
+  atendimentosSemRetorno?: boolean;
+  /** Destaque na rota de agenda (`/atendimentos?retorno=…`). */
+  agendaRetornos?: boolean;
+};
+
+const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
+  {
+    title: "Operação",
+    links: [
+      { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
+      {
+        href: "/atendimentos",
+        label: "Atendimentos",
+        icon: ClipboardList,
+        count: "retornos",
+        modulo: "atendimentos",
+        atendimentosSemRetorno: true,
+      },
+      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
+      {
+        href: "/minha-agenda",
+        label: "Minha agenda",
+        icon: CalendarClock,
+        modulo: "atendimentos",
+        agendaRetornos: true,
+      },
+      { href: "/notificacoes", label: "Notificações", icon: Bell, modulo: "dashboard", count: "notificacoes" },
+      { href: "/minha-produtividade", label: "Minha produtividade", icon: BarChart3, modulo: "atendimentos" },
+    ],
+  },
+  {
+    title: "Conta",
+    links: [
+      { href: "/conta", label: "Minha conta", icon: UserRound, modulo: "dashboard" },
+      { href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" },
+    ],
+  },
+];
+
+const secoes: Array<{ title: string; links: NavLink[] }> = [
   {
     title: "Cobrança",
     links: [
@@ -73,12 +122,28 @@ const secoes: Array<{
   },
 ];
 
+function navLinkAtivo(pathname: string, retornoNaUrl: string | null, link: NavLink) {
+  if (link.agendaRetornos) {
+    return pathname === "/minha-agenda" || pathname.startsWith("/minha-agenda/");
+  }
+  if (link.atendimentosSemRetorno) {
+    return (pathname === "/atendimentos" || pathname.startsWith("/atendimentos/")) && !retornoNaUrl;
+  }
+  const base = link.href.split("?")[0] ?? link.href;
+  if (base === "/") return pathname === "/";
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const { user: sessao, logout } = useAuth();
-  const { pode } = usePermissao();
+  const { permissoes, pode } = usePermissao();
+  const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
+  const retornoNaUrl = searchParams?.get("retorno") ?? null;
+  const menuSecoes = perfil === "atendente" ? secoesAtendente : secoes;
   const cadastros = useCadastros();
   const retornos = cadastros.atendimentos.filter(retornoPendente).length;
   const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
@@ -121,7 +186,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <AppShellSidebar>
           <AppShellBrand title="Cobrança" />
           <AppShellNav>
-            {secoes.map((secao) => {
+            {menuSecoes.map((secao) => {
               const links = secao.links.filter((link) => pode(link.modulo, "ler"));
               if (links.length === 0) return null;
               return (
@@ -131,8 +196,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                       key={link.href}
                       href={link.href}
                       icon={link.icon}
-                      active={pathname === link.href}
-                      count={link.count === "retornos" && retornos > 0 ? retornos : undefined}
+                      active={navLinkAtivo(pathname, retornoNaUrl, link)}
+                      count={
+                        link.count === "retornos" && retornos > 0
+                          ? retornos
+                          : link.count === "notificacoes" && naoLidas > 0
+                            ? naoLidas
+                            : undefined
+                      }
                     >
                       {link.label}
                     </AppShellNavLink>

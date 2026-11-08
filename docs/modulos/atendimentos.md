@@ -17,12 +17,13 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 | Rota | Descrição |
 | --- | --- |
 | `/atendimentos` | **Fila de cobranças** — tela operacional única: KPIs, filtros, tabela, distribuição automática (Administradora), atividade recente |
-| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (substitui a aba Retornos) |
+| `/minha-agenda` | **Minha agenda (T31)** — retornos da carteira em lista e calendário |
+| `/atendimentos?retorno=…` | Atalho legado → redireciona para `/minha-agenda` |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
-| `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
+| `/retornos` | Atalho legado → `/minha-agenda` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; distribuição automática `src/components/atendimentos/distribuicao-automatica-panel.tsx`. Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
+Arquivos: `src/app/atendimentos/page.tsx`; `src/app/minha-agenda/page.tsx` + `minha-agenda-panel.tsx` (T31); painel principal `fila-cobrancas-panel.tsx`; `retorno-detalhe-sheet.tsx`, `retornos-calendario-mes.tsx`. Histórico de palitagem por unidade: **Histórico** → `HistoricoUnidadeSheet`. Painel legado `retornos-agenda-panel.tsx` mantido para referência.
 
 ## Perfis e permissões
 
@@ -40,7 +41,7 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 | Método | Path | Permissão | Descrição |
 | --- | --- | --- | --- |
 | GET | `/api/fila` | `atendimentos.ler` | Fila paginada (filtros na listagem) + `resumo` global da carteira (KPIs, **sem** filtros da tabela): `page`, `pageSize`, `q`, `condominioId`, `situacao`, `atendente`, `codigoRe`, `semResponsavel=1`, `retorno`, `sort`, `order` |
-| GET | `/api/atendimentos` | `atendimentos.ler` | Lista de palitagem no escopo: `unidadeId`, `status`, `canal`, `q` |
+| GET | `/api/atendimentos` | `atendimentos.ler` | Lista de palitagem no escopo: `unidadeId`, `status`, `canal`, `q`; **T28:** `operacional` (`pendentes`, `aguardando_retorno`, `resolvidos_periodo`, `atencao`) com `de`/`ate` opcionais — carteira vigente, mesma regra do dashboard |
 | POST | `/api/atendimentos` | `atendimentos.criar` | Body: condomínio, unidade, canal, respondeu, motivo?, status, observações, retorno — autor e `data_hora` no servidor |
 | PATCH | `/api/atendimentos/[id]` | `atendimentos.editar` | Correção administrativa; preserva autor e timestamp originais |
 | DELETE | `/api/atendimentos/[id]` | `atendimentos.excluir` | Exclusão com auditoria |
@@ -51,6 +52,11 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 | POST | `/api/distribuicao/automatica/executar` | `usuarios.criar` | Distribui unidades sem RE (estratégia **carga** = carteira equilibrada) |
 | GET | `/api/retornos` | `atendimentos.ler` | Agenda paginada: `estado` (pendente/concluido/todos), `situacao`, `de`, `ate`, `condominioId`, `codigoRe`, `q`, `page`, `pageSize` |
 | POST | `/api/atendimentos/[id]/concluir-retorno` | `atendimentos.editar` | Marca retorno agendado como realizado; grava `retorno_concluido_em` e autor; preserva `data_proxima_acao` |
+| PATCH | `/api/atendimentos/[id]/retorno` | `atendimentos.editar` | Edita data, horário, descrição e observações do retorno pendente |
+| POST | `/api/atendimentos/[id]/reprogramar-retorno` | `atendimentos.editar` | Nova data com auditoria de reprogramação (histórico preservado) |
+| POST | `/api/atendimentos/[id]/cancelar-retorno` | `atendimentos.editar` | Cancela compromisso com justificativa; não apaga o atendimento |
+| GET | `/api/atendimentos/[id]/historico-retorno` | `atendimentos.ler` | Linha do tempo do retorno no atendimento |
+| GET | `/api/atendimentos/[id]` | `atendimentos.ler` | Consulta atendimento vinculado (escopo/carteira) |
 | GET | `/api/unidades/:id/historico` | `unidades.ler` ou `atendimentos.ler` | Linha do tempo da unidade (T12); ver [unidades](unidades.md) |
 | GET/POST | `/api/propostas` | `atendimentos.ler` / `criar` | Propostas de negociação (T15); ver [negociacoes.md](negociacoes.md) |
 | GET/PATCH | `/api/propostas/[id]` | `atendimentos.ler` / `editar` | Detalhe e alteração de status da proposta |
@@ -79,7 +85,7 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 - Retorno = atendimento (`service_ticket`) com `data_proxima_acao` preenchida.
 - Classificação temporal (atrasado, hoje, próximos 7 dias, agendado) via `situacaoRetorno` / `hojeIso()` (fuso do ambiente Node/navegador). Valores de `data_proxima_acao` com hora (`…T15:00:00`) são comparados pelo **dia** (YYYY-MM-DD), preservando a hora na UI («Hoje, 15:00»).
-- **Pendente:** sem `retorno_concluido_em`; entra em alertas e contador do menu (`retornoPendente`).
+- **Pendente:** sem `retorno_concluido_em` nem `retorno_cancelado_em`; entra em alertas e contador do menu (`retornoPendente`). Data passada **não** conclui automaticamente.
 - **Concluído:** `POST …/concluir-retorno` preenche `retorno_concluido_em` e `retorno_concluido_por_id` no servidor; **não** apaga a data prevista nem o registro de palitagem.
 - **Atendente:** vê e conclui retornos das unidades da carteira vigente (`collection_assignment`), independentemente de quem registrou a palitagem.
 - **Administradora:** vê a equipe; filtros por condomínio e RE responsável (carteira vigente).

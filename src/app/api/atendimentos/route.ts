@@ -18,6 +18,19 @@ function parseFiltros(searchParams: URLSearchParams): AtendimentoFiltros {
   if (canal && canal !== "todos") filtros.canal = canal;
   const busca = searchParams.get("q") ?? searchParams.get("busca");
   if (busca?.trim()) filtros.busca = busca.trim();
+  const operacional = searchParams.get("operacional");
+  if (
+    operacional === "pendentes" ||
+    operacional === "aguardando_retorno" ||
+    operacional === "resolvidos_periodo" ||
+    operacional === "atencao"
+  ) {
+    filtros.operacional = operacional;
+  }
+  const de = searchParams.get("de")?.trim();
+  const ate = searchParams.get("ate")?.trim();
+  if (de) filtros.de = de;
+  if (ate) filtros.ate = ate;
   return filtros;
 }
 

@@ -146,6 +146,10 @@ export type Atendimento = {
   /** Preenchido ao marcar o retorno agendado como realizado (preserva data_proxima_acao original). */
   retornoConcluidoEm: string;
   retornoConcluidoPorId: number | null;
+  /** Cancelamento do compromisso de retorno (preserva data e registro do atendimento). */
+  retornoCanceladoEm: string;
+  retornoCanceladoPorId: number | null;
+  retornoCanceladoMotivo: string;
 };
 
 /** Proposta de negociação (T15) — não equivale a pagamento recebido. */
@@ -263,14 +267,28 @@ export type Auditoria = {
 };
 
 /** Alerta in-app para colaboradores (T34 — sem SMS/e-mail/WhatsApp). */
+export type EventoNotificacaoInterna =
+  | "atendimento_atribuido"
+  | "carteira_transferida"
+  | "retorno_agendado"
+  | "retorno_proximo"
+  | "retorno_atrasado"
+  | "retorno_lembrete_hoje"
+  | "movimentacao_atendimento"
+  | "situacao_alterada"
+  | "pendencia_atencao"
+  | "cobranca_atribuida";
+
+export type EntidadeNotificacaoInterna = "service_ticket" | "collection_assignment" | "unit";
+
 export type NotificacaoInterna = {
   id: number;
   chaveIdempotencia: string;
-  evento: "retorno_agendado" | "retorno_lembrete_hoje" | "cobranca_atribuida";
+  evento: EventoNotificacaoInterna;
   destinatarioId: number;
   titulo: string;
   descricao: string;
-  entidadeTipo: "service_ticket" | "collection_assignment";
+  entidadeTipo: EntidadeNotificacaoInterna;
   registroId: string;
   unidadeId: number;
   condominioId: number | null;
@@ -474,6 +492,9 @@ const atendimentosIniciais: Atendimento[] = [
     proximaAcao: "Nova tentativa de contato",
     retornoConcluidoEm: "",
     retornoConcluidoPorId: null,
+    retornoCanceladoEm: "",
+    retornoCanceladoPorId: null,
+    retornoCanceladoMotivo: "",
   },
 ];
 
@@ -985,8 +1006,10 @@ export function retornoPendente(item: {
   status: string;
   dataProximaAcao: string;
   retornoConcluidoEm?: string;
+  retornoCanceladoEm?: string;
 }) {
   if (item.retornoConcluidoEm?.trim()) return false;
+  if (item.retornoCanceladoEm?.trim()) return false;
   if (item.status === "Resolvido" || !item.dataProximaAcao) return false;
   const situacao = situacaoRetorno(item.dataProximaAcao);
   return situacao === "atrasado" || situacao === "hoje" || situacao === "semana";

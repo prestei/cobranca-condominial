@@ -71,6 +71,8 @@ type FilterBarProps = {
   clearLabel?: string;
   /** Campo de busca apenas informativo (ex.: relatórios sem busca textual). */
   searchReadOnly?: boolean;
+  /** Oculta o campo de busca (telas só com período ou filtros estruturados). */
+  hideSearch?: boolean;
   /** `toolbar`: uma linha (mockup fila de cobranças) — busca com ícone, selects «Label: valor», Filtrar com funil. */
   variant?: "default" | "toolbar";
   /** Com `variant="toolbar"`, distribui busca/cargo/situação em proporções fixas no desktop. */
@@ -174,6 +176,7 @@ export function FilterBar({
   applyLabel = "Filtrar",
   clearLabel = "Limpar",
   searchReadOnly = false,
+  hideSearch = false,
   variant = "default",
   toolbarLayout = "flex",
   toolbarMobile,
@@ -247,26 +250,28 @@ export function FilterBar({
 
     const desktopToolbar = (
       <FilterShell useFormElement={useFormElement} onApply={onApply} className={toolbarFormClass}>
-        <div className={searchWrapClass}>
-          <label htmlFor={searchId} className="sr-only">
-            {searchLabel}
-          </label>
-          <Icon
-            icon={Search}
-            size="sm"
-            className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
-            aria-hidden
-          />
-          <Input
-            id={searchId}
-            className={searchInputWithIconClass}
-            value={searchValue}
-            readOnly={searchReadOnly}
-            aria-readonly={searchReadOnly}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-          />
-        </div>
+        {!hideSearch ? (
+          <div className={searchWrapClass}>
+            <label htmlFor={searchId} className="sr-only">
+              {searchLabel}
+            </label>
+            <Icon
+              icon={Search}
+              size="sm"
+              className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
+              aria-hidden
+            />
+            <Input
+              id={searchId}
+              className={searchInputWithIconClass}
+              value={searchValue}
+              readOnly={searchReadOnly}
+              aria-readonly={searchReadOnly}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </div>
+        ) : null}
 
         {fields.map((field) => (
           <div key={field.id} className={fieldWrapClass}>
@@ -301,32 +306,34 @@ export function FilterBar({
               : "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center"
           }
         >
-          <div
-            className={
-              toolbarLayout === "proportional"
-                ? "relative col-span-2 min-w-0 min-[1024px]:col-span-1"
-                : "relative min-w-0 min-[1100px]:min-w-[12rem] min-[1100px]:flex-1 min-[1100px]:basis-[14rem]"
-            }
-          >
-            <label htmlFor={searchId} className="sr-only">
-              {searchLabel}
-            </label>
-            <Icon
-              icon={Search}
-              size="sm"
-              className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
-              aria-hidden
-            />
-            <Input
-              id={searchId}
-              className={searchInputWithIconClass}
-              value={searchValue}
-              readOnly={searchReadOnly}
-              aria-readonly={searchReadOnly}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={searchPlaceholder}
-            />
-          </div>
+          {!hideSearch ? (
+            <div
+              className={
+                toolbarLayout === "proportional"
+                  ? "relative col-span-2 min-w-0 min-[1024px]:col-span-1"
+                  : "relative min-w-0 min-[1100px]:min-w-[12rem] min-[1100px]:flex-1 min-[1100px]:basis-[14rem]"
+              }
+            >
+              <label htmlFor={searchId} className="sr-only">
+                {searchLabel}
+              </label>
+              <Icon
+                icon={Search}
+                size="sm"
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
+                aria-hidden
+              />
+              <Input
+                id={searchId}
+                className={searchInputWithIconClass}
+                value={searchValue}
+                readOnly={searchReadOnly}
+                aria-readonly={searchReadOnly}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={searchPlaceholder}
+              />
+            </div>
+          ) : null}
 
           {fields.map((field) => (
             <div
@@ -373,28 +380,30 @@ export function FilterBar({
           onApply={onApply}
           className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
         >
-          <div className="flex flex-col gap-xs">
-            <FilaMobileFieldLabel icon={Building2} htmlFor={mobileSearchId}>
-              {searchLabel === "Buscar" ? "Condomínio" : searchLabel}
-            </FilaMobileFieldLabel>
-            <div className="relative">
-              <Icon
-                icon={Search}
-                size="sm"
-                className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
-                aria-hidden
-              />
-              <Input
-                id={mobileSearchId}
-                className={searchInputWithIconClass}
-                value={searchValue}
-                readOnly={searchReadOnly}
-                aria-readonly={searchReadOnly}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={searchPlaceholder}
-              />
+          {!hideSearch ? (
+            <div className="flex flex-col gap-xs">
+              <FilaMobileFieldLabel icon={Building2} htmlFor={mobileSearchId}>
+                {searchLabel === "Buscar" ? "Condomínio" : searchLabel}
+              </FilaMobileFieldLabel>
+              <div className="relative">
+                <Icon
+                  icon={Search}
+                  size="sm"
+                  className="pointer-events-none absolute top-1/2 left-[calc(var(--spacing-md)-2px)] -translate-y-1/2 text-on-surface-variant"
+                  aria-hidden
+                />
+                <Input
+                  id={mobileSearchId}
+                  className={searchInputWithIconClass}
+                  value={searchValue}
+                  readOnly={searchReadOnly}
+                  aria-readonly={searchReadOnly}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                  placeholder={searchPlaceholder}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-sm">
             {fields.map((field) => {
@@ -459,19 +468,21 @@ export function FilterBar({
           : "flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
       }
     >
-      <div className="min-w-0 flex-1 basis-[12rem]">
-        <FormField label={searchLabel} htmlFor={searchId}>
-          <Input
-            id={searchId}
-            className={searchInputClass}
-            value={searchValue}
-            readOnly={searchReadOnly}
-            aria-readonly={searchReadOnly}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-          />
-        </FormField>
-      </div>
+      {!hideSearch ? (
+        <div className="min-w-0 flex-1 basis-[12rem]">
+          <FormField label={searchLabel} htmlFor={searchId}>
+            <Input
+              id={searchId}
+              className={searchInputClass}
+              value={searchValue}
+              readOnly={searchReadOnly}
+              aria-readonly={searchReadOnly}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </FormField>
+        </div>
+      ) : null}
 
       {fields.map((field) => (
         <div key={field.id} className="min-w-0 flex-1 basis-[10rem]">
@@ -507,20 +518,22 @@ export function FilterBar({
         onApply={onApply}
         className="flex flex-col gap-sm rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:hidden"
       >
-        <div className="flex flex-col gap-xs">
-          <FilaMobileFieldLabel icon={Search} htmlFor={mobileSearchId}>
-            {searchLabel}
-          </FilaMobileFieldLabel>
-          <Input
-            id={mobileSearchId}
-            className={searchInputClass}
-            value={searchValue}
-            readOnly={searchReadOnly}
-            aria-readonly={searchReadOnly}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-          />
-        </div>
+        {!hideSearch ? (
+          <div className="flex flex-col gap-xs">
+            <FilaMobileFieldLabel icon={Search} htmlFor={mobileSearchId}>
+              {searchLabel}
+            </FilaMobileFieldLabel>
+            <Input
+              id={mobileSearchId}
+              className={searchInputClass}
+              value={searchValue}
+              readOnly={searchReadOnly}
+              aria-readonly={searchReadOnly}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-sm">
           {fields.map((field) => {

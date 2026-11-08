@@ -31,6 +31,8 @@ export type RelatorioMetricaItem = {
   accent?: CardMetricAccent;
   detalhe?: string;
   icon?: LucideIcon;
+  onClick?: () => void;
+  selecionado?: boolean;
 };
 
 /** Indicadores com KpiMobileCard (&lt;768px) e CardMetric no desktop — mesmo padrão de Atendimentos e Inadimplência. */
@@ -54,7 +56,8 @@ export function RelatorioMetricas({
             rotulo={item.rotulo.charAt(0).toUpperCase() + item.rotulo.slice(1)}
             valor={item.valor}
             icon={item.icon ?? BarChart3}
-            destaque={item.destaque}
+            destaque={item.destaque || item.selecionado}
+            onClick={item.onClick}
           />
         ))}
       </div>
@@ -79,15 +82,18 @@ export function RelatorioPainel({ titulo, nota, children }: { titulo: string; no
   );
 }
 
-type RelatorioMetricaProps = {
-  valor: string;
-  rotulo: string;
-  destaque?: boolean;
-  accent?: CardMetricAccent;
-  detalhe?: string;
-};
+type RelatorioMetricaProps = RelatorioMetricaItem;
 
-export function RelatorioMetrica({ valor, rotulo, destaque = false, accent, detalhe = "No período filtrado" }: RelatorioMetricaProps) {
+export function RelatorioMetrica({
+  valor,
+  rotulo,
+  destaque = false,
+  accent,
+  detalhe = "No período filtrado",
+  icon: Icone = BarChart3,
+  onClick,
+  selecionado = false,
+}: RelatorioMetricaProps) {
   const accentFinal = accent ?? (destaque ? "brass" : "primary");
   const iconClass =
     accentFinal === "brass"
@@ -100,28 +106,26 @@ export function RelatorioMetrica({ valor, rotulo, destaque = false, accent, deta
 
   const tituloMetrica = rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
 
+  const iconTone =
+    accentFinal === "brass"
+      ? "text-brass"
+      : accentFinal === "critical"
+        ? "text-status-critical"
+        : accentFinal === "tertiary"
+          ? "text-tertiary-container"
+          : "text-primary-container";
+
   return (
     <CardMetric
       accent={accentFinal}
       rotulo={tituloMetrica}
       valor={valor}
-      detalhe={detalhe}
+      detalhe={onClick ? `${detalhe} Toque para ver registros.` : detalhe}
       iconClassName={iconClass}
-      icon={
-        <Icon
-          icon={BarChart3}
-          size="md"
-          className={
-            accentFinal === "brass"
-              ? "text-brass"
-              : accentFinal === "critical"
-                ? "text-status-critical"
-                : accentFinal === "tertiary"
-                  ? "text-tertiary-container"
-                  : "text-primary-container"
-          }
-        />
-      }
+      className={selecionado ? "border-primary-container ring-1 ring-primary-container/25" : undefined}
+      onClick={onClick}
+      ariaLabel={onClick ? `Ver registros: ${tituloMetrica}` : undefined}
+      icon={<Icon icon={Icone} size="md" className={iconTone} />}
     />
   );
 }

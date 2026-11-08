@@ -6,6 +6,7 @@ import {
   getCadastros,
   nomeUnidade,
   proximoNumero,
+  retornoPendente,
   setNotificacaoFalhas,
   setNotificacoesInternas,
   situacaoRetorno,
@@ -14,6 +15,7 @@ import {
   type NotificacaoFalha,
   type NotificacaoInterna,
 } from "@/data/catalogo";
+import { listarCentralPendenciasAtendente, ROTULO_TIPO_PENDENCIA } from "@/lib/dashboard/central-pendencias-atendente";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import { dataHoraPartesEmFuso, hojeEmFuso, minutosDesdeMeiaNoite, FUSO_NOTIFICACOES } from "@/lib/notificacoes/timezone";
@@ -33,8 +35,6 @@ export const CANAIS_EXTERNOS_HABILITADOS = {
   sms: false,
   email: false,
 } as const;
-
-export type EventoNotificacaoInterna = NotificacaoInterna["evento"];
 
 export type PreferenciasNotificacaoUsuario = {
   lembreteRetornoHoje: boolean;
@@ -148,7 +148,9 @@ function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "l
 }
 
 export function emitirNotificacaoRetornoAgendado(atendimento: Atendimento): NotificacaoInterna | null {
-  if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim()) return null;
+  if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim() || atendimento.retornoCanceladoEm?.trim()) {
+    return null;
+  }
   const destinatarioId = destinatarioRetornoAgendado(atendimento);
   if (!destinatarioId) return null;
 
@@ -177,12 +179,121 @@ export function emitirNotificacaoCobrancaAtribuida(atribuicao: AtribuicaoCobranc
     chaveIdempotencia,
     evento: "cobranca_atribuida",
     destinatarioId,
-    titulo: "Cobrança atribuída à sua carteira",
+    titulo: "Nova cobrança atribuída",
     descricao: `${nomeUnidade(atribuicao.unidadeId)} · ${atribuicao.motivo || "Nova atribuição"}`,
     entidadeTipo: "collection_assignment",
     registroId: String(atribuicao.id),
     unidadeId: atribuicao.unidadeId,
     condominioId: getCadastros().unidades.find((u) => u.id === atribuicao.unidadeId)?.condominioId ?? null,
+  });
+}
+
+/** Aviso ao atendente anterior quando a carteira da unidade é redistribuída (T34). */
+export function emitirNotificacaoCarteiraTransferida(atribuicao: AtribuicaoCobranca): NotificacaoInterna | null {
+  const anteriorId = atribuicao.anteriorAtendenteId;
+  if (!anteriorId || anteriorId === atribuicao.atendenteId) return null;
+
+  const chaveIdempotencia = `carteira_transferida:${atribuicao.id}:${anteriorId}`;
+
+  return criarNotificacao({
+    chaveIdempotencia,
+    evento: "carteira_transferida",
+    destinatarioId: anteriorId,
+    titulo: "Cobrança transferida da sua carteira",
+    descricao: `${nomeUnidade(atribuicao.unidadeId)} · ${atribuicao.motivo || "Redistribuição"}`,
+    entidadeTipo: "collection_assignment",
+    registroId: String(atribuicao.id),
+    unidadeId: atribuicao.unidadeId,
+    condominioId: getCadastros().unidades.find((u) => u.id === atribuicao.unidadeId)?.condominioId ?? null,
+  });
+}
+
+/** Novo atendimento registrado na carteira do destinatário por outro colaborador. */
+export function emitirNotificacaoAtendimentoAtribuido(
+  atendimento: Atendimento,
+  autorId: number,
+): NotificacaoInterna | null {
+  const destinatarioId = destinatarioRetornoAgendado(atendimento);
+  if (!destinatarioId || destinatarioId === autorId) return null;
+
+  const unidadeId = Number(atendimento.unidadeId);
+  const chaveIdempotencia = `atendimento_atribuido:${atendimento.id}:${destinatarioId}`;
+
+  return criarNotificacao({
+    chaveIdempotencia,
+    evento: "atendimento_atribuido",
+    destinatarioId,
+    titulo: "Novo atendimento na sua carteira",
+    descricao: `${nomeUnidade(unidadeId)} · ${atendimento.assunto || atendimento.canal}`,
+    entidadeTipo: "service_ticket",
+    registroId: atendimento.id,
+    unidadeId,
+    condominioId: getCadastros().unidades.find((u) => u.id === unidadeId)?.condominioId ?? null,
+  });
+}
+
+/** Atualização relevante em atendimento da carteira feita por outro colaborador. */
+export function emitirNotificacaoMovimentacaoAtendimento(
+  atendimento: Atendimento,
+  anterior: Atendimento,
+  autorId: number,
+): NotificacaoInterna | null {
+  const destinatarioId = destinatarioRetornoAgendado(atendimento);
+  if (!destinatarioId || destinatarioId === autorId) return null;
+
+  const campos = [
+    anterior.status !== atendimento.status ? atendimento.status : "",
+    anterior.descricao !== atendimento.descricao ? "descricao" : "",
+    anterior.motivo !== atendimento.motivo ? atendimento.motivo : "",
+    anterior.respondeu !== atendimento.respondeu ? atendimento.respondeu : "",
+    anterior.canal !== atendimento.canal ? atendimento.canal : "",
+    anterior.dataProximaAcao !== atendimento.dataProximaAcao ? atendimento.dataProximaAcao.slice(0, 10) : "",
+  ].filter(Boolean);
+
+  if (campos.length === 0) return null;
+
+  const unidadeId = Number(atendimento.unidadeId);
+  const assinatura = [atendimento.status, atendimento.motivo, atendimento.respondeu, atendimento.dataProximaAcao]
+    .join("|")
+    .slice(0, 120);
+  const chaveIdempotencia = `movimentacao_atendimento:${atendimento.id}:${destinatarioId}:${assinatura}`;
+
+  return criarNotificacao({
+    chaveIdempotencia,
+    evento: "movimentacao_atendimento",
+    destinatarioId,
+    titulo: "Nova movimentação no atendimento",
+    descricao: `${nomeUnidade(unidadeId)} · ${atendimento.assunto || "Atualização registrada"}`,
+    entidadeTipo: "service_ticket",
+    registroId: atendimento.id,
+    unidadeId,
+    condominioId: getCadastros().unidades.find((u) => u.id === unidadeId)?.condominioId ?? null,
+  });
+}
+
+export function emitirNotificacaoSituacaoAlterada(
+  unidadeId: number,
+  situacaoAnterior: string,
+  situacaoNova: string,
+  autorId: number,
+): NotificacaoInterna | null {
+  if (situacaoAnterior === situacaoNova) return null;
+  const vigente = atribuicaoVigente(unidadeId);
+  const destinatarioId = vigente?.atendenteId;
+  if (!destinatarioId || destinatarioId === autorId) return null;
+
+  const chaveIdempotencia = `situacao_alterada:${unidadeId}:${situacaoAnterior}->${situacaoNova}:${destinatarioId}`;
+
+  return criarNotificacao({
+    chaveIdempotencia,
+    evento: "situacao_alterada",
+    destinatarioId,
+    titulo: "Situação de cobrança alterada",
+    descricao: `${nomeUnidade(unidadeId)} · ${situacaoAnterior} → ${situacaoNova}`,
+    entidadeTipo: "unit",
+    registroId: String(unidadeId),
+    unidadeId,
+    condominioId: getCadastros().unidades.find((u) => u.id === unidadeId)?.condominioId ?? null,
   });
 }
 
@@ -192,7 +303,9 @@ export function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
   const cadastros = getCadastros();
 
   for (const atendimento of cadastros.atendimentos) {
-    if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim()) continue;
+    if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim() || atendimento.retornoCanceladoEm?.trim()) {
+      continue;
+    }
     if (situacaoRetorno(atendimento.dataProximaAcao, hoje) !== "hoje") continue;
 
     const destinatarioId = destinatarioRetornoAgendado(atendimento);
@@ -213,7 +326,7 @@ export function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
       chaveIdempotencia,
       evento: "retorno_lembrete_hoje",
       destinatarioId,
-      titulo: "Retorno previsto para hoje",
+      titulo: "Lembrete: retorno hoje",
       descricao: `${nomeUnidade(unidadeId)} · ${atendimento.proximaAcao || "Retorno pendente"}`,
       entidadeTipo: "service_ticket",
       registroId: atendimento.id,
@@ -223,9 +336,91 @@ export function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
   }
 }
 
+const TIPOS_PENDENCIA_ALERTA = new Set<string>(["prioritarias", "atrasadas", "hoje"]);
+
+/** Retornos na janela de 7 dias ou em atraso — um alerta por dia e atendimento (T34). */
+export function processarAlertasRetornoCarteira(referenciaIso = agoraIso()) {
+  const hoje = hojeEmFuso();
+  const cadastros = getCadastros();
+  void referenciaIso;
+
+  for (const atendimento of cadastros.atendimentos) {
+    if (!retornoPendente(atendimento)) continue;
+
+    const destinatarioId = destinatarioRetornoAgendado(atendimento);
+    if (!destinatarioId) continue;
+
+    const situacao = situacaoRetorno(atendimento.dataProximaAcao, hoje);
+    const unidadeId = Number(atendimento.unidadeId);
+    const condominioId = cadastros.unidades.find((u) => u.id === unidadeId)?.condominioId ?? null;
+    const base = {
+      destinatarioId,
+      entidadeTipo: "service_ticket" as const,
+      registroId: atendimento.id,
+      unidadeId,
+      condominioId,
+    };
+
+    if (situacao === "semana") {
+      criarNotificacao({
+        ...base,
+        chaveIdempotencia: `retorno_proximo:${atendimento.id}:${destinatarioId}:${hoje}`,
+        evento: "retorno_proximo",
+        titulo: "Retorno próximo do vencimento",
+        descricao: `${nomeUnidade(unidadeId)} · previsto para ${formatarData(atendimento.dataProximaAcao)}`,
+      });
+    }
+
+    if (situacao === "atrasado") {
+      criarNotificacao({
+        ...base,
+        chaveIdempotencia: `retorno_atrasado:${atendimento.id}:${destinatarioId}:${hoje}`,
+        evento: "retorno_atrasado",
+        titulo: "Retorno atrasado",
+        descricao: `${nomeUnidade(unidadeId)} · desde ${formatarData(atendimento.dataProximaAcao)}`,
+      });
+    }
+  }
+}
+
+/** Pendências prioritárias, atrasadas ou do dia — um alerta por dia e unidade (T34). */
+export function processarPendenciasAtencao() {
+  const hoje = hojeEmFuso();
+  const cadastros = getCadastros();
+  const atendentes = new Set(
+    cadastros.atribuicoesCobranca.filter((item) => !item.encerradoEm).map((item) => item.atendenteId),
+  );
+
+  for (const userId of atendentes) {
+    if (!destinatarioPodeReceber(userId)) continue;
+    const { itens } = listarCentralPendenciasAtendente(userId, { page: 1, pageSize: 200, categoria: "todas" });
+    for (const item of itens) {
+      if (!TIPOS_PENDENCIA_ALERTA.has(item.tipoPendencia)) continue;
+      criarNotificacao({
+        chaveIdempotencia: `pendencia_atencao:${item.unidadeId}:${item.tipoPendencia}:${userId}:${hoje}`,
+        evento: "pendencia_atencao",
+        destinatarioId: userId,
+        titulo: `Pendência: ${ROTULO_TIPO_PENDENCIA[item.tipoPendencia]}`,
+        descricao: `${item.unidadeLabel} · ${item.condominioNome}`,
+        entidadeTipo: "unit",
+        registroId: String(item.unidadeId),
+        unidadeId: item.unidadeId,
+        condominioId: item.condominioId,
+      });
+    }
+  }
+}
+
+function processarNotificacoesAgendadas(referenciaIso = agoraIso()) {
+  processarLembretesRetornoHoje(referenciaIso);
+  processarAlertasRetornoCarteira(referenciaIso);
+  processarPendenciasAtencao();
+}
+
 export type NotificacaoApresentacao = NotificacaoInterna & {
   urlRegistro: string | null;
   relativo: string;
+  criadoEmFormatado: string;
 };
 
 function formatarRelativo(iso: string) {
@@ -242,9 +437,9 @@ function formatarRelativo(iso: string) {
 
 export function resolverUrlRegistroNotificacao(item: NotificacaoInterna): string | null {
   if (item.entidadeTipo === "service_ticket") {
-    return `/atendimentos?retorno=todos&atendimento=${encodeURIComponent(item.registroId)}`;
+    return `/minha-agenda?atendimento=${encodeURIComponent(item.registroId)}`;
   }
-  if (item.entidadeTipo === "collection_assignment") {
+  if (item.entidadeTipo === "collection_assignment" || item.entidadeTipo === "unit") {
     return `/atendimentos?unidade=${item.unidadeId}`;
   }
   return null;
@@ -272,8 +467,17 @@ function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna): boolea
   }
 
   if (item.entidadeTipo === "collection_assignment") {
+    if (item.evento === "carteira_transferida" && item.destinatarioId === userId) {
+      return true;
+    }
     const vigente = atribuicaoVigente(item.unidadeId);
     return vigente?.atendenteId === userId;
+  }
+
+  if (item.entidadeTipo === "unit") {
+    const vigente = atribuicaoVigente(item.unidadeId);
+    if (vigente && vigente.atendenteId === userId) return true;
+    return idsUnidade.has(item.unidadeId);
   }
 
   return false;
@@ -284,6 +488,7 @@ function montarApresentacao(item: NotificacaoInterna): NotificacaoApresentacao {
     ...item,
     urlRegistro: resolverUrlRegistroNotificacao(item),
     relativo: formatarRelativo(item.criadoEm),
+    criadoEmFormatado: formatarData(item.criadoEm),
   };
 }
 
@@ -292,7 +497,7 @@ export function listarNotificacoes(
   opcoes?: { limit?: number; apenasNaoLidas?: boolean },
 ): NotificacaoApresentacao[] {
   assertPodeConsultarNotificacoes(userId);
-  processarLembretesRetornoHoje();
+  processarNotificacoesAgendadas();
 
   const limit = Math.min(100, Math.max(1, opcoes?.limit ?? 20));
   let lista = getCadastros().notificacoesInternas.filter((item) => item.destinatarioId === userId);
@@ -307,7 +512,7 @@ export function listarNotificacoes(
 
 export function contarNotificacoesNaoLidas(userId: number) {
   assertPodeConsultarNotificacoes(userId);
-  processarLembretesRetornoHoje();
+  processarNotificacoesAgendadas();
   return getCadastros().notificacoesInternas.filter((item) => item.destinatarioId === userId && !item.lidaEm).length;
 }
 

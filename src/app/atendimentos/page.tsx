@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { ClipboardList } from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
+import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { FormSteps } from "@/components/form-steps";
@@ -99,11 +100,26 @@ export default function AtendimentosPage() {
   }, [router, searchParams]);
 
   useEffect(() => {
+    const retornoLegado = searchParams?.get("retorno");
+    if (retornoLegado) {
+      const mapa: Record<string, string> = {
+        hoje: "hoje",
+        atrasado: "atrasado",
+        atrasados: "atrasado",
+        semana: "semana",
+      };
+      const secao = mapa[retornoLegado] ?? "hoje";
+      router.replace(`/minha-agenda?secao=${secao}`);
+      return;
+    }
     const abaLegada = searchParams?.get("aba");
     if (!abaLegada || abaLegada === "fila") return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("aba");
-    if (abaLegada === "retornos") params.set("retorno", "hoje");
+    if (abaLegada === "retornos") {
+      router.replace("/minha-agenda");
+      return;
+    }
     const qs = params.toString();
     router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
   }, [router, searchParams]);
@@ -220,6 +236,7 @@ export default function AtendimentosPage() {
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">
+        <OperacionalAtendimentosPanel />
         <FilaCobrancasPanel />
       </PageContent>
 

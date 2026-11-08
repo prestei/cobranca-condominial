@@ -332,8 +332,16 @@ type AppShellHeaderProps = {
 };
 
 function corDotNotificacao(evento: string) {
-  if (evento === "retorno_lembrete_hoje") return "bg-status-critical";
-  if (evento === "cobranca_atribuida") return "bg-primary-container";
+  if (evento === "retorno_atrasado" || evento === "pendencia_atencao") return "bg-status-critical";
+  if (evento === "retorno_lembrete_hoje" || evento === "retorno_proximo") return "bg-[#E8A317]";
+  if (
+    evento === "cobranca_atribuida" ||
+    evento === "atendimento_atribuido" ||
+    evento === "carteira_transferida"
+  ) {
+    return "bg-primary-container";
+  }
+  if (evento === "situacao_alterada" || evento === "movimentacao_atendimento") return "bg-[#5B7FD4]";
   return "bg-[#E8A317]";
 }
 

@@ -8,7 +8,9 @@ import {
 function parseFiltros(searchParams: URLSearchParams): RetornoAgendaFiltros {
   const filtros: RetornoAgendaFiltros = {};
   const estado = searchParams.get("estado");
-  if (estado === "pendente" || estado === "concluido" || estado === "todos") filtros.estado = estado;
+  if (estado === "pendente" || estado === "concluido" || estado === "cancelado" || estado === "todos") {
+    filtros.estado = estado;
+  }
   const situacao = searchParams.get("situacao");
   if (situacao === "atrasado" || situacao === "hoje" || situacao === "semana" || situacao === "agendado") {
     filtros.situacao = situacao;
