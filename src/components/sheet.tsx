@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { Check, X } from "lucide-react";
+import { Check, Info, X } from "lucide-react";
 import { Button } from "@/components/button";
 
 type SheetContextValue = {
@@ -175,12 +175,26 @@ export function SheetTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEl
   return <h2 className={`text-headline-sm text-on-surface ${className ?? ""}`} {...props} />;
 }
 
-export function SheetDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+export function SheetDescription({
+  className,
+  children,
+  title,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement>) {
+  const dica =
+    typeof title === "string"
+      ? title
+      : typeof children === "string"
+        ? children
+        : undefined;
   return (
     <p
-      className={`min-w-0 text-body-sm text-on-surface-variant line-clamp-1 min-[768px]:line-clamp-none ${className ?? ""}`}
+      className={`min-w-0 truncate text-body-sm leading-snug text-on-surface-variant ${className ?? ""}`}
+      title={dica}
       {...props}
-    />
+    >
+      {children}
+    </p>
   );
 }
 
@@ -240,8 +254,16 @@ export function SheetToggleRow({
   );
 }
 
-export function SheetHelpText({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={`text-body-sm text-on-surface-variant ${className ?? ""}`} {...props} />;
+export function SheetHelpText({ className, children, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      className={`flex items-center gap-xs text-body-sm leading-snug text-on-surface-variant ${className ?? ""}`}
+      {...props}
+    >
+      <Info className="size-3 shrink-0 text-on-surface-variant" strokeWidth={2} aria-hidden="true" />
+      <span className="min-w-0">{children}</span>
+    </p>
+  );
 }
 
 export function SheetFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -295,10 +317,11 @@ export function SheetFooterForm({
 }: SheetFooterFormProps) {
   return (
     <SheetFooter className={className} {...props}>
-      <Button type="button" variant="outline" onClick={onBack ?? onClose}>
+      <Button type="button" variant="outline" className="gap-sm" onClick={onBack ?? onClose}>
+        {onBack ? null : <X className="size-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />}
         {onBack ? backLabel : closeLabel}
       </Button>
-      <Button type="submit" disabled={saveDisabled}>
+      <Button type="submit" disabled={saveDisabled} className="gap-sm">
         {saveLabel === "Salvar" ? (
           <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
         ) : null}

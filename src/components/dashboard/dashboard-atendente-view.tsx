@@ -14,20 +14,18 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { CardMetricRow } from "@/components/card-metric-row";
-import { GraficoColunas, GraficoRosca } from "@/components/charts";
+import { GraficoColunas, GraficoMisto } from "@/components/charts";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import type { DashboardAtendente } from "@/lib/dashboard/service";
 import type { IndicadorOperacionalAtendenteId } from "@/lib/dashboard/indicadores-operacionais-atendente";
 import {
+  AlertaPrioridade,
   DashboardLayout,
-  Grade,
-  Leitura,
-  SecaoBloco,
-  SubPainel,
-  SubsecaoTitulo,
+  PainelGrafico,
   dinheiro,
   percentual,
   diaCurto,
@@ -56,24 +54,24 @@ const ROTULOS_OPERACIONAIS: Record<
   { rotulo: string; detalhe: string; icon: typeof ClipboardList; accent?: "critical" | "brass" }
 > = {
   pendentes: {
-    rotulo: "Atendimentos pendentes",
-    detalhe: "Pendências abertas que exigem sua ação.",
+    rotulo: "Pendentes",
+    detalhe: "Exigem sua ação agora.",
     icon: ClipboardList,
     accent: "brass",
   },
   aguardando_retorno: {
     rotulo: "Aguardando retorno",
-    detalhe: "Aguardando resposta do morador ou retorno agendado.",
+    detalhe: "Morador ou retorno agendado.",
     icon: Hourglass,
   },
   resolvidos_periodo: {
-    rotulo: "Resolvidos no período",
-    detalhe: "Concluídos ou retornos finalizados nos últimos 7 dias.",
+    rotulo: "Resolvidos",
+    detalhe: "Concluídos no período.",
     icon: CheckCircle2,
   },
   atencao: {
-    rotulo: "Atenção necessária",
-    detalhe: "Atrasos ou pendências prioritárias na carteira.",
+    rotulo: "Atenção",
+    detalhe: "Atrasos ou prioridade.",
     icon: AlertTriangle,
     accent: "critical",
   },
@@ -88,6 +86,8 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
   );
   const ind = dados.indicadores;
   const operacional = dados.indicadoresOperacionais;
+  const atrasados = dados.retornos.resumo.atrasados;
+  const atencao = operacional.itens.find((item) => item.id === "atencao")?.total ?? 0;
 
   const itensOperacionais = useMemo(() => {
     const mapa = new Map(operacional.itens.map((item) => [item.id, item]));
@@ -130,243 +130,292 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
     router.push(qs ? `/minha-agenda?${qs}` : "/minha-agenda");
   }
 
-  const textoResumo =
-    ind && ind.totalAtualizado > 0 ? (
-      <>
-        Sua carteira: {dinheiro(ind.totalAtualizado)} em aberto (base {formatarData(dados.dataBase)}). Hoje você registrou{" "}
-        {dados.atendimentosHoje} atendimento{dados.atendimentosHoje === 1 ? "" : "s"}.
-        {dados.retornos.resumo.atrasados > 0
-          ? ` ${dados.retornos.resumo.atrasados} retorno${dados.retornos.resumo.atrasados === 1 ? "" : "s"} atrasado${dados.retornos.resumo.atrasados === 1 ? "" : "s"}.`
-          : ""}
-      </>
-    ) : (
-      <>
-        Sem saldo em aberto na data-base {formatarData(dados.dataBase)}. Hoje você registrou{" "}
-        {dados.atendimentosHoje} atendimento{dados.atendimentosHoje === 1 ? "" : "s"}.
-        {dados.retornos.resumo.atrasados > 0
-          ? ` Há ${dados.retornos.resumo.atrasados} retorno${dados.retornos.resumo.atrasados === 1 ? "" : "s"} atrasado${dados.retornos.resumo.atrasados === 1 ? "" : "s"}.`
-          : ""}
-      </>
-    );
+  const mesAtual = dados.dataBase.slice(0, 7);
+  const serieResumo = dados.operacao.serie.map((linha) => ({
+    nome: diaCurto(linha.dia),
+    barra: linha.quantidade,
+    linha: linha.respostas,
+    rotuloBarra: String(linha.quantidade),
+    rotuloLinha: String(linha.respostas),
+  }));
+  const evolucaoMensal = dados.graficos?.evolucaoMensal ?? [];
+  const recuperacaoMes =
+    evolucaoMensal.find((linha) => linha.mes === mesAtual)?.recuperacaoFinanceira ?? 0;
 
   return (
     <DashboardLayout>
+      {atrasados > 0 || atencao > 0 ? (
+        <AlertaPrioridade
+          titulo={atrasados > 0 ? "Retornos atrasados" : "Atenção na carteira"}
+          acaoLabel={atrasados > 0 ? "Abrir agenda" : "Ver pendências"}
+          onAcao={() => (atrasados > 0 ? abrirAgenda("atrasado") : abrirIndicador("atencao"))}
+        >
+          {atrasados > 0
+            ? `Você tem ${atrasados} retorno${atrasados === 1 ? "" : "s"} atrasado${atrasados === 1 ? "" : "s"}.`
+            : null}
+          {atrasados > 0 && atencao > 0 ? " " : null}
+          {atencao > 0
+            ? `${atencao} caso${atencao === 1 ? "" : "s"} pedem atenção prioritária.`
+            : null}
+        </AlertaPrioridade>
+      ) : null}
+
       <section aria-label="Resumo da carteira">
-        <Leitura>{textoResumo}</Leitura>
-      </section>
-
-      <section aria-label="Indicadores operacionais">
-        <SecaoBloco
-          selo="Operação"
-          titulo="Indicadores principais"
-          descricao={`Carteira vigente · período de resolvidos: ${formatarData(operacional.periodo.inicio)} a ${formatarData(operacional.periodo.fim)}.`}
-          linkLabel="Abrir fila"
-          onLink={() => abrirAtendimentos()}
-        >
-          <CardMetricRow aria-label="Indicadores operacionais do atendente" desktopCols={4}>
-            {itensOperacionais.map((linha) => {
-              const meta = ROTULOS_OPERACIONAIS[linha.id];
-              const destaque = linha.requerAtencaoVisual;
-              const primario = linha.id === "atencao" || linha.id === "pendentes";
-              return (
-                <CardMetric
-                  key={linha.id}
-                  accent={destaque ? "critical" : meta.accent ?? (primario ? "brass" : undefined)}
-                  iconClassName={
-                    destaque
-                      ? "bg-error-container text-status-critical"
-                      : meta.accent === "brass" || primario
-                        ? "bg-gold-subtle text-brass"
-                        : "bg-surface-subtle text-on-surface-variant"
-                  }
-                  icon={<Icon icon={meta.icon} size="md" className={destaque ? "text-status-critical" : undefined} />}
-                  rotulo={meta.rotulo}
-                  valor={linha.total}
-                  detalhe={meta.detalhe}
-                  onClick={() => abrirIndicador(linha.id)}
-                  ariaLabel={`${meta.rotulo}: ${linha.total}. Abrir listagem.`}
-                />
-              );
-            })}
-          </CardMetricRow>
-        </SecaoBloco>
-      </section>
-
-      <section aria-label="Carteira e valores">
-        <SecaoBloco
-          selo="Carteira"
-          titulo="Fila e inadimplência"
-          descricao="Indicadores de apoio da sua carteira vigente."
-          linkLabel="Ver débitos"
-          onLink={abrirDebitos}
-        >
-          <div className="flex flex-col gap-xl">
-            <div className="flex flex-col gap-md">
-              <SubsecaoTitulo titulo="Minha fila" descricao="Cobranças atribuídas ao seu RE." />
-              <CardMetricRow aria-label="Resumo da fila" desktopCols={4}>
-                <CardMetric
-                  iconClassName="bg-gold-subtle text-brass"
-                  icon={<Icon icon={ClipboardList} size="md" className="text-brass" />}
-                  rotulo="Em cobrança"
-                  valor={dados.fila.emCobranca}
-                  detalhe="Unidades na sua carteira."
-                  onClick={() => abrirAtendimentos("aba=fila")}
-                  ariaLabel={`Em cobrança: ${dados.fila.emCobranca}. Abrir fila.`}
-                />
-                <CardMetric
-                  iconClassName="bg-surface-subtle text-on-surface-variant"
-                  icon={<Icon icon={CalendarClock} size="md" />}
-                  rotulo="Retornos hoje"
-                  valor={dados.fila.retornosHoje}
-                  detalhe="Na fila com retorno previsto para hoje."
-                  onClick={() => abrirAgenda("hoje")}
-                  ariaLabel={`Retornos hoje: ${dados.fila.retornosHoje}. Abrir agenda.`}
-                />
-                <CardMetric
-                  iconClassName="bg-surface-subtle text-on-surface-variant"
-                  icon={<Icon icon={Phone} size="md" />}
-                  rotulo="Atendimentos hoje"
-                  valor={dados.atendimentosHoje}
-                  detalhe="Registros feitos por você hoje."
-                  onClick={() => abrirAtendimentos()}
-                  ariaLabel={`Atendimentos hoje: ${dados.atendimentosHoje}. Abrir atendimentos.`}
-                />
-              </CardMetricRow>
-            </div>
-
-            {ind ? (
-              <div className="flex flex-col gap-md">
-                <SubsecaoTitulo
-                  titulo="Inadimplência na carteira"
-                  descricao={`Totais na data-base ${formatarData(dados.dataBase)}.`}
-                />
-                <CardMetricRow aria-label="Valores em aberto" desktopCols={4}>
-                  <CardMetric
-                    iconClassName="bg-gold-subtle text-brass"
-                    icon={<Icon icon={Wallet} size="md" className="text-brass" />}
-                    rotulo="Total em aberto"
-                    valor={dinheiro(ind.totalAtualizado)}
-                    detalhe="Valores persistidos no sistema."
-                    onClick={abrirDebitos}
-                    ariaLabel={`Total em aberto: ${dinheiro(ind.totalAtualizado)}. Ver débitos.`}
-                  />
-                  <CardMetric
-                    iconClassName="bg-surface-subtle text-on-surface-variant"
-                    icon={<Icon icon={Wallet} size="md" />}
-                    rotulo={`Até ${dados.limiteDias} dias`}
-                    valor={dinheiro(ind.ateLimite)}
-                    detalhe="Contas mais recentes."
-                    onClick={abrirDebitos}
-                    ariaLabel={`Até ${dados.limiteDias} dias: ${dinheiro(ind.ateLimite)}. Ver débitos.`}
-                  />
-                  <CardMetric
-                    iconClassName="bg-surface-subtle text-on-surface-variant"
-                    icon={<Icon icon={Wallet} size="md" />}
-                    rotulo={`Acima de ${dados.limiteDias} dias`}
-                    valor={dinheiro(ind.acimaLimite)}
-                    detalhe="Contas mais antigas."
-                    onClick={abrirDebitos}
-                    ariaLabel={`Acima de ${dados.limiteDias} dias: ${dinheiro(ind.acimaLimite)}. Ver débitos.`}
-                  />
-                </CardMetricRow>
-              </div>
-            ) : (
-              <EmptyState
-                icon={<Icon icon={Wallet} size="lg" />}
-                title="Indicadores financeiros indisponíveis"
-                description="Não foi possível carregar os totais de inadimplência para o recorte atual."
+        <CardMetricRow aria-label="KPIs da carteira" desktopCols={4}>
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
+            rotulo="Em aberto"
+            valor={ind ? dinheiro(ind.totalAtualizado) : "—"}
+            detalhe={ind ? `${ind.unidadesDevedoras} unidades` : "Sem permissão de débitos"}
+            onClick={ind ? abrirDebitos : undefined}
+            ariaLabel={ind ? `Em aberto: ${dinheiro(ind.totalAtualizado)}.` : undefined}
+          />
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
+            rotulo="Atenção"
+            valor={atencao}
+            detalhe="Prioridade na carteira"
+            onClick={() => abrirIndicador("atencao")}
+            ariaLabel={`Atenção: ${atencao}.`}
+          />
+          <CardMetric
+            accent={atrasados > 0 ? "critical" : "brass"}
+            iconClassName={
+              atrasados > 0 ? "bg-error-container text-status-critical" : "bg-gold-subtle text-brass"
+            }
+            icon={
+              <Icon
+                icon={CalendarClock}
+                size="md"
+                className={atrasados > 0 ? "text-status-critical" : "text-brass"}
               />
-            )}
+            }
+            rotulo="Retornos atrasados"
+            valor={atrasados}
+            detalhe={`${dados.retornos.resumo.hoje} para hoje`}
+            onClick={() => abrirAgenda("atrasado")}
+            ariaLabel={`Retornos atrasados: ${atrasados}.`}
+          />
+          <CardMetric
+            accent="tertiary"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={ClipboardList} size="md" className="text-tertiary-container" />}
+            rotulo="Em cobrança"
+            valor={dados.fila.emCobranca}
+            detalhe={`${dados.atendimentosHoje} atendimento${dados.atendimentosHoje === 1 ? "" : "s"} hoje`}
+            onClick={() => abrirAtendimentos("aba=fila")}
+            ariaLabel={`Em cobrança: ${dados.fila.emCobranca}.`}
+          />
+        </CardMetricRow>
+      </section>
+
+      <div className="grid grid-cols-1 gap-md min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+        <PainelGrafico
+          titulo="Operação do período"
+          descricao={`${formatarData(dados.operacao.periodo.inicio)} a ${formatarData(dados.operacao.periodo.fim)}.`}
+        >
+          <GraficoMisto
+            chave={`${chaveGrafico}-operacao`}
+            vazio={vazioGrafico}
+            barras={{ nome: "Contatos", tom: "settled" }}
+            linha={{ nome: "Respostas", tom: "navy" }}
+            itens={serieResumo}
+          />
+        </PainelGrafico>
+        <PainelGrafico
+          titulo="Recuperação mensal"
+          descricao={
+            dados.graficos
+              ? `Este mês: ${dinheiro(recuperacaoMes)} confirmados.`
+              : "Exige permissão de débitos."
+          }
+        >
+          {dados.graficos ? (
+            <>
+              <GraficoColunas
+                chave={`${chaveGrafico}-evolucao`}
+                vazio={vazioGrafico}
+                itens={evolucaoMensal.map((linha) => ({
+                  nome: linha.mesRotulo,
+                  valor: linha.recuperacaoFinanceira,
+                  rotulo: dinheiro(linha.recuperacaoFinanceira),
+                  tom: linha.mes === mesAtual ? ("navy" as const) : ("mist" as const),
+                }))}
+              />
+              <p className="mt-sm flex flex-wrap gap-md text-body-sm text-on-surface-variant">
+                <span className="inline-flex items-center gap-xs">
+                  <span className="size-2.5 rounded-full bg-inverse-primary" />
+                  Meses anteriores
+                </span>
+                <span className="inline-flex items-center gap-xs">
+                  <span className="size-2.5 rounded-full bg-primary-container" />
+                  Mês atual
+                </span>
+              </p>
+            </>
+          ) : (
+            <EmptyState
+              icon={<Icon icon={Wallet} size="lg" />}
+              title="Recuperação indisponível"
+              description="Sem permissão de débitos para exibir a evolução financeira."
+            />
+          )}
+        </PainelGrafico>
+      </div>
+
+      <section aria-label="Indicadores operacionais" className="flex flex-col gap-md">
+        <div className="flex flex-wrap items-end justify-between gap-sm">
+          <div className="flex flex-col gap-xs">
+            <h2 className="text-headline-sm text-on-surface">Indicadores do período</h2>
+            <p className="text-body-sm text-on-surface-variant">
+              Carteira vigente · {formatarData(operacional.periodo.inicio)} a {formatarData(operacional.periodo.fim)}.
+            </p>
           </div>
-        </SecaoBloco>
+          <Button size="sm" variant="ghost" className="shrink-0 gap-xs" onClick={() => abrirAtendimentos()}>
+            Abrir fila
+            <Icon icon={ClipboardList} size="sm" />
+          </Button>
+        </div>
+        <CardMetricRow aria-label="Indicadores operacionais" desktopCols={4}>
+          {itensOperacionais.map((linha) => {
+            const meta = ROTULOS_OPERACIONAIS[linha.id];
+            const destaque = linha.requerAtencaoVisual;
+            const primario = linha.id === "atencao" || linha.id === "pendentes";
+            return (
+              <CardMetric
+                key={linha.id}
+                accent={destaque ? "critical" : meta.accent ?? (primario ? "brass" : undefined)}
+                iconClassName={
+                  destaque
+                    ? "bg-error-container text-status-critical"
+                    : meta.accent === "brass" || primario
+                      ? "bg-gold-subtle text-brass"
+                      : "bg-surface-subtle text-on-surface-variant"
+                }
+                icon={
+                  <Icon
+                    icon={meta.icon}
+                    size="md"
+                    className={
+                      destaque
+                        ? "text-status-critical"
+                        : meta.accent === "brass" || primario
+                          ? "text-brass"
+                          : undefined
+                    }
+                  />
+                }
+                rotulo={meta.rotulo}
+                valor={linha.total}
+                detalhe={meta.detalhe}
+                onClick={() => abrirIndicador(linha.id)}
+                ariaLabel={`${meta.rotulo}: ${linha.total}. Abrir listagem.`}
+              />
+            );
+          })}
+        </CardMetricRow>
+        <CardMetricRow aria-label="Produtividade do período" desktopCols={4}>
+          <CardMetric
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Phone} size="md" />}
+            rotulo="Contatos"
+            valor={dados.operacao.contatos}
+            detalhe="No período selecionado"
+          />
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={MessageCircle} size="md" className="text-brass" />}
+            rotulo="Taxa de resposta"
+            valor={percentual(dados.operacao.taxaResposta)}
+            detalhe={
+              dados.operacao.contatos > 0
+                ? `${dados.operacao.responderam} de ${dados.operacao.contatos}`
+                : "Sem contatos"
+            }
+          />
+          <CardMetric
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Users} size="md" />}
+            rotulo="Unidades contatadas"
+            valor={dados.operacao.unidadesContatadas}
+          />
+          {ind ? (
+            <CardMetric
+              accent="critical"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={Wallet} size="md" className="text-status-critical" />}
+              rotulo={`Acima de ${dados.limiteDias} dias`}
+              valor={dinheiro(ind.acimaLimite)}
+              detalhe="Valor crítico"
+              onClick={abrirDebitos}
+            />
+          ) : (
+            <CardMetric
+              iconClassName="bg-surface-subtle text-on-surface-variant"
+              icon={<Icon icon={CalendarClock} size="md" />}
+              rotulo="Lembretes abertos"
+              valor={dados.operacao.retornosPendentes}
+              onClick={() => abrirAgenda()}
+            />
+          )}
+        </CardMetricRow>
       </section>
 
       <section aria-label="Central de pendências">
         <DashboardCentralPendencias filtrosQuery={filtrosQuery} />
       </section>
 
-      <section aria-label="Produtividade da semana">
-        <SecaoBloco
-          selo="Produtividade"
-          titulo="Seus contatos"
-          descricao={`De ${formatarData(dados.operacao.periodo.inicio)} a ${formatarData(dados.operacao.periodo.fim)}.`}
-          linkLabel="Abrir atendimentos"
-          onLink={() => abrirAtendimentos()}
-        >
-          <CardMetricRow aria-label="Contatos da semana" desktopCols={2}>
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={Phone} size="md" />}
-              rotulo="Contatos feitos"
-              valor={dados.operacao.contatos}
-              detalhe="Registrados por você no período."
-            />
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={MessageCircle} size="md" className="text-brass" />}
-              rotulo="Morador respondeu"
-              valor={percentual(dados.operacao.taxaResposta)}
-              detalhe={
-                dados.operacao.contatos > 0
-                  ? `${dados.operacao.responderam} de ${dados.operacao.contatos} contatos.`
-                  : "Nenhum contato no período."
-              }
-            />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={Users} size="md" />}
-              rotulo="Unidades contatadas"
-              valor={dados.operacao.unidadesContatadas}
-              detalhe="Cada unidade conta uma vez."
-            />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={CalendarClock} size="md" />}
-              rotulo="Lembretes em aberto"
-              valor={dados.operacao.retornosPendentes}
-              detalhe="Atrasados, de hoje ou desta semana."
-              onClick={() => abrirAgenda()}
-              ariaLabel={`Lembretes em aberto: ${dados.operacao.retornosPendentes}. Abrir agenda.`}
-            />
-          </CardMetricRow>
-
-          <Grade>
-            <SubPainel titulo="Atendimentos por dia">
-              <GraficoColunas
-                chave={`${chaveGrafico}-serie`}
-                vazio={vazioGrafico}
-                itens={dados.operacao.serie.map((linha) => ({
-                  nome: diaCurto(linha.dia),
-                  valor: linha.quantidade,
-                  rotulo: String(linha.quantidade),
-                  tom: "settled" as const,
-                }))}
-              />
-            </SubPainel>
-            <SubPainel titulo="Respondeu ou não">
-              <GraficoRosca
-                chave={`${chaveGrafico}-resposta`}
-                vazio={vazioGrafico}
-                centro={percentual(dados.operacao.taxaResposta)}
-                legenda="responderam"
-                fatias={[
-                  {
-                    nome: "Sim",
-                    valor: dados.operacao.responderam,
-                    detalhe: String(dados.operacao.responderam),
-                    tom: "settled",
-                  },
-                  {
-                    nome: "Não",
-                    valor: dados.operacao.contatos - dados.operacao.responderam,
-                    detalhe: String(dados.operacao.contatos - dados.operacao.responderam),
-                    tom: "mist",
-                  },
-                ]}
-              />
-            </SubPainel>
-          </Grade>
-        </SecaoBloco>
+      <section aria-label="Agenda de retornos" className="flex flex-col gap-md">
+        <div className="flex flex-wrap items-end justify-between gap-sm">
+          <div className="flex flex-col gap-xs">
+            <h2 className="text-headline-sm text-on-surface">Seus retornos</h2>
+            <p className="text-body-sm text-on-surface-variant">Próximos passos na sua carteira.</p>
+          </div>
+          <Button size="sm" variant="ghost" className="shrink-0 gap-xs" onClick={() => abrirAgenda("hoje")}>
+            Abrir agenda
+            <Icon icon={CalendarClock} size="sm" />
+          </Button>
+        </div>
+        <CardMetricRow aria-label="Resumo de retornos" desktopCols={4}>
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={CalendarClock} size="md" className="text-status-critical" />}
+            rotulo="Atrasados"
+            valor={dados.retornos.resumo.atrasados}
+            onClick={() => abrirAgenda("atrasado")}
+          />
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={CalendarClock} size="md" className="text-brass" />}
+            rotulo="Hoje"
+            valor={dados.retornos.resumo.hoje}
+            onClick={() => abrirAgenda("hoje")}
+          />
+          <CardMetric
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={CalendarClock} size="md" />}
+            rotulo="Próximos"
+            valor={dados.retornos.resumo.proximos}
+            onClick={() => abrirAgenda("semana")}
+          />
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={CalendarClock} size="md" className="text-primary-container" />}
+            rotulo="Concluídos"
+            valor={dados.retornos.resumo.concluidos}
+          />
+        </CardMetricRow>
+        <div className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+          <DashboardRetornosTable itens={dados.retornos.itens} mostrarRe={false} />
+        </div>
       </section>
 
       <section aria-label="Gráficos da carteira">
@@ -377,68 +426,7 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
             chaveGrafico={chaveGrafico}
             filtrosAplicados={dados.filtrosAplicados}
           />
-        ) : (
-          <SecaoBloco
-            selo="Análise"
-            titulo="Gráficos da carteira"
-            descricao="Distribuição de inadimplência e situação operacional."
-            linkLabel="Abrir débitos"
-            onLink={abrirDebitos}
-          >
-            <EmptyState
-              icon={<Icon icon={BarChart3} size="lg" />}
-              title="Gráficos indisponíveis"
-              description="Os gráficos exigem permissão de leitura de débitos ou não há dados para o recorte selecionado."
-            />
-          </SecaoBloco>
-        )}
-      </section>
-
-      <section aria-label="Agenda de retornos">
-        <SecaoBloco
-          selo="Agenda"
-          titulo="Seus retornos"
-          descricao="Próximos passos na sua carteira."
-          linkLabel="Abrir agenda"
-          onLink={() => abrirAgenda("hoje")}
-        >
-          <CardMetricRow aria-label="Resumo de retornos" desktopCols={4}>
-            <CardMetric
-              iconClassName="bg-error-container/40 text-status-critical"
-              icon={<Icon icon={CalendarClock} size="md" className="text-status-critical" />}
-              accent={dados.retornos.resumo.atrasados > 0 ? "critical" : undefined}
-              rotulo="Atrasados"
-              valor={dados.retornos.resumo.atrasados}
-              onClick={() => abrirAgenda()}
-              ariaLabel={`Retornos atrasados: ${dados.retornos.resumo.atrasados}. Abrir agenda.`}
-            />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={CalendarClock} size="md" />}
-              rotulo="Hoje"
-              valor={dados.retornos.resumo.hoje}
-              onClick={() => abrirAgenda("hoje")}
-              ariaLabel={`Retornos hoje: ${dados.retornos.resumo.hoje}. Abrir agenda.`}
-            />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={CalendarClock} size="md" />}
-              rotulo="Próximos"
-              valor={dados.retornos.resumo.proximos}
-              onClick={() => abrirAgenda()}
-              ariaLabel={`Próximos retornos: ${dados.retornos.resumo.proximos}. Abrir agenda.`}
-            />
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<Icon icon={CalendarClock} size="md" />}
-              rotulo="Concluídos"
-              valor={dados.retornos.resumo.concluidos}
-            />
-          </CardMetricRow>
-          <div className="mt-lg">
-            <DashboardRetornosTable itens={dados.retornos.itens} mostrarRe={false} />
-          </div>
-        </SecaoBloco>
+        ) : null}
       </section>
     </DashboardLayout>
   );

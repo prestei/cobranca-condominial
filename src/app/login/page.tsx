@@ -3,8 +3,10 @@
 import type { FormEvent } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { KeyRound, Lock } from "lucide-react";
 import { Button } from "@/components/button";
 import { FormField, Input } from "@/components/input";
+import { SkeletonLogin } from "@/components/skeleton";
 import { useAuthOptional } from "@/context/auth-context";
 
 function LoginForm() {
@@ -58,11 +60,7 @@ function LoginForm() {
   }
 
   if (!montado) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] text-body-md text-on-surface-variant">
-        Carregando…
-      </div>
-    );
+    return <SkeletonLogin />;
   }
 
   return (
@@ -78,14 +76,16 @@ function LoginForm() {
             <div className="flex flex-col gap-xs">
               <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
               <p className="text-body-sm text-on-surface-variant">
-                Por enquanto: código 12345 e senha 12345 (admin de teste). Demais colaboradores usam o próprio código com senha 12345.
+                Por enquanto: código 12345 e senha 12345 (admin de teste). Atendentes entram com o código RE;
+                demais colaboradores usam o próprio código, senha 12345.
               </p>
             </div>
           </div>
 
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
-            <FormField label="Código" required>
+            <FormField label="Código RE ou login" required>
               <Input
+                icon={KeyRound}
                 type="text"
                 name="codigo"
                 autoComplete="username"
@@ -93,13 +93,15 @@ function LoginForm() {
                 onChange={(event) => setCodigo(event.target.value)}
                 invalid={Boolean(error)}
                 disabled={submitting}
-                placeholder="Ex.: MILENA"
+                placeholder="Ex.: RE-10000"
               />
             </FormField>
             <FormField label="Senha" required>
               <Input
+                icon={Lock}
                 type="password"
                 name="password"
+                placeholder="Sua senha"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -124,13 +126,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] text-body-md text-on-surface-variant">
-          Carregando…
-        </div>
-      }
-    >
+    <Suspense fallback={<SkeletonLogin />}>
       <LoginForm />
     </Suspense>
   );

@@ -8,7 +8,6 @@ import {
   ClipboardList,
   DoorOpen,
   History,
-  Loader2,
   Pencil,
   Receipt,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { FormField, Select } from "@/components/input";
 import { Pagination } from "@/components/pagination";
+import { SkeletonTable } from "@/components/skeleton";
 import { SecaoBloco } from "@/components/dashboard/dashboard-shared";
 import {
   Table,
@@ -269,13 +269,7 @@ export function DashboardCentralPendencias({ filtrosQuery = "" }: Props) {
             </FormField>
           </div>
 
-          {carregando ? (
-            <EmptyState
-              icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
-              title="Carregando pendências"
-              description="Consultando o servidor…"
-            />
-          ) : null}
+          {carregando ? <SkeletonTable rows={6} cols={7} label="Carregando pendências" /> : null}
 
           {!carregando && erro ? (
             <Alert variant="error" title="Erro ao carregar pendências">

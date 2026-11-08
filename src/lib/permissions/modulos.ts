@@ -92,8 +92,6 @@ export const ROTAS_MODULO: Array<{ prefix: string; modulo: ModuloPermissao }> = 
   { prefix: "/condominios", modulo: "condominios" },
   { prefix: "/unidades", modulo: "unidades" },
   { prefix: "/relatorios", modulo: "relatorios" },
-  { prefix: "/indicadores", modulo: "relatorios" },
-  { prefix: "/importacoes", modulo: "importacoes" },
   { prefix: "/usuarios", modulo: "usuarios" },
   { prefix: "/cargos", modulo: "cargos" },
   { prefix: "/auditoria", modulo: "auditoria" },

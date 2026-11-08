@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
-import { EmptyState } from "@/components/empty-state";
-import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonDashboard } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { tituloInicio, usuarioSessaoApp, hojeIso } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
@@ -16,21 +14,23 @@ import type { DashboardPayload } from "@/lib/dashboard/service";
 import { DashboardAdministradoraView } from "@/components/dashboard/dashboard-administradora-view";
 import { DashboardAtendenteView } from "@/components/dashboard/dashboard-atendente-view";
 import { DashboardAdvogadoView } from "@/components/dashboard/dashboard-advogado-view";
-import { MetaPainelIndicadores } from "@/components/indicadores/meta-painel";
-import {
-  DashboardFiltrosPanel,
-  filtrosDashboardQueryDeNorm,
-} from "@/components/dashboard/dashboard-filtros-panel";
-import { DashboardBuscaGlobal } from "@/components/dashboard/dashboard-busca-global";
-import { DashboardExportacaoCarteira } from "@/components/dashboard/dashboard-exportacao-carteira";
+import { filtrosDashboardQueryDeNorm } from "@/components/dashboard/dashboard-filtros-panel";
+import { DashboardPeriodoPills } from "@/components/dashboard/dashboard-periodo-pills";
 import { parseFiltrosDashboard, type DashboardFiltros } from "@/lib/dashboard/filtros";
 import { persistirFiltrosSessao } from "@/lib/dashboard/filtros-favoritos";
+import type { PeriodValue } from "@/lib/periodo";
 
-const descricaoPorPerfil = {
-  administradora: "Visão da carteira, operação da equipe e retornos.",
-  atendente: "Sua carteira, contatos da semana e agenda de retornos.",
-  advogado: "Condomínios sob sua responsabilidade e indicadores de inadimplência.",
-} as const;
+function descricaoHome(dados: DashboardPayload) {
+  if (dados.perfil === "administradora") {
+    const { indicadores, fila, retornos } = dados;
+    return `${indicadores.unidadesDevedoras} unidades em aberto · ${fila.emCobranca} na fila · ${retornos.resumo.atrasados} retorno${retornos.resumo.atrasados === 1 ? "" : "s"} atrasado${retornos.resumo.atrasados === 1 ? "" : "s"}.`;
+  }
+  if (dados.perfil === "atendente") {
+    const atencao = dados.indicadoresOperacionais.itens.find((item) => item.id === "atencao")?.total ?? 0;
+    return `${dados.fila.emCobranca} em cobrança · ${dados.atendimentosHoje} atendimento${dados.atendimentosHoje === 1 ? "" : "s"} hoje · ${atencao} com atenção.`;
+  }
+  return `${dados.condominios.total} condomínio${dados.condominios.total === 1 ? "" : "s"} no escopo · ${dados.juridico?.abertos ?? 0} jurídico em andamento.`;
+}
 
 export function DashboardHome() {
   const router = useRouter();
@@ -106,39 +106,38 @@ export function DashboardHome() {
     router.replace(qs ? `/?${qs}` : "/");
   }
 
-  function restaurarPadrao() {
-    router.replace("/");
+  function aplicarPeriodo(periodo: PeriodValue) {
+    const base = dados?.filtrosAplicados ?? filtrosAplicados;
+    aplicarFiltros({
+      periodo,
+      dataBase: base.dataBase,
+      limiteDias: base.limiteDias,
+      condominioId: base.condominioId,
+      unidadeId: base.unidadeId,
+      situacao: base.situacao,
+      tipoPendencia: base.tipoPendencia,
+      faixaAtraso: base.faixaAtraso,
+      origem: base.origem,
+      retornoDe: base.retornoDe,
+      retornoAte: base.retornoAte,
+      busca: base.busca,
+    });
   }
 
   const chaveGrafico = dados ? `dash|${dados.perfil}|${dados.dataBase}|${filtrosQuery}` : "dash";
+  const periodoAtual =
+    dados?.filtrosAplicados.periodo ?? filtrosAplicados.periodo ?? ({ preset: "7", de: "", ate: "" } as PeriodValue);
 
   return (
     <WorkspaceShell>
       <PageHeader
         title={tituloInicio(usuario.name)}
-        description={dados ? descricaoPorPerfil[dados.perfil] : "Carregando indicadores…"}
+        description={dados ? descricaoHome(dados) : "Carregando indicadores…"}
       />
       <PageContent className="flex flex-col gap-xl">
-        <DashboardBuscaGlobal />
+        <DashboardPeriodoPills value={periodoAtual} onChange={aplicarPeriodo} />
 
-        {sessao?.userId ? (
-          <DashboardFiltrosPanel
-            userId={sessao.userId}
-            aplicados={dados?.filtrosAplicados ?? filtrosAplicados}
-            onAplicar={aplicarFiltros}
-            onRestaurarPadrao={restaurarPadrao}
-          />
-        ) : null}
-
-        <DashboardExportacaoCarteira filtrosQuery={filtrosQuery} />
-
-        {carregando ? (
-          <EmptyState
-            icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
-            title="Carregando dashboard"
-            description="Consultando dados no servidor…"
-          />
-        ) : null}
+        {carregando ? <SkeletonDashboard label="Carregando dashboard" /> : null}
 
         {!carregando && erro ? (
           <Alert variant="error" title="Erro ao carregar">
@@ -150,8 +149,6 @@ export function DashboardHome() {
             </div>
           </Alert>
         ) : null}
-
-        {!carregando && !erro && dados ? <MetaPainelIndicadores meta={dados.meta} /> : null}
 
         {!carregando && !erro && dados?.perfil === "administradora" ? (
           <DashboardAdministradoraView dados={dados} chaveGrafico={chaveGrafico} filtrosQuery={filtrosQuery} />

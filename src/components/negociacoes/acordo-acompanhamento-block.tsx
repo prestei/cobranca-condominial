@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { FormField, Input, Select } from "@/components/input";
+import { SkeletonTable } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import {
   confirmacaoPagamentoAcordo,
@@ -134,7 +135,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
   }
 
   if (loading) {
-    return <p className="text-body-sm text-on-surface-variant">Carregando parcelas do acordo…</p>;
+    return <SkeletonTable rows={4} cols={4} label="Carregando parcelas do acordo" />;
   }
 
   if (!resumo) {

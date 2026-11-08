@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { CalendarClock, Check, ClipboardList, History, XCircle } from "lucide-react";
+import { CalendarClock, Check, ClipboardList, FileText, History, XCircle } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Textarea } from "@/components/input";
+import { SkeletonTimeline } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -275,16 +276,22 @@ export function RetornoDetalheSheet({ item, onClose, onAtualizado, onNovaTentati
                 <FormField label="Data e horário" htmlFor={`${formId}-data`} required>
                   <Input
                     id={`${formId}-data`}
+                    icon={CalendarClock}
                     type="datetime-local"
                     value={dataPrevista}
                     onChange={(event) => setDataPrevista(event.target.value)}
                   />
                 </FormField>
                 <FormField label="Descrição do retorno" htmlFor={`${formId}-acao`} required>
-                  <Input id={`${formId}-acao`} value={proximaAcao} onChange={(event) => setProximaAcao(event.target.value)} />
+                  <Input
+                    id={`${formId}-acao`}
+                    icon={FileText}
+                    value={proximaAcao}
+                    onChange={(event) => setProximaAcao(event.target.value)}
+                  />
                 </FormField>
                 <FormField label="Observações" htmlFor={`${formId}-obs`}>
-                  <Textarea id={`${formId}-obs`} value={descricao} onChange={(event) => setDescricao(event.target.value)} />
+                  <Textarea icon={FileText} id={`${formId}-obs`} value={descricao} onChange={(event) => setDescricao(event.target.value)} />
                 </FormField>
               </div>
             ) : item ? (
@@ -318,7 +325,9 @@ export function RetornoDetalheSheet({ item, onClose, onAtualizado, onNovaTentati
                 Histórico do retorno
               </h3>
               {carregando ? (
-                <p className="mt-sm text-body-sm text-on-surface-variant">Carregando…</p>
+                <div className="mt-sm">
+                  <SkeletonTimeline items={3} label="Carregando histórico" />
+                </div>
               ) : historico.length === 0 ? (
                 <p className="mt-sm text-body-sm text-on-surface-variant">Nenhum evento registrado.</p>
               ) : (
@@ -355,6 +364,7 @@ export function RetornoDetalheSheet({ item, onClose, onAtualizado, onNovaTentati
             {confirmarCancelar ? (
               <FormField label="Justificativa do cancelamento" htmlFor={`${formId}-justificativa`} required>
                 <Textarea
+                  icon={FileText}
                   id={`${formId}-justificativa`}
                   value={justificativaCancelamento}
                   onChange={(event) => setJustificativaCancelamento(event.target.value)}

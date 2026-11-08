@@ -20,6 +20,7 @@ import {
   useContext,
 } from "react";
 import { Icon } from "@/components/icon";
+import { SkeletonInlineList } from "@/components/skeleton";
 
 const SIDEBAR_WIDTH = "264px";
 
@@ -425,9 +426,9 @@ function AppShellHeader({
                   </button>
                 </div>
                 {notificacoesCarregando ? (
-                  <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
-                    Carregando…
-                  </p>
+                  <div className="border-t border-[#EEF1F6]">
+                    <SkeletonInlineList rows={3} label="Carregando notificações" />
+                  </div>
                 ) : notificacoes.length === 0 ? (
                   <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
                     Nenhuma notificação recente.

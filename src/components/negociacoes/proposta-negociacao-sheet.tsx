@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Handshake } from "lucide-react";
+import { FileText, Handshake, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Textarea } from "@/components/input";
+import { SkeletonCardList } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -216,9 +217,7 @@ export function PropostaNegociacaoSheet({
             <SheetHeaderText>
               <SheetTitle id={`${formId}-proposta-title`}>Proposta de negociação</SheetTitle>
               <SheetDescription>
-                {condominio ? `${titulo} · ${condominio}` : titulo}
-                {" — "}
-                não equivale a pagamento recebido.
+                {condominio ? `${titulo} · ${condominio}` : titulo} — proposta, não pagamento.
               </SheetDescription>
             </SheetHeaderText>
           </SheetHeaderLead>
@@ -228,7 +227,9 @@ export function PropostaNegociacaoSheet({
           <SheetPanel>
             <h3 className="text-label-lg text-on-surface">Propostas anteriores</h3>
             {loading ? (
-              <p className="mt-sm text-body-sm text-on-surface-variant">Carregando…</p>
+              <div className="mt-sm">
+                <SkeletonCardList rows={3} label="Carregando propostas" />
+              </div>
             ) : propostas.length === 0 ? (
               <p className="mt-sm text-body-sm text-on-surface-variant">Nenhuma proposta registrada.</p>
             ) : (
@@ -277,6 +278,7 @@ export function PropostaNegociacaoSheet({
                           required
                         >
                           <Textarea
+                            icon={FileText}
                             value={termosPorId[item.id] ?? ""}
                             onChange={(event) => {
                               const value = event.target.value;
@@ -337,6 +339,7 @@ export function PropostaNegociacaoSheet({
                 <h3 className="text-label-lg text-on-surface">Nova proposta</h3>
                 <FormField label="Valor proposto (R$)" required>
                   <Input
+                    icon={Wallet}
                     value={valorProposto}
                     onChange={(event) => setValorProposto(event.target.value)}
                     inputMode="decimal"
@@ -346,6 +349,7 @@ export function PropostaNegociacaoSheet({
                 </FormField>
                 <FormField label="Observações">
                   <Textarea
+                    icon={FileText}
                     value={observacoes}
                     onChange={(event) => setObservacoes(event.target.value)}
                     rows={3}

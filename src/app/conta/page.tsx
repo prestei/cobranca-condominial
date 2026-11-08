@@ -7,6 +7,7 @@ import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonProfileCard } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
 import { iniciaisNome } from "@/data/catalogo";
@@ -63,16 +64,6 @@ function CampoConta({ rotulo, valor, icon, href }: CampoContaProps) {
   );
 }
 
-function CartaoContaCarregando() {
-  return (
-    <section className="w-full max-w-[32rem] rounded-card border border-outline-variant bg-surface-card p-lg shadow-card">
-      <p className="text-body-md text-on-surface-variant" role="status">
-        Carregando dados da conta…
-      </p>
-    </section>
-  );
-}
-
 export default function ContaPage() {
   const { loading: sessaoCarregando } = useAuth();
   const { pode } = usePermissao();
@@ -125,7 +116,7 @@ export default function ContaPage() {
       />
       <PageContent>
         {sessaoCarregando || carregando ? (
-          <CartaoContaCarregando />
+          <SkeletonProfileCard label="Carregando dados da conta" />
         ) : erro ? (
           <div className="w-full max-w-[32rem]">
             <div className="flex flex-col items-center gap-md rounded-card border border-outline-variant bg-surface-card p-lg text-center shadow-card">

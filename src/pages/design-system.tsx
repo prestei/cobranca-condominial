@@ -1,6 +1,22 @@
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Building, FileBarChart, HelpCircle, Inbox, Pencil, Plus, Settings, ShieldCheck, Trash2, User } from "lucide-react";
+import {
+  Building,
+  FileBarChart,
+  FileText,
+  Hash,
+  HelpCircle,
+  Inbox,
+  KeyRound,
+  Mail,
+  Pencil,
+  Plus,
+  Settings,
+  ShieldCheck,
+  Trash2,
+  User,
+  UserRound,
+} from "lucide-react";
 import { Alert } from "@/components/alert";
 import {
   AppShell,
@@ -19,6 +35,14 @@ import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FormSteps } from "@/components/form-steps";
 import { Icon, iconSizes, iconStrokeWidths, type IconSize } from "@/components/icon";
+import {
+  SkeletonCardList,
+  SkeletonDashboard,
+  SkeletonForm,
+  SkeletonListPage,
+  SkeletonMetrics,
+  SkeletonTable,
+} from "@/components/skeleton";
 import {
   Checkbox,
   CheckboxField,
@@ -560,6 +584,7 @@ function SheetSample() {
               <FormField label="ID do Pixel" htmlFor="sheet-demo-pixel-id" required>
                 <Input
                   id="sheet-demo-pixel-id"
+                  icon={Hash}
                   name="pixelId"
                   placeholder="123456789012345"
                   inputMode="numeric"
@@ -570,6 +595,7 @@ function SheetSample() {
               <FormField label="Token do Pixel (API)" htmlFor="sheet-demo-token">
                 <Input
                   id="sheet-demo-token"
+                  icon={KeyRound}
                   name="token"
                   placeholder="Token de acesso da Conversions API"
                   autoComplete="off"
@@ -633,11 +659,11 @@ function SheetStepsSample() {
               <FormSteps steps={steps} current={step} />
               {step === 0 ? (
                 <FormField label="Nome" htmlFor="sheet-steps-nome" required>
-                  <Input id="sheet-steps-nome" name="nome" />
+                  <Input id="sheet-steps-nome" icon={Building} name="nome" />
                 </FormField>
               ) : (
                 <FormField label="Cidade" htmlFor="sheet-steps-cidade">
-                  <Input id="sheet-steps-cidade" name="cidade" />
+                  <Input id="sheet-steps-cidade" icon={Building} name="cidade" />
                 </FormField>
               )}
             </SheetBody>
@@ -903,9 +929,6 @@ function DemoSidebar() {
           <AppShellNavLink href="/design-system" icon={FileBarChart}>
             Relatórios
           </AppShellNavLink>
-          <AppShellNavLink href="/design-system" icon={ShieldCheck}>
-            Indicadores
-          </AppShellNavLink>
         </AppShellNavSection>
       </AppShellNav>
       <AppShellSidebarFooter>
@@ -1107,10 +1130,10 @@ export default function DesignSystemPage() {
             <form className="flex flex-col gap-lg">
               <div className="grid grid-cols-1 gap-lg min-[768px]:grid-cols-2">
                 <FormField label="Nome completo" htmlFor="ds-name" required>
-                  <Input id="ds-name" name="name" placeholder="Seu nome completo" />
+                  <Input id="ds-name" icon={UserRound} name="name" placeholder="Seu nome completo" />
                 </FormField>
                 <FormField label="E-mail" htmlFor="ds-email" required>
-                  <Input id="ds-email" name="email" type="email" placeholder="seu@email.com" />
+                  <Input id="ds-email" icon={Mail} name="email" type="email" placeholder="seu@email.com" />
                 </FormField>
               </div>
               <FormField label="Área de interesse" htmlFor="ds-subject">
@@ -1123,10 +1146,10 @@ export default function DesignSystemPage() {
                 </Select>
               </FormField>
               <FormField label="Mensagem" htmlFor="ds-message">
-                <Textarea id="ds-message" name="message" placeholder="Escreva sua mensagem..." />
+                <Textarea id="ds-message" icon={FileText} name="message" placeholder="Escreva sua mensagem..." />
               </FormField>
               <FormField label="Estado de erro" htmlFor="ds-error" error="Este campo é obrigatório.">
-                <Input id="ds-error" name="error" defaultValue="Dado inválido" invalid />
+                <Input id="ds-error" icon={UserRound} name="error" defaultValue="Dado inválido" invalid />
               </FormField>
               <FormControls />
             </form>
@@ -1253,6 +1276,41 @@ export default function DesignSystemPage() {
                 </Button>
               }
             />
+          </Panel>
+        </Showcase>
+
+        <Showcase id="loading" title="Loading (skeleton)">
+          <Panel>
+            <p className="mb-lg text-body-sm text-on-surface-variant">
+              Preferir skeleton a texto “Carregando…” ou spinner em tela cheia. Composições em{" "}
+              <code className="text-body-sm text-on-surface">@/components/skeleton</code>.
+            </p>
+            <div className="flex flex-col gap-xl">
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Métricas</h3>
+                <SkeletonMetrics count={4} label="Exemplo de métricas" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Tabela</h3>
+                <SkeletonTable rows={4} cols={5} label="Exemplo de tabela" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Lista em cards</h3>
+                <SkeletonCardList rows={3} label="Exemplo de lista" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Formulário</h3>
+                <SkeletonForm fields={3} label="Exemplo de formulário" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Dashboard</h3>
+                <SkeletonDashboard metrics={3} panels={2} label="Exemplo de dashboard" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Página de listagem</h3>
+                <SkeletonListPage metrics={3} rows={4} cols={4} label="Exemplo de listagem" />
+              </div>
+            </div>
           </Panel>
         </Showcase>
 

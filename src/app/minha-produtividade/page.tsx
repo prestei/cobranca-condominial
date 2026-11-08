@@ -10,7 +10,6 @@ import {
   CheckCheck,
   ClipboardList,
   FilePlus,
-  Loader2,
   RotateCcw,
   RefreshCw,
   TrendingUp,
@@ -25,6 +24,7 @@ import { Icon } from "@/components/icon";
 import { MetaPainelIndicadores } from "@/components/indicadores/meta-painel";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonDashboard, SkeletonListPage, SkeletonTable } from "@/components/skeleton";
 import { resolverPeriodo, rotuloPeriodo, type PeriodPreset, type PeriodValue } from "@/components/period-input";
 import { RelatorioMetricas, RelatorioPainel, type RelatorioMetricaItem } from "@/components/relatorios/relatorio-ui";
 import {
@@ -341,11 +341,7 @@ function MinhaProdutividadePage() {
         ) : null}
 
         {carregando && !painel ? (
-          <EmptyState
-            title="Carregando indicadores"
-            description={`Período: ${rotuloPeriodo(aplicado)}.`}
-            icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
-          />
+          <SkeletonDashboard metrics={5} panels={2} label="Carregando indicadores" />
         ) : null}
 
         {painel ? (
@@ -373,10 +369,7 @@ function MinhaProdutividadePage() {
                 nota={`Período ${formatarData(painel.periodo.de)} a ${formatarData(painel.periodo.ate)} · ${registros.length} registro${registros.length === 1 ? "" : "s"}`}
               >
                 {carregandoDetalhe ? (
-                  <EmptyState
-                    title="Carregando registros"
-                    icon={<Icon icon={Loader2} size="md" className="animate-spin" />}
-                  />
+                  <SkeletonTable rows={5} cols={4} label="Carregando registros" />
                 ) : registros.length === 0 ? (
                   <p className="text-body-sm text-on-surface-variant">Não há eventos deste indicador no período.</p>
                 ) : (
@@ -481,7 +474,7 @@ function MinhaProdutividadePage() {
 
 export default function Page() {
   return (
-    <Suspense>
+    <Suspense fallback={<SkeletonListPage showMetrics metrics={5} label="Carregando produtividade" />}>
       <MinhaProdutividadePage />
     </Suspense>
   );

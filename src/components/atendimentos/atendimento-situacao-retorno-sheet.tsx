@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
-import { CalendarClock } from "lucide-react";
+import { Calendar, CalendarClock, FileText } from "lucide-react";
 import { Button } from "@/components/button";
 import { FormField, Input, Select, Textarea } from "@/components/input";
 import { Icon } from "@/components/icon";
@@ -153,6 +153,7 @@ export function AtendimentoSituacaoRetornoSheet({
                 <FormField label="Data do retorno" htmlFor={`${formId}-data`} required>
                   <Input
                     id={`${formId}-data`}
+                    icon={Calendar}
                     type="date"
                     value={dataProximaAcao}
                     onChange={(event) => setDataProximaAcao(event.target.value)}
@@ -160,6 +161,7 @@ export function AtendimentoSituacaoRetornoSheet({
                 </FormField>
                 <FormField label="Próxima ação" htmlFor={`${formId}-acao`}>
                   <Textarea
+                    icon={FileText}
                     id={`${formId}-acao`}
                     rows={3}
                     value={proximaAcao}

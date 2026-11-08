@@ -7,6 +7,7 @@ import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonCardList } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useNotificacoes, type NotificacaoUi } from "@/hooks/use-notificacoes";
@@ -53,7 +54,7 @@ export default function NotificacoesPage() {
       />
       <PageContent>
         {carregando && listaCompleta.length === 0 ? (
-          <p className="text-body-md text-on-surface-variant">Carregando notificações…</p>
+          <SkeletonCardList rows={6} label="Carregando notificações" />
         ) : listaCompleta.length === 0 ? (
           <EmptyState
             icon={<Icon icon={Bell} size="lg" />}

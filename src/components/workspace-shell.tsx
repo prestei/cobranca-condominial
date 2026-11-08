@@ -11,14 +11,12 @@ import {
   ClipboardList,
   DoorOpen,
   FileBarChart,
-  FileUp,
   HelpCircle,
   LayoutDashboard,
   Receipt,
   Scale,
   ScrollText,
   Shield,
-  ShieldCheck,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -108,13 +106,11 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
     title: "Análise",
     links: [
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" },
-      { href: "/indicadores", label: "Indicadores", icon: ShieldCheck, modulo: "relatorios" },
     ],
   },
   {
     title: "Operação",
     links: [
-      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
       { href: "/usuarios", label: "Colaboradores", icon: UserRound, modulo: "usuarios" },
       { href: "/cargos", label: "Cargos", icon: Shield, modulo: "cargos" },
       { href: "/auditoria", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },

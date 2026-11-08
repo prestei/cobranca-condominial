@@ -17,7 +17,12 @@ export function PageHeader({ title, description, actions, className }: PageHeade
         <div className={headerLeadClass}>
           <h1 className="text-headline-lg font-bold leading-none text-[#12213A]">{title}</h1>
           {description ? (
-            <p className="mt-xs text-body-sm leading-snug text-on-surface-variant">{description}</p>
+            <p
+              className="mt-xs max-w-2xl truncate text-body-sm leading-snug text-on-surface-variant"
+              title={typeof description === "string" ? description : undefined}
+            >
+              {description}
+            </p>
           ) : null}
         </div>
         {actions ? (

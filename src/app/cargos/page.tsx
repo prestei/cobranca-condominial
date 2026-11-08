@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound, Eye } from "lucide-react";
+import { Briefcase, FileText, LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound, Eye } from "lucide-react";
 import { CargoIconeListagem, iconeCargoListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -15,6 +15,7 @@ import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
 import { FormField, Input } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -88,7 +89,7 @@ function clonarFormulario(valor: FormularioCargo): FormularioCargo {
 
 export default function CargosPage() {
   const { toast } = useToast();
-  const { user: sessao } = useAuth();
+  const { user: sessao, loading: authLoading } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const permissoesViewFormId = useId();
@@ -531,6 +532,10 @@ export default function CargosPage() {
         }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
+        {authLoading ? (
+          <SkeletonListPage metrics={3} rows={6} cols={4} label="Carregando cargos" />
+        ) : (
+        <>
         <section aria-label="Resumo de cargos">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
             <KpiMobileCard
@@ -613,6 +618,8 @@ export default function CargosPage() {
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </>
+        )}
       </PageContent>
 
       <Sheet
@@ -649,6 +656,7 @@ export default function CargosPage() {
                 <FormField label="Nome do cargo" htmlFor={`${formId}-nome`} required error={errors.nome}>
                   <Input
                     id={`${formId}-nome`}
+                    icon={Briefcase}
                     placeholder="Ex.: Atendente, Advogado, Administrador"
                     value={form.nome}
                     invalid={Boolean(errors.nome)}
@@ -658,6 +666,7 @@ export default function CargosPage() {
                 <FormField label="Para que serve" htmlFor={`${formId}-descricao`}>
                   <Input
                     id={`${formId}-descricao`}
+                    icon={FileText}
                     placeholder="Ex.: Quem registra atendimentos e acompanha retornos"
                     value={form.descricao}
                     onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}

@@ -9,7 +9,6 @@ import {
   CalendarClock,
   ChevronRight,
   ClipboardList,
-  FileUp,
   HelpCircle,
   LayoutDashboard,
   Search,
@@ -111,16 +110,6 @@ const topicos: TopicoAjuda[] = [
     modulo: "condominios",
     palavrasChave: ["cadastro", "empreendimento"],
     perfis: ["administradora", "advogado"],
-  },
-  {
-    id: "importacoes",
-    titulo: "Importações",
-    descricao: "Envie arquivos e acompanhe o processamento de dados da carteira.",
-    href: "/importacoes",
-    icon: FileUp,
-    modulo: "importacoes",
-    palavrasChave: ["arquivo", "carga", "planilha"],
-    perfis: ["administradora"],
   },
 ];
 

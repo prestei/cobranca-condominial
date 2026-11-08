@@ -98,7 +98,7 @@ export function CardMetricRow({
             ref={(node) => {
               slideRefs.current[index] = node;
             }}
-            className="flex min-h-full min-w-full shrink-0 snap-start min-[768px]:min-w-0"
+            className="flex min-h-full min-w-full shrink-0 snap-start min-[768px]:min-w-0 min-[768px]:w-auto [&>*]:w-full"
           >
             {child}
           </div>

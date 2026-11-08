@@ -104,18 +104,23 @@ async function validarEntrada(
     throw new UsuarioServiceError("Informe o nome.", 400);
   }
 
-  const codigo = normalizarCodigoUsuario(input.codigo);
+  const email = input.email.trim();
+  let codigo = normalizarCodigoUsuario(input.codigo);
   if (!codigo) {
-    throw new UsuarioServiceError("Informe o código de login.", 400);
+    const local = email.split("@")[0]?.trim() ?? "";
+    codigo = normalizarCodigoUsuario(local);
+  }
+  if (!codigo) {
+    throw new UsuarioServiceError("Informe o e-mail de acesso para gerar o login.", 400);
   }
   if (!codigoUsuarioValido(codigo)) {
     throw new UsuarioServiceError(
-      "Use de 2 a 32 caracteres (letras, números, ponto, hífen ou sublinhado).",
+      "O login derivado do e-mail é inválido. Use letras, números, ponto, hífen ou sublinhado no e-mail.",
       400,
     );
   }
   if (codigoDuplicado(codigo, editingId)) {
-    throw new UsuarioServiceError("Já existe um colaborador com este código.", 409);
+    throw new UsuarioServiceError("Já existe um colaborador com este código de acesso.", 409);
   }
 
   const cargoId = input.cargoId;
@@ -126,7 +131,6 @@ async function validarEntrada(
     throw new UsuarioServiceError("Cargo inválido.", 400);
   }
 
-  const email = input.email.trim();
   if (!email) {
     throw new UsuarioServiceError("Informe o e-mail de acesso.", 400);
   }
@@ -170,7 +174,9 @@ function montarUsuarioComRe(
   usuarioId: number,
   codigoRe: string | undefined,
 ): Usuario {
-  return codigoRe ? { id: usuarioId, ...base, codigoRe } : { id: usuarioId, ...base };
+  if (!codigoRe) return { id: usuarioId, ...base };
+  const loginRe = normalizarCodigoUsuario(codigoRe);
+  return { id: usuarioId, ...base, codigo: loginRe, codigoRe };
 }
 
 export function listarUsuarios(): UsuarioPublico[] {

@@ -3,7 +3,13 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList } from "lucide-react";
+import {
+  Building2,
+  CalendarClock,
+  ClipboardList,
+  DoorOpen,
+  FileText,
+} from "lucide-react";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
 import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
 import { Alert } from "@/components/alert";
@@ -383,6 +389,7 @@ export default function AtendimentosPage() {
                   <FormField label="Assunto" htmlFor={`${formId}-assunto`}>
                     <Input
                       id={`${formId}-assunto`}
+                      icon={FileText}
                       value={form.assunto}
                       onChange={(event) => setForm((current) => ({ ...current, assunto: event.target.value }))}
                     />
@@ -392,6 +399,7 @@ export default function AtendimentosPage() {
                 <>
                   <FormField label="Descrição" htmlFor={`${formId}-descricao`}>
                     <Textarea
+                      icon={FileText}
                       id={`${formId}-descricao`}
                       value={form.descricao}
                       onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}
@@ -400,6 +408,7 @@ export default function AtendimentosPage() {
                   <FormField label="Data da próxima ação" htmlFor={`${formId}-proxima-data`}>
                     <Input
                       id={`${formId}-proxima-data`}
+                      icon={CalendarClock}
                       type="datetime-local"
                       value={form.dataProximaAcao.includes("T") ? form.dataProximaAcao.slice(0, 16) : form.dataProximaAcao}
                       onChange={(event) => setForm((current) => ({ ...current, dataProximaAcao: event.target.value }))}
@@ -408,6 +417,7 @@ export default function AtendimentosPage() {
                   <FormField label="Próxima ação" htmlFor={`${formId}-proxima`}>
                     <Input
                       id={`${formId}-proxima`}
+                      icon={FileText}
                       value={form.proximaAcao}
                       onChange={(event) => setForm((current) => ({ ...current, proximaAcao: event.target.value }))}
                     />

@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { Briefcase, KeyRound, Pencil, Plus, Trash2, UserRound, UserX } from "lucide-react";
+import {
+  Briefcase,
+  KeyRound,
+  Lock,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Trash2,
+  UserRound,
+  UserX,
+} from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -11,9 +22,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
-import { Checkbox, FormField, Input, Select } from "@/components/input";
+import { FormField, Input, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -26,6 +38,7 @@ import {
   SheetHeaderIcon,
   SheetHeaderLead,
   SheetHeaderText,
+  SheetHelpText,
   SheetTitle,
 } from "@/components/sheet";
 import {
@@ -44,7 +57,6 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
-  TableSelectCell,
   type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
@@ -63,7 +75,6 @@ import {
 } from "@/lib/usuarios/sync-cliente";
 import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { usePermissao } from "@/hooks/use-permissao";
-import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { codigoReDoUsuario, usuarioEhAtendente } from "@/lib/colaboradores/re";
 import { idsCondominiosDoAdvogado } from "@/lib/usuarios/advogado-condominios";
 
@@ -75,7 +86,7 @@ const colunasExportacao = [
   "Login",
   "E-mail",
   "Telefone",
-  "Perfil",
+  "Cargo",
   "Situação",
 ] as const;
 const formularioVazio = {
@@ -99,15 +110,9 @@ function rotuloSituacao(item: Usuario) {
   return item.ativo === false ? "Inativo" : "Ativo";
 }
 
-function rotuloPerfil(cargoId: number) {
-  const cargo = nomeCargo(cargoId);
-  if (cargo === "Administrador") return "Administradora";
-  return cargo;
-}
-
 export default function UsuariosPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
@@ -126,9 +131,8 @@ export default function UsuariosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
-  const [errors, setErrors] = useState<Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"nome" | "cargoId" | "email" | "senha", string>>>({});
   const [salvando, setSalvando] = useState(false);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const recarregarCargos = useCallback(async () => {
     if (!user) return;
@@ -214,26 +218,6 @@ export default function UsuariosPage() {
   const cargosNoRecorte = new Set(visible.map((item) => item.cargoId)).size;
   const metricValor = (n: number) => String(n).padStart(2, "0");
 
-  const allSelected = visible.length > 0 && visible.every((item) => selected.has(item.id));
-  const someSelected = visible.some((item) => selected.has(item.id)) && !allSelected;
-
-  function toggleRow(id: number, checked: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function toggleAll(checked: boolean) {
-    if (checked) {
-      setSelected(new Set(visible.map((item) => item.id)));
-      return;
-    }
-    setSelected(new Set());
-  }
-
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
   }
@@ -257,7 +241,6 @@ export default function UsuariosPage() {
     setAppliedCargo(cargo);
     setAppliedSituacao(situacao);
     setPage(1);
-    setSelected(new Set());
   }
 
   function handleClear() {
@@ -268,7 +251,6 @@ export default function UsuariosPage() {
     setAppliedCargo("todos");
     setAppliedSituacao("todos");
     setPage(1);
-    setSelected(new Set());
   }
 
   function linhasExportacao() {
@@ -346,7 +328,7 @@ export default function UsuariosPage() {
   function closeSheet() {
     const preenchido =
       form.condominioIds.length > 0 ||
-      (["cargoId", "codigo", "nome", "telefone", "email", "senha"] as const).some(
+      (["cargoId", "nome", "telefone", "email", "senha"] as const).some(
         (key) => form[key].trim() !== "",
       );
     if (preenchido) {
@@ -435,23 +417,11 @@ export default function UsuariosPage() {
     event.preventDefault();
     if (!pode("usuarios", editingId === null ? "criar" : "editar")) return;
     const nome = form.nome.trim();
-    const codigo = normalizarCodigoUsuario(form.codigo);
     const email = form.email.trim();
     const senha = form.senha.trim();
-    const nextErrors: Partial<Record<"nome" | "codigo" | "cargoId" | "email" | "senha", string>> = {};
+    const nextErrors: Partial<Record<"nome" | "cargoId" | "email" | "senha", string>> = {};
 
     if (!nome) nextErrors.nome = "Informe o nome.";
-    if (!codigo) nextErrors.codigo = "Informe o código de login.";
-    else if (!codigoUsuarioValido(codigo)) {
-      nextErrors.codigo = "Use de 2 a 32 caracteres (letras, números, ponto, hífen ou sublinhado).";
-    } else if (
-      usuarios.some(
-        (item) =>
-          item.id !== editingId && normalizarCodigoUsuario(item.codigo) === codigo,
-      )
-    ) {
-      nextErrors.codigo = "Já existe um colaborador com este código.";
-    }
     if (!form.cargoId) nextErrors.cargoId = "Selecione o cargo.";
     if (!email) nextErrors.email = "Informe o e-mail de acesso.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) nextErrors.email = "Informe um e-mail válido.";
@@ -466,6 +436,13 @@ export default function UsuariosPage() {
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
+
+    const reExistente = editingUsuario ? codigoReDoUsuario(editingUsuario) : null;
+    const codigo =
+      reExistente ??
+      editingUsuario?.codigo ??
+      email.split("@")[0]?.trim() ??
+      "";
 
     const payload = {
       codigo,
@@ -497,8 +474,7 @@ export default function UsuariosPage() {
           description: msg,
         });
         const msgLower = msg.toLocaleLowerCase("pt-BR");
-        if (msgLower.includes("código")) setErrors({ codigo: msg });
-        else if (msgLower.includes("e-mail")) setErrors({ email: msg });
+        if (msgLower.includes("e-mail") || msgLower.includes("login")) setErrors({ email: msg });
         else if (msgLower.includes("cargo")) setErrors({ cargoId: msg });
         else if (msgLower.includes("senha")) setErrors({ senha: msg });
         else if (msgLower.includes("nome")) setErrors({ nome: msg });
@@ -511,7 +487,7 @@ export default function UsuariosPage() {
         title: editingId === null ? "Colaborador cadastrado" : "Colaborador atualizado",
         description:
           editingId === null && reGerado
-            ? `Código RE atribuído: ${reGerado}`
+            ? `Código RE (login): ${reGerado}`
             : undefined,
       });
       setSheetOpen(false);
@@ -544,21 +520,8 @@ export default function UsuariosPage() {
     <Table aria-label="Colaboradores" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead
-            selection
-            selectionChecked={allSelected}
-            selectionIndeterminate={someSelected}
-            onSelectionChange={toggleAll}
-            selectionDisabled={visible.length === 0}
-          />
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Nome
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("codigoRe")} onSort={() => handleSort("codigoRe")}>
-            Código RE
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("cargo")} onSort={() => handleSort("cargo")}>
-            Perfil
           </TableHead>
           <TableHead sortable sortDirection={directionFor("cargo")} onSort={() => handleSort("cargo")}>
             Cargo
@@ -567,7 +530,7 @@ export default function UsuariosPage() {
             Situação
           </TableHead>
           <TableHead sortable sortDirection={directionFor("telefone")} onSort={() => handleSort("telefone")}>
-            Telefone
+            Contato
           </TableHead>
           <TableHead>Último acesso</TableHead>
           <TableHead actions />
@@ -575,15 +538,10 @@ export default function UsuariosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={9}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableSelectCell
-                checked={selected.has(item.id)}
-                label={`Selecionar ${item.nome}`}
-                onCheckedChange={(checked) => toggleRow(item.id, checked)}
-              />
               <TableCell>
                 <div className="flex min-w-0 items-center gap-sm">
                   <span
@@ -594,21 +552,22 @@ export default function UsuariosPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-medium text-on-surface">{item.nome}</p>
-                    <p className="truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
+                    <p className="truncate font-mono text-body-sm text-on-surface-variant">
+                      {codigoReDoUsuario(item) ?? "—"}
+                    </p>
                   </div>
                 </div>
-              </TableCell>
-              <TableCell className="font-mono text-body-sm">{codigoReDoUsuario(item) ?? "—"}</TableCell>
-              <TableCell>
-                <Badge variant="secondary" className="rounded-md bg-gold-subtle font-normal text-primary-container">
-                  {rotuloPerfil(item.cargoId)}
-                </Badge>
               </TableCell>
               <TableCell className="text-on-surface">{nomeCargo(item.cargoId)}</TableCell>
               <TableCell>
                 <Badge variant={item.ativo === false ? "neutral" : "success"}>{rotuloSituacao(item)}</Badge>
               </TableCell>
-              <TableCell>{item.telefone.trim() || "—"}</TableCell>
+              <TableCell>
+                <div className="min-w-0">
+                  <p className="text-on-surface">{item.telefone.trim() || "—"}</p>
+                  <p className="truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
+                </div>
+              </TableCell>
               <TableCell className="text-on-surface-variant">—</TableCell>
               <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableRow>
@@ -626,11 +585,6 @@ export default function UsuariosPage() {
         {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
-              <Checkbox
-                checked={selected.has(item.id)}
-                aria-label={`Selecionar ${item.nome}`}
-                onChange={(event) => toggleRow(item.id, event.target.checked)}
-              />
               <span
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed/45 text-label-md font-semibold text-primary-container"
                 aria-hidden="true"
@@ -646,36 +600,25 @@ export default function UsuariosPage() {
                     {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
                   </span>
                 </div>
-                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
+                <p className="mt-xs truncate font-mono text-body-sm text-on-surface-variant">
+                  {codigoReDoUsuario(item) ?? "—"}
+                </p>
               </div>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-              <div className="flex items-start justify-between gap-md">
-                <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Código RE</p>
-                  <p className="font-mono text-body-md font-semibold text-on-surface">
-                    {codigoReDoUsuario(item) ?? "—"}
-                  </p>
-                  <Badge
-                    variant="secondary"
-                    className="mt-xs rounded-md bg-gold-subtle font-normal text-primary-container"
-                  >
-                    {rotuloPerfil(item.cargoId)}
-                  </Badge>
-                </div>
-                <Badge variant={item.ativo === false ? "neutral" : "success"} className="shrink-0">
-                  {rotuloSituacao(item)}
-                </Badge>
-              </div>
               <div className="grid grid-cols-2 gap-sm text-body-sm">
                 <div className="min-w-0">
                   <p className="text-label-sm uppercase text-on-surface-variant">Cargo</p>
                   <p className="text-body-md text-on-surface">{nomeCargo(item.cargoId)}</p>
+                  <Badge variant={item.ativo === false ? "neutral" : "success"} className="mt-xs">
+                    {rotuloSituacao(item)}
+                  </Badge>
                 </div>
                 <div className="min-w-0 text-end">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Telefone</p>
+                  <p className="text-label-sm uppercase text-on-surface-variant">Contato</p>
                   <p className="text-body-md text-on-surface">{item.telefone.trim() || "—"}</p>
+                  <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
                 </div>
               </div>
             </div>
@@ -700,6 +643,10 @@ export default function UsuariosPage() {
         }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
+        {authLoading ? (
+          <SkeletonListPage metrics={3} rows={8} cols={5} label="Carregando colaboradores" />
+        ) : (
+        <>
         <section aria-label="Resumo de colaboradores">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
             <KpiMobileCard
@@ -778,6 +725,8 @@ export default function UsuariosPage() {
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </>
+        )}
       </PageContent>
 
       <Sheet
@@ -799,8 +748,7 @@ export default function UsuariosPage() {
                     {editingId === null ? "Novo colaborador" : "Editar colaborador"}
                   </SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    A administradora pode alterar nome, login, cargo, contato, senha e situação. Atendentes
-                    recebem RE automático no cadastro.
+                    Altere dados do colaborador. Atendentes recebem RE (login) no cadastro.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -810,18 +758,10 @@ export default function UsuariosPage() {
               <FormField label="Nome" htmlFor={`${formId}-nome`} required error={errors.nome}>
                 <Input
                   id={`${formId}-nome`}
+                  icon={UserRound}
                   value={form.nome}
                   invalid={Boolean(errors.nome)}
                   onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="Código de login" htmlFor={`${formId}-codigo`} required error={errors.codigo}>
-                <Input
-                  id={`${formId}-codigo`}
-                  value={form.codigo}
-                  invalid={Boolean(errors.codigo)}
-                  autoComplete="off"
-                  onChange={(event) => setForm((current) => ({ ...current, codigo: event.target.value }))}
                 />
               </FormField>
               <FormField label="Cargo" htmlFor={`${formId}-cargo`} required error={errors.cargoId}>
@@ -845,11 +785,6 @@ export default function UsuariosPage() {
                   ))}
                 </Select>
               </FormField>
-              {editingUsuario && usuarioEhAtendente(editingUsuario) && editingUsuario.codigoRe ? (
-                <FormField label="Código RE" htmlFor={`${formId}-re`}>
-                  <Input id={`${formId}-re`} value={editingUsuario.codigoRe} readOnly disabled />
-                </FormField>
-              ) : null}
               {cargoSelecionadoAdvogado ? (
                 <FormField label="Condomínios sob responsabilidade">
                   <div className="flex max-h-48 flex-col gap-sm overflow-y-auto rounded-md border border-border-subtle p-md">
@@ -877,22 +812,27 @@ export default function UsuariosPage() {
                   </div>
                 </FormField>
               ) : null}
-              <FormField label="Telefone" htmlFor={`${formId}-telefone`}>
-                <Input
-                  id={`${formId}-telefone`}
-                  value={form.telefone}
-                  onChange={(event) => setForm((current) => ({ ...current, telefone: event.target.value }))}
-                />
-              </FormField>
-              <FormField label="E-mail" htmlFor={`${formId}-email`} required error={errors.email}>
-                <Input
-                  id={`${formId}-email`}
-                  type="email"
-                  value={form.email}
-                  invalid={Boolean(errors.email)}
-                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                />
-              </FormField>
+              <div className="grid grid-cols-2 gap-md">
+                <FormField label="Contato" htmlFor={`${formId}-telefone`}>
+                  <Input
+                    id={`${formId}-telefone`}
+                    icon={Phone}
+                    placeholder="(00) 00000-0000"
+                    value={form.telefone}
+                    onChange={(event) => setForm((current) => ({ ...current, telefone: event.target.value }))}
+                  />
+                </FormField>
+                <FormField label="E-mail" htmlFor={`${formId}-email`} required error={errors.email}>
+                  <Input
+                    id={`${formId}-email`}
+                    icon={Mail}
+                    type="email"
+                    value={form.email}
+                    invalid={Boolean(errors.email)}
+                    onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                  />
+                </FormField>
+              </div>
               <FormField
                 label={editingId === null ? "Senha" : "Nova senha"}
                 htmlFor={`${formId}-senha`}
@@ -901,16 +841,16 @@ export default function UsuariosPage() {
               >
                 <Input
                   id={`${formId}-senha`}
+                  icon={Lock}
                   type="password"
                   autoComplete="new-password"
+                  placeholder={editingId !== null ? "Deixe em branco para manter a senha atual." : undefined}
                   value={form.senha}
                   invalid={Boolean(errors.senha)}
                   onChange={(event) => setForm((current) => ({ ...current, senha: event.target.value }))}
                 />
                 {editingId !== null ? (
-                  <p className="text-body-sm text-on-surface-variant">
-                    Deixe em branco para manter a senha atual. A administradora pode redefinir a qualquer momento.
-                  </p>
+                  <SheetHelpText>A administradora pode redefinir a qualquer momento.</SheetHelpText>
                 ) : null}
               </FormField>
               <FormField label="Situação" htmlFor={`${formId}-situacao`}>

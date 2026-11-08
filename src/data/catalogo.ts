@@ -615,17 +615,20 @@ export function getCadastrosServerSnapshot() {
   return cadastrosServerSnapshot;
 }
 
-/** Login: seed do servidor tem precedência (senha bcrypt correta no deploy / após alteração do seed). */
+function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
+  if (item.ativo === false) return false;
+  if (normalizarCodigoUsuario(item.codigo) === chave) return true;
+  const re = item.codigoRe?.trim();
+  return Boolean(re && normalizarCodigoUsuario(re) === chave);
+}
+
+/** Login: seed do servidor tem precedência (senha bcrypt correta no deploy / após alteração do seed). Aceita código de login ou RE. */
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
-  const noEstado = state.usuarios.find(
-    (item) => normalizarCodigoUsuario(item.codigo) === chave && item.ativo !== false,
-  );
+  const noEstado = state.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
   if (noEstado) return noEstado;
-  return usuariosIniciais.find(
-    (item) => normalizarCodigoUsuario(item.codigo) === chave && item.ativo !== false,
-  );
+  return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {

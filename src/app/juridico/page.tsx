@@ -10,6 +10,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   ResponsiveTable,
   Table,
@@ -382,25 +383,25 @@ export default function JuridicoPage() {
           </p>
         ) : null}
         {carregando && encaminhamentos.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">Carregando encaminhamentos…</p>
-        ) : null}
-
+          <SkeletonListPage metrics={3} rows={8} cols={6} label="Carregando encaminhamentos" />
+        ) : (
+          <>
         <section aria-label="Resumo jurídico">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
             <KpiMobileCard
               rotulo="Encaminhamentos"
-              valor={carregando ? "—" : metricValor(visible.length)}
+              valor={metricValor(visible.length)}
               icon={Scale}
               destaque
             />
             <KpiMobileCard
               rotulo="Em análise"
-              valor={carregando ? "—" : metricValor(emAnalise)}
+              valor={metricValor(emAnalise)}
               icon={Clock}
             />
             <KpiMobileCard
               rotulo="Com documentos"
-              valor={carregando ? "—" : metricValor(comDocumentos)}
+              valor={metricValor(comDocumentos)}
               icon={FileText}
             />
           </div>
@@ -478,6 +479,8 @@ export default function JuridicoPage() {
         {visible.length > 0 ? (
           <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
         ) : null}
+          </>
+        )}
       </PageContent>
 
       <EncaminhamentoJuridicoSheet

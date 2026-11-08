@@ -12,6 +12,7 @@ import {
   type DistribuicaoAutomaticaEstrategia,
 } from "@/lib/distribuicao/service";
 import { Alert } from "@/components/alert";
+import { SkeletonForm } from "@/components/skeleton";
 
 export const ordemEstrategiasDistribuicao: DistribuicaoAutomaticaEstrategia[] = [
   "carga",
@@ -169,7 +170,7 @@ export function DistribuicaoAutomaticaConfigForm({
   showInlineSaveButton = false,
 }: FormProps) {
   if (carregando) {
-    return <p className="text-body-sm text-on-surface-variant">Carregando configuração…</p>;
+    return <SkeletonForm fields={3} label="Carregando configuração" />;
   }
 
   return (

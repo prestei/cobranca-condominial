@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Scale } from "lucide-react";
+import { FileText, FolderOpen, Scale } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select, Textarea } from "@/components/input";
+import { SkeletonCardList } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -19,6 +20,7 @@ import {
   SheetHeaderIcon,
   SheetHeaderLead,
   SheetHeaderText,
+  SheetHelpText,
   SheetPanel,
   SheetTitle,
 } from "@/components/sheet";
@@ -315,6 +317,7 @@ export function EncaminhamentoJuridicoSheet({
             </FormField>
             <FormField label="Observações">
               <Textarea
+                icon={FileText}
                 value={obsAtual}
                 onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
                 rows={3}
@@ -332,13 +335,13 @@ export function EncaminhamentoJuridicoSheet({
           {podeEditar && podeLerDocs ? (
             <div className="mt-md flex flex-col gap-sm">
               <FormField label="Título do documento">
-                <Input value={docTitulo} onChange={(event) => setDocTitulo(event.target.value)} />
+                <Input icon={FileText} value={docTitulo} onChange={(event) => setDocTitulo(event.target.value)} />
               </FormField>
               <FormField label="Descrição">
-                <Textarea value={docDescricao} onChange={(event) => setDocDescricao(event.target.value)} rows={2} />
+                <Textarea icon={FileText} value={docDescricao} onChange={(event) => setDocDescricao(event.target.value)} rows={2} />
               </FormField>
               <FormField label="Referência (pasta, arquivo interno)">
-                <Input value={docReferencia} onChange={(event) => setDocReferencia(event.target.value)} />
+                <Input icon={FolderOpen} value={docReferencia} onChange={(event) => setDocReferencia(event.target.value)} />
               </FormField>
               <Button
                 type="button"
@@ -385,12 +388,15 @@ export function EncaminhamentoJuridicoSheet({
             <SheetForm id={`${formId}-novo`} onSubmit={enviarNovo}>
               <SheetPanel className="mb-md">
                 <p className="text-label-md text-on-surface">Novo encaminhamento</p>
-                <p className="mt-xs text-body-sm text-on-surface-variant">
+                <SheetHelpText>
                   Registra análise jurídica sem ajuizar ações nem enviar documentos a tribunais automaticamente.
-                </p>
+                </SheetHelpText>
                 <div className="mt-md flex flex-col gap-md">
                   <FormField label="Advogado responsável">
-                    <Select value={advogadoResponsavel} onChange={(event) => setAdvogadoResponsavel(event.target.value)}>
+                    <Select
+                      value={advogadoResponsavel}
+                      onChange={(event) => setAdvogadoResponsavel(event.target.value)}
+                    >
                       {advogadosOpcoes.map((nome) => (
                         <option key={nome} value={nome}>
                           {nome}
@@ -421,10 +427,10 @@ export function EncaminhamentoJuridicoSheet({
                     </FormField>
                   ) : null}
                   <FormField label="Contexto adicional">
-                    <Textarea value={resumoContexto} onChange={(event) => setResumoContexto(event.target.value)} rows={2} />
+                    <Textarea icon={FileText} value={resumoContexto} onChange={(event) => setResumoContexto(event.target.value)} rows={2} />
                   </FormField>
                   <FormField label="Observações">
-                    <Textarea value={observacoes} onChange={(event) => setObservacoes(event.target.value)} rows={3} />
+                    <Textarea icon={FileText} value={observacoes} onChange={(event) => setObservacoes(event.target.value)} rows={3} />
                   </FormField>
                 </div>
               </SheetPanel>
@@ -438,7 +444,7 @@ export function EncaminhamentoJuridicoSheet({
 
           <SheetPanel className="max-h-[min(28rem,60vh)] overflow-y-auto">
             {loading ? (
-              <p className="text-body-sm text-on-surface-variant">Carregando…</p>
+              <SkeletonCardList rows={3} label="Carregando encaminhamentos" />
             ) : itens.length === 0 ? (
               <p className="text-body-sm text-on-surface-variant">Nenhum encaminhamento registrado para esta unidade.</p>
             ) : (

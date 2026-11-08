@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/badge";
+import { SkeletonTimeline } from "@/components/skeleton";
 import { formatarData, formatarMoeda } from "@/data/catalogo";
 import type { EventoHistoricoUnidade, HistoricoUnidadeReferencia } from "@/lib/historico-unidade/service";
 
@@ -44,7 +45,7 @@ type Props = {
 
 export function HistoricoLinhaTempo({ referencia, eventos, loading, erro }: Props) {
   if (loading) {
-    return <p className="text-body-sm text-on-surface-variant">Carregando linha do tempo…</p>;
+    return <SkeletonTimeline items={4} label="Carregando linha do tempo" />;
   }
   if (erro) {
     return <p className="text-body-sm text-error">{erro}</p>;

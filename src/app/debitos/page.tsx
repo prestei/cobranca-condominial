@@ -4,10 +4,17 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import {
+  Building2,
+  Calendar,
   CheckCircle2,
   ClipboardList,
   Clock,
+  DoorOpen,
+  FileText,
+  Hash,
+  Link2,
   Pencil,
+  Percent,
   Plus,
   Receipt,
   Scale,
@@ -29,6 +36,7 @@ import { FormField, Input, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { resolverPeriodo, type PeriodValue } from "@/components/period-input";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -60,7 +68,6 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableExport,
-  TableImport,
   TableRow,
   type TableExportFormat,
   type TableSortDirection,
@@ -192,9 +199,8 @@ export default function DebitosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user: sessao } = useAuth();
+  const { user: sessao, loading: authLoading } = useAuth();
   const { pode } = usePermissao();
-  const podeImportar = pode("importacoes", "criar");
   const formId = useId();
   const cadastros = useCadastros();
   const debitos = cadastros.debitos;
@@ -770,10 +776,6 @@ export default function DebitosPage() {
     ]);
   }
 
-  function abrirImportacao() {
-    router.push("/importacoes");
-  }
-
   function aoExportar(formato: TableExportFormat) {
     if (visible.length === 0) {
       toast({
@@ -960,6 +962,10 @@ export default function DebitosPage() {
         }
       />
       <PageContent>
+        {authLoading ? (
+          <SkeletonListPage metrics={4} rows={8} cols={6} label="Carregando inadimplência" />
+        ) : (
+        <>
         <section aria-label="Indicadores de inadimplência">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
             <KpiMobileCard rotulo="Valor original" valor={moeda(totalOriginal)} icon={Receipt} destaque />
@@ -1143,13 +1149,14 @@ export default function DebitosPage() {
           <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
             <h2 className="text-headline-sm text-on-surface">Registros de Inadimplência</h2>
             <div className="flex w-full flex-wrap gap-sm min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
-              {podeImportar ? <TableImport onImport={abrirImportacao} /> : null}
               <TableExport onExport={aoExportar} />
             </div>
           </div>
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </>
+        )}
       </PageContent>
 
       <Sheet
@@ -1214,6 +1221,7 @@ export default function DebitosPage() {
                   <FormField label="Referência" htmlFor={`${formId}-referencia`} required error={errors.referencia}>
                     <Input
                       id={`${formId}-referencia`}
+                      icon={Hash}
                       value={form.referencia}
                       invalid={Boolean(errors.referencia)}
                       onChange={(event) => setForm((current) => ({ ...current, referencia: event.target.value }))}
@@ -1222,6 +1230,7 @@ export default function DebitosPage() {
                   <FormField label="Descrição" htmlFor={`${formId}-descricao`}>
                     <Input
                       id={`${formId}-descricao`}
+                      icon={FileText}
                       value={form.descricao}
                       onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}
                     />
@@ -1243,6 +1252,7 @@ export default function DebitosPage() {
                   <FormField label="Identificador externo" htmlFor={`${formId}-externo`}>
                     <Input
                       id={`${formId}-externo`}
+                      icon={Link2}
                       value={form.identificadorExterno}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, identificadorExterno: event.target.value }))
@@ -1255,6 +1265,7 @@ export default function DebitosPage() {
                   <FormField label="Vencimento" htmlFor={`${formId}-vencimento`} required error={errors.dataVencimento}>
                     <Input
                       id={`${formId}-vencimento`}
+                      icon={Calendar}
                       type="date"
                       value={form.dataVencimento}
                       invalid={Boolean(errors.dataVencimento)}
@@ -1279,6 +1290,7 @@ export default function DebitosPage() {
                   <FormField label="Valor" htmlFor={`${formId}-valor`} error={errors.valor}>
                     <Input
                       id={`${formId}-valor`}
+                      icon={Wallet}
                       inputMode="decimal"
                       value={form.valor}
                       invalid={Boolean(errors.valor)}
@@ -1288,6 +1300,7 @@ export default function DebitosPage() {
                   <FormField label="Valor original" htmlFor={`${formId}-original`} error={errors.valorOriginal}>
                     <Input
                       id={`${formId}-original`}
+                      icon={Wallet}
                       inputMode="decimal"
                       value={form.valorOriginal}
                       invalid={Boolean(errors.valorOriginal)}
@@ -1297,6 +1310,7 @@ export default function DebitosPage() {
                   <FormField label="Multa" htmlFor={`${formId}-multa`} error={errors.multa}>
                     <Input
                       id={`${formId}-multa`}
+                      icon={Percent}
                       inputMode="decimal"
                       value={form.multa}
                       invalid={Boolean(errors.multa)}
@@ -1306,6 +1320,7 @@ export default function DebitosPage() {
                   <FormField label="Juros" htmlFor={`${formId}-juros`} error={errors.juros}>
                     <Input
                       id={`${formId}-juros`}
+                      icon={Percent}
                       inputMode="decimal"
                       value={form.juros}
                       invalid={Boolean(errors.juros)}
@@ -1315,6 +1330,7 @@ export default function DebitosPage() {
                   <FormField label="Correção" htmlFor={`${formId}-correcao`} error={errors.correcao}>
                     <Input
                       id={`${formId}-correcao`}
+                      icon={Percent}
                       inputMode="decimal"
                       value={form.correcao}
                       invalid={Boolean(errors.correcao)}
@@ -1324,6 +1340,7 @@ export default function DebitosPage() {
                   <FormField label="Valor atualizado" htmlFor={`${formId}-atualizado`} error={errors.valorAtualizado}>
                     <Input
                       id={`${formId}-atualizado`}
+                      icon={Wallet}
                       inputMode="decimal"
                       value={form.valorAtualizado}
                       invalid={Boolean(errors.valorAtualizado)}
@@ -1336,6 +1353,7 @@ export default function DebitosPage() {
                   <FormField label="Data do pagamento" htmlFor={`${formId}-pagamento`}>
                     <Input
                       id={`${formId}-pagamento`}
+                      icon={Calendar}
                       type="date"
                       value={form.dataPagamento}
                       onChange={(event) => setForm((current) => ({ ...current, dataPagamento: event.target.value }))}
@@ -1344,6 +1362,7 @@ export default function DebitosPage() {
                   <FormField label="Valor pago" htmlFor={`${formId}-pago`} error={errors.valorPago}>
                     <Input
                       id={`${formId}-pago`}
+                      icon={Wallet}
                       inputMode="decimal"
                       value={form.valorPago}
                       invalid={Boolean(errors.valorPago)}

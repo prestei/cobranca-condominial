@@ -35,7 +35,7 @@ export function CardMetric({
 }: CardMetricProps) {
   const interativo = Boolean(onClick);
   const articleClassName = [
-    "flex h-full min-w-0 items-start gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card",
+    "flex h-full w-full min-w-0 items-start gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card",
     interativo
       ? "cursor-pointer transition-colors hover:border-primary-container/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-container"
       : "",

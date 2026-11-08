@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
-import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { SkeletonTable } from "@/components/skeleton";
 import {
   Table,
   TableBody,
@@ -116,13 +116,7 @@ export function OperacionalAtendimentosPanel() {
         </Button>
       </div>
 
-      {carregando ? (
-        <EmptyState
-          icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
-          title="Carregando registros"
-          description="Consultando o servidor…"
-        />
-      ) : null}
+      {carregando ? <SkeletonTable rows={6} cols={6} label="Carregando registros" /> : null}
 
       {!carregando && erro ? (
         <Alert variant="error" title="Erro ao carregar">

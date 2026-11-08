@@ -336,7 +336,7 @@ function inadimplenciaPorCondominioFiltrada(
     .sort((a, b) => b.valorAtualizado - a.valorAtualizado);
 }
 
-function evolucaoCarteiraMensalFiltrada(
+export function evolucaoCarteiraMensalFiltrada(
   userId: number,
   dataBase: string,
   limiteDias: number,

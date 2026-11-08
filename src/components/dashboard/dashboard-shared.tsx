@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
+import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { formatarData } from "@/data/catalogo";
@@ -178,6 +179,52 @@ export function Leitura({ children }: { children: ReactNode }) {
 /** Agrupa seções principais do dashboard com espaçamento uniforme (T36). */
 export function DashboardLayout({ children }: { children: ReactNode }) {
   return <div className="flex min-w-0 flex-col gap-xl">{children}</div>;
+}
+
+/** Cartão de gráfico padronizado na home. */
+export function PainelGrafico({
+  titulo,
+  descricao,
+  children,
+}: {
+  titulo: string;
+  descricao?: string;
+  children: ReactNode;
+}) {
+  return (
+    <article className="flex min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
+      <div className="flex flex-col gap-xs">
+        <h3 className="text-body-md font-semibold text-on-surface">{titulo}</h3>
+        {descricao ? <p className="text-body-sm text-on-surface-variant">{descricao}</p> : null}
+      </div>
+      {children}
+    </article>
+  );
+}
+
+/** Alerta acionável no topo da home (retornos atrasados, atenção etc.). */
+export function AlertaPrioridade({
+  titulo,
+  children,
+  acaoLabel,
+  onAcao,
+}: {
+  titulo: string;
+  children: ReactNode;
+  acaoLabel: string;
+  onAcao: () => void;
+}) {
+  return (
+    <Alert variant="warning" title={titulo}>
+      <div className="flex flex-col gap-md min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+        <div className="text-body-sm text-on-surface">{children}</div>
+        <Button size="sm" variant="secondary" className="shrink-0" onClick={onAcao}>
+          {acaoLabel}
+          <Icon icon={ArrowUpRight} size="sm" />
+        </Button>
+      </div>
+    </Alert>
+  );
 }
 
 /** Título de bloco secundário dentro de uma seção (indicadores de apoio). */

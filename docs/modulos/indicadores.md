@@ -13,8 +13,7 @@ Painel consolidado de cobrança, inadimplência e produtividade por condomínio,
 
 ## Rotas e telas
 
-- `/indicadores` — `src/app/indicadores/page.tsx`
-- Menu lateral: seção **Análise** → Indicadores
+- **Tela removida.** A rota `/indicadores` não está mais no produto. O backend (`GET /api/indicadores`, `src/lib/indicadores/*`) permanece para dashboard, relatórios e conferência.
 
 ## Perfis e permissões
 

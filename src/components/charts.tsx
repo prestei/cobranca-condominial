@@ -14,6 +14,15 @@ const preenchimento: Record<TomGrafico, string> = {
   mist: "bg-inverse-primary",
 };
 
+const preenchimentoSvg: Record<TomGrafico, string> = {
+  navy: "fill-primary-container",
+  brass: "fill-brass",
+  settled: "fill-status-settled",
+  pending: "fill-status-pending",
+  critical: "fill-status-critical",
+  mist: "fill-inverse-primary",
+};
+
 const traco: Record<TomGrafico, string> = {
   navy: "stroke-primary-container",
   brass: "stroke-brass",
@@ -337,6 +346,140 @@ export function GraficoRosca({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Barras (eixo esquerdo) + linha com pontos (eixo direito) — resumo do período na home. */
+export function GraficoMisto({
+  itens,
+  barras,
+  linha,
+  vazio,
+  chave,
+}: {
+  itens: Array<{ nome: string; barra: number; linha: number; rotuloBarra: string; rotuloLinha: string }>;
+  barras: { nome: string; tom?: TomGrafico };
+  linha: { nome: string; tom?: TomGrafico };
+  vazio: ReactNode;
+  chave: string;
+}) {
+  const progresso = useProgresso(chave);
+  const maxBarra = Math.max(...itens.map((item) => item.barra), 0);
+  const maxLinha = Math.max(...itens.map((item) => item.linha), 0);
+  if (itens.length === 0 || (maxBarra <= 0 && maxLinha <= 0)) return vazio;
+
+  const largura = 640;
+  const altura = 220;
+  const margem = { topo: 20, direita: 28, base: 36, esquerda: 36 };
+  const internoLargura = largura - margem.esquerda - margem.direita;
+  const internoAltura = altura - margem.topo - margem.base;
+  const faixa = Math.max(internoLargura / itens.length, 1);
+  const barraLargura = Math.min(28, faixa * 0.45);
+  const tomBarra = barras.tom ?? "settled";
+  const tomLinha = linha.tom ?? "navy";
+
+  const pontos = itens.map((item, indice) => {
+    const cx = margem.esquerda + faixa * indice + faixa / 2;
+    const alturaBarra =
+      item.barra <= 0 || maxBarra <= 0
+        ? 0
+        : Math.max(4, (item.barra / maxBarra) * internoAltura) * avanco(progresso, indice);
+    const yLinha =
+      maxLinha <= 0
+        ? margem.topo + internoAltura
+        : margem.topo + internoAltura - (item.linha / maxLinha) * internoAltura * progresso;
+    return { ...item, cx: casa(cx), alturaBarra: casa(alturaBarra), yLinha: casa(yLinha) };
+  });
+
+  const pathLinha = pontos
+    .map((ponto, indice) => `${indice === 0 ? "M" : "L"} ${ponto.cx.toFixed(1)} ${ponto.yLinha.toFixed(1)}`)
+    .join(" ");
+  const base = margem.topo + internoAltura;
+
+  return (
+    <div className="flex flex-col gap-md">
+      <p className="flex flex-wrap gap-md text-body-sm text-on-surface-variant">
+        <span className="inline-flex items-center gap-xs">
+          <span className={`size-2.5 rounded-full ${preenchimento[tomBarra]}`} />
+          {barras.nome}
+        </span>
+        <span className="inline-flex items-center gap-xs">
+          <span className={`size-2.5 rounded-full ${preenchimento[tomLinha]}`} />
+          {linha.nome}
+        </span>
+      </p>
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-56 w-full" role="img" aria-label={`${barras.nome} e ${linha.nome}`}>
+        {[0.25, 0.5, 0.75, 1].map((marca) => {
+          const y = margem.topo + internoAltura * (1 - marca);
+          return (
+            <line
+              key={marca}
+              x1={margem.esquerda}
+              x2={largura - margem.direita}
+              y1={y}
+              y2={y}
+              className="stroke-border-subtle"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+            />
+          );
+        })}
+        {pontos.map((ponto) => (
+          <rect
+            key={`b-${ponto.nome}`}
+            x={ponto.cx - barraLargura / 2}
+            y={base - ponto.alturaBarra}
+            width={barraLargura}
+            height={ponto.alturaBarra}
+            rx="4"
+            className={preenchimentoSvg[tomBarra]}
+          >
+            <title>{`${ponto.nome} · ${barras.nome}: ${ponto.rotuloBarra}`}</title>
+          </rect>
+        ))}
+        {maxLinha > 0 ? (
+          <>
+            <path
+              d={pathLinha}
+              fill="none"
+              className={traco[tomLinha]}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {pontos.map((ponto) => (
+              <circle
+                key={`l-${ponto.nome}`}
+                cx={ponto.cx}
+                cy={ponto.yLinha}
+                r="4.5"
+                className={`fill-surface-card ${traco[tomLinha]}`}
+                strokeWidth="2.5"
+              >
+                <title>{`${ponto.nome} · ${linha.nome}: ${ponto.rotuloLinha}`}</title>
+              </circle>
+            ))}
+          </>
+        ) : null}
+        {pontos.map((ponto) => (
+          <text
+            key={`t-${ponto.nome}`}
+            x={ponto.cx}
+            y={altura - 10}
+            textAnchor="middle"
+            className="fill-on-surface-variant font-sans text-[11px]"
+          >
+            {ponto.nome}
+          </text>
+        ))}
+      </svg>
+      <ListaOculta
+        itens={itens.flatMap((item) => [
+          { nome: `${item.nome} — ${barras.nome}`, detalhe: item.rotuloBarra },
+          { nome: `${item.nome} — ${linha.nome}`, detalhe: item.rotuloLinha },
+        ])}
+      />
     </div>
   );
 }

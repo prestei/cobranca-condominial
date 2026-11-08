@@ -54,7 +54,7 @@ export function DistribuicaoAutomaticaSheet({ open, onOpenChange, refreshKey, on
               <SheetHeaderText>
                 <SheetTitle id={`${baseId}-title`}>Distribuição automática</SheetTitle>
                 <SheetDescription id={`${baseId}-desc`}>
-                  Escolha a regra e salve. Com a opção ativa, cobranças sem RE são atribuídas automaticamente.
+                  Escolha a regra; cobranças sem RE são atribuídas automaticamente.
                 </SheetDescription>
               </SheetHeaderText>
             </SheetHeaderLead>

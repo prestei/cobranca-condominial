@@ -11,6 +11,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -449,9 +450,9 @@ export default function AuditoriaPage() {
           </p>
         ) : null}
         {carregando && registros.length === 0 ? (
-          <p className="mb-md text-body-sm text-on-surface-variant">Carregando histórico…</p>
-        ) : null}
-
+          <SkeletonListPage metrics={3} rows={8} cols={5} label="Carregando histórico" />
+        ) : (
+          <>
         <section aria-label="Resumo do histórico">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
             <KpiMobileCard
@@ -540,6 +541,8 @@ export default function AuditoriaPage() {
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+          </>
+        )}
       </PageContent>
 
       <Sheet open={detalhe !== null} onOpenChange={(open) => !open && fecharDetalhe()}>

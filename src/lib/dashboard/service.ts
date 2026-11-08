@@ -29,8 +29,10 @@ import {
   type IndicadoresOperacionaisAtendente,
 } from "@/lib/dashboard/indicadores-operacionais-atendente";
 import {
+  evolucaoCarteiraMensalFiltrada,
   montarGraficosAtendente,
   type DashboardGraficosAtendente,
+  type GraficoEvolucaoMes,
 } from "@/lib/dashboard/graficos-atendente";
 import { listarRetornosAgenda, type RetornoAgendaItem } from "@/lib/retornos/service";
 import {
@@ -83,6 +85,7 @@ export type DashboardRankingCondominio = {
 export type DashboardSerieDia = {
   dia: string;
   quantidade: number;
+  respostas: number;
 };
 
 export type DashboardDistribuicaoValor = {
@@ -128,6 +131,7 @@ export type DashboardAdministradora = DashboardComum & {
   porFaixa: DashboardDistribuicaoValor[];
   porAdvogado: DashboardAdvogadoBarra[];
   parteJuridicaPercentual: number | null;
+  evolucaoMensal: GraficoEvolucaoMes[];
 };
 
 export type DashboardAtendente = DashboardComum & {
@@ -193,14 +197,41 @@ function calcularOperacaoSemana(
     ? retornosAgenda.itens.filter((item) => unidadeIds.has(item.unidadeId)).length
     : retornosAgenda.total;
 
-  const serieMapa = new Map<string, number>();
+  const serieMapa = new Map<string, { quantidade: number; respostas: number }>();
   for (const item of atendimentos) {
     const dia = item.dataHora.slice(0, 10);
-    serieMapa.set(dia, (serieMapa.get(dia) ?? 0) + 1);
+    const atual = serieMapa.get(dia) ?? { quantidade: 0, respostas: 0 };
+    atual.quantidade += 1;
+    if (item.respondeu === "Sim") atual.respostas += 1;
+    serieMapa.set(dia, atual);
   }
-  const serie = [...serieMapa.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([dia, quantidade]) => ({ dia, quantidade }));
+
+  const serie: DashboardSerieDia[] = [];
+  if (periodo.inicio && periodo.fim) {
+    const cursor = new Date(`${periodo.inicio}T12:00:00`);
+    const fim = new Date(`${periodo.fim}T12:00:00`);
+    const diasSpan = Math.round((fim.getTime() - cursor.getTime()) / 86_400_000) + 1;
+    if (diasSpan > 0 && diasSpan <= 16) {
+      while (cursor <= fim) {
+        const dia = cursor.toISOString().slice(0, 10);
+        const ponto = serieMapa.get(dia);
+        serie.push({
+          dia,
+          quantidade: ponto?.quantidade ?? 0,
+          respostas: ponto?.respostas ?? 0,
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else {
+      for (const [dia, ponto] of [...serieMapa.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        serie.push({ dia, quantidade: ponto.quantidade, respostas: ponto.respostas });
+      }
+    }
+  } else {
+    for (const [dia, ponto] of [...serieMapa.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      serie.push({ dia, quantidade: ponto.quantidade, respostas: ponto.respostas });
+    }
+  }
 
   return {
     periodo,
@@ -437,6 +468,7 @@ export function obterDashboard(userId: number, input?: DashboardFiltros): Dashbo
       porFaixa: distribuicaoFaixas(debitos, dataBase, totalAberto),
       porAdvogado: distribuicaoAdvogados(userId, debitos, dataBase, limiteDias),
       parteJuridicaPercentual,
+      evolucaoMensal: evolucaoCarteiraMensalFiltrada(userId, dataBase, limiteDias, unidadeIds),
     };
   }
 

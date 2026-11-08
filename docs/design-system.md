@@ -9,7 +9,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | Componente | Arquivo | Uso |
 | --- | --- | --- |
 | `Button` | `button.tsx` | Ações. Variantes: `primary`, `secondary`, `surface` (toolbar: Importar, Exportar, Limpar), `outline`, `ghost`, `critical`. Tamanhos: `sm`, `md`, `lg`. Filtrar em `FilterBar` usa `primary`. |
-| `Input`, `Textarea`, `Select` | `input.tsx` | Campos de formulário compactos, sem ícone interno. O `Select` abre com o campo Buscar. Prop `invalid` para erro. |
+| `Input`, `Textarea`, `Select` | `input.tsx` | Campos de formulário compactos. Em Sheets de cadastro, `Input` e `Textarea` aceitam `icon?: LucideIcon` à esquerda; `Select` só exibe `ChevronDown` à direita (sem ícone à esquerda). FilterBar sem ícone. O `Select` abre com o campo Buscar. Prop `invalid` para erro. |
 | `PeriodInput` | `period-input.tsx` | Um campo de período: atalhos (hoje, ontem, 7 dias, 30 dias, este mês, todos) e intervalo personalizado no mesmo controle. |
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
@@ -17,13 +17,14 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
-| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9` em caixa `rounded-lg`). Ordem fixa: **valor** (`text-metric` / 22px bold) → **rótulo** (`text-body-md` / 14px) → **detalhe** (`text-body-sm` / 12px, opcional). Sem faixa lateral. Grid típico **4 colunas** no desktop. |
-| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão **4**). Respeita `prefers-reduced-motion` (sem autoplay). |
+| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9` em caixa `rounded-lg`). Ordem fixa: **valor** (`text-metric` / 22px bold) → **rótulo** (`text-body-md` / 14px) → **detalhe** (`text-body-sm` / 12px, opcional). Sem faixa lateral. Sempre `w-full` (preenche a coluna; não encolhe ao conteúdo). Grid típico **4 colunas** no desktop. |
+| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop com colunas de **largura igual** (`desktopCols`, padrão **4**). Respeita `prefers-reduced-motion` (sem autoplay). |
 | `KpiMobileCard` | `kpi-mobile-card.tsx` | Mesmo padrão visual do `CardMetric` para listagens mobile (&lt;768px). |
-| `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
+| `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha`, `GraficoMisto` | `charts.tsx` | Gráficos de relatório e da home. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. `GraficoMisto` combina barras (eixo esquerdo) e linha com pontos (eixo direito). |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
 | `EmptyState` | `empty-state.tsx` | Sem dados: título, descrição, ícone e ação opcionais. |
+| `Skeleton`, `SkeletonListPage`, `SkeletonTable`, `SkeletonMetrics`, `SkeletonDashboard`, … | `skeleton.tsx` | Loading: blocos com pulse (`motion-safe:animate-pulse`). Preferir skeleton a texto “Carregando…” ou spinner em tela cheia. |
 | `Icon` | `icon.tsx` | Ícones Lucide com tamanhos `sm`, `md`, `lg` e traço padronizado. |
 | `Alert` | `alert.tsx` | Feedback inline. Variantes: `info`, `success`, `warning`, `error` (ícone Lucide por variante). |
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
@@ -32,7 +33,6 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: contador e barra de progresso, **Restaurar padrão** / **Desmarcar tudo**, cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
 | `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: painel com **N áreas**, lista de módulos e **Ver permissões**; variante `badges` para tags compactas. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
-| `ImportacaoPreVisualizacao` | `importacao-pre-visualizacao/importacao-pre-visualizacao.tsx` | Pré-visualização obrigatória de importações (Ticket 07): cabeçalho, KPIs, tabela de conferência, filtros, detalhe por linha. Colunas por módulo em `config-modulos.ts`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
@@ -58,10 +58,15 @@ Barras de rolagem finas e discretas em todo o sistema (`globals.css`, camada `ba
 ## Inputs
 
 - Altura `h-input` (`--spacing-input`, menor que botões).
-- Sem ícone embutido. Padding esquerda: `spacing-md` menos 5px. Padding direita: `spacing-md`.
 - Repouso: borda `border-strong`.
 - Foco: borda `brass` e anel suave.
 - Erro: borda e label `status-critical`; a mensagem fica a `spacing-xs` abaixo do campo, via `FormField` com `error`.
+
+### Ícone no campo
+
+- **Formulários de Sheet (cadastro/edição):** `Input` e `Textarea` aceitam `icon?: LucideIcon`, exibido à esquerda do valor (como em `src/app/usuarios/page.tsx`). Escolha ícones coerentes com o campo (`Building2`, `Hash`, `Mail`, `Phone`, `Lock`, `MapPin`, `UserRound`, `Briefcase`, `Calendar`, `FileText`, etc.). **`Select` não usa `icon`** — apenas o `ChevronDown` à direita.
+- **FilterBar e painéis de filtro:** busca e selects **sem** `icon` — só rótulo acima do campo.
+- **Dicas sob o campo:** use `SheetHelpText` (ícone Info + texto), não `<p className="text-body-sm…">` solto.
 
 ### Texto e lista
 
@@ -247,6 +252,35 @@ O texto mostra o intervalo visível (`1–20 de 35`). As setas, sem rótulo, fic
 
 `EmptyState` também pode ficar fora da tabela (painel, página inteira).
 
+## Loading (skeleton)
+
+Enquanto a tela ou o painel busca dados, use os componentes de `@/components/skeleton` — não texto “Carregando…” nem `EmptyState` com spinner.
+
+| Composição | Uso |
+| --- | --- |
+| `Skeleton` | Bloco base (largura/altura via `className`). |
+| `SkeletonListPage` | Listagem: filtros + métricas + tabela. |
+| `SkeletonTable` | Só a tabela / cards mobile. |
+| `SkeletonMetrics` | Linha de `CardMetric`. |
+| `SkeletonDashboard` | Dashboard / produtividade (métricas + painéis). |
+| `SkeletonCardList` | Lista em cards (notificações). |
+| `SkeletonForm` | Corpo de Sheet / formulário. |
+| `SkeletonTimeline` | Histórico / linha do tempo. |
+| `SkeletonProfileCard` | Minha conta. |
+| `SkeletonLogin` | Login / Suspense. |
+| `SkeletonCalendar` | Agenda em calendário. |
+| `SkeletonInlineList` | Dropdown compacto (header). |
+
+```tsx
+{carregando ? (
+  <SkeletonListPage metrics={4} rows={8} cols={5} label="Carregando condomínios" />
+) : (
+  /* conteúdo */
+)}
+```
+
+O wrapper `SkeletonStatus` (já usado nas composições) expõe `role="status"` e texto acessível via `label`. Respeita `prefers-reduced-motion` (`motion-safe:animate-pulse`).
+
 ## Confirmação
 
 `ConfirmDialog` abre um modal com cancelar e confirmar. O pai controla `open` e decide o que fazer em `onConfirm` (fechar, toast, exclusão). Com `confirmVariant="critical"`, a confirmação fica à esquerda em `status-critical` e o cancelar à direita.
@@ -288,7 +322,7 @@ const [open, setOpen] = useState(false);
 
 ## Sheet (cadastro lateral)
 
-Painel fixo à direita, altura total da viewport, backdrop escuro e fechamento com Escape ou clique fora (comportamento nativo do `<dialog>`). **Padrão de formulário:** `SheetForm` envolvendo cabeçalho com ícone (`SheetHeaderLead` + `SheetHeaderIcon`), corpo rolável com `FormField`, blocos em `SheetPanel`, switches em `SheetToggleRow`, textos de apoio em `SheetHelpText` e rodapé com `SheetFooterForm` (Fechar + Salvar). No mobile, `SheetHeader` / `SheetBody` / `SheetFooter` usam `px-md`; a partir de 768px, `px-lg`. `SheetPanel` usa `px-sm` / `py-sm` no mobile. `SheetDescription` fica em **uma linha** no mobile (`line-clamp-1`); no desktop o texto completo pode ocupar várias linhas.
+Painel fixo à direita, altura total da viewport, backdrop escuro e fechamento com Escape ou clique fora (comportamento nativo do `<dialog>`). **Padrão de formulário:** `SheetForm` envolvendo cabeçalho com ícone (`SheetHeaderLead` + `SheetHeaderIcon`), corpo rolável com `FormField`, blocos em `SheetPanel`, switches em `SheetToggleRow`, textos de apoio em `SheetHelpText` e rodapé com `SheetFooterForm` (Fechar + Salvar). No mobile, `SheetHeader` / `SheetBody` / `SheetFooter` usam `px-md`; a partir de 768px, `px-lg`. `SheetPanel` usa `px-sm` / `py-sm` no mobile. `SheetDescription` fica em **no máximo uma linha** (`truncate`); texto longo recebe reticências e `title` nativo para ler o completo no hover.
 
 ```tsx
 const [open, setOpen] = useState(false);

@@ -117,6 +117,8 @@ Quando a página lista ou gerencia entidades cadastráveis (CRUD), entregar na m
 
 Cadastro e edição **sempre** no `Sheet` lateral à direita. Montar com `SheetForm`, `SheetHeader`, `SheetBody`, `SheetFooterForm` (Fechar + Salvar).
 
+Em cada `Input` e `Textarea` do sheet, passe `icon` (Lucide) à esquerda quando fizer sentido. **`Select` sem ícone à esquerda** (só `ChevronDown`). **FilterBar** continua sem ícone interno nos campos. Dicas sob o campo: `SheetHelpText`, não parágrafos soltos com `text-body-sm`.
+
 `Dialog` e `ConfirmDialog` ficam para confirmação, não para formulário de cadastro ou edição.
 
 ### Formulário grande: etapas

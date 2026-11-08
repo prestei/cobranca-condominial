@@ -17,7 +17,7 @@ Matriz completa de abas, entidades, formatos, permissões e lacunas: [MATRIZ_AUD
 
 ## Rotas e telas
 
-- `/importacoes` — `src/app/importacoes/page.tsx` — histórico e wizard **Nova importação** (módulo → arquivo → prévia → aprovação → resultado). Atalhos: `/importacoes?modulo=condominios&abrir=1` (e demais módulos) a partir das telas de carteira.
+- **Tela removida.** A rota `/importacoes` e os componentes de UI do wizard/histórico não estão mais no produto. O backend (`/api/importacoes/*`, `src/lib/importacoes/*`, `src/lib/importacao-centro/*`) permanece disponível para uso programático ou futura reintrodução da interface.
 
 ## Perfis e permissões
 
@@ -30,7 +30,7 @@ Mapeamento oficial (Ticket 12) em `src/lib/importacoes/permissoes.ts`. Toda aç�
 | Visualizar prévia | `importacoes.criar` | `POST /api/importacoes/debitos/preview` |
 | Corrigir registros na prévia | `importacoes.editar` | `POST …/preview/corrigir` |
 | Aprovar e gravar | `importacoes.editar` | `POST …/debitos/confirmar`, `POST …/processo/:id/aprovacao` |
-| Excluir registro de histórico | `importacoes.excluir` | UI `/importacoes` (cliente) |
+| Excluir registro de histórico | `importacoes.excluir` | `DELETE /api/importacoes/:id` |
 
 **Escopo de condomínio:** conferência e parse usam `escopoCondominios` / `escopoUnidades`; na aprovação, linhas que seriam gravadas fora do escopo retornam `403`. Débitos existentes fora do escopo não entram no contexto de atualização (`adaptadores/debitos.ts`).
 

@@ -11,9 +11,9 @@ Documentação **por módulo funcional**. Cada implementação ou alteração re
 | Atendimentos (palitagem) | [atendimentos.md](atendimentos.md) | `/atendimentos` |
 | Negociações (propostas T15 / parcelas T16) | [negociacoes.md](negociacoes.md) | (sheet na fila / histórico) |
 | Jurídico (encaminhamento T17) | [juridico.md](juridico.md) | `/juridico` |
-| Importações | [importacoes.md](importacoes.md) | `/importacoes` |
+| Importações | [importacoes.md](importacoes.md) | — (tela removida; API) |
 | Relatórios | [relatorios.md](relatorios.md) | `/relatorios` |
-| Indicadores | [indicadores.md](indicadores.md) | `/indicadores` |
+| Indicadores | [indicadores.md](indicadores.md) | — (tela removida; API) |
 | Usuários | [usuarios.md](usuarios.md) | `/usuarios` |
 | Cargos / perfis | [cargos.md](cargos.md) | `/cargos` |
 | Auditoria | [auditoria.md](auditoria.md) | `/auditoria` |

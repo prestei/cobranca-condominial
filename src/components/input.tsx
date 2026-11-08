@@ -9,8 +9,12 @@ import type {
 } from "react";
 import { forwardRef, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, isValidElement, Children } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, type LucideIcon } from "lucide-react";
 import { Icon } from "@/components/icon";
+
+const iconeEsquerdaClassName =
+  "pointer-events-none absolute top-1/2 left-md z-[1] -translate-y-1/2 text-on-surface-variant";
+const paddingComIcone = "pl-[calc(var(--spacing-md)+1rem+var(--spacing-sm))]";
 
 const checkboxClassName = [
   "size-3.5 shrink-0 cursor-pointer appearance-none rounded-sm border border-border-strong bg-surface-card bg-center bg-no-repeat",
@@ -53,6 +57,12 @@ const switchThumbClassName = [
 export const formControlClassName =
   "h-input w-full rounded-md border bg-surface-card pl-[calc(var(--spacing-md)-5px)] text-body-md text-on-surface transition-colors duration-150 placeholder:text-on-surface-variant focus-visible:border-brass focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brass/20 disabled:cursor-not-allowed disabled:opacity-60";
 
+/** Base sem padding esquerdo — use com `paddingCampo` ou `paddingComIcone`. */
+const formControlBaseClassName =
+  "h-input w-full rounded-md border bg-surface-card text-body-md text-on-surface transition-colors duration-150 placeholder:text-on-surface-variant focus-visible:border-brass focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brass/20 disabled:cursor-not-allowed disabled:opacity-60";
+
+const paddingCampo = "pl-[calc(var(--spacing-md)-5px)]";
+
 function controlStateClass(invalid?: boolean) {
   return invalid
     ? "border-status-critical focus-visible:border-status-critical focus-visible:ring-status-critical/20"
@@ -61,30 +71,48 @@ function controlStateClass(invalid?: boolean) {
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   invalid?: boolean;
+  /** Ícone à esquerda (padrão em formulários de Sheet). */
+  icon?: LucideIcon;
 };
 
-export function Input({ className, invalid, ...props }: InputProps) {
-  return (
+export function Input({ className, invalid, icon, ...props }: InputProps) {
+  const campo = (
     <input
-      className={`${formControlClassName} pr-md ${controlStateClass(invalid)} ${className ?? ""}`}
+      className={`${formControlBaseClassName} pr-md ${icon ? paddingComIcone : paddingCampo} ${controlStateClass(invalid)} ${className ?? ""}`}
       aria-invalid={invalid || undefined}
       {...props}
     />
+  );
+  if (!icon) return campo;
+  return (
+    <span className="relative block w-full">
+      <Icon icon={icon} size="sm" className={iconeEsquerdaClassName} />
+      {campo}
+    </span>
   );
 }
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   invalid?: boolean;
+  /** Ícone no canto superior esquerdo (padrão em formulários de Sheet). */
+  icon?: LucideIcon;
 };
 
-export function Textarea({ className, invalid, rows = 3, ...props }: TextareaProps) {
-  return (
+export function Textarea({ className, invalid, icon, rows = 3, ...props }: TextareaProps) {
+  const campo = (
     <textarea
       rows={rows}
-      className={`${formControlClassName} min-h-[calc(var(--spacing-input)*2)] resize-y py-sm pr-md ${controlStateClass(invalid)} ${className ?? ""}`}
+      className={`${formControlBaseClassName} min-h-[calc(var(--spacing-input)*2)] resize-y py-sm pr-md ${icon ? `${paddingComIcone} pt-[calc(var(--spacing-sm)+0.125rem)]` : paddingCampo} ${controlStateClass(invalid)} ${className ?? ""}`}
       aria-invalid={invalid || undefined}
       {...props}
     />
+  );
+  if (!icon) return campo;
+  return (
+    <span className="relative block w-full">
+      <Icon icon={icon} size="sm" className="pointer-events-none absolute top-[calc(var(--spacing-sm)+0.125rem)] left-md z-[1] text-on-surface-variant" />
+      {campo}
+    </span>
   );
 }
 
@@ -303,7 +331,7 @@ export function Select({
         }
         aria-required={required || undefined}
         aria-invalid={invalid || undefined}
-        className={`${formControlClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${controlStateClass(invalid)} ${className ?? ""}`}
+        className={`${formControlBaseClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${paddingCampo} ${controlStateClass(invalid)} ${className ?? ""}`}
         onClick={() => (aberto ? fechar() : abrir())}
       >
         <span className={`truncate ${selecionada ? "" : "text-on-surface-variant"}`}>

@@ -3,7 +3,25 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
-import { Building2, CheckCircle2, DoorOpen, Eye, Pencil, Plus, Receipt, Scale, Trash2 } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  DoorOpen,
+  Eye,
+  FileText,
+  Hash,
+  Layers,
+  Mail,
+  MessageCircle,
+  Pencil,
+  Phone,
+  Plus,
+  Receipt,
+  Scale,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -17,6 +35,7 @@ import { FormSteps } from "@/components/form-steps";
 import { FormField, Input, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -164,7 +183,6 @@ export default function UnidadesPage() {
   const [errors, setErrors] = useState<ErrosUnidade>({});
   const [errorsResponsavel, setErrorsResponsavel] = useState<ErrosResponsavel>({});
   const [detalheVersao, setDetalheVersao] = useState(0);
-  const podeImportar = pode("importacoes", "criar");
 
   async function recarregarUnidadesDoServidor() {
     const response = await fetch("/api/unidades", { credentials: "same-origin" });
@@ -579,11 +597,6 @@ export default function UnidadesPage() {
     }
   }
 
-  function abrirImportacao() {
-    if (!podeImportar) return;
-    router.push("/importacoes?modulo=unidades&abrir=1");
-  }
-
   function acoes(item: Unidade) {
     const lista = [];
     if (pode("unidades", "ler")) lista.push({ label: "Consultar", icon: Eye, onSelect: () => setDetalheId(item.id) });
@@ -919,6 +932,10 @@ export default function UnidadesPage() {
         }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
+        {authLoading ? (
+          <SkeletonListPage metrics={4} rows={8} cols={6} label="Carregando unidades" />
+        ) : (
+        <>
         <section aria-label="Resumo de unidades">
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
             <KpiMobileCard
@@ -1021,12 +1038,11 @@ export default function UnidadesPage() {
           desktop={desktopTable}
           mobile={mobileTable}
           onExport={aoExportar}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
-          importDisabled={false}
           mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        </>
+        )}
       </PageContent>
 
       <Sheet
@@ -1047,8 +1063,8 @@ export default function UnidadesPage() {
                   <SheetTitle id={`${formId}-title`}>{editingId === null ? "Nova unidade" : "Editar unidade"}</SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
                     {editingId === null
-                      ? "Cadastro em duas etapas: unidade e responsável (condômino ou financeiro)."
-                      : "Apartamento, casa, sala ou loja de um condomínio da carteira."}
+                      ? "Cadastro em duas etapas: unidade e responsável."
+                      : "Unidade de um condomínio da carteira."}
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -1077,6 +1093,7 @@ export default function UnidadesPage() {
                 <FormField label="Identificação" htmlFor={`${formId}-identificacao`} required error={errors.identificacao}>
                   <Input
                     id={`${formId}-identificacao`}
+                    icon={Hash}
                     value={form.identificacao}
                     invalid={Boolean(errors.identificacao)}
                     onChange={(event) => setForm((current) => ({ ...current, identificacao: event.target.value }))}
@@ -1085,6 +1102,7 @@ export default function UnidadesPage() {
                 <FormField label="Bloco" htmlFor={`${formId}-bloco`}>
                   <Input
                     id={`${formId}-bloco`}
+                    icon={Layers}
                     value={form.bloco}
                     onChange={(event) => setForm((current) => ({ ...current, bloco: event.target.value }))}
                   />
@@ -1139,9 +1157,9 @@ export default function UnidadesPage() {
                     </option>
                   ))}
                 </Select>
-                <p className="text-body-sm text-on-surface-variant">
+                <SheetHelpText>
                   Sem cobrança: fora da fila de inadimplência. Em cobrança e demais: operação ativa.
-                </p>
+                </SheetHelpText>
               </FormField>
                 </>
               ) : (
@@ -1188,6 +1206,7 @@ export default function UnidadesPage() {
                       <FormField label="Nome" htmlFor={`${formId}-nome-resp`} error={errorsResponsavel.nome}>
                         <Input
                           id={`${formId}-nome-resp`}
+                          icon={UserRound}
                           value={responsavelForm.nome}
                           invalid={Boolean(errorsResponsavel.nome)}
                           onChange={(event) =>
@@ -1199,6 +1218,7 @@ export default function UnidadesPage() {
                         <FormField label="CPF/CNPJ" htmlFor={`${formId}-cpf-resp`} error={errorsResponsavel.cpfCnpj}>
                           <Input
                             id={`${formId}-cpf-resp`}
+                            icon={CreditCard}
                             value={responsavelForm.cpfCnpj}
                             invalid={Boolean(errorsResponsavel.cpfCnpj)}
                             onChange={(event) =>
@@ -1226,6 +1246,8 @@ export default function UnidadesPage() {
                         <FormField label="Telefone" htmlFor={`${formId}-tel-resp`}>
                           <Input
                             id={`${formId}-tel-resp`}
+                            icon={Phone}
+                            placeholder="(00) 00000-0000"
                             value={responsavelForm.telefone}
                             onChange={(event) =>
                               setResponsavelForm((current) => ({ ...current, telefone: event.target.value }))
@@ -1235,6 +1257,8 @@ export default function UnidadesPage() {
                         <FormField label="WhatsApp" htmlFor={`${formId}-wa-resp`}>
                           <Input
                             id={`${formId}-wa-resp`}
+                            icon={MessageCircle}
+                            placeholder="(00) 00000-0000"
                             value={responsavelForm.whatsapp}
                             onChange={(event) =>
                               setResponsavelForm((current) => ({ ...current, whatsapp: event.target.value }))
@@ -1245,6 +1269,7 @@ export default function UnidadesPage() {
                       <FormField label="E-mail" htmlFor={`${formId}-email-resp`}>
                         <Input
                           id={`${formId}-email-resp`}
+                          icon={Mail}
                           type="email"
                           value={responsavelForm.email}
                           onChange={(event) =>
@@ -1285,6 +1310,7 @@ export default function UnidadesPage() {
                   <FormField label="Observações do vínculo" htmlFor={`${formId}-obs-vinculo`}>
                     <Input
                       id={`${formId}-obs-vinculo`}
+                      icon={FileText}
                       value={responsavelForm.observacoes}
                       onChange={(event) =>
                         setResponsavelForm((current) => ({ ...current, observacoes: event.target.value }))

@@ -3,11 +3,23 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { ClipboardList, DoorOpen, Link2, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import {
+  ClipboardList,
+  CreditCard,
+  DoorOpen,
+  FileText,
+  Link2,
+  Pencil,
+  Plus,
+  Receipt,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select } from "@/components/input";
+import { SkeletonForm } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -274,7 +286,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
         <SheetContent aria-labelledby={`${formId}-detalhe-title`}>
           {loading || !detalhe ? (
             <SheetBody>
-              <p className="text-body-md text-on-surface-variant">{loading ? "Carregando…" : "—"}</p>
+              {loading ? <SkeletonForm fields={5} label="Carregando unidade" /> : <p className="text-body-md text-on-surface-variant">—</p>}
             </SheetBody>
           ) : (
             <>
@@ -446,6 +458,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   <FormField label="Nome" htmlFor={`${formId}-nome`} required>
                     <Input
                       id={`${formId}-nome`}
+                      icon={UserRound}
                       value={vinculoForm.nome}
                       onChange={(event) => setVinculoForm((c) => ({ ...c, nome: event.target.value }))}
                     />
@@ -453,6 +466,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   <FormField label="CPF/CNPJ" htmlFor={`${formId}-cpf`} required>
                     <Input
                       id={`${formId}-cpf`}
+                      icon={CreditCard}
                       value={vinculoForm.cpfCnpj}
                       onChange={(event) => setVinculoForm((c) => ({ ...c, cpfCnpj: event.target.value }))}
                     />
@@ -513,6 +527,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
               <FormField label="Observações" htmlFor={`${formId}-obs-vinculo`}>
                 <Input
                   id={`${formId}-obs-vinculo`}
+                  icon={FileText}
                   value={vinculoForm.observacoes}
                   onChange={(event) => setVinculoForm((c) => ({ ...c, observacoes: event.target.value }))}
                 />

@@ -369,14 +369,14 @@
 | Dashboard | `/` | `/api/dashboard` | catálogo | Relatório T18; sem unit |
 | Atendimentos | `/atendimentos` | fila, atendimentos, retornos, distribuição | catálogo | Integração T10–T11 |
 | Débitos | `/debitos` | `/api/debitos*` | catálogo | indicadores.test.mjs |
-| Importações | `/importacoes` | `/api/importacoes/debitos/*` | catálogo | Integração |
+| Importações | — (tela removida) | `/api/importacoes/debitos/*` | catálogo | Integração |
 | Condomínios | `/condominios` | `/api/condominios` | catálogo | Manual |
 | Unidades | `/unidades` | `/api/unidades` | catálogo | Integração escopo |
 | Usuários | `/usuarios` | `/api/usuarios` | catálogo | RE + integração |
 | Cargos | `/cargos` | `/api/cargos` | catálogo | Manual |
 | Jurídico | `/juridico` | `/api/juridico/*` | catálogo | Relatório T17 |
 | Relatórios | `/relatorios`, `/relatorios/produtividade` | export, opcoes, produtividade | catálogo | Integração export |
-| Indicadores | `/indicadores` | `/api/indicadores` | catálogo | Parcial |
+| Indicadores | — (tela removida) | `/api/indicadores` | catálogo | Parcial |
 | Auditoria | `/auditoria` | `/api/auditoria` | catálogo | sanitize/periodo tests |
 
 ---

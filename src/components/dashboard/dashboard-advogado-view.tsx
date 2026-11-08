@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Building2, Scale, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
+import { CardMetric } from "@/components/card-metric";
+import { CardMetricRow } from "@/components/card-metric-row";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import {
@@ -16,10 +18,9 @@ import {
 } from "@/components/table";
 import type { DashboardAdvogado } from "@/lib/dashboard/service";
 import {
-  SecaoBloco,
+  DashboardLayout,
   ListaValorCompacta,
-  DashboardMetric,
-  GradeMetricasTres,
+  SecaoBloco,
   dinheiro,
   percentual,
 } from "@/components/dashboard/dashboard-shared";
@@ -36,7 +37,47 @@ export function DashboardAdvogadoView({ dados }: Props) {
   const ind = dados.indicadores;
 
   return (
-    <>
+    <DashboardLayout>
+      <section aria-label="Indicadores do escopo">
+        <CardMetricRow aria-label="KPIs jurídicos" desktopCols={4}>
+          <CardMetric
+            accent="primary"
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+            icon={<Icon icon={Building2} size="md" className="text-primary-container" />}
+            rotulo="Condomínios"
+            valor={dados.condominios.total}
+            detalhe="Sob sua responsabilidade"
+            onClick={() => router.push("/condominios")}
+          />
+          <CardMetric
+            accent="brass"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={Wallet} size="md" className="text-brass" />}
+            rotulo="Em aberto"
+            valor={ind ? dinheiro(ind.totalAtualizado) : "—"}
+            detalhe={ind ? `${ind.unidadesDevedoras} unidades` : "Sem permissão"}
+            onClick={ind ? () => router.push("/debitos") : undefined}
+          />
+          <CardMetric
+            accent="critical"
+            iconClassName="bg-error-container text-status-critical"
+            icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
+            rotulo={`Acima de ${dados.limiteDias} dias`}
+            valor={ind ? dinheiro(ind.acimaLimite) : "—"}
+            onClick={ind ? () => router.push("/debitos") : undefined}
+          />
+          <CardMetric
+            accent="tertiary"
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+            icon={<Icon icon={Scale} size="md" className="text-tertiary-container" />}
+            rotulo="Jurídico em andamento"
+            valor={dados.juridico?.abertos ?? 0}
+            detalhe={dados.juridico ? `${dados.juridico.total} registrados` : undefined}
+            onClick={() => router.push("/juridico")}
+          />
+        </CardMetricRow>
+      </section>
+
       <SecaoBloco titulo="Condomínios" linkLabel="Cadastro" onLink={() => router.push("/condominios")}>
         <div className="overflow-hidden rounded-lg border border-border-subtle/40">
           <Table aria-label="Condomínios no escopo">
@@ -69,31 +110,13 @@ export function DashboardAdvogadoView({ dados }: Props) {
 
       {ind ? (
         <SecaoBloco
-          titulo="Inadimplência"
+          titulo="Maiores saldos"
           linkLabel="Relatório"
           onLink={() => router.push("/relatorios?relatorio=carteira")}
         >
-          <GradeMetricasTres>
-            <DashboardMetric
-              tom="brass"
-              icon={<Icon icon={Wallet} size="md" className="text-brass" />}
-              rotulo="Em aberto"
-              valor={dinheiro(ind.totalAtualizado)}
-            />
-            <DashboardMetric
-              tom="settled"
-              icon={<Icon icon={Scale} size="md" />}
-              rotulo={`Acima de ${dados.limiteDias} dias`}
-              valor={dinheiro(ind.acimaLimite)}
-            />
-            <DashboardMetric
-              tom="primary"
-              icon={<Icon icon={Building2} size="md" />}
-              rotulo="Unidades devendo"
-              valor={percentual(ind.percentualUnidades)}
-              detalhe={`${ind.unidadesDevedoras} un.`}
-            />
-          </GradeMetricasTres>
+          <p className="mb-md text-body-sm text-on-surface-variant">
+            {percentual(ind.percentualUnidades)} das unidades no escopo estão inadimplentes.
+          </p>
           <ListaValorCompacta
             integrada
             itens={dados.rankingCondominio.map((linha) => ({
@@ -109,32 +132,16 @@ export function DashboardAdvogadoView({ dados }: Props) {
         <EmptyState title="Débitos indisponíveis" description="Sem permissão ou sem dados no escopo." />
       )}
 
-      {dados.juridico ? (
-        <SecaoBloco titulo="Jurídico" linkLabel="Encaminhamentos" onLink={() => router.push("/juridico")}>
-          <GradeMetricasTres>
-            <DashboardMetric
-              tom="primary"
-              icon={<Icon icon={Scale} size="md" />}
-              rotulo="Registrados"
-              valor={dados.juridico.total}
-            />
-            <DashboardMetric
-              tom="brass"
-              icon={<Icon icon={Scale} size="md" className="text-brass" />}
-              rotulo="Em andamento"
-              valor={dados.juridico.abertos}
-            />
-          </GradeMetricasTres>
-          {dados.juridico.porStatus.length > 0 ? (
-            <ul className="divide-y divide-border-subtle/60 border-t border-border-subtle/60 pt-md">
-              {dados.juridico.porStatus.slice(0, 5).map((linha) => (
-                <li key={linha.status} className="flex justify-between py-sm text-body-sm first:pt-0">
-                  <span className="text-on-surface-variant">{linha.status}</span>
-                  <span className="font-semibold tabular-nums text-on-surface">{linha.quantidade}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+      {dados.juridico && dados.juridico.porStatus.length > 0 ? (
+        <SecaoBloco titulo="Status jurídico" linkLabel="Encaminhamentos" onLink={() => router.push("/juridico")}>
+          <ul className="divide-y divide-border-subtle/60">
+            {dados.juridico.porStatus.slice(0, 6).map((linha) => (
+              <li key={linha.status} className="flex justify-between py-sm text-body-sm">
+                <span className="text-on-surface-variant">{linha.status}</span>
+                <span className="font-semibold tabular-nums text-on-surface">{linha.quantidade}</span>
+              </li>
+            ))}
+          </ul>
         </SecaoBloco>
       ) : null}
 
@@ -143,6 +150,6 @@ export function DashboardAdvogadoView({ dados }: Props) {
           <DashboardRetornosTable integrada itens={dados.retornos.itens.slice(0, 6)} />
         </SecaoBloco>
       ) : null}
-    </>
+    </DashboardLayout>
   );
 }

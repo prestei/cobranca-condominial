@@ -27,6 +27,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
+import { SkeletonMetrics, SkeletonTable } from "@/components/skeleton";
 import { Checkbox, FormField, Select, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
@@ -137,7 +138,6 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
   const cadastros = useCadastros();
   const { pode } = usePermissao();
   const visaoGeral = pode("usuarios", "criar");
-  const podeImportar = pode("importacoes", "criar");
   const atribuicoesKey = cadastros.atribuicoesCobranca
     .map((item) => `${item.id}:${item.encerradoEm ?? ""}:${item.atendenteId}`)
     .join("|");
@@ -558,10 +558,6 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
     }
   }
 
-  function abrirImportacao() {
-    router.push("/importacoes");
-  }
-
   if (erro) {
     return (
       <EmptyState
@@ -578,22 +574,25 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
 
   return (
     <div className="flex flex-col gap-md min-[768px]:gap-lg">
+      {carregando ? (
+        <SkeletonMetrics count={3} label="Carregando indicadores da fila" />
+      ) : (
       <section aria-label="Indicadores da fila">
         <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
           <KpiMobileCard
             rotulo="Em cobrança"
-            valor={carregando ? "—" : String(resumo.emCobranca)}
+            valor={String(resumo.emCobranca)}
             icon={Clock}
             destaque
           />
           <KpiMobileCard
             rotulo="Sem responsável"
-            valor={carregando ? "—" : String(resumo.semResponsavel)}
+            valor={String(resumo.semResponsavel)}
             icon={Users}
           />
           <KpiMobileCard
             rotulo="Retornos hoje"
-            valor={carregando ? "—" : String(resumo.retornosHoje)}
+            valor={String(resumo.retornosHoje)}
             icon={RotateCcw}
           />
         </div>
@@ -603,24 +602,25 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
             iconClassName="bg-gold-subtle text-brass"
             icon={<Icon icon={Clock} size="md" className="text-brass" />}
             rotulo="Em cobrança"
-            valor={carregando ? "—" : String(resumo.emCobranca)}
+            valor={String(resumo.emCobranca)}
           />
           <CardMetric
             accent="primary"
             iconClassName="bg-primary-fixed/50 text-primary-container"
             icon={<Icon icon={User} size="md" className="text-primary-container" />}
             rotulo="Sem responsável"
-            valor={carregando ? "—" : String(resumo.semResponsavel)}
+            valor={String(resumo.semResponsavel)}
           />
           <CardMetric
             accent="tertiary"
             iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
             icon={<Icon icon={RotateCcw} size="md" className="text-tertiary-container" />}
             rotulo="Retornos hoje"
-            valor={carregando ? "—" : String(resumo.retornosHoje)}
+            valor={String(resumo.retornosHoje)}
           />
         </div>
       </section>
+      )}
 
       <section className="flex flex-col gap-md">
         <h2 className="text-headline-sm text-on-surface">Filtros</h2>
@@ -672,7 +672,7 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
       </section>
 
       {carregando ? (
-        <p className="text-body-md text-on-surface-variant">Carregando fila de cobranças…</p>
+        <SkeletonTable rows={8} cols={6} label="Carregando fila de cobranças" />
       ) : (
         <section className="flex flex-col gap-md">
           {visaoGeral && selecionadas.size > 0 ? (
@@ -686,8 +686,6 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
 
           <ResponsiveTable
             onExport={(formato) => void aoExportar(formato)}
-            onImport={abrirImportacao}
-            showImport={podeImportar}
             mobileDataBarClassName={filaMobileDataBarClassName}
             desktop={
               <Table aria-label="Fila de cobranças" showExport={false}>

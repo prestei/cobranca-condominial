@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MinhaAgendaPanel } from "@/components/atendimentos/minha-agenda-panel";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 
-export default function MinhaAgendaPage() {
+function MinhaAgendaConteudo() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -39,5 +40,26 @@ export default function MinhaAgendaPage() {
         <MinhaAgendaPanel />
       </PageContent>
     </WorkspaceShell>
+  );
+}
+
+export default function MinhaAgendaPage() {
+  return (
+    <Suspense
+      fallback={
+        <WorkspaceShell>
+          <PageHeader
+            title="Minha agenda"
+            description="Organize retornos e compromissos da sua carteira — lista e calendário com o mesmo conjunto de registros."
+            breadcrumbs={[{ label: "Início", href: "/" }, { label: "Minha agenda" }]}
+          />
+          <PageContent>
+            <SkeletonListPage showMetrics={false} rows={8} cols={7} label="Carregando agenda" />
+          </PageContent>
+        </WorkspaceShell>
+      }
+    >
+      <MinhaAgendaConteudo />
+    </Suspense>
   );
 }

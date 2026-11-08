@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useId, useState } from "react";
-import { Building } from "lucide-react";
+import { Building, Building2, DoorOpen, FileText, Hash, MapPin } from "lucide-react";
 import { FormField, Input, Select, Textarea } from "@/components/input";
 import {
   Sheet,
@@ -132,6 +132,7 @@ export function CondominioFormSheet({
             <FormField label="Nome do condomínio" htmlFor={`${formId}-nome`} required>
               <Input
                 id={`${formId}-nome`}
+                icon={Building2}
                 name="nome"
                 value={values.nome}
                 onChange={(event) => setValues((current) => ({ ...current, nome: event.target.value }))}
@@ -144,6 +145,7 @@ export function CondominioFormSheet({
               <FormField label="Estado" htmlFor={`${formId}-estado`}>
                 <Input
                   id={`${formId}-estado`}
+                  icon={MapPin}
                   name="estado"
                   value={values.estado}
                   onChange={(event) => setValues((current) => ({ ...current, estado: event.target.value }))}
@@ -154,6 +156,7 @@ export function CondominioFormSheet({
               <FormField label="Cidade" htmlFor={`${formId}-cidade`}>
                 <Input
                   id={`${formId}-cidade`}
+                  icon={MapPin}
                   name="cidade"
                   value={values.cidade}
                   onChange={(event) => setValues((current) => ({ ...current, cidade: event.target.value }))}
@@ -164,6 +167,7 @@ export function CondominioFormSheet({
             <FormField label="CEP" htmlFor={`${formId}-cep`}>
               <Input
                 id={`${formId}-cep`}
+                icon={MapPin}
                 name="cep"
                 value={values.cep}
                 onChange={(event) => setValues((current) => ({ ...current, cep: event.target.value }))}
@@ -175,6 +179,7 @@ export function CondominioFormSheet({
             <FormField label="Logradouro" htmlFor={`${formId}-logradouro`}>
               <Input
                 id={`${formId}-logradouro`}
+                icon={MapPin}
                 name="logradouro"
                 value={values.logradouro}
                 onChange={(event) => setValues((current) => ({ ...current, logradouro: event.target.value }))}
@@ -185,6 +190,7 @@ export function CondominioFormSheet({
               <FormField label="Número" htmlFor={`${formId}-numero`}>
                 <Input
                   id={`${formId}-numero`}
+                  icon={Hash}
                   name="numero"
                   value={values.numero}
                   onChange={(event) => setValues((current) => ({ ...current, numero: event.target.value }))}
@@ -193,6 +199,7 @@ export function CondominioFormSheet({
               <FormField label="Complemento" htmlFor={`${formId}-complemento`}>
                 <Input
                   id={`${formId}-complemento`}
+                  icon={Hash}
                   name="complemento"
                   value={values.complemento}
                   onChange={(event) => setValues((current) => ({ ...current, complemento: event.target.value }))}
@@ -204,6 +211,7 @@ export function CondominioFormSheet({
               <FormField label="Unidades na carteira" htmlFor={`${formId}-units`}>
                 <Input
                   id={`${formId}-units`}
+                  icon={DoorOpen}
                   name="units"
                   type="number"
                   min={0}
@@ -239,6 +247,7 @@ export function CondominioFormSheet({
               <Textarea
                 id={`${formId}-observacao`}
                 name="observacao"
+                icon={FileText}
                 value={values.observacao}
                 onChange={(event) => setValues((current) => ({ ...current, observacao: event.target.value }))}
                 rows={3}

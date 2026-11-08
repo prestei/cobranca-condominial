@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bookmark, Star, X } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -72,6 +72,22 @@ export function DashboardFiltrosPanel({ userId, aplicados, onAplicar, onRestaura
 
   const [favoritos, setFavoritos] = useState<FiltroFavoritoDashboard[]>(() => listarFavoritosDashboard(userId));
   const [nomeFavorito, setNomeFavorito] = useState("");
+
+  useEffect(() => {
+    const sync = estadoDeNorm(aplicados);
+    setBusca(sync.buscaLocal);
+    setPeriodo(sync.periodo ?? { preset: "7", de: "", ate: "" });
+    setDataBase(sync.dataBase ?? hojeIso());
+    setLimiteDias(String(sync.limiteDias ?? LIMITE_AMIGAVEL_DIAS));
+    setCondominioId(sync.condominioId ? String(sync.condominioId) : "");
+    setUnidadeId(sync.unidadeId ? String(sync.unidadeId) : "");
+    setSituacao(sync.situacao ?? "");
+    setTipoPendencia(sync.tipoPendencia ?? "");
+    setFaixaAtraso(sync.faixaAtraso ?? "");
+    setOrigem(sync.origem ?? "");
+    setRetornoDe(sync.retornoDe ?? "");
+    setRetornoAte(sync.retornoAte ?? "");
+  }, [aplicados]);
 
   const condominios = escopoCondominios(cadastros, userId);
   const unidades = escopoUnidades(cadastros, userId).filter(

@@ -2,6 +2,7 @@
 
 import { Network } from "lucide-react";
 import { Icon } from "@/components/icon";
+import { SkeletonForm } from "@/components/skeleton";
 import {
   DistribuicaoAutomaticaConfigForm,
   rotuloEstrategiaDistribuicao,
@@ -22,11 +23,10 @@ export function DistribuicaoAutomaticaPanel({ onSalvo, refreshKey }: Props) {
   if (config.carregando) {
     return (
       <section
-        aria-busy="true"
         aria-label="Distribuição automática"
         className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
       >
-        <p className="text-body-sm text-on-surface-variant">Carregando distribuição automática…</p>
+        <SkeletonForm fields={3} label="Carregando distribuição automática" />
       </section>
     );
   }

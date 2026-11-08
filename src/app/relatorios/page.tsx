@@ -33,6 +33,7 @@ import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   ResponsiveTable,
   Table,
@@ -1679,7 +1680,7 @@ function RelatoriosPage() {
 
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SkeletonListPage metrics={4} label="Carregando relatórios" />}>
       <RelatoriosPage />
     </Suspense>
   );

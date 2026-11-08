@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
+import { SkeletonTable } from "@/components/skeleton";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   ResponsiveTable,
@@ -29,7 +30,6 @@ import {
   TableMobileTitle,
   TableRow,
   TableExport,
-  TableImport,
   type TableExportFormat,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
@@ -90,7 +90,6 @@ export function RetornosAgendaPanel() {
   const cadastros = useCadastros();
   const { pode } = usePermissao();
   const visaoGeral = pode("usuarios", "criar");
-  const podeImportar = pode("importacoes", "criar");
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -230,10 +229,6 @@ export function RetornosAgendaPanel() {
     } catch {
       toast({ variant: "error", title: "Erro ao exportar", description: "Tente novamente." });
     }
-  }
-
-  function abrirImportacao() {
-    router.push("/importacoes");
   }
 
   function limparFiltros() {
@@ -402,11 +397,10 @@ export function RetornosAgendaPanel() {
       </section>
 
       {carregando ? (
-        <p className="text-body-md text-on-surface-variant">Carregando agenda de retornos…</p>
+        <SkeletonTable rows={8} cols={6} label="Carregando agenda de retornos" />
       ) : total === 0 ? (
         <>
           <div className="flex flex-wrap justify-end gap-sm">
-            {podeImportar ? <TableImport onImport={abrirImportacao} /> : null}
             <TableExport onExport={(formato) => void aoExportar(formato)} />
           </div>
           <EmptyState
@@ -423,8 +417,6 @@ export function RetornosAgendaPanel() {
         <>
           <ResponsiveTable
             onExport={(formato) => void aoExportar(formato)}
-            onImport={abrirImportacao}
-            showImport={podeImportar}
             desktop={
               <Table aria-label="Agenda de retornos" showExport={false}>
                 <TableHeader>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Share2, Users } from "lucide-react";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { SkeletonListPage } from "@/components/skeleton";
 import { Checkbox, FormField, Select, Textarea } from "@/components/input";
 import { Pagination } from "@/components/pagination";
 import {
@@ -52,7 +52,6 @@ import {
   exportarListagem,
   linhasFilaExport,
 } from "@/lib/atendimentos/exportar-listagem";
-import { usePermissao } from "@/hooks/use-permissao";
 import type { FilaCobrancaItem } from "@/lib/fila/service";
 
 const PAGE_FILA = 50;
@@ -60,10 +59,7 @@ const PAGE_FILA = 50;
 const colunasHistoricoDistrib = ["Quando", "Condomínio · Unidade", "RE anterior", "RE novo", "Autor", "Motivo"];
 
 export function DistribuicaoPanel() {
-  const router = useRouter();
   const { toast } = useToast();
-  const { pode } = usePermissao();
-  const podeImportar = pode("importacoes", "criar");
   const atendentesKey = snapshotAtendentesComRe();
   const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
 
@@ -217,7 +213,7 @@ export function DistribuicaoPanel() {
   }
 
   if (carregando) {
-    return <p className="text-body-md text-on-surface-variant">Carregando distribuição…</p>;
+    return <SkeletonListPage showFilters={false} metrics={3} rows={6} cols={5} label="Carregando distribuição" />;
   }
 
   async function aoExportarFila(formato: TableExportFormat) {
@@ -259,10 +255,6 @@ export function DistribuicaoPanel() {
       colunasHistoricoDistrib,
       linhas,
     );
-  }
-
-  function abrirImportacao() {
-    router.push("/importacoes");
   }
 
   return (
@@ -310,8 +302,6 @@ export function DistribuicaoPanel() {
 
         <ResponsiveTable
           onExport={(formato) => void aoExportarFila(formato)}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
           desktop={
             <Table aria-label="Unidades disponíveis para distribuição" showExport={false}>
               <TableHeader>
@@ -395,8 +385,6 @@ export function DistribuicaoPanel() {
         <Table
           aria-label="Histórico de distribuição"
           onExport={aoExportarHistorico}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
         >
           <TableHeader>
             <TableRow>
@@ -440,7 +428,7 @@ export function DistribuicaoPanel() {
                 <SheetHeaderText>
                   <SheetTitle id="distribuir-sheet-title">Atribuir cobranças</SheetTitle>
                   <SheetDescription>
-                    {selecionadas.size} unidade(s) selecionada(s). Informe o RE do atendente responsável.
+                    {selecionadas.size} unidade(s) selecionada(s). Informe o RE do atendente.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>

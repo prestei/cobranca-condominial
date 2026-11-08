@@ -10,6 +10,7 @@ import { CardMetric } from "@/components/card-metric";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
+import { SkeletonCalendar, SkeletonTable } from "@/components/skeleton";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { RetornoDetalheSheet } from "@/components/atendimentos/retorno-detalhe-sheet";
 import { RetornosCalendarioMes } from "@/components/atendimentos/retornos-calendario-mes";
@@ -399,7 +400,7 @@ export function MinhaAgendaPanel() {
 
         <TabsContent value="lista" className="mt-md">
           {carregando ? (
-            <p className="text-body-md text-on-surface-variant">Carregando compromissos…</p>
+            <SkeletonTable rows={8} cols={7} label="Carregando compromissos" />
           ) : total === 0 ? (
             <EmptyState
               icon={<Icon icon={CalendarClock} size="lg" className="text-on-surface-variant" />}
@@ -491,7 +492,7 @@ export function MinhaAgendaPanel() {
 
         <TabsContent value="calendario" className="mt-md">
           {carregando ? (
-            <p className="text-body-md text-on-surface-variant">Carregando calendário…</p>
+            <SkeletonCalendar label="Carregando calendário" />
           ) : (
             <RetornosCalendarioMes itens={itensCalendario} onSelecionar={abrirDetalhe} />
           )}

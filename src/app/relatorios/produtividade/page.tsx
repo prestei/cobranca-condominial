@@ -9,6 +9,7 @@ import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { type PeriodPreset, resolverPeriodo } from "@/components/period-input";
+import { SkeletonDashboard, SkeletonListPage } from "@/components/skeleton";
 import {
   Leitura,
   RelatorioFiltros,
@@ -311,7 +312,7 @@ function ProdutividadePorRePage() {
       />
     );
   } else if (carregando && !painel) {
-    corpo = <p className="text-body-md text-on-surface-variant">Carregando indicadores…</p>;
+    corpo = <SkeletonDashboard metrics={5} panels={2} label="Carregando indicadores" />;
   } else if (erroPainel) {
     corpo = (
       <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Consulta indisponível" description={erroPainel} />
@@ -500,7 +501,7 @@ function ProdutividadePorRePage() {
 
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SkeletonListPage metrics={5} label="Carregando relatório" />}>
       <ProdutividadePorRePage />
     </Suspense>
   );

@@ -3,7 +3,22 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, CircleOff, DoorOpen, Eye, MapPin, Pencil, Plus, Receipt, RotateCcw, Trash2 } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  CircleOff,
+  DoorOpen,
+  Eye,
+  Hash,
+  MapPin,
+  Pencil,
+  Plus,
+  FileText,
+  Receipt,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
@@ -16,6 +31,7 @@ import { Icon } from "@/components/icon";
 import { FormField, Input, Select, Switch, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonListPage } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -182,7 +198,6 @@ export default function CondominiosPage() {
   const [enderecoLiberado, setEnderecoLiberado] = useState(false);
   const ultimoCepBuscado = useRef("");
   const [salvando, setSalvando] = useState(false);
-  const podeImportar = pode("importacoes", "criar");
 
   useEffect(() => {
     if (authLoading || userIdEscopo == null) return;
@@ -679,11 +694,6 @@ export default function CondominiosPage() {
     ]);
   }
 
-  function abrirImportacao() {
-    if (!podeImportar) return;
-    router.push("/importacoes?modulo=condominios&abrir=1");
-  }
-
   function aoExportar(formato: TableExportFormat) {
     if (visible.length === 0) {
       toast({
@@ -882,6 +892,10 @@ export default function CondominiosPage() {
           }
         />
         <PageContent className="max-md:gap-md max-md:py-md">
+          {authLoading ? (
+            <SkeletonListPage metrics={4} rows={8} cols={6} label="Carregando condomínios" />
+          ) : (
+          <>
           <section aria-label="Resumo de condomínios">
             <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
               <KpiMobileCard
@@ -983,14 +997,13 @@ export default function CondominiosPage() {
             desktop={desktopTable}
             mobile={mobileTable}
             onExport={aoExportar}
-            onImport={abrirImportacao}
-            showImport={podeImportar}
-            importDisabled={false}
             mobileDataBarClassName={condominiosMobileDataBarClassName}
           />
           {visible.length > 0 ? (
             <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
           ) : null}
+          </>
+          )}
         </PageContent>
 
       <Sheet
@@ -1025,6 +1038,7 @@ export default function CondominiosPage() {
                   <FormField label="Nome" htmlFor={`${formId}-nome`} required error={errors.nome}>
                     <Input
                       id={`${formId}-nome`}
+                      icon={Building2}
                       value={form.nome}
                       invalid={Boolean(errors.nome)}
                       onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
@@ -1037,6 +1051,7 @@ export default function CondominiosPage() {
                   >
                     <Input
                       id={`${formId}-identificador`}
+                      icon={Hash}
                       value={form.identificadorExterno}
                       invalid={Boolean(errors.identificadorExterno)}
                       placeholder="Código da administradora ou integração"
@@ -1044,9 +1059,6 @@ export default function CondominiosPage() {
                         setForm((current) => ({ ...current, identificadorExterno: event.target.value }))
                       }
                     />
-                    <SheetHelpText>
-                      Opcional. Quando preenchido, deve ser único. Não use só o nome como identificador confiável.
-                    </SheetHelpText>
                   </FormField>
                   <FormField label="Advogados responsáveis" required error={errors.advogados}>
                     <SheetPanel className="flex flex-col gap-md">
@@ -1075,6 +1087,7 @@ export default function CondominiosPage() {
                   <FormField label="Administradora do condomínio" htmlFor={`${formId}-administradora`}>
                     <Input
                       id={`${formId}-administradora`}
+                      icon={Briefcase}
                       value={form.administradora}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, administradora: event.target.value }))
@@ -1087,6 +1100,7 @@ export default function CondominiosPage() {
                   <FormField label="CEP" htmlFor={`${formId}-cep`} error={cepErro}>
                     <Input
                       id={`${formId}-cep`}
+                      icon={MapPin}
                       inputMode="numeric"
                       autoComplete="postal-code"
                       maxLength={9}
@@ -1098,13 +1112,12 @@ export default function CondominiosPage() {
                       }
                     />
                   </FormField>
-                  {buscandoCep ? (
-                    <p className="text-body-sm text-on-surface-variant">Buscando CEP...</p>
-                  ) : null}
+                  {buscandoCep ? <SheetHelpText>Buscando CEP…</SheetHelpText> : null}
                     <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-md">
                       <FormField label="Logradouro" htmlFor={`${formId}-logradouro`}>
                         <Input
                           id={`${formId}-logradouro`}
+                          icon={MapPin}
                           value={form.logradouro}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, logradouro: event.target.value }))}
@@ -1113,6 +1126,7 @@ export default function CondominiosPage() {
                       <FormField label="Número" htmlFor={`${formId}-numero`}>
                         <Input
                           id={`${formId}-numero`}
+                          icon={Hash}
                           value={form.numero}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, numero: event.target.value }))}
@@ -1122,6 +1136,7 @@ export default function CondominiosPage() {
                     <FormField label="Complemento" htmlFor={`${formId}-complemento`}>
                       <Input
                         id={`${formId}-complemento`}
+                        icon={Hash}
                         value={form.complemento}
                         disabled={!enderecoLiberado}
                         onChange={(event) =>
@@ -1133,6 +1148,7 @@ export default function CondominiosPage() {
                       <FormField label="Cidade" htmlFor={`${formId}-cidade`}>
                         <Input
                           id={`${formId}-cidade`}
+                          icon={MapPin}
                           value={form.cidade}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, cidade: event.target.value }))}
@@ -1158,6 +1174,7 @@ export default function CondominiosPage() {
               ) : (
                 <FormField label="Observação" htmlFor={`${formId}-observacao`}>
                   <Textarea
+                    icon={FileText}
                     id={`${formId}-observacao`}
                     value={form.observacao}
                     onChange={(event) => setForm((current) => ({ ...current, observacao: event.target.value }))}
