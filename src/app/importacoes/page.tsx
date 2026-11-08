@@ -768,7 +768,7 @@ export default function ImportacoesPage() {
             <KpiMobileCard rotulo="Concluídas" valor={metricValor(concluidas)} icon={CheckCircle2} />
             <KpiMobileCard rotulo="Com erro" valor={metricValor(comErro)} icon={AlertTriangle} />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
             <CardMetric
               accent="primary"
               iconClassName="bg-primary-fixed/50 text-primary-container"

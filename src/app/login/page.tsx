@@ -69,12 +69,18 @@ function LoginForm() {
     <div className="flex min-h-screen flex-col bg-[#F6F8FB]">
       <div className="flex flex-1 flex-col items-center justify-center px-md py-xl">
         <div className="w-full max-w-[420px] rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-          <div className="mb-lg flex flex-col gap-xs border-b border-border-subtle pb-md">
-            <p className="text-label-sm font-bold uppercase tracking-[0.14em] text-brass">Lex Condominial</p>
-            <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
-            <p className="text-body-sm text-on-surface-variant">
-              Por enquanto: código 12345 e senha 12345 (admin de teste). Demais colaboradores usam o próprio código com senha 12345.
-            </p>
+          <div className="mb-lg flex flex-col gap-md border-b border-border-subtle pb-md">
+            <img
+              src="/logo-daniel-jorge.webp"
+              alt="Daniel Jorge Advocacia"
+              className="h-12 w-auto max-w-full self-start rounded-md object-contain object-left"
+            />
+            <div className="flex flex-col gap-xs">
+              <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
+              <p className="text-body-sm text-on-surface-variant">
+                Por enquanto: código 12345 e senha 12345 (admin de teste). Demais colaboradores usam o próprio código com senha 12345.
+              </p>
+            </div>
           </div>
 
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>

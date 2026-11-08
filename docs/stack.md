@@ -76,16 +76,14 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 ## PostgreSQL (desenvolvimento)
 
-Banco dedicado via Docker na porta **5433** (não usa a instância do sistema na 5432):
+Use um PostgreSQL local. Configure `DATABASE_URL` no `.env` (veja `.env.example`).
 
 ```bash
 cp .env.example .env   # se ainda não existir
-npm run db:up
-npm run db:logs        # opcional
-npm run db:down        # parar container
+# Ajuste DATABASE_URL para o seu PostgreSQL local
 ```
 
-Credenciais padrão do compose: usuário `cobranca`, senha `cobranca_dev`, banco `cobranca_condominial`. A aplicação ainda persiste cadastros em memória (`catalogo.ts`) até a entrega da T02 (migrations + repositórios); a URL já fica pronta no `.env`.
+A aplicação ainda persiste cadastros em memória (`catalogo.ts`) até a entrega da T02 (migrations + repositórios); a URL já fica pronta no `.env`.
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 

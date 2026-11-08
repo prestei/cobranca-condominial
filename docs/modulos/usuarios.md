@@ -76,6 +76,7 @@ Sincronização cliente: `src/lib/usuarios/sync-cliente.ts` (`garantirUsuariosPe
 ## Regras de negócio
 
 - Login individual com senha; autoria de atendimentos pelo colaborador logado (não escolhível manualmente).
+- Perfil com `usuarios.editar` (Administradora no seed) pode alterar **todos** os dados do colaborador no sheet: nome, código de login, cargo, telefone, e-mail, situação, condomínios (advogado) e senha. Na edição, senha vazia preserva a atual; senha preenchida é rehashed no servidor (`PATCH /api/usuarios/:id`).
 - Senha inicial de demonstração: `12345` para os usuários de exemplo (hash em `catalogo.ts`).
 - Código de login único (normalizado sem diferenciar maiúsculas); e-mail único no cadastro.
 - RE é identificador interno, **não** senha nem fator de autenticação.
@@ -88,8 +89,8 @@ Nenhuma.
 
 - Login: carregando, erro de credencial, envio.
 - Listagem (`/usuarios`): ordem vertical — cabeçalho (descrição + **Novo colaborador**), `FilterBar` em linha (busca, cargo, situação), quatro indicadores (`CardMetric` layout `stacked`: total, cargos cadastrados, com telefone, com acesso ativo no recorte), bloco **Colaboradores cadastrados** + exportar, tabela com seleção, nome (avatar + e-mail), RE, perfil (badge), cargo, situação, telefone, último acesso (placeholder `—` até persistência), ações; exportação CSV/XLS/PDF do recorte filtrado; paginação (20). Métricas e listagem respeitam o recorte após **Filtrar**. Ao abrir, sincroniza colaboradores e cargos com a API.
-- Listagem: gestão administrativa exibe **nome** completo; RE na coluna dedicada (atendentes). Ações editar/desativar/excluir.
-- Sheet: RE somente leitura após criado; checkboxes de condomínio para advogado.
+- Listagem: gestão administrativa exibe **nome** completo; RE na coluna dedicada (atendentes). Coluna **Ação** fixa à direita (menu editar/desativar/excluir).
+- Sheet: todos os campos editáveis pela administradora, inclusive **nova senha** (opcional) e situação; RE somente leitura após criado; checkboxes de condomínio para advogado.
 
 ## Pendências e decisões
 

@@ -285,37 +285,42 @@ export function MinhaAgendaPanel() {
 
   return (
     <div className="flex flex-col gap-lg">
-      <div className="grid grid-cols-2 gap-md min-[480px]:grid-cols-3 min-[900px]:grid-cols-5">
-        <button type="button" className="text-left" onClick={() => atalhoSecao("atrasado")}>
-          <CardMetric iconClassName="bg-error-subtle text-error" icon={<Icon icon={CalendarClock} size="md" className="text-error" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(resumo.atrasados).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">Atrasados</p>
-          </CardMetric>
-        </button>
-        <button type="button" className="text-left" onClick={() => atalhoSecao("hoje")}>
-          <CardMetric iconClassName="bg-gold-subtle text-brass" icon={<Icon icon={CalendarClock} size="md" className="text-brass" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(resumo.hoje).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">Hoje</p>
-          </CardMetric>
-        </button>
-        <button type="button" className="text-left" onClick={() => atalhoSecao("semana")}>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={CalendarDays} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(resumo.proximos).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">Próximos dias</p>
-          </CardMetric>
-        </button>
-        <button type="button" className="text-left" onClick={() => atalhoSecao("futuros")}>
-          <CardMetric iconClassName="bg-surface-subtle text-on-surface-variant" icon={<Icon icon={CalendarDays} size="md" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(resumo.futuros).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">Compromissos futuros</p>
-          </CardMetric>
-        </button>
-        <button type="button" className="text-left" onClick={() => atalhoSecao("concluidos")}>
-          <CardMetric iconClassName="bg-success-subtle text-success" icon={<Icon icon={Check} size="md" className="text-success" />}>
-            <p className="text-metric text-on-surface tabular-nums">{String(resumo.concluidos).padStart(2, "0")}</p>
-            <p className="mt-sm text-body-sm text-on-surface-variant">Realizados</p>
-          </CardMetric>
-        </button>
+      <div className="grid grid-cols-2 gap-md min-[768px]:grid-cols-4 min-[1100px]:grid-cols-5">
+        <CardMetric
+          iconClassName="bg-error-subtle text-error"
+          icon={<Icon icon={CalendarClock} size="md" className="text-error" />}
+          valor={String(resumo.atrasados).padStart(2, "0")}
+          rotulo="Atrasados"
+          onClick={() => atalhoSecao("atrasado")}
+        />
+        <CardMetric
+          iconClassName="bg-gold-subtle text-brass"
+          icon={<Icon icon={CalendarClock} size="md" className="text-brass" />}
+          valor={String(resumo.hoje).padStart(2, "0")}
+          rotulo="Hoje"
+          onClick={() => atalhoSecao("hoje")}
+        />
+        <CardMetric
+          iconClassName="bg-surface-subtle text-on-surface-variant"
+          icon={<Icon icon={CalendarDays} size="md" />}
+          valor={String(resumo.proximos).padStart(2, "0")}
+          rotulo="Próximos dias"
+          onClick={() => atalhoSecao("semana")}
+        />
+        <CardMetric
+          iconClassName="bg-surface-subtle text-on-surface-variant"
+          icon={<Icon icon={CalendarDays} size="md" />}
+          valor={String(resumo.futuros).padStart(2, "0")}
+          rotulo="Compromissos futuros"
+          onClick={() => atalhoSecao("futuros")}
+        />
+        <CardMetric
+          iconClassName="bg-success-subtle text-success"
+          icon={<Icon icon={Check} size="md" className="text-success" />}
+          valor={String(resumo.concluidos).padStart(2, "0")}
+          rotulo="Realizados"
+          onClick={() => atalhoSecao("concluidos")}
+        />
       </div>
 
       {resumo.atrasados > 0 && appliedEstado === "pendente" ? (

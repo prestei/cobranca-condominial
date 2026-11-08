@@ -55,6 +55,7 @@ export function RelatorioMetricas({
             key={item.rotulo}
             rotulo={item.rotulo.charAt(0).toUpperCase() + item.rotulo.slice(1)}
             valor={item.valor}
+            detalhe={item.detalhe}
             icon={item.icon ?? BarChart3}
             destaque={item.destaque || item.selecionado}
             onClick={item.onClick}

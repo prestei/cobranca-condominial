@@ -19,7 +19,7 @@
 | Ticket | Título (abreviado) | Classificação global | Persistência |
 | --- | --- | --- | --- |
 | T01 | Base técnica / docs | **P** | — |
-| T02 | Modelo de dados / migrations PG | **P** | Memória (`catalogo.ts`); `docs/banco.md` + compose; **sem migrations SQL** |
+| T02 | Modelo de dados / migrations PG | **P** | Memória (`catalogo.ts`); `docs/banco.md`; **sem migrations SQL** |
 | T03 | Login / sessão | **P** | Sessão JWT cookie; dados operacionais em memória |
 | T04 | Perfis e escopo | **I+T** | Serviços + API `requireSession` / `requirePermissao` |
 | T05 | Condomínios | **I** | API + UI; CRUD via POST/PATCH/inativação |
@@ -97,7 +97,7 @@
 | RE — estratégia migração | **I+T** | `migrarCodigosReUsuarios`, doc migration RE |
 | Sem juros/multa inventados | **I+T** | `docs/DECISOES_PENDENTES.md`, serviços débitos |
 
-**Artefatos:** `src/data/catalogo.ts`, `docs/banco.md`, `docker compose` via `npm run db:up`.
+**Artefatos:** `src/data/catalogo.ts`, `docs/banco.md`, `DATABASE_URL` em `.env.example`.
 
 ---
 

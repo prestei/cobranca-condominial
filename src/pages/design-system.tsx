@@ -925,7 +925,11 @@ export default function DesignSystemPage() {
     <main className="min-h-screen bg-surface-canvas px-margin py-margin-md min-[768px]:px-margin-md min-[1280px]:px-margin-lg">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-xl">
         <header className="border-b border-border-subtle pb-lg">
-          <p className="text-label-sm text-on-surface-variant uppercase">Lex Condominial</p>
+          <img
+            src="/logo-daniel-jorge.webp"
+            alt="Daniel Jorge Advocacia"
+            className="h-10 w-auto max-w-[240px] rounded-md object-contain object-left"
+          />
           <h1 className="mt-sm text-headline-lg text-on-surface">Design system</h1>
           <p className="mt-sm max-w-3xl text-body-md text-on-surface-variant">
             Cores, tipografia e componentes globais reutilizáveis em todas as telas.
@@ -997,28 +1001,28 @@ export default function DesignSystemPage() {
                 />
                 <PageContent>
                   <FilterBarSample idPrefix="ds-layout-filter" showApplied={false} />
-                  <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4">
                     <CardMetric
                       iconClassName="bg-surface-subtle text-on-surface-variant"
                       icon={<Icon icon={Building} size="md" />}
-                    >
-                      <p className="text-metric text-on-surface tabular-nums">03</p>
-                      <p className="mt-sm text-body-sm text-on-surface-variant">na carteira</p>
-                    </CardMetric>
+                      valor="03"
+                      rotulo="Condomínios"
+                      detalhe="Cadastrados na carteira"
+                    />
                     <CardMetric
                       iconClassName="bg-surface-subtle text-on-surface-variant"
                       icon={<Icon icon={User} size="md" />}
-                    >
-                      <p className="text-metric text-on-surface tabular-nums">268</p>
-                      <p className="mt-sm text-body-sm text-on-surface-variant">unidades</p>
-                    </CardMetric>
+                      valor="268"
+                      rotulo="Unidades"
+                      detalhe="Acompanhadas no sistema"
+                    />
                     <CardMetric
                       iconClassName="bg-gold-subtle text-brass"
                       icon={<Icon icon={ShieldCheck} size="md" className="text-brass" />}
-                    >
-                      <p className="text-metric text-on-surface tabular-nums">02</p>
-                      <p className="mt-sm text-body-sm text-on-surface-variant">ativos</p>
-                    </CardMetric>
+                      valor="02"
+                      rotulo="Ativos"
+                      detalhe="Com situação ativa"
+                    />
                   </div>
                   <CondominiumsTable />
                 </PageContent>
@@ -1253,37 +1257,35 @@ export default function DesignSystemPage() {
         </Showcase>
 
         <Showcase id="cartoes" title="Cartão de métrica">
-          <div className="grid grid-cols-1 gap-md min-[961px]:grid-cols-3" aria-label="Resumo da carteira">
+          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-4" aria-label="Resumo da carteira">
+            <CardMetric
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Building className="size-5" strokeWidth={1.75} />}
+              valor="10"
+              rotulo="Total de categorias"
+              detalhe="Cadastradas no cardápio"
+            />
+            <CardMetric
+              iconClassName="bg-success-subtle text-success"
+              icon={<ShieldCheck className="size-5" strokeWidth={1.75} />}
+              valor="07"
+              rotulo="Com produtos"
+              detalhe="Categorias com ao menos 1 item"
+            />
+            <CardMetric
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<User className="size-5" strokeWidth={1.75} />}
+              valor="00"
+              rotulo="Sem produtos"
+              detalhe="Categorias vazias"
+            />
             <CardMetric
               iconClassName="bg-surface-subtle text-on-surface-variant"
               icon={<Building className="size-5" strokeWidth={1.75} />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">03</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">condomínios na carteira</p>
-            </CardMetric>
-            <CardMetric
-              iconClassName="bg-surface-subtle text-on-surface-variant"
-              icon={<User className="size-5" strokeWidth={1.75} />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">268</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">unidades acompanhadas</p>
-            </CardMetric>
-            <CardMetric
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<ShieldCheck className="size-5" strokeWidth={1.75} />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">
-                02
-                <span className="font-semibold text-on-surface-variant"> / 03</span>
-              </p>
-              <span
-                className="mt-xs block h-xs w-[calc(var(--spacing-xl)+var(--spacing-lg)+var(--spacing-sm))] overflow-hidden rounded-md bg-gold-subtle"
-                aria-hidden="true"
-              >
-                <span className="block h-full w-2/3 bg-brass" />
-              </span>
-              <p className="mt-sm text-body-sm text-on-surface-variant">com situação ativa</p>
-            </CardMetric>
+              valor="02"
+              rotulo="Com pausados"
+              detalhe="Ao menos 1 produto pausado"
+            />
           </div>
         </Showcase>
       </div>

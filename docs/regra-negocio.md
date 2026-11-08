@@ -109,8 +109,9 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 ### Colaboradores e permissões
 
 - Cadastro de colaboradores em `/usuarios` (somente perfil com `usuarios.criar` / `usuarios.editar`, em geral Administradora).
+- **Administradora edita tudo do colaborador:** nome, código de login, cargo, telefone, e-mail, situação (ativo/inativo), vínculos de advogado ↔ condomínios e **senha** (redefinição no sheet; campo vazio na edição mantém a senha atual). Hash bcrypt só no servidor; a API nunca devolve `senha`.
 - **Código RE:** atendentes recebem identificador sequencial `RE-10000`, `RE-10001`, … gerado **no servidor** na criação; imutável; único no cadastro; inativos mantêm o RE reservado (não reutilizado). Administrador e Advogado não recebem RE — continuam identificados pelo nome no cadastro. Telas operacionais (fila, retornos, distribuição, relatórios por RE) exibem o RE no lugar do nome do atendente.
-- Ativação/desativação: inativo não autentica; reativação restaura o mesmo RE.
+- Ativação/desativação: inativo não autentica; reativação restaura o mesmo RE (também pelo sheet ou pela ação da listagem).
 - Advogados: vínculo aos condomínios via lista `advogados` no cadastro do condomínio (nome do colaborador), editável no sheet do colaborador.
 - Cargos e permissões configuráveis pelo administrador: para cada módulo do sistema, o cargo define se pode **ver**, **criar**, **editar**, **excluir** e, em relatórios, **exportar** (matriz em `/cargos`, persistida em `role.permissao_json`).
 - Controle de acesso: menu e rotas respeitam permissão de **ver**; botões de mutação respeitam criar/editar/excluir/exportar. Sem permissão de ver → página `/acesso-negado`.

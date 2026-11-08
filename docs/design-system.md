@@ -17,8 +17,9 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
-| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9`). Modo indicador: `rotulo`, `valor`, `detalhe` opcional. Valor em `text-headline-sm`; sem faixa lateral colorida. Grid típico `2 / 4` colunas na home e listagens. |
-| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão 3). Respeita `prefers-reduced-motion` (sem autoplay). |
+| `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9` em caixa `rounded-lg`). Ordem fixa: **valor** (`text-metric` / 22px bold) → **rótulo** (`text-body-md` / 14px) → **detalhe** (`text-body-sm` / 12px, opcional). Sem faixa lateral. Grid típico **4 colunas** no desktop. |
+| `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop (`desktopCols`, padrão **4**). Respeita `prefers-reduced-motion` (sem autoplay). |
+| `KpiMobileCard` | `kpi-mobile-card.tsx` | Mesmo padrão visual do `CardMetric` para listagens mobile (&lt;768px). |
 | `GraficoBarras`, `GraficoColunas`, `GraficoEmpilhado`, `GraficoRosca`, `GraficoLinha` | `charts.tsx` | Gráficos de relatório. Crescem ao entrar na tela e de novo quando `chave` muda. Sem dados, recebem o vazio da página. |
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
@@ -105,7 +106,7 @@ Use `CheckboxField`, `RadioField` ou `SwitchField` para label clicável ao lado.
 
 ## Filtros
 
-`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período usam rótulo acima do campo (`FormField`). No desktop (a partir de 768px), a grade tem **no máximo 4 colunas** de largura igual; a busca ocupa uma coluna como os demais campos. No mobile, a grade usa 2 colunas (busca e período em largura total). Limpar e Filtrar ficam na última linha, alinhados à direita, com Filtrar por último. **Limpar** usa `Button` variante **`surface`**, `size="sm"`; **Filtrar** usa **`primary`**, `size="sm"`.
+`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período usam rótulo acima do campo (`FormField`). Em todas as telas o padrão é o mesmo: grade com **no máximo 4 colunas** de **largura igual** (1 no mobile estreito, 2 a partir de ~480px, 4 a partir de 768px); a busca ocupa uma coluna como os demais campos. **Limpar** e **Filtrar** ficam sempre na linha de baixo (`col-span-full`), alinhados à direita, com Filtrar por último. **Limpar** usa `Button` variante **`surface`**, `size="sm"`; **Filtrar** usa **`primary`**, `size="sm"`. A variante `toolbar` (fila) segue a mesma grade e posição das ações; no mobile da fila mantém o card de 2 colunas.
 
 ```tsx
 <FilterBar

@@ -73,9 +73,9 @@ type FilterBarProps = {
   searchReadOnly?: boolean;
   /** Oculta o campo de busca (telas só com período ou filtros estruturados). */
   hideSearch?: boolean;
-  /** `toolbar`: uma linha (mockup fila de cobranças) — busca com ícone, selects «Label: valor», Filtrar com funil. */
+  /** `toolbar`: busca com ícone e selects compactos; mesma grade de 4 colunas e ações abaixo. */
   variant?: "default" | "toolbar";
-  /** Com `variant="toolbar"`, distribui busca/cargo/situação em proporções fixas no desktop. */
+  /** Mantido por compatibilidade; a grade unificada ignora proporções distintas. */
   toolbarLayout?: "flex" | "proportional";
   /** Layout mobile da fila de cobranças (somente &lt;768px). Desktop permanece toolbar. */
   toolbarMobile?: "fila";
@@ -135,6 +135,13 @@ function applyButtonProps(useFormElement: boolean, onApply: () => void) {
     : ({ type: "button" as const, onClick: () => onApply() });
 }
 
+/** Grade padrão: no máximo 4 campos por linha, larguras iguais. */
+const fieldsGridClass =
+  "grid grid-cols-1 gap-md min-[480px]:grid-cols-2 min-[768px]:grid-cols-4";
+const fieldCellClass = "min-w-0 w-full";
+const actionsRowClass =
+  "col-span-full flex flex-wrap items-center justify-end gap-sm";
+
 const filaMobileFieldIcons: Record<string, LucideIcon> = {
   condominio: Building2,
   situacao: AlertTriangle,
@@ -178,11 +185,12 @@ export function FilterBar({
   searchReadOnly = false,
   hideSearch = false,
   variant = "default",
-  toolbarLayout = "flex",
+  toolbarLayout: _toolbarLayout = "flex",
   toolbarMobile,
   defaultMobile,
   useFormElement = true,
 }: FilterBarProps) {
+  void _toolbarLayout;
   const searchInputClass = searchReadOnly
     ? "h-control! cursor-not-allowed bg-surface-subtle text-on-surface-variant"
     : "h-control!";
@@ -228,30 +236,13 @@ export function FilterBar({
   }
 
   if (variant === "toolbar") {
-    const toolbarFormClass =
-      toolbarLayout === "proportional"
-        ? "hidden min-[768px]:grid min-[768px]:grid-cols-2 min-[768px]:gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-md min-[768px]:shadow-card min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center"
-        : "hidden min-[768px]:flex min-[768px]:flex-col min-[768px]:gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-md min-[768px]:shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center";
-
-    const searchWrapClass =
-      toolbarLayout === "proportional"
-        ? "relative min-w-0 min-[1024px]:col-span-1"
-        : "relative min-w-[12rem] min-[768px]:flex-1 min-[768px]:basis-[14rem]";
-
-    const fieldWrapClass =
-      toolbarLayout === "proportional"
-        ? "min-w-0"
-        : "min-w-[9.5rem] min-[768px]:flex-1 min-[768px]:basis-[11rem]";
-
-    const actionsWrapClass =
-      toolbarLayout === "proportional"
-        ? "flex shrink-0 items-center justify-end gap-sm min-[1024px]:justify-end"
-        : "flex shrink-0 items-center justify-end gap-sm min-[1100px]:ml-auto";
+    const toolbarDesktopGridClass =
+      "hidden min-[768px]:grid min-[768px]:grid-cols-2 min-[768px]:gap-md min-[1024px]:grid-cols-4 min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-md min-[768px]:shadow-card";
 
     const desktopToolbar = (
-      <FilterShell useFormElement={useFormElement} onApply={onApply} className={toolbarFormClass}>
+      <FilterShell useFormElement={useFormElement} onApply={onApply} className={toolbarDesktopGridClass}>
         {!hideSearch ? (
-          <div className={searchWrapClass}>
+          <div className={`relative ${fieldCellClass}`}>
             <label htmlFor={searchId} className="sr-only">
               {searchLabel}
             </label>
@@ -274,7 +265,7 @@ export function FilterBar({
         ) : null}
 
         {fields.map((field) => (
-          <div key={field.id} className={fieldWrapClass}>
+          <div key={field.id} className={fieldCellClass}>
             <label htmlFor={field.id} className="sr-only">
               {field.label}
             </label>
@@ -282,8 +273,8 @@ export function FilterBar({
           </div>
         ))}
 
-        <div className={actionsWrapClass}>
-          <Button type="button" variant="outline" size="sm" onClick={onClear}>
+        <div className={actionsRowClass}>
+          <Button type="button" variant="surface" size="sm" onClick={onClear}>
             <Icon icon={RotateCcw} size="sm" />
             {clearLabel}
           </Button>
@@ -300,20 +291,10 @@ export function FilterBar({
         <FilterShell
           useFormElement={useFormElement}
           onApply={onApply}
-          className={
-            toolbarLayout === "proportional"
-              ? "grid grid-cols-2 gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1024px]:grid-cols-[minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto] min-[1024px]:items-center"
-              : "flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[1100px]:flex-row min-[1100px]:flex-wrap min-[1100px]:items-center"
-          }
+          className={`${fieldsGridClass} rounded-xl border border-border-subtle bg-surface-card p-md shadow-card`}
         >
           {!hideSearch ? (
-            <div
-              className={
-                toolbarLayout === "proportional"
-                  ? "relative col-span-2 min-w-0 min-[1024px]:col-span-1"
-                  : "relative min-w-0 min-[1100px]:min-w-[12rem] min-[1100px]:flex-1 min-[1100px]:basis-[14rem]"
-              }
-            >
+            <div className={`relative ${fieldCellClass}`}>
               <label htmlFor={searchId} className="sr-only">
                 {searchLabel}
               </label>
@@ -336,14 +317,7 @@ export function FilterBar({
           ) : null}
 
           {fields.map((field) => (
-            <div
-              key={field.id}
-              className={
-                toolbarLayout === "proportional"
-                  ? "min-w-0"
-                  : "min-w-0 min-[1100px]:min-w-[9.5rem] min-[1100px]:flex-1 min-[1100px]:basis-[11rem]"
-              }
-            >
+            <div key={field.id} className={fieldCellClass}>
               <label htmlFor={field.id} className="sr-only">
                 {field.label}
               </label>
@@ -351,18 +325,12 @@ export function FilterBar({
             </div>
           ))}
 
-          <div
-            className={
-              toolbarLayout === "proportional"
-                ? "col-span-2 flex w-full items-stretch gap-sm min-[1024px]:col-span-1 min-[1024px]:w-auto min-[1024px]:justify-end"
-                : "flex w-full items-stretch gap-sm min-[1100px]:ml-auto min-[1100px]:w-auto min-[1100px]:justify-end"
-            }
-          >
-            <Button type="button" variant="outline" size="sm" className="min-h-11 flex-1 min-[1100px]:flex-none" onClick={onClear}>
+          <div className={actionsRowClass}>
+            <Button type="button" variant="surface" size="sm" onClick={onClear}>
               <Icon icon={RotateCcw} size="sm" />
               {clearLabel}
             </Button>
-            <Button size="sm" className="min-h-11 flex-[1.15] min-[1100px]:flex-none" {...filtrarButtonProps}>
+            <Button size="sm" {...filtrarButtonProps}>
               <Icon icon={Filter} size="sm" />
               {applyLabel}
             </Button>
@@ -439,9 +407,9 @@ export function FilterBar({
           <div className="flex items-stretch gap-sm">
             <Button
               type="button"
-              variant="outline"
+              variant="surface"
               size="sm"
-              className="min-h-11 flex-[0.92] border-transparent bg-surface-subtle"
+              className="min-h-11 flex-[0.92]"
               onClick={onClear}
             >
               <Icon icon={RotateCcw} size="sm" />
@@ -464,12 +432,12 @@ export function FilterBar({
       onApply={onApply}
       className={
         defaultMobile === "grid"
-          ? "hidden flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
-          : "flex flex-col gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-end"
+          ? `hidden min-[768px]:grid min-[768px]:grid-cols-4 min-[768px]:gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md`
+          : `${fieldsGridClass} rounded-lg border border-border-subtle bg-surface-subtle p-md`
       }
     >
       {!hideSearch ? (
-        <div className="min-w-0 flex-1 basis-[12rem]">
+        <div className={fieldCellClass}>
           <FormField label={searchLabel} htmlFor={searchId}>
             <Input
               id={searchId}
@@ -485,15 +453,15 @@ export function FilterBar({
       ) : null}
 
       {fields.map((field) => (
-        <div key={field.id} className="min-w-0 flex-1 basis-[10rem]">
+        <div key={field.id} className={fieldCellClass}>
           <FormField label={field.label} htmlFor={field.id}>
             {renderFieldControl(field)}
           </FormField>
         </div>
       ))}
 
-      <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-sm min-[768px]:ml-auto min-[768px]:w-auto">
-        <Button type="button" variant="outline" size="sm" onClick={onClear}>
+      <div className={actionsRowClass}>
+        <Button type="button" variant="surface" size="sm" onClick={onClear}>
           <Icon icon={RotateCcw} size="sm" />
           {clearLabel}
         </Button>
@@ -554,13 +522,7 @@ export function FilterBar({
         </div>
 
         <div className="flex items-stretch gap-sm">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="min-h-11 flex-[0.92] border-transparent bg-surface-subtle"
-            onClick={onClear}
-          >
+          <Button type="button" variant="surface" size="sm" className="min-h-11 flex-[0.92]" onClick={onClear}>
             <Icon icon={RotateCcw} size="sm" />
             {clearLabel}
           </Button>

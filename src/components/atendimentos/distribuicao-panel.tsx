@@ -271,18 +271,16 @@ export function DistribuicaoPanel() {
         <h2 id="carteira-re-titulo" className="mb-md text-title-sm text-on-surface">
           Carteira por RE
         </h2>
-        <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-md min-[480px]:grid-cols-2 min-[768px]:grid-cols-4">
           {carteiras.map((item) => (
             <CardMetric
               key={item.atendenteId}
               iconClassName="bg-surface-subtle text-on-surface-variant"
               icon={<Icon icon={Users} size="md" />}
-            >
-              <p className="text-metric text-on-surface tabular-nums">{String(item.totalUnidades).padStart(2, "0")}</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">
-                unidades · <span className="font-medium text-on-surface">{item.codigoRe}</span>
-              </p>
-            </CardMetric>
+              valor={String(item.totalUnidades).padStart(2, "0")}
+              rotulo={item.codigoRe}
+              detalhe="Unidades na carteira"
+            />
           ))}
         </div>
       </section>

@@ -77,5 +77,5 @@ Nenhuma direta neste módulo; importações de inadimplência resolvem condomín
 
 ## Pendências e decisões
 
-- Persistência PostgreSQL (`condominium`) — infra Docker em [stack.md](../stack.md); substituir camada em memória conforme evolução do projeto.
+- Persistência PostgreSQL (`condominium`) — ver [stack.md](../stack.md); substituir camada em memória conforme evolução do projeto.
 - Coluna `administradora` documentada em [banco.md](../banco.md); migration quando o ORM for adotado.

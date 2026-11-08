@@ -192,7 +192,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       onAbrirNotificacao={(id) => void handleAbrirNotificacao(id)}
       sidebar={
         <AppShellSidebar>
-          <AppShellBrand title="Cobrança" />
+          <AppShellBrand />
           <AppShellNav>
             {menuSecoes.map((secao) => {
               const links = secao.links.filter((link) => pode(link.modulo, "ler"));

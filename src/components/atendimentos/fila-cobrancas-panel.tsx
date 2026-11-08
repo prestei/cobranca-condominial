@@ -597,7 +597,7 @@ export function FilaCobrancasPanel({ recarregarSinal = 0 }: { recarregarSinal?: 
             icon={RotateCcw}
           />
         </div>
-        <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+        <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
           <CardMetric
             accent="brass"
             iconClassName="bg-gold-subtle text-brass"

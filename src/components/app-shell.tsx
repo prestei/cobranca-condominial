@@ -5,9 +5,9 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import {
   Bell,
-  ChevronDown,
   HelpCircle,
   Menu,
+  MoreVertical,
   X,
 } from "lucide-react";
 import {
@@ -196,32 +196,19 @@ export function AppShellSidebar({ children, className, ...props }: AppShellSideb
 }
 
 type AppShellBrandProps = {
-  initials?: string;
-  title: string;
-  eyebrow?: string;
   className?: string;
 };
 
-export function AppShellBrand({
-  initials = "LC",
-  title,
-  eyebrow = "Lex Condominial",
-  className,
-}: AppShellBrandProps) {
+export function AppShellBrand({ className }: AppShellBrandProps) {
   return (
     <div
-      className={`sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b border-[#31496C] bg-primary-container px-[18px] ${className ?? ""}`}
+      className={`sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-[#31496C] bg-primary-container px-[14px] ${className ?? ""}`}
     >
-      <span
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-brass text-label-lg font-bold text-[#1A1300]"
-        aria-hidden="true"
-      >
-        {initials}
-      </span>
-      <div className="min-w-0 leading-none">
-        <p className="truncate text-label-sm font-bold uppercase tracking-[0.14em] text-[#8FA3BF]">{eyebrow}</p>
-        <p className="mt-0.5 truncate text-headline-sm font-bold leading-6 text-on-primary">{title}</p>
-      </div>
+      <img
+        src="/logo-daniel-jorge.webp"
+        alt="Daniel Jorge Advocacia"
+        className="h-10 w-auto max-w-full object-contain object-left"
+      />
     </div>
   );
 }
@@ -377,7 +364,17 @@ function AppShellHeader({
           <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
         </AppShellIconButton>
 
-        {headerPage ? (
+        {user ? (
+          <div className="flex min-w-0 items-center gap-sm px-xs">
+            <span
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-container text-label-md font-bold text-on-primary"
+              aria-hidden="true"
+            >
+              {user.initials}
+            </span>
+            <span className="truncate text-[15px] font-semibold text-[#1B2A41]">{user.name}</span>
+          </div>
+        ) : headerPage ? (
           <div className="flex min-w-0 items-center gap-sm">
             <span
               className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#EDF1F6] text-primary-container"
@@ -387,117 +384,86 @@ function AppShellHeader({
             </span>
             <p className="truncate text-body-lg font-bold leading-tight text-[#12213A]">{headerPage.label}</p>
           </div>
-        ) : (
-          <Link
-            href="/"
-            className="flex min-w-0 items-center gap-sm rounded-lg py-1 pr-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
-          >
-            <span
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-container text-label-md font-bold text-on-primary"
-              aria-hidden="true"
-            >
-              LC
-            </span>
-            <span className="hidden min-w-0 min-[480px]:block">
-              <span className="block truncate text-label-sm font-bold uppercase tracking-[0.12em] text-on-surface-variant">
-                Lex Condominial
-              </span>
-              <span className="block truncate text-body-md font-bold leading-tight text-[#12213A]">Cobrança</span>
-            </span>
-          </Link>
-        )}
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-sm">
         <div className="flex items-center gap-0 rounded-xl border border-border-subtle bg-[#F4F7FB] px-0.5">
-      <AppShellIconButton label="Ajuda">
-        <HelpCircle className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
-      </AppShellIconButton>
+          <AppShellIconButton label="Ajuda">
+            <HelpCircle className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
+          </AppShellIconButton>
 
-      <div className="relative">
-        <AppShellIconButton
-          label={notificationCount > 0 ? `Notificações, ${notificationCount} novas` : "Notificações"}
-          onClick={onToggleNotif}
-          aria-expanded={notifOpen}
-        >
-          <Bell className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
-          {notificationCount > 0 ? (
-            <span
-              className="absolute right-1 top-[5px] flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-surface-card bg-status-critical px-[4px] text-[11px] font-bold leading-none text-on-primary"
+          <div className="relative">
+            <AppShellIconButton
+              label={notificationCount > 0 ? `Notificações, ${notificationCount} novas` : "Notificações"}
+              onClick={onToggleNotif}
+              aria-expanded={notifOpen}
             >
-              {notificationCount}
-            </span>
-          ) : null}
-        </AppShellIconButton>
+              <Bell className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
+              {notificationCount > 0 ? (
+                <span className="absolute right-1 top-[5px] flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-surface-card bg-status-critical px-[4px] text-[11px] font-bold leading-none text-on-primary">
+                  {notificationCount}
+                </span>
+              ) : null}
+            </AppShellIconButton>
 
-        {notifOpen ? (
-          <div
-            className="absolute right-0 top-full z-30 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
-            role="dialog"
-            aria-label="Notificações"
-          >
-            <div className="flex items-center justify-between px-md py-sm">
-              <p className="text-body-lg font-bold text-on-surface">Notificações</p>
-              <button
-                type="button"
-                className="text-body-md font-semibold text-primary-container disabled:opacity-50"
-                disabled={notificationCount === 0 || !onMarcarTodasNotificacoesLidas}
-                onClick={() => onMarcarTodasNotificacoesLidas?.()}
+            {notifOpen ? (
+              <div
+                className="absolute right-0 top-full z-30 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[14px] border border-[#E3E8EF] bg-surface-card shadow-modal"
+                role="dialog"
+                aria-label="Notificações"
               >
-                Marcar como lidas
-              </button>
-            </div>
-            {notificacoesCarregando ? (
-              <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
-                Carregando…
-              </p>
-            ) : notificacoes.length === 0 ? (
-              <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
-                Nenhuma notificação recente.
-              </p>
-            ) : (
-              notificacoes.map((item) => (
-                <AppShellNotificationItem
-                  key={item.id}
-                  dotClassName={corDotNotificacao(item.evento)}
-                  title={item.titulo}
-                  description={`${item.descricao}${item.relativo ? ` · ${item.relativo}` : ""}`}
-                  unread={!item.lida}
-                  onClick={() => onAbrirNotificacao?.(item.id)}
-                />
-              ))
-            )}
-            <Link
-              href="/notificacoes"
-              className="flex min-h-11 w-full items-center justify-center border-t border-[#EEF1F6] text-body-md font-semibold text-primary-container hover:bg-[#F8FAFC]"
-            >
-              Ver todas as notificações
-            </Link>
+                <div className="flex items-center justify-between px-md py-sm">
+                  <p className="text-body-lg font-bold text-on-surface">Notificações</p>
+                  <button
+                    type="button"
+                    className="text-body-md font-semibold text-primary-container disabled:opacity-50"
+                    disabled={notificationCount === 0 || !onMarcarTodasNotificacoesLidas}
+                    onClick={() => onMarcarTodasNotificacoesLidas?.()}
+                  >
+                    Marcar como lidas
+                  </button>
+                </div>
+                {notificacoesCarregando ? (
+                  <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
+                    Carregando…
+                  </p>
+                ) : notificacoes.length === 0 ? (
+                  <p className="border-t border-[#EEF1F6] px-md py-sm text-body-sm text-on-surface-variant">
+                    Nenhuma notificação recente.
+                  </p>
+                ) : (
+                  notificacoes.map((item) => (
+                    <AppShellNotificationItem
+                      key={item.id}
+                      dotClassName={corDotNotificacao(item.evento)}
+                      title={item.titulo}
+                      description={`${item.descricao}${item.relativo ? ` · ${item.relativo}` : ""}`}
+                      unread={!item.lida}
+                      onClick={() => onAbrirNotificacao?.(item.id)}
+                    />
+                  ))
+                )}
+                <Link
+                  href="/notificacoes"
+                  className="flex min-h-11 w-full items-center justify-center border-t border-[#EEF1F6] text-body-md font-semibold text-primary-container hover:bg-[#F8FAFC]"
+                >
+                  Ver todas as notificações
+                </Link>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
         </div>
 
-      {user ? (
-        <>
-          <div className="hidden h-8 w-px bg-[#E3E8EF] min-[480px]:block" aria-hidden="true" />
+        {user ? (
           <div className="relative">
-            <button
-              type="button"
+            <AppShellIconButton
+              label={`Menu da conta de ${user.name}`}
               onClick={onToggleUser}
               aria-expanded={userOpen}
-              aria-label={`Menu da conta de ${user.name}`}
-              className="flex min-h-12 cursor-pointer items-center gap-sm rounded-xl border-0 bg-transparent px-xs py-0 text-[15px] font-semibold text-[#1B2A41] hover:bg-[#EDF1F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
             >
-              <span
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-container text-label-md font-bold text-on-primary"
-                aria-hidden="true"
-              >
-                {user.initials}
-              </span>
-              <span className="hidden max-w-[8rem] truncate min-[640px]:inline">{user.name}</span>
-              <ChevronDown className="hidden size-4 min-[640px]:block" strokeWidth={2.2} aria-hidden="true" />
-            </button>
+              <MoreVertical className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
+            </AppShellIconButton>
 
             {userOpen ? (
               <div
@@ -528,8 +494,7 @@ function AppShellHeader({
               </div>
             ) : null}
           </div>
-        </>
-      ) : null}
+        ) : null}
       </div>
     </header>
   );

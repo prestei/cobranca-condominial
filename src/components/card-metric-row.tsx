@@ -22,7 +22,7 @@ export function CardMetricRow({
   children,
   "aria-label": ariaLabel = "Indicadores",
   className,
-  desktopCols = 3,
+  desktopCols = 4,
 }: CardMetricRowProps) {
   const items = Children.toArray(children);
   const scrollRef = useRef<HTMLDivElement>(null);

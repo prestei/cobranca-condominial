@@ -120,7 +120,7 @@ export default function ContaPage() {
     <WorkspaceShell>
       <PageHeader
         title="Minha conta"
-        description="Dados da sua sessão no Lex Condominial Cobrança."
+        description="Dados da sua sessão no sistema de cobrança."
         breadcrumbs={[{ label: "Início", href: "/" }, { label: "Minha conta" }]}
       />
       <PageContent>

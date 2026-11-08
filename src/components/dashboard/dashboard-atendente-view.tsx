@@ -203,7 +203,7 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
           <div className="flex flex-col gap-xl">
             <div className="flex flex-col gap-md">
               <SubsecaoTitulo titulo="Minha fila" descricao="Cobranças atribuídas ao seu RE." />
-              <CardMetricRow aria-label="Resumo da fila" desktopCols={3}>
+              <CardMetricRow aria-label="Resumo da fila" desktopCols={4}>
                 <CardMetric
                   iconClassName="bg-gold-subtle text-brass"
                   icon={<Icon icon={ClipboardList} size="md" className="text-brass" />}
@@ -240,7 +240,7 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
                   titulo="Inadimplência na carteira"
                   descricao={`Totais na data-base ${formatarData(dados.dataBase)}.`}
                 />
-                <CardMetricRow aria-label="Valores em aberto" desktopCols={3}>
+                <CardMetricRow aria-label="Valores em aberto" desktopCols={4}>
                   <CardMetric
                     iconClassName="bg-gold-subtle text-brass"
                     icon={<Icon icon={Wallet} size="md" className="text-brass" />}

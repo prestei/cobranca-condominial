@@ -10,7 +10,7 @@ cp .env.example .env   # se ainda não existir
 npm run dev
 ```
 
-Banco PostgreSQL opcional em desenvolvimento: `npm run db:up` (ver [`docs/stack.md`](docs/stack.md)). Cadastros operacionais usam o catálogo em memória no servidor até a persistência completa em PostgreSQL.
+PostgreSQL opcional em desenvolvimento: configure `DATABASE_URL` no `.env` (ver [`docs/stack.md`](docs/stack.md)). Cadastros operacionais usam o catálogo em memória no servidor até a persistência completa em PostgreSQL.
 
 ## Testes
 

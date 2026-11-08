@@ -550,7 +550,7 @@ export default function CargosPage() {
               icon={UserRound}
             />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
             <CardMetric
               accent="primary"
               rotulo="Cargos no sistema"

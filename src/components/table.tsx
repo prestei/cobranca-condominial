@@ -311,7 +311,7 @@ const rowBorderClass = "border-b border-border-subtle/30";
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
-      className={`${rowBorderClass} transition-colors last:border-b-0 hover:bg-gold-subtle/25 ${className ?? ""}`}
+      className={`group/row ${rowBorderClass} transition-colors last:border-b-0 hover:bg-gold-subtle/25 ${className ?? ""}`}
       {...props}
     />
   );
@@ -433,7 +433,7 @@ export function TableHead({
     return (
       <th
         scope="col"
-        className={`w-20 shrink-0 whitespace-nowrap px-md py-md text-center text-label-lg text-primary-container ${className ?? ""}`}
+        className={`sticky right-0 z-[2] w-20 shrink-0 whitespace-nowrap bg-surface-subtle px-md py-md text-center text-label-lg text-primary-container shadow-[-6px_0_8px_-6px_rgba(18,33,58,0.12)] ${className ?? ""}`}
         {...props}
       >
         Ação
@@ -693,7 +693,10 @@ export function TableActionsCell({
   ...props
 }: TableActionsButtonProps) {
   return (
-    <TableCell align="center" className={`w-14 shrink-0 whitespace-nowrap px-sm ${className ?? ""}`}>
+    <TableCell
+      align="center"
+      className={`sticky right-0 z-[1] w-14 shrink-0 whitespace-nowrap bg-surface-card px-sm shadow-[-6px_0_8px_-6px_rgba(18,33,58,0.12)] group-hover/row:bg-gold-subtle/25 ${className ?? ""}`}
+    >
       <div className="flex justify-center">
         <TableActionsButton label={label} actions={actions} {...props} />
       </div>

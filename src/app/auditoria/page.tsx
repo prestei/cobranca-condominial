@@ -467,7 +467,7 @@ export default function AuditoriaPage() {
               icon={UserPlus}
             />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
             <CardMetric
               accent="primary"
               iconClassName="bg-primary-fixed/50 text-primary-container"

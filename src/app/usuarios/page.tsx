@@ -85,6 +85,7 @@ const formularioVazio = {
   telefone: "",
   email: "",
   senha: "",
+  ativo: true,
   condominioIds: [] as number[],
 };
 
@@ -334,6 +335,7 @@ export default function UsuariosPage() {
       telefone: item.telefone,
       email: item.email,
       senha: "",
+      ativo: item.ativo !== false,
       condominioIds:
         nomeCargo(item.cargoId) === "Advogado" ? idsCondominiosDoAdvogado(item.nome) : [],
     });
@@ -471,6 +473,7 @@ export default function UsuariosPage() {
       nome,
       telefone: form.telefone.trim(),
       email,
+      ativo: form.ativo,
       ...(senha ? { senha } : {}),
       ...(cargoSelecionadoAdvogado ? { condominioIds: form.condominioIds } : {}),
     };
@@ -712,7 +715,7 @@ export default function UsuariosPage() {
               icon={KeyRound}
             />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
             <CardMetric
               accent="primary"
               iconClassName="bg-primary-fixed/50 text-primary-container"
@@ -796,8 +799,8 @@ export default function UsuariosPage() {
                     {editingId === null ? "Novo colaborador" : "Editar colaborador"}
                   </SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Atendentes recebem RE automático no cadastro. O código de login não aparece na listagem
-                    operacional.
+                    A administradora pode alterar nome, login, cargo, contato, senha e situação. Atendentes
+                    recebem RE automático no cadastro.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>
@@ -904,6 +907,23 @@ export default function UsuariosPage() {
                   invalid={Boolean(errors.senha)}
                   onChange={(event) => setForm((current) => ({ ...current, senha: event.target.value }))}
                 />
+                {editingId !== null ? (
+                  <p className="text-body-sm text-on-surface-variant">
+                    Deixe em branco para manter a senha atual. A administradora pode redefinir a qualquer momento.
+                  </p>
+                ) : null}
+              </FormField>
+              <FormField label="Situação" htmlFor={`${formId}-situacao`}>
+                <Select
+                  id={`${formId}-situacao`}
+                  value={form.ativo ? "ativo" : "inativo"}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, ativo: event.target.value === "ativo" }))
+                  }
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                </Select>
               </FormField>
             </SheetBody>
             <SheetFooterForm onClose={closeSheet} saveDisabled={salvando} saveLabel={salvando ? "Salvando…" : "Salvar"} />
