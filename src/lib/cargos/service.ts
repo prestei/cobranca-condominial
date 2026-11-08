@@ -23,7 +23,19 @@ export type CargoInput = {
   nome: string;
   descricao: string;
   permissoes: PermissoesCargo;
+  ativo?: boolean;
 };
+
+export function parseCargoInputFromRecord(record: Record<string, unknown>): CargoInput | null {
+  const nome = typeof record.nome === "string" ? record.nome : "";
+  const descricao = typeof record.descricao === "string" ? record.descricao : "";
+  const permissoes =
+    record.permissoes && typeof record.permissoes === "object"
+      ? parsePermissoesJson(JSON.stringify(record.permissoes))
+      : parsePermissoesJson(typeof record.permissaoJson === "string" ? record.permissaoJson : "{}");
+  const ativo = record.ativo === false ? false : true;
+  return { nome, descricao, permissoes, ativo };
+}
 
 function assertPermissao(userId: number, acao: "ler" | "criar" | "editar" | "excluir") {
   const perm = permissoesDoUsuarioId(userId);
@@ -90,6 +102,7 @@ export function criarCargo(
     nome: dados.nome,
     descricao: dados.descricao,
     permissaoJson,
+    ativo: dados.ativo !== false,
   };
 
   setCargos((current) => [...current, cargo]);
@@ -127,6 +140,7 @@ export function atualizarCargo(
     nome: dados.nome,
     descricao: dados.descricao,
     permissaoJson,
+    ativo: dados.ativo !== false,
   };
 
   setCargos((current) => current.map((item) => (item.id === cargoId ? atualizado : item)));

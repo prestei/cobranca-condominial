@@ -3,7 +3,6 @@
 import { useId, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  BarChart3,
   Bell,
   Building2,
   CalendarClock,
@@ -58,7 +57,7 @@ const topicos: TopicoAjuda[] = [
     id: "agenda",
     titulo: "Minha agenda",
     descricao: "Filtre retornos de hoje, atrasados, da semana e futuros para organizar o dia.",
-    href: "/minha-agenda",
+    href: "/atendimentos?retorno=hoje",
     icon: CalendarClock,
     modulo: "atendimentos",
     palavrasChave: ["retorno", "hoje", "atrasado", "calendário"],
@@ -83,16 +82,6 @@ const topicos: TopicoAjuda[] = [
     palavrasChave: ["alerta", "sino", "aviso", "retorno"],
   },
   {
-    id: "produtividade",
-    titulo: "Minha produtividade",
-    descricao: "Acompanhe indicadores da sua operação e desempenho no período.",
-    href: "/minha-produtividade",
-    icon: BarChart3,
-    modulo: "atendimentos",
-    palavrasChave: ["indicador", "métrica", "desempenho"],
-    perfis: ["atendente"],
-  },
-  {
     id: "inicio",
     titulo: "Início",
     descricao: "Painel com visão da carteira, pendências e atalhos conforme o seu perfil.",
@@ -115,7 +104,7 @@ const topicos: TopicoAjuda[] = [
 
 const atalhos: AtalhoAjuda[] = [
   { href: "/atendimentos", titulo: "Atendimentos", icon: ClipboardList, modulo: "atendimentos" },
-  { href: "/minha-agenda", titulo: "Minha agenda", icon: CalendarClock, modulo: "atendimentos" },
+  { href: "/atendimentos?retorno=hoje", titulo: "Minha agenda", icon: CalendarClock, modulo: "atendimentos" },
   { href: "/debitos", titulo: "Inadimplência", icon: Wallet, modulo: "debitos" },
   { href: "/notificacoes", titulo: "Notificações", icon: Bell, modulo: "dashboard" },
   { href: "/", titulo: "Início", icon: LayoutDashboard, modulo: "dashboard" },

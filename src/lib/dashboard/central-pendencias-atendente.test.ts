@@ -35,9 +35,6 @@ function baseAtendimento(partial: Partial<Atendimento> = {}): Atendimento {
     proximaAcao: "",
     retornoConcluidoEm: "",
     retornoConcluidoPorId: null,
-    retornoCanceladoEm: "",
-    retornoCanceladoPorId: null,
-    retornoCanceladoMotivo: "",
     ...partial,
   };
 }

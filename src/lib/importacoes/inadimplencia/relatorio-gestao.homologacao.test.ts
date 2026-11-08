@@ -4,7 +4,18 @@ import path from "node:path";
 import test from "node:test";
 import { extrairTextoLegivelPdf } from "@/lib/importacoes/inadimplencia/extrair-texto-pdf";
 import { interpretarTextoRelatorioInadimplenciaGestao } from "@/lib/importacoes/inadimplencia/interpretar-relatorio-gestao-condominial";
-import { escopoCondominios, escopoUnidades, getCadastros, resetCadastrosParaTestes } from "@/data/catalogo";
+import {
+  condominioResidencialDoMarSeed,
+  unidadesResidencialDoMar,
+} from "@/data/seed-residencial-do-mar";
+import {
+  escopoCondominios,
+  escopoUnidades,
+  getCadastros,
+  resetCadastrosParaTestes,
+  setCondominios,
+  setUnidades,
+} from "@/data/catalogo";
 import { interpretarPlanilhaDebitos } from "@/lib/importacoes/importar-debitos-planilha";
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";
 
@@ -67,6 +78,8 @@ test("homologação Residencial do Mar — reconciliação de subtotais e total 
 
 test("homologação Residencial do Mar — planilha vincula condomínio e unidades do cadastro", () => {
   resetCadastrosParaTestes();
+  setCondominios((current) => [...current, condominioResidencialDoMarSeed]);
+  setUnidades((current) => [...current, ...unidadesResidencialDoMar]);
   const buffer = readFileSync(FIXTURE_PDF);
   const relatorio = interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);

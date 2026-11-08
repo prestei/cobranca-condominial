@@ -312,19 +312,14 @@ Histórico de importação de arquivos: débitos, unidades, responsáveis e outr
 | origem | VARCHAR | sim | | Administradora ou formato. Ex.: Superlógica, PDF |
 | tipo | VARCHAR | não | | debitos, responsaveis, unidades |
 | arquivo | VARCHAR | sim | | Nome ou caminho do arquivo |
-| processo_id | UUID | sim | UNIQUE opcional | Identificador do envio (Ticket 11) |
-| status | VARCHAR | não | | Em processamento, Aguardando conferencia, Aguardando aprovacao, Aprovada, Concluida, Concluida parcialmente, Cancelada, Rejeitada, Falhou (legado: Processando, Erro) |
-| quantidade_registros | INT | sim | | Processados |
+| status | VARCHAR | não | | Processando, Concluida, Erro, Cancelada |
+| quantidade_registros | INT | sim | | |
 | quantidade_importados | INT | sim | | |
 | quantidade_atualizados | INT | sim | | |
-| quantidade_ignorados | INT | sim | | |
 | quantidade_erros | INT | sim | | |
-| observacao_interna | TEXT | sim | | JSON: `hashArquivo`, `formato`, `relatorio`, `resumoInconsistencias`, `resultadoFinanceiro`, `acoes[]` |
-| usuario_id | INT | não | FK → user.id | Quem iniciou |
-| iniciado_em | TIMESTAMP | sim | | Recebimento do arquivo |
-| usuario_aprovacao_id | INT | sim | FK → user.id | Quem aprovou a gravação |
-| aprovado_em | TIMESTAMP | sim | | |
-| data_importacao | TIMESTAMP | não | | Referência de listagem (aprovação ou início) |
+| observacao_interna | TEXT | sim | | JSON opcional: `hashArquivo`, `formato` (ex. `planilha-inadimplencia-v1`), `relatorio` com erros/ignorados |
+| usuario_id | INT | não | FK → user.id | Quem executou a importação |
+| data_importacao | TIMESTAMP | não | | |
 
 ## audit_log
 
@@ -352,11 +347,11 @@ Alertas in-app por colaborador (T34). Protótipo em `NotificacaoInterna` (`catal
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | chave_idempotencia | VARCHAR | não | único | Evita duplicidade por evento |
-| evento | VARCHAR | não | | Ver [notificacoes.md](modulos/notificacoes.md) (T34) |
+| evento | VARCHAR | não | | retorno_agendado, retorno_lembrete_hoje, cobranca_atribuida |
 | destinatario_id | INT | não | FK → user.id | Caixa pessoal |
 | titulo | VARCHAR | não | | |
 | descricao | TEXT | sim | | |
-| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment, unit |
+| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment |
 | registro_id | VARCHAR | não | | ID do registro relacionado |
 | unidade_id | INT | sim | FK → unit.id | Para escopo e deep link |
 | condominio_id | INT | sim | FK → condominium.id | |

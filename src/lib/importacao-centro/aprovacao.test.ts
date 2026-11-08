@@ -99,6 +99,50 @@ test("validarAprovacao exige hash igual ao da prévia e confirmação explícita
   );
 });
 
+test("montarResumoAprovacaoImportacao permite confirmar quando só há duplicados na base", async () => {
+  const conteudo = "Codigo;Valor\nA;1\n";
+  const { preview } = await previewImportacaoCentral(adaptadorTeste, 1, {
+    origem: "Teste",
+    arquivo: "a.csv",
+    conteudo,
+  });
+
+  const resumo = montarResumoAprovacaoImportacao({
+    moduloDestino: "teste",
+    preview: {
+      ...preview,
+      contadores: { ...preview.contadores, novos: 0, atualizacoes: 0, duplicados: 3 },
+      linhas: preview.linhas.map((item) =>
+        item.situacao === "novo"
+          ? { ...item, situacao: "duplicado" as const, mensagem: "já existe" }
+          : item,
+      ),
+    },
+  });
+
+  assert.equal(resumo.seraoGravados, 0);
+  assert.equal(resumo.seraoIgnorados >= 1, true);
+  assert.equal(resumo.podeConfirmar, true);
+});
+
+test("montarResumoAprovacaoImportacao não marca parcial só por duplicados", async () => {
+  const conteudo = "Codigo;Valor\nA;1\nA;2\nB;3\n";
+  const { preview } = await previewImportacaoCentral(adaptadorTeste, 1, {
+    origem: "Teste",
+    arquivo: "dup.csv",
+    conteudo,
+  });
+
+  const resumo = montarResumoAprovacaoImportacao({
+    moduloDestino: "teste",
+    preview,
+  });
+
+  assert.equal(resumo.seraoGravados >= 1, true);
+  assert.equal(resumo.importacaoParcial, false);
+  assert.ok(resumo.seraoIgnorados >= 1);
+});
+
 test("montarResumoAprovacaoImportacao bloqueia quando nada será gravado", async () => {
   const conteudo = "Codigo;Valor\nA;1\n";
   const { preview } = await previewImportacaoCentral(adaptadorTeste, 1, {

@@ -32,10 +32,10 @@ export function DashboardRetornosTable({
       className={
         integrada
           ? "min-w-0 overflow-x-auto overflow-y-hidden border-t border-border-subtle/60 pt-md"
-          : "min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border-subtle"
+          : "overflow-hidden rounded-lg border border-border-subtle"
       }
     >
-      <Table aria-label="Retornos agendados" className="min-w-[36rem]" showExport={false}>
+      <Table aria-label="Retornos agendados" showExport={integrada ? false : undefined}>
         <TableHeader>
           <TableRow className="border-border-subtle/50 hover:bg-transparent">
             <TableHead>Quando</TableHead>

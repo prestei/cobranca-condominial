@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
-import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { SkeletonCardList } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
@@ -19,7 +18,7 @@ export default function NotificacoesPage() {
   const [listaCompleta, setListaCompleta] = useState<NotificacaoUi[]>([]);
 
   const carregarLista = useCallback(async () => {
-    const response = await fetch("/api/notificacoes?limit=100", { credentials: "same-origin" });
+    const response = await fetch("/api/notificacoes?limit=50", { credentials: "same-origin" });
     if (!response.ok) return;
     const payload = (await response.json()) as { notificacoes?: NotificacaoUi[] };
     setListaCompleta(payload.notificacoes ?? []);
@@ -44,8 +43,8 @@ export default function NotificacoesPage() {
   return (
     <WorkspaceShell>
       <PageHeader
-        title="Central de notificações"
-        description="Alertas da sua carteira: atendimentos, retornos, pendências e distribuição. Canais externos (e-mail, SMS, WhatsApp) permanecem desativados."
+        title="Notificações internas"
+        description="Alertas de retornos e distribuição de cobrança. Canais externos (e-mail, SMS, WhatsApp) permanecem desativados."
         actions={
           <Button type="button" size="md" variant="secondary" disabled={naoLidas === 0} onClick={() => void marcarTodasLidas().then(() => carregarLista())}>
             Marcar todas como lidas
@@ -56,11 +55,7 @@ export default function NotificacoesPage() {
         {carregando && listaCompleta.length === 0 ? (
           <SkeletonCardList rows={6} label="Carregando notificações" />
         ) : listaCompleta.length === 0 ? (
-          <EmptyState
-            icon={<Icon icon={Bell} size="lg" />}
-            title="Nenhuma notificação"
-            description="Quando houver movimentação na carteira, retornos ou pendências, os alertas aparecem aqui."
-          />
+          <EmptyState icon={Bell} title="Nenhuma notificação" description="Quando houver retornos ou redistribuições, os alertas aparecem aqui." />
         ) : (
           <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-card">
             {listaCompleta.map((item) => (
@@ -74,10 +69,7 @@ export default function NotificacoesPage() {
                     <p className={`text-body-lg ${item.lidaEm ? "font-medium text-on-surface-variant" : "font-bold text-on-surface"}`}>
                       {item.titulo}
                     </p>
-                    <span className="shrink-0 text-right text-body-sm text-on-surface-variant">
-                      <span className="block">{item.criadoEmFormatado}</span>
-                      <span className="block text-body-xs opacity-80">{item.relativo}</span>
-                    </span>
+                    <span className="shrink-0 text-body-sm text-on-surface-variant">{item.relativo}</span>
                   </div>
                   <p className="text-body-md text-on-surface-variant">{item.descricao}</p>
                 </button>

@@ -14,16 +14,15 @@ import {
 } from "@/data/catalogo";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
 import type { DebitoIndicadores } from "@/lib/debitos/indicadores";
-import { calcularIndicadoresInadimplencia, somarValorAtualizadoSemDuplicata } from "@/lib/debitos/indicadores";
-import { listarDebitos } from "@/lib/debitos/service";
-import { listarFilaCobranca } from "@/lib/fila/service";
+import { somarValorAtualizadoSemDuplicata } from "@/lib/debitos/indicadores";
+import { listarDebitos, obterIndicadoresDebitos } from "@/lib/debitos/service";
+import { resumoFilaCobranca } from "@/lib/fila/service";
 import { listarEncaminhamentosJuridicos } from "@/lib/juridico/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import type { MetaPainelIndicadores } from "@/lib/indicadores/meta";
 import { metaDashboard } from "@/lib/indicadores/meta";
-import type { DashboardPerfil } from "@/lib/perfil-operacional";
-import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
+import { listarRetornosAgenda, type RetornoAgendaItem } from "@/lib/retornos/service";
 import {
   contarIndicadoresOperacionaisAtendente,
   type IndicadoresOperacionaisAtendente,
@@ -34,18 +33,6 @@ import {
   type DashboardGraficosAtendente,
   type GraficoEvolucaoMes,
 } from "@/lib/dashboard/graficos-atendente";
-import { listarRetornosAgenda, type RetornoAgendaItem } from "@/lib/retornos/service";
-import {
-  atendimentoNoRecorte,
-  debitoFiltrosDoDashboard,
-  filtrosDashboardPadrao,
-  metaFiltrosDashboard,
-  normalizarFiltrosDashboard,
-  resolverUnidadesDashboard,
-  type DashboardFiltros,
-  type DashboardFiltrosNorm,
-  validarFiltrosDashboardEscopo,
-} from "@/lib/dashboard/filtros";
 
 export class DashboardServiceError extends Error {
   constructor(
@@ -56,7 +43,7 @@ export class DashboardServiceError extends Error {
   }
 }
 
-export type { DashboardPerfil };
+export type DashboardPerfil = "administradora" | "atendente" | "advogado";
 
 export type DashboardRetornoResumo = {
   atrasados: number;
@@ -117,7 +104,6 @@ type DashboardComum = {
   limiteDias: number;
   cargoNome: string;
   meta: MetaPainelIndicadores;
-  filtrosAplicados: DashboardFiltrosNorm;
 };
 
 export type DashboardAdministradora = DashboardComum & {
@@ -160,6 +146,13 @@ export type DashboardAdvogado = DashboardComum & {
 
 export type DashboardPayload = DashboardAdministradora | DashboardAtendente | DashboardAdvogado;
 
+function resolverPerfil(userId: number): DashboardPerfil {
+  const perm = permissoesDoUsuarioId(userId);
+  if (temPermissao(perm, "usuarios", "criar")) return "administradora";
+  if (temPermissao(perm, "juridico", "ler") && temPermissao(perm, "condominios", "ler")) return "advogado";
+  return "atendente";
+}
+
 function cargoDoUsuario(userId: number) {
   const cadastros = getCadastros();
   const usuario = cadastros.usuarios.find((item) => item.id === userId);
@@ -175,27 +168,17 @@ function periodoUltimos7Dias(hoje: string) {
   return { inicio, fim };
 }
 
-function calcularOperacaoSemana(
-  userId: number,
-  hoje: string,
-  periodo: { inicio: string; fim: string },
-  unidadeIds: Set<number> | null,
-): DashboardOperacaoSemana {
+function calcularOperacaoSemana(userId: number, hoje: string): DashboardOperacaoSemana {
+  const periodo = periodoUltimos7Dias(hoje);
   const atendimentos = listarAtendimentos(userId).filter((item) => {
-    if (!atendimentoNoRecorte(item.unidadeId, unidadeIds)) return false;
     const dia = item.dataHora.slice(0, 10);
-    if (!periodo.inicio && !periodo.fim) return true;
-    if (periodo.inicio && dia < periodo.inicio) return false;
-    if (periodo.fim && dia > periodo.fim) return false;
-    return true;
+    return dia >= periodo.inicio && dia <= periodo.fim;
   });
   const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
   const taxaResposta = atendimentos.length ? (responderam / atendimentos.length) * 100 : null;
   const unidadesContatadas = new Set(atendimentos.map((item) => item.unidadeId)).size;
   const retornosAgenda = listarRetornosAgenda(userId, { estado: "pendente" });
-  const retornosPendentes = unidadeIds
-    ? retornosAgenda.itens.filter((item) => unidadeIds.has(item.unidadeId)).length
-    : retornosAgenda.total;
+  const retornosPendentes = retornosAgenda.total;
 
   const serieMapa = new Map<string, { quantidade: number; respostas: number }>();
   for (const item of atendimentos) {
@@ -338,63 +321,21 @@ function mapRetornoItens(itens: RetornoAgendaItem[], limite = 12): DashboardReto
   }));
 }
 
-function resumoFilaDashboard(
-  userId: number,
-  filaFiltros: { condominioId?: number; situacao?: string; busca?: string },
-  unidadeIds: Set<number> | null,
-) {
-  let lista = listarFilaCobranca(userId, filaFiltros);
-  if (unidadeIds) lista = lista.filter((item) => unidadeIds.has(item.unidadeId));
-  return {
-    emCobranca: lista.length,
-    semResponsavel: lista.filter((item) => !item.codigoRe).length,
-    retornosHoje: lista.filter((item) => item.retornoSituacao === "hoje").length,
-  };
-}
-
-function retornosPendentesDashboard(userId: number, unidadeIds: Set<number> | null) {
+function retornosPendentesDashboard(userId: number) {
   const resultado = listarRetornosAgenda(userId, { estado: "pendente" }, { page: 1, pageSize: 50 });
-  const itensFiltrados = unidadeIds
-    ? resultado.itens.filter((item) => unidadeIds.has(item.unidadeId))
-    : resultado.itens;
-  const itensOrdenados = [...itensFiltrados].sort((a, b) => a.dataPrevista.localeCompare(b.dataPrevista));
-  const resumoFiltrado = {
-    atrasados: itensFiltrados.filter((i) => i.situacaoAgenda === "atrasado").length,
-    hoje: itensFiltrados.filter((i) => i.situacaoAgenda === "hoje").length,
-    proximos: itensFiltrados.filter((i) => i.situacaoAgenda === "semana" || i.situacaoAgenda === "agendado").length,
-    concluidos: resultado.resumo.concluidos,
-  };
+  const itensOrdenados = [...resultado.itens].sort((a, b) => a.dataPrevista.localeCompare(b.dataPrevista));
   return {
-    resumo: unidadeIds
-      ? resumoFiltrado
-      : {
-          atrasados: resultado.resumo.atrasados,
-          hoje: resultado.resumo.hoje,
-          proximos: resultado.resumo.proximos + resultado.resumo.futuros,
-          concluidos: resultado.resumo.concluidos,
-        },
+    resumo: resultado.resumo,
     itens: mapRetornoItens(itensOrdenados),
   };
 }
 
-function indicadoresEscopo(
-  userId: number,
-  filtros: DashboardFiltrosNorm,
-  unidadeIds: Set<number> | null,
-): DebitoIndicadores | null {
+function indicadoresEscopo(userId: number, dataBase: string, limiteDias: number): DebitoIndicadores | null {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "ler")) return null;
   const cadastros = getCadastros();
-  const unidadesCarteira = unidadeIds ? unidadeIds.size : escopoUnidades(cadastros, userId).length;
-  const debitoFiltros = debitoFiltrosDoDashboard(filtros, unidadeIds);
-  let debitos = listarDebitos(userId, debitoFiltros);
-  if (unidadeIds) debitos = debitos.filter((item) => unidadeIds.has(item.unidadeId));
-  return calcularIndicadoresInadimplencia({
-    debitos,
-    dataBase: filtros.dataBase,
-    limiteDias: filtros.limiteDias,
-    unidadesCarteira,
-  });
+  const unidadesCarteira = escopoUnidades(cadastros, userId).length;
+  return obterIndicadoresDebitos(userId, { dataBase, limiteDias, unidadesCarteira, filtros: {} });
 }
 
 function resumoJuridico(userId: number) {
@@ -412,47 +353,28 @@ function resumoJuridico(userId: number) {
   return { total: lista.length, abertos: abertos.length, porStatus };
 }
 
-export function obterDashboard(userId: number, input?: DashboardFiltros): DashboardPayload {
+export function obterDashboard(userId: number, input?: { dataBase?: string; limiteDias?: number }): DashboardPayload {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "dashboard", "ler")) {
     throw new DashboardServiceError("Sem permissão para consultar o dashboard.", 403);
   }
 
+  const dataBase = input?.dataBase?.trim() || hojeIso();
+  const limiteDias =
+    input?.limiteDias != null && Number.isFinite(input.limiteDias) && input.limiteDias >= 1
+      ? input.limiteDias
+      : LIMITE_AMIGAVEL_DIAS;
   const hoje = hojeIso();
-  const periodo = input?.periodo ?? { preset: "7" as const, de: "", ate: "" };
-  const filtrosAplicados = input
-    ? normalizarFiltrosDashboard(input, hoje, periodo)
-    : filtrosDashboardPadrao(hoje);
-
-  validarFiltrosDashboardEscopo(userId, filtrosAplicados);
-  const unidadeIds = resolverUnidadesDashboard(userId, filtrosAplicados);
-
-  const dataBase = filtrosAplicados.dataBase;
-  const limiteDias = filtrosAplicados.limiteDias;
-  const perfil = resolverPerfilOperacional(permissoesDoUsuarioId(userId));
+  const perfil = resolverPerfil(userId);
   const cargoNome = cargoDoUsuario(userId);
-  const metaExtras = metaFiltrosDashboard(filtrosAplicados, userId).slice(2);
-  const comum = {
-    dataBase,
-    limiteDias,
-    cargoNome,
-    meta: metaDashboard(dataBase, limiteDias, metaExtras),
-    filtrosAplicados,
-  };
-
-  const filaFiltros = {
-    condominioId: filtrosAplicados.condominioId,
-    situacao: filtrosAplicados.situacao,
-    busca: filtrosAplicados.busca,
-  };
+  const comum = { dataBase, limiteDias, cargoNome, meta: metaDashboard(dataBase, limiteDias) };
 
   if (perfil === "administradora") {
-    const indicadores = indicadoresEscopo(userId, filtrosAplicados, unidadeIds);
+    const indicadores = indicadoresEscopo(userId, dataBase, limiteDias);
     if (!indicadores) {
       throw new DashboardServiceError("Indicadores de inadimplência indisponíveis para este perfil.", 500);
     }
-    let debitos = debitosAbertosEscopo(userId, dataBase);
-    if (unidadeIds) debitos = debitos.filter((item) => unidadeIds.has(item.unidadeId));
+    const debitos = debitosAbertosEscopo(userId, dataBase);
     const totalAberto = indicadores.totalAtualizado;
     const parteJuridicaPercentual = totalAberto > 0 ? (indicadores.acimaLimite / totalAberto) * 100 : null;
 
@@ -460,9 +382,9 @@ export function obterDashboard(userId: number, input?: DashboardFiltros): Dashbo
       perfil,
       ...comum,
       indicadores,
-      fila: resumoFilaDashboard(userId, filaFiltros, unidadeIds),
-      operacao: calcularOperacaoSemana(userId, hoje, filtrosAplicados.periodoResolvido, unidadeIds),
-      retornos: retornosPendentesDashboard(userId, unidadeIds),
+      fila: resumoFilaCobranca(userId),
+      operacao: calcularOperacaoSemana(userId, hoje),
+      retornos: retornosPendentesDashboard(userId),
       rankingCondominio: rankingCondominios(userId, dataBase, limiteDias).slice(0, 12),
       porGrupo: distribuicaoGrupos(debitos, totalAberto),
       porFaixa: distribuicaoFaixas(debitos, dataBase, totalAberto),
@@ -473,33 +395,26 @@ export function obterDashboard(userId: number, input?: DashboardFiltros): Dashbo
   }
 
   if (perfil === "atendente") {
-    const operacao = calcularOperacaoSemana(userId, hoje, filtrosAplicados.periodoResolvido, unidadeIds);
-    const atendimentosHoje = listarAtendimentos(userId).filter(
-      (item) =>
-        item.dataHora.slice(0, 10) === hoje && atendimentoNoRecorte(item.unidadeId, unidadeIds),
-    ).length;
-    const indicadoresOperacionais = contarIndicadoresOperacionaisAtendente(
-      userId,
-      operacao.periodo,
-      unidadeIds,
-    );
+    const operacao = calcularOperacaoSemana(userId, hoje);
+    const atendimentosHoje = listarAtendimentos(userId).filter((item) => item.dataHora.slice(0, 10) === hoje).length;
+    const indicadoresOperacionais = contarIndicadoresOperacionaisAtendente(userId, operacao.periodo);
     return {
       perfil,
       ...comum,
-      fila: resumoFilaDashboard(userId, filaFiltros, unidadeIds),
+      fila: resumoFilaCobranca(userId),
       atendimentosHoje,
       operacao,
       indicadoresOperacionais,
-      retornos: retornosPendentesDashboard(userId, unidadeIds),
-      indicadores: indicadoresEscopo(userId, filtrosAplicados, unidadeIds),
-      graficos: montarGraficosAtendente(userId, { dataBase, limiteDias }, unidadeIds),
+      retornos: retornosPendentesDashboard(userId),
+      indicadores: indicadoresEscopo(userId, dataBase, limiteDias),
+      graficos: montarGraficosAtendente(userId, { dataBase, limiteDias }),
     };
   }
 
   const cadastros = getCadastros();
   const condominiosEscopo = escopoCondominios(cadastros, userId);
   const retornos =
-    temPermissao(perm, "atendimentos", "ler") ? retornosPendentesDashboard(userId, unidadeIds) : null;
+    temPermissao(perm, "atendimentos", "ler") ? retornosPendentesDashboard(userId) : null;
 
   return {
     perfil: "advogado",
@@ -508,7 +423,7 @@ export function obterDashboard(userId: number, input?: DashboardFiltros): Dashbo
       total: condominiosEscopo.length,
       itens: condominiosEscopo.map((item) => ({ id: item.id, nome: item.nome, status: item.status })),
     },
-    indicadores: indicadoresEscopo(userId, filtrosAplicados, unidadeIds),
+    indicadores: indicadoresEscopo(userId, dataBase, limiteDias),
     rankingCondominio: rankingCondominios(userId, dataBase, limiteDias).slice(0, 10),
     juridico: resumoJuridico(userId),
     retornos,

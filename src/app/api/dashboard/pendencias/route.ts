@@ -5,7 +5,6 @@ import {
   type PendenciaOrdenacao,
   type TipoPendenciaId,
 } from "@/lib/dashboard/central-pendencias-atendente";
-import { parseFiltrosDashboard, resolverUnidadesDashboard } from "@/lib/dashboard/filtros";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -56,9 +55,6 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const pageSize = Math.max(1, Number(searchParams.get("pageSize")) || 10);
 
-  const filtrosDashboard = parseFiltrosDashboard(searchParams);
-  const unidadeIds = resolverUnidadesDashboard(session.userId, filtrosDashboard);
-
   const resultado = listarCentralPendenciasAtendente(session.userId, {
     categoria,
     tipo,
@@ -66,8 +62,6 @@ export async function GET(request: Request) {
     ordem,
     page,
     pageSize,
-    unidadeIds,
-    tipoPendenciaDashboard: filtrosDashboard.tipoPendencia,
   });
 
   return Response.json({ pendencias: resultado });

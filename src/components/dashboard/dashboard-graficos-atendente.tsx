@@ -29,17 +29,10 @@ import {
 } from "@/components/dashboard/dashboard-shared";
 import type { DashboardGraficosAtendente } from "@/lib/dashboard/graficos-atendente";
 import type { FaixaAtrasoDashboardId, SituacaoCarteiraId } from "@/lib/dashboard/graficos-atendente";
-import {
-  queryNavegacaoAtendimentos,
-  queryNavegacaoDebitos,
-  type DashboardFiltrosNorm,
-} from "@/lib/dashboard/filtros";
-
 type Props = {
   dados: DashboardGraficosAtendente;
   dataBase: string;
   chaveGrafico: string;
-  filtrosAplicados?: DashboardFiltrosNorm;
 };
 
 const LINK_SITUACAO: Record<SituacaoCarteiraId, string> = {
@@ -51,10 +44,8 @@ const LINK_SITUACAO: Record<SituacaoCarteiraId, string> = {
   concluido: "/atendimentos?operacional=resolvidos",
 };
 
-export function DashboardGraficosAtendente({ dados, dataBase, chaveGrafico, filtrosAplicados }: Props) {
+export function DashboardGraficosAtendente({ dados, dataBase, chaveGrafico }: Props) {
   const router = useRouter();
-  const qsDebitos = filtrosAplicados ? queryNavegacaoDebitos(filtrosAplicados) : "";
-  const qsAtendimentos = filtrosAplicados ? queryNavegacaoAtendimentos(filtrosAplicados) : "";
   const vazioGrafico = (
     <EmptyState
       icon={<Icon icon={BarChart3} size="lg" />}
@@ -70,28 +61,19 @@ export function DashboardGraficosAtendente({ dados, dataBase, chaveGrafico, filt
   const evolucaoComSaldo = dados.evolucaoMensal.filter((item) => item.saldoAberto > 0 || item.recuperacaoFinanceira > 0);
 
   function abrirFaixa(faixaId: FaixaAtrasoDashboardId) {
-    const base = `faixaAtraso=${faixaId}&dataBase=${dataBase}`;
-    router.push(qsDebitos ? `/debitos?${qsDebitos}&${base}` : `/debitos?${base}`);
+    router.push(`/debitos?faixaAtraso=${faixaId}&dataBase=${dataBase}`);
   }
 
   function abrirCondominio(condominioId: number) {
-    const base = `condominio=${condominioId}&dataBase=${dataBase}`;
-    router.push(qsDebitos ? `/debitos?${qsDebitos}&${base}` : `/debitos?${base}`);
+    router.push(`/debitos?condominio=${condominioId}&dataBase=${dataBase}`);
   }
 
   function abrirSituacao(id: SituacaoCarteiraId) {
-    const destino = LINK_SITUACAO[id];
-    if (!qsAtendimentos) {
-      router.push(destino);
-      return;
-    }
-    const sep = destino.includes("?") ? "&" : "?";
-    router.push(`${destino}${sep}${qsAtendimentos}`);
+    router.push(LINK_SITUACAO[id]);
   }
 
   function abrirMesEvolucao(dataBaseMes: string) {
-    const base = `dataBase=${dataBaseMes}`;
-    router.push(qsDebitos ? `/debitos?${qsDebitos}&${base}` : `/debitos?${base}`);
+    router.push(`/debitos?dataBase=${dataBaseMes}`);
   }
 
   return (
@@ -100,7 +82,7 @@ export function DashboardGraficosAtendente({ dados, dataBase, chaveGrafico, filt
       titulo="Gráficos da carteira"
       descricao={`Inadimplência e distribuição na data-base. ${dados.totais.debitosConsiderados} débito(s) em ${dados.totais.unidadesNaFila} unidade(s) na fila.`}
       linkLabel="Abrir débitos"
-      onLink={() => router.push(qsDebitos ? `/debitos?${qsDebitos}` : "/debitos")}
+      onLink={() => router.push("/debitos")}
     >
       <div className="flex min-w-0 flex-col gap-lg">
       <Grade>

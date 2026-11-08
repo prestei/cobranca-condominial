@@ -12,7 +12,7 @@ import {
   type Unidade,
 } from "@/data/catalogo";
 import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re";
-import { emitirNotificacaoCarteiraTransferida, emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
+import { emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -536,7 +536,6 @@ export function distribuirUnidades(
 
   for (const registro of novosRegistros) {
     emitirNotificacaoCobrancaAtribuida(registro);
-    emitirNotificacaoCarteiraTransferida(registro);
   }
 
   return {

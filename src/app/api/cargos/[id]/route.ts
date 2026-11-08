@@ -3,21 +3,13 @@ import {
   atualizarCargo,
   CargoServiceError,
   excluirCargo,
+  parseCargoInputFromRecord,
   requestMeta,
-  type CargoInput,
 } from "@/lib/cargos/service";
-import { parsePermissoesJson } from "@/lib/permissions/parse";
 
-function parseCargoBody(body: unknown): CargoInput | null {
+function parseCargoBody(body: unknown) {
   if (!body || typeof body !== "object") return null;
-  const record = body as Record<string, unknown>;
-  const nome = typeof record.nome === "string" ? record.nome : "";
-  const descricao = typeof record.descricao === "string" ? record.descricao : "";
-  const permissoes =
-    record.permissoes && typeof record.permissoes === "object"
-      ? parsePermissoesJson(JSON.stringify(record.permissoes))
-      : parsePermissoesJson(typeof record.permissaoJson === "string" ? record.permissaoJson : "{}");
-  return { nome, descricao, permissoes };
+  return parseCargoInputFromRecord(body as Record<string, unknown>);
 }
 
 type RouteContext = { params: Promise<{ id: string }> };

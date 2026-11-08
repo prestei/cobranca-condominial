@@ -80,18 +80,14 @@ export function aguardandoRetornoTerceiro(atendimento: Atendimento): boolean {
   if (atendimento.status !== "Pendente") return false;
   if (atendimento.respondeu === "Não") return true;
   if (!atendimento.dataProximaAcao?.trim()) return false;
-  if (atendimento.retornoConcluidoEm?.trim() || atendimento.retornoCanceladoEm?.trim()) return false;
+  if (atendimento.retornoConcluidoEm?.trim()) return false;
   return true;
 }
 
 /** Situações prioritárias: retorno atrasado ou motivos sensíveis com pendência aberta. */
 export function atendimentoPrecisaAtencao(atendimento: Atendimento, hoje = hojeIso()): boolean {
   if (atendimento.status !== "Pendente") return false;
-  if (
-    atendimento.dataProximaAcao?.trim() &&
-    !atendimento.retornoConcluidoEm?.trim() &&
-    !atendimento.retornoCanceladoEm?.trim()
-  ) {
+  if (atendimento.dataProximaAcao?.trim() && !atendimento.retornoConcluidoEm?.trim()) {
     if (situacaoRetorno(atendimento.dataProximaAcao, hoje) === "atrasado") return true;
   }
   if (atendimento.respondeu === "Sim" && MOTIVOS_ATENCAO.has(atendimento.motivo)) return true;
@@ -152,12 +148,10 @@ export function listarAtendimentosIndicadorOperacional(
 export function contarIndicadoresOperacionaisAtendente(
   userId: number,
   periodo?: { inicio: string; fim: string },
-  unidadeIds?: Set<number> | null,
 ): IndicadoresOperacionaisAtendente {
   const hoje = hojeIso();
   const intervalo = periodo ?? periodoUltimos7Dias(hoje);
-  let lista = atendimentosEscopoCarteira(userId);
-  if (unidadeIds) lista = lista.filter((item) => unidadeIds.has(Number(item.unidadeId)));
+  const lista = atendimentosEscopoCarteira(userId);
   const totais: Record<IndicadorOperacionalAtendenteId, number> = {
     pendentes: 0,
     aguardando_retorno: 0,

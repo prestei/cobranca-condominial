@@ -165,7 +165,10 @@ function importacaoConcluidaComHash(hash: string): boolean {
   return getCadastros().importacoes.some((item) => {
     if (item.tipo !== "debitos" || !importacaoConcluidaOuParcial(item.status)) return false;
     const meta = parseObservacaoImportacao(item.observacaoInterna);
-    return meta.hashArquivo === hash;
+    if (meta.hashArquivo !== hash) return false;
+    const novos = Number.parseInt(item.quantidadeImportados, 10) || 0;
+    const atualizados = Number.parseInt(item.quantidadeAtualizados, 10) || 0;
+    return novos + atualizados > 0;
   });
 }
 
@@ -223,10 +226,17 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
   arquivoJaImportado: importacaoConcluidaComHash,
 
   buscarImportacaoIdempotente(hash) {
-    return getCadastros().importacoes.find((item) => {
-      const metaObs = parseObservacaoImportacao(item.observacaoInterna);
-      return item.tipo === "debitos" && importacaoConcluidaOuParcial(item.status) && metaObs.hashArquivo === hash;
+    const item = getCadastros().importacoes.find((registro) => {
+      const metaObs = parseObservacaoImportacao(registro.observacaoInterna);
+      return (
+        registro.tipo === "debitos" && importacaoConcluidaOuParcial(registro.status) && metaObs.hashArquivo === hash
+      );
     });
+    if (!item) return undefined;
+    const novos = Number.parseInt(item.quantidadeImportados, 10) || 0;
+    const atualizados = Number.parseInt(item.quantidadeAtualizados, 10) || 0;
+    if (novos + atualizados === 0) return undefined;
+    return item;
   },
 
   persistirLinha(payload, situacao, contexto, meta) {
@@ -237,7 +247,13 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
   },
 
   finalizarPersistencia(contexto) {
-    setDebitos(contexto.debitosMutaveis);
+    const idsCondominio = new Set(contexto.condominios.map((item) => item.id));
+    setDebitos((current) => {
+      const foraDoEscopo = current.filter((item) => !idsCondominio.has(item.condominioId));
+      return [...foraDoEscopo, ...contexto.debitosMutaveis].sort(
+        (a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id,
+      );
+    });
   },
 
   montarRegistroImportacao(input) {

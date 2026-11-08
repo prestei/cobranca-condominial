@@ -106,26 +106,11 @@ export default function AtendimentosPage() {
   }, [router, searchParams]);
 
   useEffect(() => {
-    const retornoLegado = searchParams?.get("retorno");
-    if (retornoLegado) {
-      const mapa: Record<string, string> = {
-        hoje: "hoje",
-        atrasado: "atrasado",
-        atrasados: "atrasado",
-        semana: "semana",
-      };
-      const secao = mapa[retornoLegado] ?? "hoje";
-      router.replace(`/minha-agenda?secao=${secao}`);
-      return;
-    }
     const abaLegada = searchParams?.get("aba");
     if (!abaLegada || abaLegada === "fila") return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("aba");
-    if (abaLegada === "retornos") {
-      router.replace("/minha-agenda");
-      return;
-    }
+    if (abaLegada === "retornos") params.set("retorno", "hoje");
     const qs = params.toString();
     router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
   }, [router, searchParams]);

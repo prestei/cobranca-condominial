@@ -60,11 +60,7 @@ const ORDENACAO_OPCOES: { value: PendenciaOrdenacao; label: string }[] = [
 
 const PAGE_PENDENCIAS = 10;
 
-type Props = {
-  filtrosQuery?: string;
-};
-
-export function DashboardCentralPendencias({ filtrosQuery = "" }: Props) {
+export function DashboardCentralPendencias() {
   const router = useRouter();
   const { pode } = usePermissao();
   const cadastros = useCadastros();
@@ -104,8 +100,7 @@ export function DashboardCentralPendencias({ filtrosQuery = "" }: Props) {
       params.set("ordem", ordem);
       params.set("page", String(page));
       params.set("pageSize", String(PAGE_PENDENCIAS));
-      const contexto = filtrosQuery ? `${filtrosQuery}&` : "";
-      const response = await fetch(`/api/dashboard/pendencias?${contexto}${params}`, { credentials: "same-origin" });
+      const response = await fetch(`/api/dashboard/pendencias?${params}`, { credentials: "same-origin" });
       const payload = (await response.json()) as { error?: string; pendencias?: CentralPendenciasResultado };
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível carregar as pendências.");
       setDados(payload.pendencias ?? null);
@@ -115,7 +110,7 @@ export function DashboardCentralPendencias({ filtrosQuery = "" }: Props) {
     } finally {
       setCarregando(false);
     }
-  }, [categoria, filtrosQuery, ordem, ordenacao, page, tipoFiltro]);
+  }, [categoria, ordem, ordenacao, page, tipoFiltro]);
 
   useEffect(() => {
     void recarregar();
@@ -197,7 +192,7 @@ export function DashboardCentralPendencias({ filtrosQuery = "" }: Props) {
             : "Registros que exigem acompanhamento na sua carteira."
         }
         linkLabel="Abrir fila"
-        onLink={() => router.push(filtrosQuery ? `/atendimentos?${filtrosQuery}` : "/atendimentos")}
+        onLink={() => router.push("/atendimentos")}
       >
         <div className="flex flex-col gap-md">
           <div

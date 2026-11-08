@@ -1,8 +1,4 @@
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
-import {
-  DashboardFiltrosError,
-  parseFiltrosDashboard,
-} from "@/lib/dashboard/filtros";
 import { DashboardServiceError, obterDashboard } from "@/lib/dashboard/service";
 
 export async function GET(request: Request) {
@@ -12,15 +8,14 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
+  const dataBase = searchParams.get("dataBase")?.trim();
+  const limiteRaw = Number(searchParams.get("limiteDias"));
+  const limiteDias = Number.isFinite(limiteRaw) && limiteRaw >= 1 ? limiteRaw : undefined;
 
   try {
-    const filtros = parseFiltrosDashboard(searchParams);
-    const dashboard = obterDashboard(session.userId, filtros);
+    const dashboard = obterDashboard(session.userId, { dataBase, limiteDias });
     return Response.json({ dashboard });
   } catch (error) {
-    if (error instanceof DashboardFiltrosError) {
-      return Response.json({ error: error.message }, { status: error.status });
-    }
     if (error instanceof DashboardServiceError) {
       return Response.json({ error: error.message }, { status: error.status });
     }

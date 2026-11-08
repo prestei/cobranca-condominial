@@ -22,7 +22,27 @@ import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilh
 import { assertEscopoGravacaoImportacaoDebitos } from "@/lib/importacoes/permissoes";
 import type { EntradaImportacaoResolvida } from "@/lib/importacoes/resolver-entrada-importacao";
 import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+import type { ContextoImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
 import type { LinhaConferencia, LinhaParseada } from "@/lib/importacao-centro/types";
+
+function prepararContextoConfirmacaoDebitos<TContexto>(
+  adapter: AdaptadorImportacao<unknown, TContexto>,
+  userId: number,
+  entrada: EntradaImportacaoResolvida,
+  overrides?: OverridesConfirmacaoPrevia<unknown, TContexto>,
+): TContexto {
+  const contexto = adapter.prepararContexto(userId);
+  const ctx = contexto as ContextoImportacaoDebitos;
+  const ctxSessao = overrides?.contexto as ContextoImportacaoDebitos | undefined;
+  if (ctxSessao?.formatoDetectado) {
+    ctx.formatoDetectado = ctxSessao.formatoDetectado;
+    ctx.inconsistenciasRelatorio = ctxSessao.inconsistenciasRelatorio ?? [];
+  } else if (entrada.metadadosRelatorio) {
+    ctx.formatoDetectado = entrada.metadadosRelatorio.tipo;
+    ctx.inconsistenciasRelatorio = [...entrada.metadadosRelatorio.inconsistencias];
+  }
+  return contexto;
+}
 
 function arquivoPadrao(nome: string, fallback: string): string {
   const trimmed = nome.trim();
@@ -81,7 +101,9 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
       provisionarCadastrosImportacaoDebitos(matriz, userId, origem, meta);
     }
     const contexto =
-      adapter.modulo === "debitos" ? adapter.prepararContexto(userId) : (overrides?.contexto ?? adapter.prepararContexto(userId));
+      adapter.modulo === "debitos"
+        ? prepararContextoConfirmacaoDebitos(adapter, userId, entrada, overrides as OverridesConfirmacaoPrevia<unknown, TContexto> | undefined)
+        : (overrides?.contexto ?? adapter.prepararContexto(userId));
     if (overrides?.parseadas) {
       const resultadoMotor = aplicarMotorValidacaoImportacao(overrides.parseadas, {
         modulo: adapter.modulo,
@@ -100,7 +122,11 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
       validadas = resultadoMotor.linhas;
       inconsistenciasArquivo = resultadoMotor.inconsistenciasArquivo;
     }
-    linhasConferidas = pipelineConferencia(validadas, adapter, contexto);
+    if (overrides?.linhasConferidas) {
+      linhasConferidas = overrides.linhasConferidas;
+    } else {
+      linhasConferidas = pipelineConferencia(validadas, adapter, contexto);
+    }
 
     const preview = montarPreview({
       hashArquivo,

@@ -12,7 +12,7 @@ const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/acesso-nega
 const REDIRECT_ROTAS_REMOVIDAS: Record<string, string> = {
   "/fila": "/atendimentos",
   "/distribuicao": "/atendimentos",
-  "/retornos": "/minha-agenda",
+  "/retornos": "/atendimentos?retorno=hoje",
 };
 
 function isPublicPath(pathname: string) {

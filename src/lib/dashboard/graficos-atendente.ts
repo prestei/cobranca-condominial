@@ -167,44 +167,15 @@ function somarRecuperacaoFinanceiraNoPeriodo(userId: number, inicio: string, fim
   return total;
 }
 
-function saldoAbertoNaDataFiltrado(
-  userId: number,
-  dataBase: string,
-  limiteDias: number,
-  unidadeIds: Set<number> | null | undefined,
-) {
-  const unidadesCarteira = unidadeIds ? unidadeIds.size : unidadeIdsCarteiraVigente(userId).size;
-  let debitos = debitosCarteiraVigente(userId);
-  if (unidadeIds) debitos = debitos.filter((item) => unidadeIds.has(item.unidadeId));
+function saldoAbertoNaData(userId: number, dataBase: string, limiteDias: number) {
+  const unidadesCarteira = unidadeIdsCarteiraVigente(userId).size;
+  const debitos = debitosCarteiraVigente(userId);
   return calcularIndicadoresInadimplencia({
     debitos,
     dataBase,
     limiteDias,
     unidadesCarteira,
   }).totalAtualizado;
-}
-
-function somarRecuperacaoFinanceiraNoPeriodoFiltrado(
-  userId: number,
-  inicio: string,
-  fim: string,
-  unidadeIds: Set<number> | null | undefined,
-) {
-  const ids = unidadeIds ?? unidadeIdsCarteiraVigente(userId);
-  let total = 0;
-  for (const debito of debitosCarteiraVigente(userId)) {
-    if (!ids.has(debito.unidadeId)) continue;
-    const dia = debito.dataPagamento?.trim().slice(0, 10);
-    if (!dia || !dentro(dia, inicio, fim)) continue;
-    total += Number(debito.valorPago) || Number(debito.valorAtualizado) || 0;
-  }
-  for (const pagamento of getCadastros().pagamentosAcordo) {
-    const dia = pagamento.dataPagamento.slice(0, 10);
-    if (!dia || !dentro(dia, inicio, fim)) continue;
-    if (!ids.has(pagamento.unidadeId)) continue;
-    total += Number(pagamento.valor) || 0;
-  }
-  return total;
 }
 
 function atendimentosUnidade(unidadeId: number): Atendimento[] {
@@ -281,7 +252,8 @@ function distribuicaoFaixas(debitos: Debito[], dataBase: string, total: number):
   });
 }
 
-function distribuicaoSituacaoFiltrada(userId: number, hoje: string, fila: ReturnType<typeof listarFilaCobranca>): GraficoDistribuicaoValor[] {
+function distribuicaoSituacao(userId: number, hoje: string): GraficoDistribuicaoValor[] {
+  const fila = listarFilaCobranca(userId);
   const cadastros = getCadastros();
   const contagens = new Map<SituacaoCarteiraId, number>();
   for (const id of Object.keys(ROTULOS_SITUACAO) as SituacaoCarteiraId[]) {
@@ -306,13 +278,9 @@ function distribuicaoSituacaoFiltrada(userId: number, hoje: string, fila: Return
   });
 }
 
-function inadimplenciaPorCondominioFiltrada(
-  userId: number,
-  dataBase: string,
-  debitos: Debito[],
-  unidadeIds: Set<number> | null | undefined,
-): GraficoCondominioLinha[] {
+function inadimplenciaPorCondominio(userId: number, dataBase: string): GraficoCondominioLinha[] {
   const cadastros = getCadastros();
+  const debitos = debitosAbertosCarteira(userId, dataBase);
   const idsCondominio = new Set(debitos.map((item) => item.condominioId));
   const idsCarteira = unidadeIdsCarteiraVigente(userId);
 
@@ -336,24 +304,18 @@ function inadimplenciaPorCondominioFiltrada(
     .sort((a, b) => b.valorAtualizado - a.valorAtualizado);
 }
 
-export function evolucaoCarteiraMensalFiltrada(
-  userId: number,
-  dataBase: string,
-  limiteDias: number,
-  unidadeIds: Set<number> | null | undefined,
-): GraficoEvolucaoMes[] {
+function evolucaoCarteiraMensal(userId: number, dataBase: string, limiteDias: number): GraficoEvolucaoMes[] {
   const meses = mesesEvolucaoAteDataBase(dataBase);
   let saldoAnterior: number | null = null;
   return meses.map((mes) => {
     const fimMes = ultimoDiaMes(mes);
     const inicioMes = primeiroDiaMes(mes);
     const dataRef = fimMes > dataBase ? dataBase : fimMes;
-    const saldoAberto = saldoAbertoNaDataFiltrado(userId, dataRef, limiteDias, unidadeIds);
-    const recuperacaoFinanceira = somarRecuperacaoFinanceiraNoPeriodoFiltrado(
+    const saldoAberto = saldoAbertoNaData(userId, dataRef, limiteDias);
+    const recuperacaoFinanceira = somarRecuperacaoFinanceiraNoPeriodo(
       userId,
       inicioMes,
       fimMes > dataBase ? dataBase : fimMes,
-      unidadeIds,
     );
     const variacaoSaldo = saldoAnterior != null ? saldoAberto - saldoAnterior : null;
     saldoAnterior = saldoAberto;
@@ -371,23 +333,20 @@ export function evolucaoCarteiraMensalFiltrada(
 export function montarGraficosAtendente(
   userId: number,
   input: { dataBase: string; limiteDias: number },
-  unidadeIds?: Set<number> | null,
 ): DashboardGraficosAtendente | null {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "ler")) return null;
 
   const hoje = hojeIso();
-  let debitos = debitosAbertosCarteira(userId, input.dataBase);
-  if (unidadeIds) debitos = debitos.filter((item) => unidadeIds.has(item.unidadeId));
+  const debitos = debitosAbertosCarteira(userId, input.dataBase);
   const totalAtualizado = somarValorAtualizadoSemDuplicata(debitos);
-  let fila = listarFilaCobranca(userId);
-  if (unidadeIds) fila = fila.filter((item) => unidadeIds.has(item.unidadeId));
+  const fila = listarFilaCobranca(userId);
 
   return {
     faixasAtraso: distribuicaoFaixas(debitos, input.dataBase, totalAtualizado),
-    porSituacao: distribuicaoSituacaoFiltrada(userId, hoje, fila),
-    porCondominio: inadimplenciaPorCondominioFiltrada(userId, input.dataBase, debitos, unidadeIds),
-    evolucaoMensal: evolucaoCarteiraMensalFiltrada(userId, input.dataBase, input.limiteDias, unidadeIds),
+    porSituacao: distribuicaoSituacao(userId, hoje),
+    porCondominio: inadimplenciaPorCondominio(userId, input.dataBase),
+    evolucaoMensal: evolucaoCarteiraMensal(userId, input.dataBase, input.limiteDias),
     totais: {
       debitosConsiderados: debitos.length,
       unidadesNaFila: fila.length,

@@ -17,7 +17,6 @@ import {
   NotificacaoServiceError,
   obterNotificacaoParaAbrir,
   atualizarPreferenciasNotificacao,
-  processarAlertasRetornoCarteira,
   processarLembretesRetornoHoje,
   reprocessarEventoRetornoAgendado,
   resetPreferenciasNotificacaoTestes,
@@ -73,70 +72,6 @@ describe("T34 — redistribuição", () => {
     assert.equal(notifs[0]?.destinatarioId, ATENDENTE_TASSIA_ID);
     assert.equal(notifs[0]?.unidadeId, 2);
   });
-
-  test("notifica o atendente anterior na transferência", () => {
-    distribuirUnidades(ADMIN_ID, {
-      unidadeIds: [2],
-      codigoRe: "RE-10001",
-      motivo: "T34 transferência",
-    });
-
-    const transferidas = getCadastros().notificacoesInternas.filter((item) => item.evento === "carteira_transferida");
-    assert.equal(transferidas.length, 1);
-    assert.equal(transferidas[0]?.destinatarioId, ATENDENTE_RAQUEL_ID);
-  });
-});
-
-describe("T34 — atendimento atribuído", () => {
-  test("admin registra atendimento na carteira de outro colaborador", () => {
-    criarAtendimento(ADMIN_ID, {
-      condominioId: 1,
-      unidadeId: 2,
-      responsavelId: 2,
-      canal: "Telefone",
-      respondeu: "Não",
-      assunto: "T34 atribuído",
-      descricao: "Contato",
-      status: "Pendente",
-      dataProximaAcao: "",
-      proximaAcao: "",
-    });
-
-    const atribuido = getCadastros().notificacoesInternas.filter((item) => item.evento === "atendimento_atribuido");
-    assert.equal(atribuido.length, 1);
-    assert.equal(atribuido[0]?.destinatarioId, ATENDENTE_RAQUEL_ID);
-  });
-});
-
-describe("T34 — alertas de retorno", () => {
-  test("retorno na semana gera alerta de proximidade (idempotente por dia)", () => {
-    const hoje = hojeEmFuso();
-    const alvo = new Date(`${hoje}T12:00:00`);
-    alvo.setDate(alvo.getDate() + 3);
-    const dataRetorno = alvo.toISOString().slice(0, 10);
-
-    criarAtendimento(ATENDENTE_RAQUEL_ID, {
-      condominioId: 1,
-      unidadeId: 2,
-      responsavelId: 2,
-      canal: "Telefone",
-      respondeu: "Não",
-      assunto: "T34 próximo",
-      descricao: "",
-      status: "Pendente",
-      dataProximaAcao: `${dataRetorno}T10:00:00`,
-      proximaAcao: "Retorno",
-    });
-
-    processarAlertasRetornoCarteira();
-    const proximos = getCadastros().notificacoesInternas.filter((item) => item.evento === "retorno_proximo");
-    assert.ok(proximos.length >= 1);
-    processarAlertasRetornoCarteira();
-    assert.equal(
-      getCadastros().notificacoesInternas.filter((item) => item.evento === "retorno_proximo").length,
-      proximos.length,
-    );
-  });
 });
 
 describe("T34 — permissões e leitura", () => {
@@ -158,11 +93,8 @@ describe("T34 — permissões e leitura", () => {
     const [primeira] = listarNotificacoes(ATENDENTE_RAQUEL_ID, { limit: 1 });
     assert.ok(primeira);
 
-    const antesMarcar = contarNotificacoesNaoLidas(ATENDENTE_RAQUEL_ID);
     marcarNotificacaoLida(ATENDENTE_RAQUEL_ID, primeira.id);
-    const relida = getCadastros().notificacoesInternas.find((item) => item.id === primeira.id);
-    assert.ok(relida?.lidaEm);
-    assert.ok(contarNotificacoesNaoLidas(ATENDENTE_RAQUEL_ID) < antesMarcar);
+    assert.equal(contarNotificacoesNaoLidas(ATENDENTE_RAQUEL_ID), 0);
   });
 
   test("registro fora do escopo ao abrir notificação de outro destinatário", () => {

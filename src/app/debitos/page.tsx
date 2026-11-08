@@ -100,7 +100,6 @@ import {
 } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
-import { querySessaoParaDebitos } from "@/lib/dashboard/filtros-favoritos";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
 import {
@@ -269,10 +268,6 @@ export default function DebitosPage() {
   useEffect(() => {
     if (!searchParams) return;
     if (!searchParams.toString()) {
-      const herdado = querySessaoParaDebitos();
-      if (herdado) {
-        router.replace(`/debitos?${herdado}`);
-      }
       return;
     }
     const params = new URLSearchParams(searchParams.toString());

@@ -27,6 +27,7 @@ export type ResumoAprovacaoImportacao = {
   seraoAtualizados: number;
   seraoNovos: number;
   seraoGravados: number;
+  exclusoesPorProblema: number;
   totalFinanceiro?: TotalFinanceiroResumoAprovacao;
   importacaoParcial: boolean;
   permitirImportacaoParcial: boolean;
@@ -74,6 +75,32 @@ function contarIgnoradosConferencia(
   return total;
 }
 
+/** Linhas que não serão gravadas por erro, revisão ou decisão — duplicatas já na base não contam como parcial. */
+function contarExclusoesPorProblema(
+  linhas: LinhaConferencia[],
+  ignoradas: ReadonlySet<number> | undefined,
+): number {
+  let total = 0;
+  for (const item of linhas) {
+    if (ignoradas?.has(item.linha)) {
+      total += 1;
+      continue;
+    }
+    if (item.situacao === "erro" || item.validacao?.resultado === "erro") {
+      total += 1;
+      continue;
+    }
+    if (
+      item.situacao === "ignorado" ||
+      item.situacao === "revisao" ||
+      item.situacao === "manual_protegido"
+    ) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
 function contarNovosAtualizacoes(
   linhas: LinhaConferencia[],
   ignoradas: ReadonlySet<number> | undefined,
@@ -109,14 +136,13 @@ export function montarResumoAprovacaoImportacao(params: {
   const { novos, atualizacoes } = contarNovosAtualizacoes(params.preview.linhas, ignoradas);
   const seraoGravados = novos + atualizacoes;
   const seraoIgnorados = contarIgnoradosConferencia(params.preview.linhas, ignoradas);
+  const exclusoesPorProblema = contarExclusoesPorProblema(params.preview.linhas, ignoradas);
 
   const errosArquivo = errosBloqueantesArquivo(params.preview.inconsistenciasArquivo ?? []);
   const errosBloqueantes = [...errosArquivo];
 
   const importacaoParcial =
-    politica.permitirImportacaoParcial &&
-    seraoGravados > 0 &&
-    (contagens.erros > 0 || seraoIgnorados > 0);
+    politica.permitirImportacaoParcial && seraoGravados > 0 && exclusoesPorProblema > 0;
 
   let totalFinanceiro: TotalFinanceiroResumoAprovacao | undefined;
   if (politica.suportaTotalFinanceiro && seraoGravados > 0) {
@@ -136,9 +162,11 @@ export function montarResumoAprovacaoImportacao(params: {
         : "O arquivo contém erros impeditivos que precisam ser corrigidos antes da gravação.";
   } else if (params.preview.arquivoJaImportado) {
     podeConfirmar = true;
+  } else if (seraoGravados === 0 && seraoIgnorados > 0 && exclusoesPorProblema === 0) {
+    podeConfirmar = true;
   } else if (seraoGravados === 0) {
     motivoBloqueio = "Nenhum registro será gravado. Corrija o arquivo ou cancele a importação.";
-  } else if (!politica.permitirImportacaoParcial && (contagens.erros > 0 || seraoIgnorados > 0)) {
+  } else if (!politica.permitirImportacaoParcial && exclusoesPorProblema > 0) {
     motivoBloqueio = "Este módulo não permite importação parcial; corrija todos os registros antes de confirmar.";
   } else {
     podeConfirmar = true;
@@ -146,9 +174,13 @@ export function montarResumoAprovacaoImportacao(params: {
 
   const mensagemImpacto = params.preview.arquivoJaImportado
     ? "Este arquivo já foi importado. Uma nova confirmação não duplicará registros já gravados."
-    : importacaoParcial
-      ? `${seraoGravados} registro(s) serão gravados; ${contagens.erros + seraoIgnorados} ficarão de fora nesta operação.`
-      : `${seraoGravados} registro(s) serão gravados no módulo de destino (${params.moduloDestino}).`;
+    : seraoGravados === 0 && seraoIgnorados > 0 && exclusoesPorProblema === 0
+      ? "Todos os registros deste arquivo já existem na base. Você pode seguir para registrar a conferência sem gravar duplicatas."
+      : importacaoParcial
+      ? `${seraoGravados} registro(s) serão gravados; ${exclusoesPorProblema} ficarão de fora nesta operação por erro ou decisão de conferência.`
+      : seraoIgnorados > 0
+        ? `${seraoGravados} registro(s) serão gravados; ${seraoIgnorados} duplicado(s) ou já existente(s) serão ignorados.`
+        : `${seraoGravados} registro(s) serão gravados no módulo de destino (${params.moduloDestino}).`;
 
   return {
     moduloDestino: params.moduloDestino,
@@ -164,6 +196,7 @@ export function montarResumoAprovacaoImportacao(params: {
     seraoAtualizados: atualizacoes,
     seraoNovos: novos,
     seraoGravados,
+    exclusoesPorProblema,
     totalFinanceiro,
     importacaoParcial,
     permitirImportacaoParcial: politica.permitirImportacaoParcial,

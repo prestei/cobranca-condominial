@@ -247,6 +247,8 @@ type TableProps = TableHTMLAttributes<HTMLTableElement> & {
   onImport?: () => void;
   showImport?: boolean;
   importDisabled?: boolean;
+  /** Preenche a largura do container sem scroll horizontal (ex.: listagem de cargos). */
+  fitContainer?: boolean;
 };
 
 export function Table({
@@ -258,6 +260,7 @@ export function Table({
   onImport,
   showImport = false,
   importDisabled,
+  fitContainer = false,
   ...props
 }: TableProps) {
   return (
@@ -271,10 +274,10 @@ export function Table({
         />
       ) : null}
       <div
-        className={`min-w-0 w-full overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card ${containerClassName ?? ""}`}
+        className={`min-w-0 w-full rounded-lg border border-border-subtle bg-surface-card shadow-card ${fitContainer ? "overflow-x-hidden" : "overflow-x-auto"} ${containerClassName ?? ""}`}
       >
         <table
-          className={`w-full min-w-max border-collapse text-left text-body-md ${className ?? ""}`}
+          className={`w-full border-collapse text-left text-body-md ${fitContainer ? "min-w-0 table-fixed" : "min-w-max"} ${className ?? ""}`}
           {...props}
         >
           {children}

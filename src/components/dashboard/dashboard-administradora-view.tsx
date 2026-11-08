@@ -1,37 +1,41 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   BarChart3,
   Building2,
   CalendarClock,
   ClipboardList,
+  Clock,
   MessageCircle,
   Phone,
   Scale,
   Users,
   Wallet,
 } from "lucide-react";
-import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
-import { CardMetricRow } from "@/components/card-metric-row";
-import { GraficoColunas, GraficoMisto } from "@/components/charts";
+import {
+  GraficoBarras,
+  GraficoColunas,
+  GraficoEmpilhado,
+  GraficoRosca,
+  tomPorIndice,
+} from "@/components/charts";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { formatarData } from "@/data/catalogo";
 import type { DashboardAdministradora } from "@/lib/dashboard/service";
 import {
-  AlertaPrioridade,
-  DashboardLayout,
+  SecaoBloco,
   Grade,
-  ListaValorCompacta,
-  PainelGrafico,
+  SubPainel,
+  Leitura,
   dinheiro,
   percentual,
   diaCurto,
 } from "@/components/dashboard/dashboard-shared";
 import { DashboardRetornosTable } from "@/components/dashboard/dashboard-retornos-table";
-import { formatarData } from "@/data/catalogo";
 
 type Props = {
   dados: DashboardAdministradora;
@@ -42,293 +46,274 @@ type Props = {
 export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
   const router = useRouter();
   const ind = dados.indicadores;
-  const mesAtual = dados.dataBase.slice(0, 7);
-  const recuperacaoMes =
-    dados.evolucaoMensal.find((linha) => linha.mes === mesAtual)?.recuperacaoFinanceira ?? 0;
-  const atrasados = dados.retornos.resumo.atrasados;
-  const vazioGrafico = (
-    <EmptyState
-      icon={<Icon icon={BarChart3} size="lg" />}
-      title="Sem dados"
-      description="Não há valores para exibir no período selecionado."
-    />
+  const grupoLider = useMemo(
+    () => [...dados.porGrupo].sort((a, b) => b.valor - a.valor)[0],
+    [dados.porGrupo],
+  );
+  const faixaLider = useMemo(
+    () => [...dados.porFaixa].sort((a, b) => b.valor - a.valor)[0],
+    [dados.porFaixa],
   );
 
-  const serieResumo = dados.operacao.serie.map((linha) => ({
-    nome: diaCurto(linha.dia),
-    barra: linha.quantidade,
-    linha: linha.respostas,
-    rotuloBarra: String(linha.quantidade),
-    rotuloLinha: String(linha.respostas),
-  }));
+  const vazioGrafico = (
+    <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Sem dados" description="Não há valores para exibir no momento." />
+  );
 
   return (
-    <DashboardLayout>
-      {atrasados > 0 ? (
-        <AlertaPrioridade
-          titulo="Retornos atrasados"
-          acaoLabel="Abrir agenda"
-          onAcao={() => router.push("/minha-agenda?secao=atrasado")}
-        >
-          Há {atrasados} retorno{atrasados === 1 ? "" : "s"} em atraso na equipe. Priorize o acompanhamento.
-        </AlertaPrioridade>
+    <>
+      {ind.totalAtualizado > 0 ? (
+        <Leitura>
+          Em aberto: {dinheiro(ind.totalAtualizado)} (valores de {formatarData(dados.dataBase)}).{" "}
+          {percentual(ind.percentualUnidades)} das unidades estão devendo.
+          {grupoLider && grupoLider.valor > 0
+            ? ` A maior parte vem de ${grupoLider.nome} (${percentual(grupoLider.percentual)}).`
+            : ""}
+          {percentual(dados.parteJuridicaPercentual)} do valor está com mais de {dados.limiteDias} dias sem pagar. Na semana:{" "}
+          {dados.operacao.contatos} contato{dados.operacao.contatos === 1 ? "" : "s"},{" "}
+          {percentual(dados.operacao.taxaResposta)} com retorno do morador (referência operacional, não oficial). Fila:{" "}
+          {dados.fila.emCobranca} em cobrança
+          {dados.fila.semResponsavel > 0 ? `, ${dados.fila.semResponsavel} sem RE` : ""}.
+        </Leitura>
       ) : null}
 
-      <section aria-label="Indicadores principais">
-        <CardMetricRow aria-label="KPIs da carteira" desktopCols={4}>
+      <SecaoBloco
+        selo="Carteira"
+        titulo="Inadimplência"
+        descricao={`Situação de ${formatarData(dados.dataBase)}.`}
+        linkLabel="Mais detalhes"
+        onLink={() => router.push("/relatorios?relatorio=carteira")}
+      >
+        <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
-            rotulo="Em aberto"
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={Wallet} size="md" className="text-brass" />}
+            rotulo="Total em aberto"
             valor={dinheiro(ind.totalAtualizado)}
-            detalhe={`${ind.quantidadeEmAberto} débitos · ${ind.unidadesDevedoras} unidades`}
-            onClick={() => router.push("/debitos")}
-            ariaLabel={`Em aberto: ${dinheiro(ind.totalAtualizado)}. Ver débitos.`}
+            detalhe="Valores persistidos (importação ou manual)."
           />
           <CardMetric
-            accent="critical"
-            iconClassName="bg-error-container text-status-critical"
-            icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
-            rotulo={`Acima de ${dados.limiteDias} dias`}
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Wallet} size="md" />}
+            rotulo="Sem juros nem multa"
+            valor={dinheiro(ind.totalOriginal)}
+            detalhe="Valor original das cobranças."
+          />
+          <CardMetric
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Clock} size="md" />}
+            rotulo={`Atraso de até ${dados.limiteDias} dias`}
+            valor={dinheiro(ind.ateLimite)}
+            detalhe="Contas mais recentes."
+          />
+          <CardMetric
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Scale} size="md" />}
+            rotulo={`Mais de ${dados.limiteDias} dias sem pagar`}
             valor={dinheiro(ind.acimaLimite)}
-            detalhe={
-              ind.totalAtualizado > 0
-                ? `${percentual((ind.acimaLimite / ind.totalAtualizado) * 100)} do total`
-                : undefined
-            }
-            onClick={() => router.push("/debitos")}
-            ariaLabel={`Acima de ${dados.limiteDias} dias: ${dinheiro(ind.acimaLimite)}.`}
+            detalhe="Contas mais antigas."
           />
           <CardMetric
-            accent={atrasados > 0 ? "critical" : "brass"}
-            iconClassName={
-              atrasados > 0 ? "bg-error-container text-status-critical" : "bg-gold-subtle text-brass"
-            }
-            icon={
-              <Icon
-                icon={AlertTriangle}
-                size="md"
-                className={atrasados > 0 ? "text-status-critical" : "text-brass"}
-              />
-            }
-            rotulo="Retornos atrasados"
-            valor={atrasados}
-            detalhe={`${dados.retornos.resumo.hoje} para hoje`}
-            onClick={() => router.push("/minha-agenda?secao=atrasado")}
-            ariaLabel={`Retornos atrasados: ${atrasados}.`}
+            iconClassName="bg-gold-subtle text-brass"
+            icon={<Icon icon={Building2} size="md" className="text-brass" />}
+            rotulo="Unidades devendo"
+            valor={percentual(ind.percentualUnidades)}
+            detalhe={`${ind.unidadesDevedoras} unidades com débito em aberto.`}
           />
           <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={ClipboardList} size="md" className="text-tertiary-container" />}
-            rotulo="Na fila"
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={ClipboardList} size="md" />}
+            rotulo="Cobranças ativas"
             valor={dados.fila.emCobranca}
-            detalhe={
-              dados.fila.semResponsavel > 0
-                ? `${dados.fila.semResponsavel} sem RE`
-                : `${dados.fila.retornosHoje} retorno hoje`
-            }
-            onClick={() => router.push("/atendimentos?aba=fila")}
-            ariaLabel={`Na fila: ${dados.fila.emCobranca}.`}
+            detalhe={`${dados.fila.retornosHoje} retorno${dados.fila.retornosHoje === 1 ? "" : "s"} previsto${dados.fila.retornosHoje === 1 ? "" : "s"} para hoje.`}
           />
-        </CardMetricRow>
-      </section>
+        </div>
 
-      <div className="grid grid-cols-1 gap-md min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
-        <PainelGrafico
-          titulo="Operação do período"
-          descricao={`${formatarData(dados.operacao.periodo.inicio)} a ${formatarData(dados.operacao.periodo.fim)} · contatos e respostas reais.`}
-        >
-          <GraficoMisto
-            chave={`${chaveGrafico}-operacao`}
-            vazio={vazioGrafico}
-            barras={{ nome: "Contatos", tom: "settled" }}
-            linha={{ nome: "Respostas", tom: "navy" }}
-            itens={serieResumo}
-          />
-        </PainelGrafico>
+        <Grade>
+          <SubPainel titulo="Atraso recente x antigo" nota={`Quanto está com até ou com mais de ${dados.limiteDias} dias.`}>
+            <GraficoRosca
+              chave={chaveGrafico}
+              vazio={vazioGrafico}
+              centro={percentual(dados.parteJuridicaPercentual)}
+              legenda={`+${dados.limiteDias} dias`}
+              fatias={[
+                {
+                  nome: `Até ${dados.limiteDias} dias`,
+                  valor: ind.ateLimite,
+                  detalhe: dinheiro(ind.ateLimite),
+                  tom: "brass",
+                },
+                {
+                  nome: `Acima de ${dados.limiteDias} dias`,
+                  valor: ind.acimaLimite,
+                  detalhe: dinheiro(ind.acimaLimite),
+                  tom: "navy",
+                },
+              ]}
+            />
+          </SubPainel>
+          <SubPainel titulo="Tipo de cobrança" nota="Condomínio, taxa extra, acordo e outros.">
+            <GraficoRosca
+              chave={`${chaveGrafico}-grupos`}
+              vazio={vazioGrafico}
+              centro={grupoLider && grupoLider.valor > 0 ? percentual(grupoLider.percentual) : "—"}
+              legenda="maior parte"
+              fatias={dados.porGrupo
+                .filter((linha) => linha.valor > 0)
+                .map((linha, indice) => ({
+                  nome: linha.nome,
+                  valor: linha.valor,
+                  detalhe: `${dinheiro(linha.valor)} · ${percentual(linha.percentual)}`,
+                  tom: tomPorIndice(indice),
+                }))}
+            />
+          </SubPainel>
+        </Grade>
 
-        <PainelGrafico
-          titulo="Recuperação mensal"
-          descricao={`Este mês: ${dinheiro(recuperacaoMes)} confirmados.`}
-        >
-          <GraficoColunas
-            chave={`${chaveGrafico}-evolucao`}
+        <Grade>
+          <SubPainel titulo="Há quanto tempo está devendo">
+            <GraficoColunas
+              chave={`${chaveGrafico}-faixas`}
+              vazio={vazioGrafico}
+              itens={dados.porFaixa.map((linha) => ({
+                nome: linha.nome,
+                valor: linha.valor,
+                rotulo: percentual(linha.percentual),
+                tom: faixaLider && linha.nome === faixaLider.nome ? "brass" : "navy",
+              }))}
+            />
+          </SubPainel>
+          <SubPainel titulo="Condomínios com mais débito">
+            <GraficoBarras
+              chave={`${chaveGrafico}-ranking`}
+              vazio={vazioGrafico}
+              itens={dados.rankingCondominio.map((linha) => ({
+                nome: linha.nome,
+                valor: linha.valor,
+                detalhe: `${dinheiro(linha.valor)} · ${linha.unidadesDevedoras} de ${linha.unidadesTotal} unidades devendo`,
+              }))}
+            />
+          </SubPainel>
+        </Grade>
+
+        <SubPainel titulo="Por advogado responsável">
+          <GraficoEmpilhado
+            chave={`${chaveGrafico}-adv`}
             vazio={vazioGrafico}
-            itens={dados.evolucaoMensal.map((linha) => ({
-              nome: linha.mesRotulo,
-              valor: linha.recuperacaoFinanceira,
-              rotulo: dinheiro(linha.recuperacaoFinanceira),
-              tom: linha.mes === mesAtual ? ("navy" as const) : ("mist" as const),
+            itens={dados.porAdvogado.map((linha) => ({
+              nome: linha.nome,
+              ate: linha.ateLimite,
+              acima: linha.acimaLimite,
+              detalhe: dinheiro(linha.valor),
             }))}
           />
-          <p className="mt-sm flex flex-wrap gap-md text-body-sm text-on-surface-variant">
-            <span className="inline-flex items-center gap-xs">
-              <span className="size-2.5 rounded-full bg-inverse-primary" />
-              Meses anteriores
-            </span>
-            <span className="inline-flex items-center gap-xs">
-              <span className="size-2.5 rounded-full bg-primary-container" />
-              Mês atual
-            </span>
-          </p>
-        </PainelGrafico>
-      </div>
+        </SubPainel>
+      </SecaoBloco>
 
-      <section aria-label="Indicadores do período" className="flex flex-col gap-md">
-        <h2 className="text-headline-sm text-on-surface">Indicadores do período</h2>
-        <CardMetricRow aria-label="Operação e carteira" desktopCols={4}>
+      <SecaoBloco
+        selo="Equipe"
+        titulo="Últimos 7 dias"
+        descricao={`De ${formatarData(dados.operacao.periodo.inicio)} a ${formatarData(dados.operacao.periodo.fim)}.`}
+        linkLabel="Mais detalhes"
+        onLink={() => router.push("/relatorios?relatorio=equipe")}
+      >
+        <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-2">
           <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={Phone} size="md" className="text-tertiary-container" />}
-            rotulo="Contatos"
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={Phone} size="md" />}
+            rotulo="Contatos feitos"
             valor={dados.operacao.contatos}
-            detalhe={`${dados.operacao.unidadesContatadas} unidades`}
-            onClick={() => router.push("/relatorios?relatorio=equipe")}
-            ariaLabel={`Contatos: ${dados.operacao.contatos}.`}
+            detalhe="Ligações, WhatsApp e outros na semana."
           />
           <CardMetric
-            accent="brass"
             iconClassName="bg-gold-subtle text-brass"
             icon={<Icon icon={MessageCircle} size="md" className="text-brass" />}
-            rotulo="Taxa de resposta"
+            rotulo="Morador respondeu (ref.)"
             valor={percentual(dados.operacao.taxaResposta)}
             detalhe={
               dados.operacao.contatos > 0
-                ? `${dados.operacao.responderam} de ${dados.operacao.contatos}`
-                : "Sem contatos no período"
+                ? `${dados.operacao.responderam} de ${dados.operacao.contatos} contatos. Indicador não oficial.`
+                : "Nenhum contato no período."
             }
           />
           <CardMetric
             iconClassName="bg-surface-subtle text-on-surface-variant"
             icon={<Icon icon={Users} size="md" />}
-            rotulo="Unidades contatadas"
+            rotulo="Unidades ligadas"
             valor={dados.operacao.unidadesContatadas}
-          />
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={Building2} size="md" className="text-primary-container" />}
-            rotulo="Unidades inadimplentes"
-            valor={percentual(ind.percentualUnidades)}
-            detalhe={`${ind.unidadesDevedoras} unidades`}
-            onClick={() => router.push("/debitos")}
-            ariaLabel={`Unidades inadimplentes: ${percentual(ind.percentualUnidades)}.`}
-          />
-          <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={Wallet} size="md" className="text-tertiary-container" />}
-            rotulo={`Até ${dados.limiteDias} dias`}
-            valor={dinheiro(ind.ateLimite)}
-            detalhe="Faixa amigável"
-            onClick={() => router.push("/debitos")}
-          />
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={CalendarClock} size="md" className="text-brass" />}
-            rotulo="Retornos pendentes"
-            valor={dados.operacao.retornosPendentes}
-            detalhe={`${dados.retornos.resumo.proximos} próximos`}
-            onClick={() => router.push("/minha-agenda")}
+            detalhe="Cada unidade conta uma vez."
           />
           <CardMetric
             iconClassName="bg-surface-subtle text-on-surface-variant"
-            icon={<Icon icon={ClipboardList} size="md" />}
-            rotulo="Sem responsável"
-            valor={dados.fila.semResponsavel}
-            detalhe="Unidades na fila sem RE"
-            onClick={() => router.push("/atendimentos?aba=fila")}
+            icon={<Icon icon={CalendarClock} size="md" />}
+            rotulo="Lembretes em aberto"
+            valor={dados.operacao.retornosPendentes}
+            detalhe="Atrasados, de hoje ou desta semana."
           />
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={Wallet} size="md" className="text-primary-container" />}
-            rotulo="Recuperado no mês"
-            valor={dinheiro(recuperacaoMes)}
-            detalhe="Pagamentos confirmados"
-          />
-        </CardMetricRow>
-      </section>
-
-      <Grade>
-        <PainelGrafico titulo="Inadimplência por faixa" descricao="Valor atualizado em aberto na data-base.">
-          <GraficoColunas
-            chave={`${chaveGrafico}-faixas`}
-            vazio={vazioGrafico}
-            itens={dados.porFaixa.map((linha, indice) => ({
-              nome: linha.nome,
-              valor: linha.valor,
-              rotulo: dinheiro(linha.valor),
-              tom: indice === dados.porFaixa.length - 1 ? ("critical" as const) : ("navy" as const),
-            }))}
-          />
-        </PainelGrafico>
-
-        <PainelGrafico titulo="Maiores saldos" descricao="Condomínios com mais valor em aberto.">
-          <ListaValorCompacta
-            integrada
-            limite={6}
-            itens={dados.rankingCondominio.map((linha) => ({
-              chave: String(linha.condominioId),
-              nome: linha.nome,
-              valor: dinheiro(linha.valor),
-              secundario: `${linha.unidadesDevedoras}/${linha.unidadesTotal} unidades`,
-            }))}
-            vazio="Nenhum débito em aberto na carteira."
-          />
-          <div className="mt-md">
-            <button
-              type="button"
-              className="text-body-sm font-semibold text-primary-container hover:underline"
-              onClick={() => router.push("/relatorios?relatorio=carteira")}
-            >
-              Ver relatório completo
-            </button>
-          </div>
-        </PainelGrafico>
-      </Grade>
-
-      <section aria-label="Agenda de retornos" className="flex flex-col gap-md">
-        <div className="flex flex-wrap items-center justify-between gap-sm">
-          <h2 className="text-headline-sm text-on-surface">Agenda de retornos</h2>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="shrink-0 gap-xs"
-            onClick={() => router.push("/minha-agenda?secao=hoje")}
-          >
-            Abrir agenda
-            <Icon icon={CalendarClock} size="sm" />
-          </Button>
         </div>
-        <CardMetricRow aria-label="Resumo de retornos" desktopCols={4}>
+
+        <Grade>
+          <SubPainel titulo="Atendimentos por dia">
+            <GraficoColunas
+              chave={`${chaveGrafico}-serie`}
+              vazio={vazioGrafico}
+              itens={dados.operacao.serie.map((linha) => ({
+                nome: diaCurto(linha.dia),
+                valor: linha.quantidade,
+                rotulo: String(linha.quantidade),
+                tom: "settled" as const,
+              }))}
+            />
+          </SubPainel>
+          <SubPainel titulo="Respondeu ou não" nota="Referência operacional — não é indicador oficial de desempenho.">
+            <GraficoRosca
+              chave={`${chaveGrafico}-resposta`}
+              vazio={vazioGrafico}
+              centro={percentual(dados.operacao.taxaResposta)}
+              legenda="responderam"
+              fatias={[
+                {
+                  nome: "Sim",
+                  valor: dados.operacao.responderam,
+                  detalhe: String(dados.operacao.responderam),
+                  tom: "settled",
+                },
+                {
+                  nome: "Não",
+                  valor: dados.operacao.contatos - dados.operacao.responderam,
+                  detalhe: String(dados.operacao.contatos - dados.operacao.responderam),
+                  tom: "mist",
+                },
+              ]}
+            />
+          </SubPainel>
+        </Grade>
+      </SecaoBloco>
+
+      <SecaoBloco
+        selo="Agenda"
+        titulo="Retornos da equipe"
+        descricao="O que precisa fazer ligação de novo."
+        linkLabel="Abrir fila"
+        onLink={() => router.push("/minha-agenda?secao=hoje")}
+      >
+        <div className="mb-md grid grid-cols-2 gap-md min-[640px]:grid-cols-4">
           <CardMetric
-            accent="critical"
-            iconClassName="bg-error-container text-status-critical"
-            icon={<Icon icon={CalendarClock} size="md" className="text-status-critical" />}
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={CalendarClock} size="md" />}
             rotulo="Atrasados"
             valor={dados.retornos.resumo.atrasados}
-            onClick={() => router.push("/minha-agenda?secao=atrasado")}
           />
           <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={CalendarClock} size="md" className="text-brass" />}
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={CalendarClock} size="md" />}
             rotulo="Hoje"
             valor={dados.retornos.resumo.hoje}
-            onClick={() => router.push("/minha-agenda?secao=hoje")}
           />
           <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={CalendarClock} size="md" className="text-primary-container" />}
+            iconClassName="bg-surface-subtle text-on-surface-variant"
+            icon={<Icon icon={CalendarClock} size="md" />}
             rotulo="Próximos"
             valor={dados.retornos.resumo.proximos}
-            onClick={() => router.push("/minha-agenda")}
           />
           <CardMetric
             iconClassName="bg-surface-subtle text-on-surface-variant"
@@ -336,11 +321,9 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
             rotulo="Concluídos"
             valor={dados.retornos.resumo.concluidos}
           />
-        </CardMetricRow>
-        <div className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-          <DashboardRetornosTable integrada itens={dados.retornos.itens.slice(0, 8)} />
         </div>
-      </section>
-    </DashboardLayout>
+        <DashboardRetornosTable itens={dados.retornos.itens} />
+      </SecaoBloco>
+    </>
   );
 }

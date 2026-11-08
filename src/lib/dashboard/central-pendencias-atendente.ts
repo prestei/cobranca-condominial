@@ -88,8 +88,6 @@ export type CentralPendenciasFiltros = {
   ordem?: "asc" | "desc";
   page?: number;
   pageSize?: number;
-  unidadeIds?: Set<number> | null;
-  tipoPendenciaDashboard?: TipoPendenciaId;
 };
 
 function rotuloUnidade(item: FilaCobrancaItem) {
@@ -263,9 +261,8 @@ function listarBase(userId: number): CentralPendenciaRegistro[] {
   return registros;
 }
 
-export function contarResumoCentralPendencias(userId: number, unidadeIds?: Set<number> | null): CentralPendenciasResumo {
-  let base = listarBase(userId);
-  if (unidadeIds) base = base.filter((item) => unidadeIds.has(item.unidadeId));
+export function contarResumoCentralPendencias(userId: number): CentralPendenciasResumo {
+  const base = listarBase(userId);
   const resumo: CentralPendenciasResumo = {
     hoje: 0,
     atrasadas: 0,
@@ -293,13 +290,6 @@ export function listarCentralPendenciasAtendente(
 
   let itens = listarBase(userId);
 
-  if (filtros?.unidadeIds) {
-    itens = itens.filter((item) => filtros.unidadeIds!.has(item.unidadeId));
-  }
-  if (filtros?.tipoPendenciaDashboard) {
-    itens = itens.filter((item) => item.tipoPendencia === filtros.tipoPendenciaDashboard);
-  }
-
   if (categoria !== "todas") {
     itens = itens.filter((item) => item.tipoPendencia === categoria);
   }
@@ -314,7 +304,7 @@ export function listarCentralPendenciasAtendente(
   return {
     hoje,
     fuso,
-    resumo: contarResumoCentralPendencias(userId, filtros?.unidadeIds),
+    resumo: contarResumoCentralPendencias(userId),
     itens: ordenados.slice(start, start + pageSize),
     total,
     page,

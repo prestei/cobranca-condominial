@@ -10,13 +10,6 @@ import {
 import { codigoReDoUsuario, identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
-import {
-  retornoAgendaAtivo,
-  retornoFoiCancelado,
-  retornoFoiConcluido,
-  situacaoAcompanhamentoRetorno,
-  type SituacaoAcompanhamentoRetorno,
-} from "@/lib/retornos/status";
 
 export class RetornoServiceError extends Error {
   constructor(
@@ -36,7 +29,7 @@ export type RetornoAgendaItem = {
   codigoRe: string | null;
   atendenteCarteiraId: number | null;
   dataPrevista: string;
-  situacaoAgenda: "atrasado" | "hoje" | "semana" | "agendado" | "concluido" | "cancelado";
+  situacaoAgenda: "atrasado" | "hoje" | "semana" | "agendado" | "concluido";
   dataHoraAtendimento: string;
   atendimentoAutorId: number;
   atendimentoAutorNome: string;
@@ -45,13 +38,10 @@ export type RetornoAgendaItem = {
   retornoConcluidoEm: string | null;
   retornoConcluidoPorId: number | null;
   retornoConcluidoPorNome: string | null;
-  retornoCanceladoEm: string | null;
-  retornoCanceladoMotivo: string;
-  situacaoAcompanhamento: SituacaoAcompanhamentoRetorno;
 };
 
 export type RetornoAgendaFiltros = {
-  estado?: "pendente" | "concluido" | "cancelado" | "todos";
+  estado?: "pendente" | "concluido" | "todos";
   situacao?: "atrasado" | "hoje" | "semana" | "agendado" | "todos";
   de?: string;
   ate?: string;
@@ -68,20 +58,8 @@ export type RetornoAgendaResultado = {
     atrasados: number;
     hoje: number;
     proximos: number;
-    futuros: number;
     concluidos: number;
   };
-};
-
-export type HistoricoRetornoEvento = {
-  id: string;
-  dataHora: string;
-  tipo: "agendamento" | "reprogramacao" | "atualizacao" | "conclusao" | "cancelamento";
-  autorNome: string;
-  dataPrevista?: string;
-  proximaAcao?: string;
-  descricao?: string;
-  justificativa?: string;
 };
 
 function usuarioVeCarteiraGeral(userId: number) {
@@ -109,14 +87,10 @@ function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
   const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
   if (!unidade) return null;
 
-  const cancelado = retornoFoiCancelado(atendimento);
-  const concluido = retornoFoiConcluido(atendimento);
-  const situacaoAgenda = cancelado
-    ? ("cancelado" as const)
-    : concluido
-      ? ("concluido" as const)
-      : (situacaoRetorno(atendimento.dataProximaAcao) || "agendado");
-  const acompanhamento = situacaoAcompanhamentoRetorno(atendimento);
+  const concluido = Boolean(atendimento.retornoConcluidoEm?.trim());
+  const situacaoAgenda = concluido
+    ? ("concluido" as const)
+    : (situacaoRetorno(atendimento.dataProximaAcao) || "agendado");
 
   const vigente = atribuicaoVigente(unidadeId);
   const atendenteCarteira = vigente
@@ -142,9 +116,6 @@ function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
     retornoConcluidoEm: concluido ? atendimento.retornoConcluidoEm : null,
     retornoConcluidoPorId: concluidoPorId,
     retornoConcluidoPorNome: concluidoPorId != null ? identificadorColaboradorPorId(concluidoPorId) : null,
-    retornoCanceladoEm: cancelado ? atendimento.retornoCanceladoEm : null,
-    retornoCanceladoMotivo: cancelado ? atendimento.retornoCanceladoMotivo : "",
-    situacaoAcompanhamento: acompanhamento,
   };
 }
 
@@ -178,19 +149,18 @@ export function listarRetornosAgenda(
   const resumo = {
     atrasados: todosNoEscopo.filter((item) => item.situacaoAgenda === "atrasado").length,
     hoje: todosNoEscopo.filter((item) => item.situacaoAgenda === "hoje").length,
-    proximos: todosNoEscopo.filter((item) => item.situacaoAgenda === "semana").length,
-    futuros: todosNoEscopo.filter((item) => item.situacaoAgenda === "agendado").length,
+    proximos: todosNoEscopo.filter(
+      (item) => item.situacaoAgenda === "semana" || item.situacaoAgenda === "agendado",
+    ).length,
     concluidos: todosNoEscopo.filter((item) => item.situacaoAgenda === "concluido").length,
   };
 
   let lista = listaEscopo;
   const estado = filtros?.estado ?? "pendente";
   if (estado === "pendente") {
-    lista = lista.filter((item) => retornoAgendaAtivo(item));
+    lista = lista.filter((item) => !item.retornoConcluidoEm?.trim());
   } else if (estado === "concluido") {
-    lista = lista.filter((item) => retornoFoiConcluido(item));
-  } else if (estado === "cancelado") {
-    lista = lista.filter((item) => retornoFoiCancelado(item));
+    lista = lista.filter((item) => Boolean(item.retornoConcluidoEm?.trim()));
   }
 
   const itensBrutos = lista.map(montarItem).filter((item): item is RetornoAgendaItem => item !== null);
@@ -252,109 +222,4 @@ export function listarRetornosAgenda(
   }
 
   return { itens, total, resumo };
-}
-
-export function listarHistoricoRetornosAtendimento(userId: number, atendimentoId: string): HistoricoRetornoEvento[] {
-  const perm = permissoesDoUsuarioId(userId);
-  if (!temPermissao(perm, "atendimentos", "ler")) {
-    throw new RetornoServiceError("Sem permissão para consultar histórico.", 403);
-  }
-
-  const atendimento = getCadastros().atendimentos.find((item) => item.id === atendimentoId);
-  if (!atendimento || !atendimento.dataProximaAcao.trim()) {
-    throw new RetornoServiceError("Retorno não encontrado neste atendimento.", 404);
-  }
-
-  const unidadeId = Number(atendimento.unidadeId);
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
-  if (!unidade || !escopoCondominios(getCadastros(), userId).some((c) => c.id === unidade.condominioId)) {
-    throw new RetornoServiceError("Atendimento fora do seu escopo.", 403);
-  }
-
-  const carteiraIds = unidadeIdsNaCarteira(userId);
-  if (carteiraIds && !carteiraIds.has(unidadeId)) {
-    throw new RetornoServiceError("Atendimento fora da sua carteira vigente.", 403);
-  }
-
-  const eventos: HistoricoRetornoEvento[] = [
-    {
-      id: `origem-${atendimento.id}`,
-      dataHora: atendimento.dataHora,
-      tipo: "agendamento",
-      autorNome: identificadorColaboradorPorId(atendimento.usuarioId),
-      dataPrevista: atendimento.dataProximaAcao,
-      proximaAcao: atendimento.proximaAcao,
-      descricao: atendimento.descricao,
-    },
-  ];
-
-  for (const registro of getCadastros().auditoria) {
-    if (registro.entidade !== "service_ticket" || registro.registroId !== atendimentoId) continue;
-    const campos = registro.camposAlterados.toLowerCase();
-    if (
-      !campos.includes("retorno") &&
-      !campos.includes("reprogramacao") &&
-      !campos.includes("cancelamento")
-    ) {
-      continue;
-    }
-
-    const autorId = Number(registro.usuarioId);
-    const autorNome = Number.isFinite(autorId) ? identificadorColaboradorPorId(autorId) : registro.usuarioId;
-    let tipo: HistoricoRetornoEvento["tipo"] = "atualizacao";
-    if (registro.camposAlterados.includes("reprogramacao_retorno")) tipo = "reprogramacao";
-    else if (registro.camposAlterados.includes("retorno_cancelado")) tipo = "cancelamento";
-    else if (registro.camposAlterados.includes("retorno_concluido")) tipo = "conclusao";
-    else if (registro.camposAlterados.includes("retorno_agendado")) tipo = "agendamento";
-
-    let dataPrevista: string | undefined;
-    let proximaAcao: string | undefined;
-    let descricao: string | undefined;
-    let justificativa: string | undefined;
-    try {
-      const novos = JSON.parse(registro.dadosNovos) as Record<string, unknown>;
-      if (typeof novos.dataProximaAcao === "string") dataPrevista = novos.dataProximaAcao;
-      if (typeof novos.proximaAcao === "string") proximaAcao = novos.proximaAcao;
-      if (typeof novos.descricao === "string") descricao = novos.descricao;
-      if (typeof novos.retornoCanceladoMotivo === "string") justificativa = novos.retornoCanceladoMotivo;
-    } catch {
-      /* auditoria legada */
-    }
-
-    eventos.push({
-      id: `audit-${registro.id}`,
-      dataHora: registro.dataHora,
-      tipo,
-      autorNome,
-      dataPrevista,
-      proximaAcao,
-      descricao,
-      justificativa,
-    });
-  }
-
-  if (atendimento.retornoConcluidoEm?.trim() && atendimento.retornoConcluidoPorId) {
-    eventos.push({
-      id: `conclusao-${atendimento.id}`,
-      dataHora: atendimento.retornoConcluidoEm,
-      tipo: "conclusao",
-      autorNome: identificadorColaboradorPorId(atendimento.retornoConcluidoPorId),
-      dataPrevista: atendimento.dataProximaAcao,
-      proximaAcao: atendimento.proximaAcao,
-    });
-  }
-  if (atendimento.retornoCanceladoEm?.trim()) {
-    eventos.push({
-      id: `cancelamento-${atendimento.id}`,
-      dataHora: atendimento.retornoCanceladoEm,
-      tipo: "cancelamento",
-      autorNome: identificadorColaboradorPorId(atendimento.retornoCanceladoPorId ?? atendimento.usuarioId),
-      dataPrevista: atendimento.dataProximaAcao,
-      proximaAcao: atendimento.proximaAcao,
-      justificativa: atendimento.retornoCanceladoMotivo,
-    });
-  }
-
-  eventos.sort((a, b) => a.dataHora.localeCompare(b.dataHora));
-  return eventos;
 }

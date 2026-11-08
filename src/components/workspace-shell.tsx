@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bell,
   Building2,
-  BarChart3,
   CalendarClock,
   ClipboardList,
   DoorOpen,
@@ -66,14 +65,13 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
       },
       { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
       {
-        href: "/minha-agenda",
+        href: "/atendimentos?retorno=hoje",
         label: "Minha agenda",
         icon: CalendarClock,
         modulo: "atendimentos",
         agendaRetornos: true,
       },
       { href: "/notificacoes", label: "Notificações", icon: Bell, modulo: "dashboard", count: "notificacoes" },
-      { href: "/minha-produtividade", label: "Minha produtividade", icon: BarChart3, modulo: "atendimentos" },
     ],
   },
   {
@@ -120,7 +118,7 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
 
 function navLinkAtivo(pathname: string, retornoNaUrl: string | null, link: NavLink) {
   if (link.agendaRetornos) {
-    return pathname === "/minha-agenda" || pathname.startsWith("/minha-agenda/");
+    return pathname === "/atendimentos" && Boolean(retornoNaUrl);
   }
   if (link.atendimentosSemRetorno) {
     return (pathname === "/atendimentos" || pathname.startsWith("/atendimentos/")) && !retornoNaUrl;

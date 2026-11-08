@@ -34,12 +34,10 @@ import { DashboardRetornosTable } from "@/components/dashboard/dashboard-retorno
 import { DashboardCentralPendencias } from "@/components/dashboard/dashboard-central-pendencias";
 import { DashboardGraficosAtendente } from "@/components/dashboard/dashboard-graficos-atendente";
 import { formatarData } from "@/data/catalogo";
-import { queryNavegacaoAtendimentos, queryNavegacaoDebitos } from "@/lib/dashboard/filtros";
 
 type Props = {
   dados: DashboardAtendente;
   chaveGrafico: string;
-  filtrosQuery?: string;
 };
 
 const ORDEM_INDICADORES_OPERACIONAIS: IndicadorOperacionalAtendenteId[] = [
@@ -77,10 +75,8 @@ const ROTULOS_OPERACIONAIS: Record<
   },
 };
 
-export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" }: Props) {
+export function DashboardAtendenteView({ dados, chaveGrafico }: Props) {
   const router = useRouter();
-  const qsDebitos = queryNavegacaoDebitos(dados.filtrosAplicados);
-  const qsAtendimentos = queryNavegacaoAtendimentos(dados.filtrosAplicados);
   const vazioGrafico = (
     <EmptyState icon={<Icon icon={BarChart3} size="lg" />} title="Sem dados" description="Não há valores para exibir no momento." />
   );
@@ -105,22 +101,19 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
       params.set("de", operacional.periodo.inicio);
       params.set("ate", operacional.periodo.fim);
     }
-    const extra = qsAtendimentos ? `&${qsAtendimentos}` : "";
-    router.push(`/atendimentos?${params}${extra}`);
+    router.push(`/atendimentos?${params}`);
   }
 
   function abrirAtendimentos(extra?: string) {
-    const base = qsAtendimentos ? `/atendimentos?${qsAtendimentos}` : "/atendimentos";
     if (!extra) {
-      router.push(base);
+      router.push("/atendimentos");
       return;
     }
-    const sep = base.includes("?") ? "&" : "?";
-    router.push(`${base}${sep}${extra}`);
+    router.push(`/atendimentos?${extra}`);
   }
 
   function abrirDebitos() {
-    router.push(qsDebitos ? `/debitos?${qsDebitos}` : "/debitos");
+    router.push("/debitos");
   }
 
   function abrirAgenda(secao?: string) {
@@ -367,7 +360,7 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
       </section>
 
       <section aria-label="Central de pendências">
-        <DashboardCentralPendencias filtrosQuery={filtrosQuery} />
+        <DashboardCentralPendencias />
       </section>
 
       <section aria-label="Agenda de retornos" className="flex flex-col gap-md">
@@ -424,7 +417,6 @@ export function DashboardAtendenteView({ dados, chaveGrafico, filtrosQuery = "" 
             dados={dados.graficos}
             dataBase={dados.dataBase}
             chaveGrafico={chaveGrafico}
-            filtrosAplicados={dados.filtrosAplicados}
           />
         ) : null}
       </section>

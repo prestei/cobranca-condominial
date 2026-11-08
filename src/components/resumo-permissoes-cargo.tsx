@@ -10,6 +10,8 @@ type ResumoPermissoesCargoProps = {
   /** `badges`: tags compactas. `painel`: listagem desktop. `mobile`: card empilhado (&lt;768px). */
   variant?: "badges" | "painel" | "mobile";
   onVerPermissoes?: () => void;
+  /** Indica matriz expandida na mesma página (acessibilidade e destaque do botão). */
+  permissoesAbertas?: boolean;
 };
 
 function rotuloQuantidadeAreas(quantidade: number) {
@@ -21,6 +23,7 @@ export function ResumoPermissoesCargo({
   permissaoJson,
   variant = "painel",
   onVerPermissoes,
+  permissoesAbertas = false,
 }: ResumoPermissoesCargoProps) {
   const permissoes = parsePermissoesJson(permissaoJson);
   const modulos = listarModulosPermitidos(permissoes);
@@ -30,13 +33,29 @@ export function ResumoPermissoesCargo({
   }
 
   const detalhe = resumoPermissoes(permissoes);
-  const rotulos = modulos.map((item) => item.label).join(" • ");
+
+  function listaModulosInline() {
+    return (
+      <p className="m-0 flex flex-wrap gap-x-1 gap-y-0.5 text-body-sm leading-relaxed text-on-surface-variant">
+        {modulos.map((item, index) => (
+          <span key={item.modulo} className="inline whitespace-normal">
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-on-surface-variant/70">
+                •{" "}
+              </span>
+            ) : null}
+            {item.label}
+          </span>
+        ))}
+      </p>
+    );
+  }
 
   if (variant === "badges") {
     return (
       <div className="flex flex-wrap gap-xs" title={detalhe}>
         {modulos.map((item) => (
-          <Badge key={item.modulo} variant="primary" className="font-normal">
+          <Badge key={item.modulo} variant="primary" className="rounded-md font-normal">
             {item.label}
           </Badge>
         ))}
@@ -61,15 +80,17 @@ export function ResumoPermissoesCargo({
             {rotuloQuantidadeAreas(modulos.length)}
           </span>
         </div>
-        <p className="border-t border-border-subtle/60 px-md py-sm text-body-sm leading-relaxed text-on-surface-variant break-words">
-          {rotulos}
-        </p>
+        <div className="border-t border-border-subtle/60 px-md py-sm">{listaModulosInline()}</div>
         {onVerPermissoes ? (
           <div className="border-t border-border-subtle/60 px-md py-sm">
             <button
               type="button"
               onClick={onVerPermissoes}
-              className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-sm rounded-lg bg-primary-fixed/45 px-md py-sm text-label-md font-medium text-primary-container transition-colors hover:bg-primary-fixed/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+              aria-expanded={permissoesAbertas}
+              className={[
+                "inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-sm rounded-lg px-md py-sm text-label-md font-medium text-primary-container transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass",
+                permissoesAbertas ? "bg-primary-fixed/70" : "bg-primary-fixed/45 hover:bg-primary-fixed/60",
+              ].join(" ")}
             >
               <Icon icon={Eye} size="sm" aria-hidden />
               Ver permissões
@@ -82,10 +103,10 @@ export function ResumoPermissoesCargo({
 
   return (
     <div
-      className="flex min-w-0 items-stretch overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card"
+      className="flex min-w-0 w-full flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card"
       title={detalhe}
     >
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-xs px-md py-sm min-[768px]:py-md">
+      <div className="flex min-w-0 flex-col justify-center gap-xs px-md py-sm min-[768px]:py-md">
         <div className="flex items-center gap-sm">
           <span
             className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/50 text-primary-container"
@@ -97,17 +118,21 @@ export function ResumoPermissoesCargo({
             {rotuloQuantidadeAreas(modulos.length)}
           </span>
         </div>
-        <p className="text-body-sm leading-snug text-on-surface-variant">{rotulos}</p>
+        {listaModulosInline()}
       </div>
       {onVerPermissoes ? (
-        <div className="flex shrink-0 items-center border-l border-border-subtle px-sm min-[768px]:px-md">
+        <div className="border-t border-border-subtle px-md py-sm">
           <button
             type="button"
             onClick={onVerPermissoes}
-            className="inline-flex cursor-pointer flex-col items-center justify-center gap-0.5 rounded-full bg-primary-fixed/45 px-sm py-sm text-label-sm font-medium text-primary-container transition-colors hover:bg-primary-fixed/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass min-[768px]:min-h-[3.25rem] min-[768px]:flex-row min-[768px]:gap-xs min-[768px]:px-md min-[768px]:py-sm"
+            aria-expanded={permissoesAbertas}
+            className={[
+              "inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-sm rounded-lg px-md py-sm text-label-md font-medium text-primary-container transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass",
+              permissoesAbertas ? "bg-primary-fixed/70" : "bg-primary-fixed/45 hover:bg-primary-fixed/60",
+            ].join(" ")}
           >
             <Icon icon={Eye} size="sm" aria-hidden />
-            <span className="max-w-[4.75rem] text-center leading-tight min-[768px]:max-w-none">Ver permissões</span>
+            Ver permissões
           </button>
         </div>
       ) : null}

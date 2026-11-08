@@ -33,16 +33,28 @@ export function importacaoConcluidaOuParcial(status: string): boolean {
   return sit === "Concluida" || sit === "Concluida parcialmente" || sit === "Aprovada";
 }
 
+function contarLinhasNaoGravadasPorProblema(contadores: ContadoresImportacao): number {
+  return (
+    contadores.erros +
+    contadores.ignorados +
+    contadores.revisoes +
+    contadores.manualProtegido
+  );
+}
+
+/** Situação final com base nos contadores reais da gravação (duplicados não indicam parcial). */
 export function resolverSituacaoFinalImportacao(params: {
   contadores: ContadoresImportacao;
   importacaoParcial: boolean;
   idempotente?: boolean;
 }): SituacaoImportacao {
   const gravados = params.contadores.novos + params.contadores.atualizacoes;
+  const exclusoesPorProblema = contarLinhasNaoGravadasPorProblema(params.contadores);
+
   if (gravados === 0 && params.contadores.erros > 0) {
     return "Falhou";
   }
-  if (params.importacaoParcial && gravados > 0) {
+  if (gravados > 0 && exclusoesPorProblema > 0) {
     return "Concluida parcialmente";
   }
   if (gravados > 0 || params.idempotente) {
@@ -52,6 +64,19 @@ export function resolverSituacaoFinalImportacao(params: {
     return "Falhou";
   }
   return "Concluida";
+}
+
+/** Sucesso operacional na UI: gravou o previsto; só duplicados/ignorados esperados não contam como falha. */
+export function importacaoGravacaoSemExclusaoPorProblema(contadores: {
+  novos: number;
+  atualizados: number;
+  erros: number;
+  manualProtegido?: number;
+}): boolean {
+  const gravados = contadores.novos + contadores.atualizados;
+  if (gravados === 0) return false;
+  const manual = contadores.manualProtegido ?? 0;
+  return contadores.erros === 0 && manual === 0;
 }
 
 export function rotuloSituacaoImportacao(status: string): string {
