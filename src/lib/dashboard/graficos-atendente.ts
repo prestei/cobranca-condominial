@@ -304,7 +304,7 @@ function inadimplenciaPorCondominio(userId: number, dataBase: string): GraficoCo
     .sort((a, b) => b.valorAtualizado - a.valorAtualizado);
 }
 
-function evolucaoCarteiraMensal(userId: number, dataBase: string, limiteDias: number): GraficoEvolucaoMes[] {
+export function evolucaoCarteiraMensal(userId: number, dataBase: string, limiteDias: number): GraficoEvolucaoMes[] {
   const meses = mesesEvolucaoAteDataBase(dataBase);
   let saldoAnterior: number | null = null;
   return meses.map((mes) => {

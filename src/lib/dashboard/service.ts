@@ -28,7 +28,7 @@ import {
   type IndicadoresOperacionaisAtendente,
 } from "@/lib/dashboard/indicadores-operacionais-atendente";
 import {
-  evolucaoCarteiraMensalFiltrada,
+  evolucaoCarteiraMensal,
   montarGraficosAtendente,
   type DashboardGraficosAtendente,
   type GraficoEvolucaoMes,
@@ -390,7 +390,7 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
       porFaixa: distribuicaoFaixas(debitos, dataBase, totalAberto),
       porAdvogado: distribuicaoAdvogados(userId, debitos, dataBase, limiteDias),
       parteJuridicaPercentual,
-      evolucaoMensal: evolucaoCarteiraMensalFiltrada(userId, dataBase, limiteDias, unidadeIds),
+      evolucaoMensal: evolucaoCarteiraMensal(userId, dataBase, limiteDias),
     };
   }
 
