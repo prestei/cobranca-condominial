@@ -121,24 +121,6 @@ export function validarValoresFinanceiros(row: ValoresFinanceirosImportacao): In
     );
   }
 
-  const referencia = row.referencia?.trim() ?? "";
-  const competencia = referencia.match(/^(\d{1,2})\/(\d{4})$/);
-  if (competencia && dataIsoValida(vencimento)) {
-    const mesRef = competencia[1].padStart(2, "0");
-    const anoRef = competencia[2];
-    const [anoVenc, mesVenc] = vencimento.split("-");
-    if (mesRef !== mesVenc || anoRef !== anoVenc) {
-      itens.push(
-        inconsistencia(
-          CODIGOS_VALIDACAO.financeira.referenciaInconsistente,
-          "Referência financeira (competência) não confere com a data de vencimento.",
-          "referencia",
-          "atencao",
-        ),
-      );
-    }
-  }
-
   const pagamento = row.dataPagamento?.trim() ?? "";
   const valorPago = valorNumericoFinanceiro(row.valorPago);
   if (pagamento && !dataIsoValida(pagamento)) {

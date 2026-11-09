@@ -17,6 +17,7 @@ import {
   setUnidades,
 } from "@/data/catalogo";
 import { interpretarPlanilhaDebitos } from "@/lib/importacoes/importar-debitos-planilha";
+import { aplicarMotorValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/motor";
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";
 
 const FIXTURE_PDF = path.join(
@@ -31,21 +32,21 @@ function somaCampo(
   return linhas.reduce((acc, linha) => acc + Number(linha[campo]), 0);
 }
 
-test("homologação Residencial do Mar — extração em 8 páginas e registros", () => {
+test("homologação Residencial do Mar — extração em 8 páginas e registros", async () => {
   const buffer = readFileSync(FIXTURE_PDF);
-  const extraido = extrairTextoLegivelPdf(buffer);
+  const extraido = await extrairTextoLegivelPdf(buffer);
   assert.ok(extraido.texto.includes("Residencial do Mar"));
 
-  const relatorio = interpretarPdfInadimplencia(buffer);
+  const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
   assert.equal(relatorio.paginas, 8);
   assert.ok(relatorio.linhas.length > 100);
   assert.equal(relatorio.condominioNome, "Residencial do Mar");
 });
 
-test("homologação Residencial do Mar — reconciliação de subtotais e total geral", () => {
+test("homologação Residencial do Mar — reconciliação de subtotais e total geral", async () => {
   const buffer = readFileSync(FIXTURE_PDF);
-  const { texto } = extrairTextoLegivelPdf(buffer);
+  const { texto } = await extrairTextoLegivelPdf(buffer);
   const relatorio = interpretarTextoRelatorioInadimplenciaGestao(texto);
   assert.ok(relatorio.totaisGerais);
 
@@ -76,12 +77,12 @@ test("homologação Residencial do Mar — reconciliação de subtotais e total 
   assert.equal(divergenciaGeral, false);
 });
 
-test("homologação Residencial do Mar — planilha vincula condomínio e unidades do cadastro", () => {
+test("homologação Residencial do Mar — planilha vincula condomínio e unidades do cadastro", async () => {
   resetCadastrosParaTestes();
   setCondominios((current) => [...current, condominioResidencialDoMarSeed]);
   setUnidades((current) => [...current, ...unidadesResidencialDoMar]);
   const buffer = readFileSync(FIXTURE_PDF);
-  const relatorio = interpretarPdfInadimplencia(buffer);
+  const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
   const cadastros = getCadastros();
   const interpretado = interpretarPlanilhaDebitos(
@@ -94,9 +95,47 @@ test("homologação Residencial do Mar — planilha vincula condomínio e unidad
   assert.ok(interpretado.validos.length >= 350, `validos=${interpretado.validos.length}`);
 });
 
-test("homologação — mesma referência com vencimentos distintos não é tratada como duplicata única", () => {
+test("homologação Residencial do Mar — motor não marca vencimentos DD/MM/AAAA como atenção", async () => {
+  resetCadastrosParaTestes();
+  setCondominios((current) => [...current, condominioResidencialDoMarSeed]);
+  setUnidades((current) => [...current, ...unidadesResidencialDoMar]);
   const buffer = readFileSync(FIXTURE_PDF);
-  const relatorio = interpretarPdfInadimplencia(buffer);
+  const relatorio = await interpretarPdfInadimplencia(buffer);
+  assert.ok(relatorio);
+  const cadastros = getCadastros();
+  const interpretado = interpretarPlanilhaDebitos(
+    relatorio.matriz,
+    escopoCondominios(cadastros, 6),
+    escopoUnidades(cadastros, 6),
+    { formato: relatorio.formato },
+  );
+  const parseadas = interpretado.linhas
+    .filter((item) => item.payload)
+    .map((item) => ({
+      linha: item.linha,
+      payload: item.payload,
+      camposNormalizados: item.camposNormalizados,
+    }));
+  const motor = aplicarMotorValidacaoImportacao(parseadas, {
+    modulo: "debitos",
+    matriz: relatorio.matriz,
+    contexto: {
+      condominios: escopoCondominios(cadastros, 6),
+      unidades: escopoUnidades(cadastros, 6),
+      debitos: [],
+    },
+  });
+  const validos = motor.linhas.filter((item) => item.validacao?.resultado === "valido").length;
+  const ambiguos = motor.linhas.filter((item) =>
+    item.validacao?.inconsistencias.some((inc) => inc.codigo === "normalizacao.campo_ambiguo"),
+  ).length;
+  assert.equal(ambiguos, 0, "datas do relatório Gestão não devem gerar ambiguidade");
+  assert.ok(validos >= 389, `validos=${validos}`);
+});
+
+test("homologação — mesma referência com vencimentos distintos não é tratada como duplicata única", async () => {
+  const buffer = readFileSync(FIXTURE_PDF);
+  const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
   const grupo = relatorio.linhas.filter(
     (item) => item.unidade === "MB-0201" && item.referencia === "02/2023",

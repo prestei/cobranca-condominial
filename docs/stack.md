@@ -95,7 +95,7 @@ Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`.
 | `npm run test:unit` | Somente unitários |
 | `npm run test:integracao` | Fluxos e permissões (catálogo em memória, sem HTTP) |
 
-Importações (Ticket 03): arquivos temporários em `os.tmpdir()/lc-importacoes/` (não publicados via HTTP; `{uuid}.bin`, permissão `0600`, retenção 1 h com limpeza de órfãos). Nenhuma variável de ambiente extra. `pdftotext` é opcional no servidor para PDF de inadimplência; se ausente, usa extração FlateDecode. ZIP64 e macros em XLSX são recusados.
+Importações (Ticket 03): arquivos temporários em `os.tmpdir()/lc-importacoes/` (não publicados via HTTP; `{uuid}.bin`, permissão `0600`, retenção 1 h com limpeza de órfãos). Nenhuma variável de ambiente extra. PDF de inadimplência: `pdftotext` quando disponível no servidor; senão `pdfjs-dist` (páginas separadas e ordem visual); fallback final FlateDecode. ZIP64 e macros em XLSX são recusados.
 
 Detalhes e roteiro manual: [`README.md`](../README.md) e [`testes/roteiro-qa-t21.md`](testes/roteiro-qa-t21.md).
 

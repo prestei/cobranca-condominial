@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 import { inflateSync } from "node:zlib";
 
 export type ResultadoExtracaoTextoPdf = {
   texto: string;
-  metodo: "pdftotext" | "flate_layout";
+  metodo: "pdftotext" | "pdfjs" | "flate_layout";
   paginas?: number;
 };
 
@@ -119,6 +120,15 @@ function extrairTextoViaFlateLayout(buffer: Buffer): string {
   return montarLayoutPorCoordenadas(elementos);
 }
 
+function pdftotextPareceRelatorioInadimplencia(texto: string): boolean {
+  const t = texto.trim();
+  if (!t.includes("UNIDADES INADIMPLENTES")) return false;
+  if (t.includes("Gestão Condominial") || t.includes("Condomínio21")) return true;
+  if (/Gestão\s+e\s+Cobrança\s+Condominial/i.test(t)) return true;
+  if (/Unidade:\s*[A-Z]{1,3}-\d{3,5}/i.test(t) && /Proj\.\s*Rec/i.test(t)) return true;
+  return false;
+}
+
 function extrairTextoViaPdftotext(buffer: Buffer): string | null {
   const resultado = spawnSync("pdftotext", ["-layout", "-", "-"], {
     input: buffer,
@@ -127,15 +137,100 @@ function extrairTextoViaPdftotext(buffer: Buffer): string | null {
   });
   if (resultado.status !== 0) return null;
   const texto = (resultado.stdout ?? "").trim();
-  return texto.length > 0 ? texto : null;
+  if (!texto || !pdftotextPareceRelatorioInadimplencia(texto)) return null;
+  return texto;
 }
 
-export function extrairTextoLegivelPdf(buffer: Buffer): ResultadoExtracaoTextoPdf {
+type ParteTextoPdfJs = { x: number; y: number; str: string };
+
+function montarLinhasPorCoordenadas(partes: ParteTextoPdfJs[], toleranciaY = 4): string[] {
+  const linhasPartes: ParteTextoPdfJs[][] = [];
+  for (const parte of partes) {
+    const linha = linhasPartes.find((item) => Math.abs(item[0]!.y - parte.y) <= toleranciaY);
+    if (linha) linha.push(parte);
+    else linhasPartes.push([parte]);
+  }
+  const linhas: string[] = [];
+  for (const linha of linhasPartes) {
+    linha.sort((a, b) => a.x - b.x);
+    const texto = linha
+      .map((p) => p.str)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (texto) linhas.push(texto);
+  }
+  return linhas;
+}
+
+function extrairTextoViaPdfJsWorker(buffer: Buffer): { texto: string; paginas: number } | null {
+  const script = path.join(process.cwd(), "scripts/extrair-texto-pdf-worker.mts");
+  const resultado = spawnSync(process.execPath, ["--import", "tsx", script], {
+    input: buffer,
+    maxBuffer: 32 * 1024 * 1024,
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  if (resultado.status !== 0 || !resultado.stdout?.trim()) return null;
+  try {
+    const parsed = JSON.parse(resultado.stdout) as { texto?: string; paginas?: number } | null;
+    if (!parsed?.texto?.trim()) return null;
+    return { texto: parsed.texto, paginas: parsed.paginas ?? 1 };
+  } catch {
+    return null;
+  }
+}
+
+async function extrairTextoViaPdfJsDireto(buffer: Buffer): Promise<{ texto: string; paginas: number } | null> {
+  try {
+    const { extrairTextoInadimplenciaPdfJsPuro } = await import(
+      "@/lib/importacoes/inadimplencia/extrair-texto-pdf-interno"
+    );
+    return await extrairTextoInadimplenciaPdfJsPuro(buffer);
+  } catch {
+    return null;
+  }
+}
+
+async function extrairTextoViaPdfJs(buffer: Buffer): Promise<{ texto: string; paginas: number } | null> {
+  const direto = await extrairTextoViaPdfJsDireto(buffer);
+  if (direto?.texto.includes("UNIDADES INADIMPLENTES")) return direto;
+  const worker = extrairTextoViaPdfJsWorker(buffer);
+  if (worker) return worker;
+  return direto;
+}
+
+function textoRelatorioInadimplenciaReconhecivel(texto: string): boolean {
+  return texto.trim().includes("UNIDADES INADIMPLENTES");
+}
+
+export async function extrairTextoLegivelPdf(buffer: Buffer): Promise<ResultadoExtracaoTextoPdf> {
+  const candidatos: ResultadoExtracaoTextoPdf[] = [];
+
   const viaPdftotext = extrairTextoViaPdftotext(buffer);
   if (viaPdftotext) {
     const paginas = viaPdftotext.match(/Pág:\s*\d+\/\d+/g)?.length;
-    return { texto: viaPdftotext, metodo: "pdftotext", paginas };
+    candidatos.push({ texto: viaPdftotext, metodo: "pdftotext", paginas });
   }
+
+  const viaPdfJs = await extrairTextoViaPdfJs(buffer);
+  if (viaPdfJs) {
+    candidatos.push({ texto: viaPdfJs.texto, metodo: "pdfjs", paginas: viaPdfJs.paginas });
+  }
+
   const layout = extrairTextoViaFlateLayout(buffer);
-  return { texto: layout, metodo: "flate_layout" };
+  if (layout.trim()) {
+    candidatos.push({ texto: layout, metodo: "flate_layout" });
+  }
+
+  const reconhecivel = candidatos.find((item) => textoRelatorioInadimplenciaReconhecivel(item.texto));
+  if (reconhecivel) return reconhecivel;
+
+  const porQualidade = candidatos.find((item) => item.metodo === "pdfjs")
+    ?? candidatos.find((item) => item.metodo === "pdftotext")
+    ?? candidatos[0];
+
+  if (porQualidade) return porQualidade;
+
+  return { texto: "", metodo: "flate_layout" };
 }

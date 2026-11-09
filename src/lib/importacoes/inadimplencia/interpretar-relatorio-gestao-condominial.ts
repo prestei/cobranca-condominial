@@ -66,9 +66,13 @@ export type ResultadoInterpretacaoRelatorioInadimplencia = {
 
 const REGEX_PAGINA = /Pág:\s*(\d+)\s*\/\s*(\d+)/i;
 const REGEX_CONDOMINIO = /Condomínio\s+(.+?)(?:\s+Data Base:.*)?$/i;
-const REGEX_UNIDADE = /^\s*([A-Z]{2}-\d{4})\s*$/;
-const REGEX_UNIDADE_COM_RESPONSAVEL =
-  /^Unidade:\s*([A-Z]{2}-\d{4})\s*(?:[—–-]\s*(.+)|\s*-\s*(.+))?$/i;
+/** Código de unidade no relatório Daniel Jorge / Gestão (ex.: MB-0102, A-0104, B-0501). */
+const REGEX_CODIGO_UNIDADE_RELATORIO = "[A-Z]{1,3}-\\d{3,5}";
+const REGEX_UNIDADE = new RegExp(`^\\s*(${REGEX_CODIGO_UNIDADE_RELATORIO})\\s*$`, "i");
+const REGEX_UNIDADE_COM_RESPONSAVEL = new RegExp(
+  `^Unidade:\\s*(${REGEX_CODIGO_UNIDADE_RELATORIO})\\s*(?:[—–-]\\s*(.+)|\\s*-\\s*(.+))?`,
+  "i",
+);
 const REGEX_DEBITO =
   /^(.+?)\s+(\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s*$/;
 
@@ -82,7 +86,9 @@ function categoriaDebitoReconhecida(categoria: string): boolean {
     c.startsWith("ACORDO") ||
     c.startsWith("MULTA") ||
     c.startsWith("SERVI") ||
-    c.startsWith("SERVIÇO")
+    c.startsWith("SERVIÇO") ||
+    c.startsWith("OBRA") ||
+    c.startsWith("RESERVA")
   );
 }
 
@@ -392,6 +398,8 @@ export function textoPareceRelatorioInadimplenciaGestao(texto: string): boolean 
   if (!t.includes("UNIDADES INADIMPLENTES")) return false;
   if (t.includes("Gestão Condominial") || t.includes("Condomínio21")) return true;
   if (/Gestão\s+e\s+Cobrança\s+Condominial/i.test(t)) return true;
-  if (/Unidade:\s*[A-Z]{2}-\d{4}/i.test(t) && /Proj\.\s*Rec/i.test(t)) return true;
+  if (new RegExp(`Unidade:\\s*${REGEX_CODIGO_UNIDADE_RELATORIO}`, "i").test(t) && /Proj\.\s*Rec/i.test(t)) {
+    return true;
+  }
   return false;
 }
