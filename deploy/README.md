@@ -47,9 +47,15 @@ openssl rand -hex 24   # POSTGRES_PASSWORD / REPLICATION_PASSWORD
 
 Em `deploy/.env.production`, `DATABASE_URL` deve usar o usuário/senha do Postgres e host `db` (rede Docker).
 
+## Deploy sem downtime (blue/green)
+
+Enquanto o build roda, o site atual continua no ar. Só depois do healthcheck o Caddy aponta para o container novo e o antigo é desligado.
+
+Slots: `app_blue` / `app_green` · upstream em `deploy/runtime/upstream`.
+
 ## Deploy automático
 
-Na VPS, um timer systemd consulta o GitHub a cada **2 minutos**. Se `main` avançou, faz `git pull` + rebuild da app (preserva `deploy/.env.production`).
+Na VPS, um timer systemd consulta o GitHub a cada **2 minutos**. Se `main` avançou, faz `git pull` + deploy blue/green (preserva `deploy/.env.production`).
 
 Instalação (já feita na produção):
 

@@ -96,31 +96,25 @@ ensure_env() {
 }
 
 start_stack() {
-  log "Subindo stack em ${APP_DIR}"
-  cd "${APP_DIR}/deploy"
-  chmod +x postgres/primary/docker-entrypoint-initdb.d/*.sh || true
-  chmod +x postgres/standby/*.sh || true
-  # Sem --pull: VPS com pouca RAM; imagens base já locais após o 1º deploy.
-  DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}" docker compose --env-file .env.production build
-  docker compose --env-file .env.production up -d --remove-orphans
+  log "Subindo stack (blue/green) em ${APP_DIR}"
+  chmod +x "${APP_DIR}/deploy/scripts/"*.sh || true
+  # Deploy zero-downtime: build no slot inativo, troca Caddy, derruba o antigo
+  APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/ci-remote-deploy.sh"
 }
 
 wait_healthy() {
-  log "Aguardando healthchecks"
+  log "Validando site"
   local i
-  for i in $(seq 1 60); do
-    if docker compose --env-file .env.production ps | grep -q 'healthy'; then
-      if curl -fsS "http://127.0.0.1:80" >/dev/null 2>&1 \
-        || curl -fsSk "https://127.0.0.1" >/dev/null 2>&1 \
-        || docker compose --env-file .env.production exec -T app wget -qO- http://127.0.0.1:3000 >/dev/null 2>&1; then
-        log "Stack responsiva"
-        return 0
-      fi
+  for i in $(seq 1 30); do
+    if curl -fsSk "https://${DOMAIN}/login" >/dev/null 2>&1 \
+      || curl -fsS -H "Host: ${DOMAIN}" "http://127.0.0.1/login" >/dev/null 2>&1; then
+      log "Stack responsiva"
+      return 0
     fi
-    sleep 5
+    sleep 3
   done
-  log "Aviso: healthcheck lento — veja: docker compose -f ${APP_DIR}/deploy/docker-compose.yml logs --tail=100"
-  docker compose --env-file .env.production ps || true
+  log "Aviso: healthcheck lento — docker ps / logs caddy"
+  docker ps --filter name=cobranca- || true
 }
 
 print_dns_hint() {
