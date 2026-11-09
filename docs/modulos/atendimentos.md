@@ -68,7 +68,7 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Fluxos
 
-1. Operador abre **Atendimentos** (fila única) → identifica cobranças pelos KPIs e filtros. Barra de filtros (`FilterBar` variante `toolbar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
+1. Operador abre **Atendimentos** (fila única) → identifica cobranças pelos KPIs e filtros. Seção **Filtros** (`FiltrosSection` + `FilterBar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
 2. **Administradora** — painel **Distribuição automática** (ativar regra, **Distribuir agora**) ou seleção manual na tabela + atribuição por RE.
 3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
 4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).

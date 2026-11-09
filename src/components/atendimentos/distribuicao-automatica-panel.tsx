@@ -5,6 +5,7 @@ import { Bot, Info, Network, UserPlus } from "lucide-react";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { FormField, Select, Switch } from "@/components/input";
+import { SkeletonPanel } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { AtribuicaoCobranca } from "@/data/catalogo";
@@ -160,15 +161,7 @@ export function DistribuicaoAutomaticaPanel({ onDistribuido, refreshKey }: Props
   }
 
   if (carregando) {
-    return (
-      <section
-        aria-busy="true"
-        aria-label="Distribuição automática"
-        className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
-      >
-        <p className="text-body-sm text-on-surface-variant">Carregando distribuição automática…</p>
-      </section>
-    );
+    return <SkeletonPanel lines={3} label="Carregando distribuição automática" />;
   }
 
   return (

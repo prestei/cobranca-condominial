@@ -5,7 +5,6 @@ import {
   setUsuarios,
   type Usuario,
 } from "@/data/catalogo";
-import { usuarioEhAtendente } from "@/lib/colaboradores/re";
 import {
   codigoReEmUso,
   codigoReValido,
@@ -24,7 +23,7 @@ export type UsuarioInput = {
   telefone: string;
   email: string;
   senha?: string;
-  /** Ignorado pelo servidor — RE é gerado apenas para atendentes. */
+  /** Ignorado pelo servidor — RE é gerado automaticamente para todo colaborador. */
   codigoRe?: string;
   ativo?: boolean;
   condominioIds?: number[];
@@ -71,18 +70,9 @@ function usuarioEmUso(usuarioId: number) {
 }
 
 function resolverCodigoRePersistente(
-  cargoId: number,
   anterior: Usuario | undefined,
   usuariosAtuais: Usuario[],
 ): string | undefined {
-  const candidato: Usuario = anterior
-    ? { ...anterior, cargoId }
-    : { id: -1, codigo: "", cargoId, nome: "", telefone: "", email: "", senha: "", ativo: true };
-
-  if (!usuarioEhAtendente(candidato)) {
-    return undefined;
-  }
-
   const reAnterior = anterior?.codigoRe?.trim();
   if (reAnterior && codigoReValido(reAnterior)) {
     const normalizado = normalizarCodigoRe(reAnterior);
@@ -228,12 +218,11 @@ export async function criarUsuario(
   }
 
   const usuariosAtuais = getCadastros().usuarios;
-  const reExistente = resolverCodigoRePersistente(base.cargoId, undefined, usuariosAtuais);
-  const precisaGerarRe = usuarioEhAtendente({ ...base, id: nextId }) && !reExistente;
+  const reExistente = resolverCodigoRePersistente(undefined, usuariosAtuais);
 
   let usuario: Usuario;
 
-  if (precisaGerarRe) {
+  if (!reExistente) {
     usuario = await reservarCodigoRe(usuariosAtuais, (codigoRe) => {
       const criado = montarUsuarioComRe(base, nextId!, codigoRe);
       setUsuarios((current) => [...current, criado]);
@@ -283,13 +272,11 @@ export async function atualizarUsuario(
 
   const base = await validarEntrada(input, usuarioId);
   const usuariosAtuais = getCadastros().usuarios.filter((item) => item.id !== usuarioId);
-  let codigoRe = resolverCodigoRePersistente(base.cargoId, atual, usuariosAtuais);
-
-  const precisaGerarRe = usuarioEhAtendente({ ...base, id: usuarioId }) && !codigoRe;
+  const codigoRe = resolverCodigoRePersistente(atual, usuariosAtuais);
 
   let atualizado: Usuario;
 
-  if (precisaGerarRe) {
+  if (!codigoRe) {
     atualizado = await reservarCodigoRe(getCadastros().usuarios, (novoRe) => {
       const next = montarUsuarioComRe(base, usuarioId, novoRe);
       setUsuarios((current) => current.map((item) => (item.id === usuarioId ? next : item)));

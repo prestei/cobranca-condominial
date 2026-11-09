@@ -10,6 +10,7 @@ import { CardMetric } from "@/components/card-metric";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { SkeletonTable } from "@/components/skeleton";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
@@ -343,8 +344,7 @@ export function RetornosAgendaPanel() {
         </Alert>
       ) : null}
 
-      <section className="flex flex-col gap-md">
-        <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+      <FiltrosSection>
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -394,7 +394,7 @@ export function RetornosAgendaPanel() {
           { id: "ate", label: "Período — até", value: ate, onChange: setAte, type: "date" as const },
         ]}
         />
-      </section>
+      </FiltrosSection>
 
       {carregando ? (
         <SkeletonTable rows={8} cols={6} label="Carregando agenda de retornos" />

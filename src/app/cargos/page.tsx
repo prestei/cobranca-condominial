@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
-import { CargoIconeListagem, iconeCargoListagem } from "@/components/cargo-icone-listagem";
+import { CargoIconeListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
-import { ResumoPermissoesCargo } from "@/components/resumo-permissoes-cargo";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
 import { FormField, Input, Switch } from "@/components/input";
@@ -73,15 +73,11 @@ import {
 import { MODULOS_PERMISSAO } from "@/lib/permissions/modulos";
 import { permissoesPadraoPorNome } from "@/lib/permissions/seeds";
 
-const colunasExportacao = ["Cargo", "Descrição", "Áreas com acesso", "Colaboradores"] as const;
+const colunasExportacao = ["Cargo", "Descrição", "Colaboradores"] as const;
 
 type SortKey = "nome" | "descricao";
 
 const formularioVazio = { nome: "", descricao: "", ativo: true, permissoes: permissoesVazias() };
-
-function rotuloListagemCargos(visiveis: number) {
-  return visiveis === 1 ? "1 cargo encontrado" : `${visiveis} cargos encontrados`;
-}
 
 type FormularioCargo = typeof formularioVazio;
 
@@ -97,7 +93,6 @@ export default function CargosPage() {
   const { user: sessao } = useAuth();
   const { pode } = usePermissao();
   const formId = useId();
-  const permissoesViewFormId = useId();
   const cadastros = useCadastros();
   const cargos = cadastros.cargos;
   const [search, setSearch] = useState("");
@@ -117,7 +112,6 @@ export default function CargosPage() {
   const [formBaseline, setFormBaseline] = useState(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<"nome", string>>>({});
   const [salvando, setSalvando] = useState(false);
-  const [permissoesViewTarget, setPermissoesViewTarget] = useState<Cargo | null>(null);
 
   const recarregarCargos = useCallback(async () => {
     if (!sessao) return;
@@ -191,7 +185,6 @@ export default function CargosPage() {
     setAppliedSearch(search);
     setAppliedDescricaoFiltro(descricaoFiltro);
     setAppliedAreaFiltro(areaFiltro);
-    setPermissoesViewTarget(null);
     setPage(1);
   }
 
@@ -202,20 +195,15 @@ export default function CargosPage() {
     setAppliedSearch("");
     setAppliedDescricaoFiltro("todos");
     setAppliedAreaFiltro("todas");
-    setPermissoesViewTarget(null);
     setPage(1);
   }
 
   function linhasExportacao() {
-    return visible.map((item) => {
-      const modulos = listarModulosPermitidos(parsePermissoesJson(item.permissaoJson));
-      return [
-        item.nome,
-        item.descricao.trim() || "—",
-        modulos.length > 0 ? modulos.map((modulo) => modulo.label).join(", ") : "—",
-        String(contagemColaboradores(item.id)),
-      ];
-    });
+    return visible.map((item) => [
+      item.nome,
+      item.descricao.trim() || "—",
+      String(contagemColaboradores(item.id)),
+    ]);
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -435,11 +423,10 @@ export default function CargosPage() {
       containerClassName="border-0 shadow-none rounded-none"
     >
       <colgroup>
-        <col className="w-[15%]" />
-        <col className="w-[22%]" />
-        <col className="w-[47%]" />
+        <col className="w-[28%]" />
+        <col className="w-[46%]" />
+        <col className="w-[16%]" />
         <col className="w-[10%]" />
-        <col className="w-[6%]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -449,7 +436,6 @@ export default function CargosPage() {
           <TableHead sortable sortDirection={directionFor("descricao")} onSort={() => handleSort("descricao")}>
             Descrição
           </TableHead>
-          <TableHead>Áreas com acesso</TableHead>
           <TableHead align="center" className="w-[6.5rem]">
             Colaboradores
           </TableHead>
@@ -458,7 +444,7 @@ export default function CargosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={4}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -470,14 +456,6 @@ export default function CargosPage() {
               </TableCell>
               <TableCell className="max-w-0 align-middle py-md text-body-sm leading-snug break-words text-on-surface">
                 {item.descricao || "—"}
-              </TableCell>
-              <TableCell className="max-w-0 align-middle py-md">
-                <ResumoPermissoesCargo
-                  permissaoJson={item.permissaoJson}
-                  variant="painel"
-                  permissoesAbertas={permissoesViewTarget?.id === item.id}
-                  onVerPermissoes={() => setPermissoesViewTarget(item)}
-                />
               </TableCell>
               <TableCell
                 align="center"
@@ -525,19 +503,11 @@ export default function CargosPage() {
                 className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
               />
             </TableMobileCardHeader>
-            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-              <div className="flex items-center justify-between gap-md">
-                <p className="text-label-sm uppercase text-on-surface-variant">Colaboradores</p>
-                <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                  {contagemColaboradores(item.id)}
-                </p>
-              </div>
-              <ResumoPermissoesCargo
-                permissaoJson={item.permissaoJson}
-                variant="mobile"
-                permissoesAbertas={permissoesViewTarget?.id === item.id}
-                onVerPermissoes={() => setPermissoesViewTarget(item)}
-              />
+            <div className="mt-sm flex items-center justify-between gap-md border-t border-border-subtle/30 pt-sm">
+              <p className="text-label-sm uppercase text-on-surface-variant">Colaboradores</p>
+              <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                {contagemColaboradores(item.id)}
+              </p>
             </div>
           </TableMobileCard>
         ))}
@@ -547,6 +517,7 @@ export default function CargosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={Shield}
         title="Cargos"
         description="Gerencie os cargos e permissões por área do sistema."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -598,8 +569,7 @@ export default function CargosPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -630,14 +600,10 @@ export default function CargosPage() {
               },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <section className="flex min-w-0 flex-col gap-sm">
-          <div className="flex flex-wrap items-center justify-between gap-sm">
-            <span className="inline-flex items-center gap-sm rounded-full border border-border-subtle bg-surface-card px-md py-sm text-body-md text-on-surface shadow-card">
-              <span className="size-2 shrink-0 rounded-full bg-brass" aria-hidden />
-              {rotuloListagemCargos(visible.length)}
-            </span>
+          <div className="flex justify-end">
             <TableExport onExport={aoExportar} />
           </div>
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} onExport={aoExportar} />
@@ -718,54 +684,6 @@ export default function CargosPage() {
             </SheetBody>
             <SheetFooterForm closeLabel="Cancelar" onClose={closeSheet} saveDisabled={salvando} />
           </SheetForm>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={permissoesViewTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setPermissoesViewTarget(null);
-        }}
-      >
-        <SheetContent
-          size="wide"
-          aria-labelledby={`${permissoesViewFormId}-title`}
-          aria-describedby={`${permissoesViewFormId}-desc`}
-        >
-          <SheetHeader className="border-primary-fixed-dim/35 bg-primary-fixed/45">
-            <SheetHeaderLead>
-              <SheetHeaderIcon className="border border-primary-fixed-dim/30 bg-surface-card text-primary-container">
-                <Icon
-                  icon={permissoesViewTarget ? iconeCargoListagem(permissoesViewTarget.nome) : Shield}
-                  size="md"
-                />
-              </SheetHeaderIcon>
-              <SheetHeaderText>
-                <SheetTitle id={`${permissoesViewFormId}-title`} className="text-primary-container">
-                  {permissoesViewTarget?.nome ?? "Permissões"}
-                </SheetTitle>
-                <SheetDescription id={`${permissoesViewFormId}-desc`} className="text-on-primary-fixed-variant">
-                  Permissões deste cargo no sistema (somente consulta).
-                </SheetDescription>
-              </SheetHeaderText>
-            </SheetHeaderLead>
-            <SheetClose className="text-primary-container hover:bg-primary-fixed/60 hover:text-on-primary-fixed" />
-          </SheetHeader>
-          <SheetBody className="gap-md min-[768px]:gap-lg">
-            {permissoesViewTarget ? (
-              <MatrizPermissoesCargo
-                formId={permissoesViewFormId}
-                readOnly
-                permissoes={parsePermissoesJson(permissoesViewTarget.permissaoJson)}
-                onChange={() => undefined}
-              />
-            ) : null}
-          </SheetBody>
-          <div className="flex justify-end border-t border-border-subtle px-lg py-md">
-            <Button type="button" variant="outline" size="sm" onClick={() => setPermissoesViewTarget(null)}>
-              Fechar
-            </Button>
-          </div>
         </SheetContent>
       </Sheet>
 

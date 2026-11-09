@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Gestão de colaboradores, login individual, código RE para atendentes e vínculo advogado ↔ condomínio. Autoria de atendimentos vem da sessão autenticada; identificação operacional do atendente é o RE.
+Gestão de colaboradores, login individual, código RE para todos os colaboradores e vínculo advogado ↔ condomínio. Autoria de atendimentos vem da sessão autenticada; identificação operacional usa o RE.
 
 ## Conexões
 
@@ -30,12 +30,12 @@ Modelo lógico em `docs/banco.md` (`user`, `role`). Colaboradores e senhas (bcry
 | Regra | Detalhe |
 | --- | --- |
 | Formato | `RE-` + cinco dígitos, a partir de `RE-10000` |
-| Quem recebe | Cargo **Atendente** apenas |
+| Quem recebe | **Todo** colaborador (Administrador, Atendente, Advogado e demais cargos) |
 | Geração | `src/lib/colaboradores/re-sequencia.ts` + mutex em `reservarCodigoRe` |
 | Frontend | Não envia nem altera `codigoRe`; sheet não tem campo de código de login |
-| Login | O RE passa a ser o código de acesso do atendente (`codigo` = `codigoRe` na geração) |
-| Imutabilidade | RE não muda em edição, desativação ou reativação |
-| Inativo | RE permanece alocado; atendente inativo não aparece em listas operacionais de RE |
+| Login | O RE passa a ser o código de acesso (`codigo` = `codigoRe` na geração); login legado ainda é aceito |
+| Imutabilidade | RE não muda em edição, desativação, reativação ou troca de cargo |
+| Inativo | RE permanece alocado; atendente inativo não aparece em listas operacionais de RE da carteira |
 
 Helpers: `codigoReDoUsuario`, `identificadorColaboradorPorId`, `listarAtendentesComRe` em `src/lib/colaboradores/re.ts`.
 
@@ -58,7 +58,7 @@ Permissões: `usuarios.ler` (listar), `usuarios.criar`, `usuarios.editar`, `usua
 | Método | Path | Body | Resposta |
 | --- | --- | --- | --- |
 | GET | `/api/usuarios` | — | `200` `{ usuarios: UsuarioPublico[] }` |
-| POST | `/api/usuarios` | `{ codigo, cargoId, nome, telefone, email, senha, ativo?, condominioIds?, id? }` | `201` `{ usuario }` — RE gerado se Atendente |
+| POST | `/api/usuarios` | `{ codigo, cargoId, nome, telefone, email, senha, ativo?, condominioIds?, id? }` | `201` `{ usuario }` — RE gerado para todo colaborador |
 | PATCH | `/api/usuarios/:id` | `{ codigo, cargoId, nome, telefone, email, senha?, ativo?, condominioIds? }` | `200` `{ usuario }` |
 | PATCH | `/api/usuarios/:id/situacao` | `{ ativo: boolean }` | `200` `{ usuario }` |
 | DELETE | `/api/usuarios/:id` | — | `200` `{ ok: true }` — bloqueado se houver atendimento, importação ou auditoria |
@@ -70,7 +70,7 @@ Sincronização cliente: `src/lib/usuarios/sync-cliente.ts` (`garantirUsuariosPe
 ## Fluxos principais
 
 1. **Login:** usuário envia código e senha → API valida no cadastro (ativo) → cookie de sessão → redirecionamento.
-2. **Cadastro atendente:** POST `/api/usuarios` → servidor reserva próximo RE → resposta exibe `codigoRe` (toast na UI).
+2. **Cadastro:** POST `/api/usuarios` → servidor reserva próximo RE → resposta exibe `codigoRe` (toast na UI).
 3. **Desativar:** PATCH `/api/usuarios/:id/situacao` com `{ ativo: false }` → login bloqueado; RE mantido.
 4. **Advogado:** marcar condomínios no sheet → atualiza vínculos no cadastro de condomínios.
 
@@ -79,8 +79,8 @@ Sincronização cliente: `src/lib/usuarios/sync-cliente.ts` (`garantirUsuariosPe
 - Login individual com senha; autoria de atendimentos pelo colaborador logado (não escolhível manualmente).
 - Perfil com `usuarios.editar` (Administradora no seed) pode alterar nome, cargo, telefone, e-mail, situação, condomínios (advogado) e senha. Na edição, senha vazia preserva a atual; senha preenchida é rehashed no servidor (`PATCH /api/usuarios/:id`).
 - Senha inicial de demonstração: `12345` para os usuários de exemplo (hash em `catalogo.ts`).
-- Login: atendentes usam o **código RE**; demais colaboradores usam código derivado (seed/e-mail). `buscarUsuarioPorCodigoLogin` aceita `codigo` ou `codigoRe`. E-mail único no cadastro.
-- RE é o login do atendente e identificador operacional; **não** é senha.
+- Login: colaboradores usam o **código RE** (ou login legado do seed). `buscarUsuarioPorCodigoLogin` aceita `codigo` ou `codigoRe`. E-mail único no cadastro.
+- RE é o login e o identificador operacional de todo colaborador; **não** é senha.
 
 ## Integrações
 
@@ -89,9 +89,9 @@ Nenhuma.
 ## Estados de interface
 
 - Login: carregando, erro de credencial, envio.
-- Listagem (`/usuarios`): ordem vertical — cabeçalho (descrição + **Novo colaborador**), `FilterBar` em linha (busca, cargo, situação), quatro indicadores (`CardMetric` layout `stacked`: total, cargos cadastrados, com telefone, com acesso ativo no recorte), bloco **Colaboradores cadastrados** + exportar, tabela com nome (avatar + código RE abaixo), cargo, situação, contato (telefone com e-mail abaixo), último acesso (placeholder `—` até persistência), ações; exportação CSV/XLS/PDF do recorte filtrado; paginação (20). Métricas e listagem respeitam o recorte após **Filtrar**. Ao abrir, sincroniza colaboradores e cargos com a API.
-- Listagem: gestão administrativa exibe **nome** completo; RE na coluna dedicada (atendentes). Coluna **Ação** fixa à direita (menu editar/desativar/excluir).
-- Sheet: sem campo de código de login nem exibição de RE no formulário (RE é gerado no cadastro de atendente e usado como login); Contato + E-mail na mesma linha; demais campos editáveis pela administradora, inclusive **nova senha** (opcional, com `SheetHelpText`) e situação; checkboxes de condomínio para advogado; `Input`/`Select` com `icon` à esquerda.
+- Listagem (`/usuarios`): ordem vertical — cabeçalho (descrição + **Novo colaborador**), três indicadores em `grid-cols-3` no desktop (`CardMetric` com detalhe: total, cargos cadastrados, com acesso ao sistema), `FilterBar` (busca, cargo, situação), **Exportar**, tabela com nome (avatar + código RE abaixo), cargo, situação, contato (telefone com e-mail abaixo), último acesso (placeholder `—` até persistência), ações; exportação CSV/XLS/PDF do recorte filtrado; paginação (20). Métricas e listagem respeitam o recorte após **Filtrar**. Ao abrir, sincroniza colaboradores e cargos com a API.
+- Listagem: gestão administrativa exibe **nome** completo; RE sob o nome (todos os colaboradores). Coluna **Ação** fixa à direita (menu editar/desativar/excluir).
+- Sheet: sem campo de código de login nem edição de RE (RE é gerado no cadastro e usado como login); Contato + E-mail na mesma linha; demais campos editáveis pela administradora, inclusive **nova senha** (opcional, com `SheetHelpText`) e situação; checkboxes de condomínio para advogado; `Input`/`Select` com `icon` à esquerda.
 
 ## Pendências e decisões
 

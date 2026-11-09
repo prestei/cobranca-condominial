@@ -76,8 +76,8 @@ function LoginForm() {
             <div className="flex flex-col gap-xs">
               <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
               <p className="text-body-sm text-on-surface-variant">
-                Por enquanto: código 12345 e senha 12345 (admin de teste). Atendentes entram com o código RE;
-                demais colaboradores usam o próprio código, senha 12345.
+                Por enquanto: código 12345 ou RE-10005 e senha 12345 (admin de teste). Todo colaborador
+                entra com o código RE (ou o login legado), senha 12345.
               </p>
             </div>
           </div>

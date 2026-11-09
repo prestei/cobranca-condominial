@@ -122,6 +122,21 @@ describe("T21 — cadastro administradora + RE único", () => {
     assert.match(novo.codigoRe, /^RE-\d{5}$/);
     const reservados = new Set(antes);
     assert.ok(!reservados.has(novo.codigoRe));
+
+    const cargoAdvogado = getCadastros().cargos.find((item) => item.nome === "Advogado");
+    assert.ok(cargoAdvogado);
+    const advogado = await criarUsuario(ADMIN_ID, {
+      codigo: "ADVINT",
+      cargoId: cargoAdvogado.id,
+      nome: "Advogado Integração",
+      telefone: "",
+      email: "adv.int@example.invalid",
+      senha: SENHA_DEMONSTRACAO,
+      ativo: true,
+    });
+    assert.ok(advogado.codigoRe);
+    assert.match(advogado.codigoRe, /^RE-\d{5}$/);
+    assert.notEqual(advogado.codigoRe, novo.codigoRe);
   });
 });
 
@@ -277,7 +292,7 @@ describe("T23 — painel de produtividade por RE", () => {
       ate: "2035-12-31",
       codigoRe: "RE-10000",
     });
-    assert.equal(exportacao.titulo, "Produtividade por RE");
+    assert.equal(exportacao.titulo, "Produtividade por colaborador");
     const linhas = exportacao.secoes[0]?.linhas ?? [];
     assert.ok(linhas.some((l) => l[0] === "RE-10000" && Number(l[1]) > 0));
   });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, BarChart3, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/button";
 import { CardMetric, type CardMetricAccent } from "@/components/card-metric";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { Grade, Leitura } from "@/components/dashboard/dashboard-shared";
@@ -132,27 +133,22 @@ export function RelatorioMetrica({
 }
 
 export function RelatorioFiltros({ children }: { children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-lg min-[768px]:shadow-card">
-      <h2 className="text-headline-sm text-on-surface">Filtros</h2>
-      {children}
-    </section>
-  );
+  return <FiltrosSection>{children}</FiltrosSection>;
 }
 
-export function VoltarRelatoriosHub() {
+export function VoltarRelatoriosHub({ className }: { className?: string } = {}) {
   const router = useRouter();
   return (
-    <Button size="sm" variant="ghost" className="self-start" onClick={() => router.push("/relatorios")}>
+    <Button size="sm" variant="ghost" className={className} onClick={() => router.push("/relatorios")}>
       <Icon icon={ArrowLeft} size="sm" />
-      Todos os relatórios
+      Voltar
     </Button>
   );
 }
 
 export function RelatorioSecaoTabela({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-md min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:p-lg min-[768px]:shadow-card">
+    <section className="flex flex-col gap-md">
       <div className="flex flex-col gap-xs">
         <h2 className="text-headline-sm text-on-surface">{titulo}</h2>
         {nota ? <p className="text-body-sm text-on-surface-variant">{nota}</p> : null}

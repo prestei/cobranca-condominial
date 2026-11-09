@@ -158,7 +158,7 @@ Mobile: legibilidade, touch targets, navegação simples, conteúdo prioritário
 
 ### Loading
 
-Skeleton, spinner ou loading button. Evitar tela congelada.
+Skeleton (`@/components/skeleton`) como padrão. Não usar spinner circular/`Loader2` nem texto “Carregando…” em conteúdo. Loading em botão (disabled/aria-busy) só para ações pontuais.
 
 ### Empty
 

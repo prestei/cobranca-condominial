@@ -43,6 +43,7 @@ export default function NotificacoesPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={Bell}
         title="Notificações internas"
         description="Alertas de retornos e distribuição de cobrança. Canais externos (e-mail, SMS, WhatsApp) permanecem desativados."
         actions={

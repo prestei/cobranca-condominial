@@ -8,6 +8,7 @@ import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
@@ -439,6 +440,7 @@ export default function AuditoriaPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={ScrollText}
         title="Histórico de alterações"
         description="Quem alterou o quê no sistema e quando."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -468,33 +470,35 @@ export default function AuditoriaPage() {
               icon={UserPlus}
             />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
             <CardMetric
               accent="primary"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={ScrollText} size="md" className="text-primary-container" />}
               rotulo="Registros na lista"
               valor={metricValor(visible.length)}
-            />
-            <CardMetric
-              accent="brass"
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={Pencil} size="md" className="text-brass" />}
-              rotulo="Alterações"
-              valor={metricValor(alteracoes)}
+              detalhe="Com os filtros aplicados"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={ScrollText} size="md" className="text-primary-container" />}
             />
             <CardMetric
               accent="tertiary"
+              rotulo="Alterações"
+              valor={metricValor(alteracoes)}
+              detalhe="Atualizações registradas"
               iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-              icon={<Icon icon={UserPlus} size="md" className="text-tertiary-container" />}
+              icon={<Icon icon={Pencil} size="md" className="text-tertiary-container" />}
+            />
+            <CardMetric
+              accent="brass"
               rotulo="Cadastros e remoções"
               valor={metricValor(inclusoes + remocoes)}
+              detalhe="Inclusões e exclusões"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={UserPlus} size="md" className="text-brass" />}
             />
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -535,7 +539,7 @@ export default function AuditoriaPage() {
               },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <section className="flex flex-col gap-md">
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />

@@ -25,10 +25,8 @@ function proximoNumeroReDisponivel(usuarios) {
   return max + 1;
 }
 
-function migrarCodigosReUsuarios(usuarios, cargoAtendenteId) {
-  const atendentes = usuarios
-    .filter((item) => item.cargoId === cargoAtendenteId)
-    .sort((a, b) => a.id - b.id);
+function migrarCodigosReUsuarios(usuarios) {
+  const ordenados = [...usuarios].sort((a, b) => a.id - b.id);
 
   const reservados = new Set();
   const atribuicoes = new Map();
@@ -44,7 +42,7 @@ function migrarCodigosReUsuarios(usuarios, cargoAtendenteId) {
     return codigo;
   }
 
-  for (const item of atendentes) {
+  for (const item of ordenados) {
     const numero = numeroDoCodigoRe(item.codigoRe);
     if (numero !== null) {
       const codigo = formatarCodigoRe(numero);
@@ -58,11 +56,6 @@ function migrarCodigosReUsuarios(usuarios, cargoAtendenteId) {
   }
 
   return usuarios.map((item) => {
-    if (item.cargoId !== cargoAtendenteId) {
-      if (!item.codigoRe) return item;
-      const { codigoRe, ...resto } = item;
-      return resto;
-    }
     const atribuido = atribuicoes.get(item.id);
     if (!atribuido) return item;
     if (item.codigoRe && item.codigoRe.trim().toUpperCase() === atribuido) return item;
@@ -70,37 +63,33 @@ function migrarCodigosReUsuarios(usuarios, cargoAtendenteId) {
   });
 }
 
-test("primeiro atendente migrado recebe RE-10000", () => {
-  const ATD = 2;
-  const migrados = migrarCodigosReUsuarios(
-    [
-      { id: 1, cargoId: 1 },
-      { id: 5, cargoId: ATD, codigoRe: "RE-001" },
-    ],
-    ATD,
-  );
-  assert.equal(migrados.find((u) => u.id === 5)?.codigoRe, "RE-10000");
+test("colaborador sem RE válido recebe RE-10000", () => {
+  const migrados = migrarCodigosReUsuarios([
+    { id: 1, cargoId: 1 },
+    { id: 5, cargoId: 2, codigoRe: "RE-001" },
+  ]);
+  assert.equal(migrados.find((u) => u.id === 1)?.codigoRe, "RE-10000");
+  assert.equal(migrados.find((u) => u.id === 5)?.codigoRe, "RE-10001");
 });
 
 test("sequência RE-10000, RE-10001 na migração por id", () => {
-  const ATD = 2;
-  const migrados = migrarCodigosReUsuarios(
-    [
-      { id: 10, cargoId: ATD, codigoRe: "RE-003" },
-      { id: 8, cargoId: ATD, codigoRe: "RE-001" },
-      { id: 9, cargoId: ATD },
-    ],
-    ATD,
-  );
+  const migrados = migrarCodigosReUsuarios([
+    { id: 10, cargoId: 2, codigoRe: "RE-003" },
+    { id: 8, cargoId: 2, codigoRe: "RE-001" },
+    { id: 9, cargoId: 2 },
+  ]);
   assert.equal(migrados.find((u) => u.id === 8)?.codigoRe, "RE-10000");
   assert.equal(migrados.find((u) => u.id === 9)?.codigoRe, "RE-10001");
   assert.equal(migrados.find((u) => u.id === 10)?.codigoRe, "RE-10002");
 });
 
-test("advogado não recebe RE na migração", () => {
-  const ATD = 2;
-  const migrados = migrarCodigosReUsuarios([{ id: 3, cargoId: 3, codigoRe: "RE-99999" }], ATD);
-  assert.equal(migrados[0].codigoRe, undefined);
+test("advogado e administrador também recebem RE na migração", () => {
+  const migrados = migrarCodigosReUsuarios([
+    { id: 1, cargoId: 1 },
+    { id: 3, cargoId: 3, codigoRe: "RE-99999" },
+  ]);
+  assert.equal(migrados.find((u) => u.id === 1)?.codigoRe, "RE-10000");
+  assert.equal(migrados.find((u) => u.id === 3)?.codigoRe, "RE-99999");
 });
 
 test("proximoNumeroReDisponivel após RE-10002 retorna 10003", () => {

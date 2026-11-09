@@ -35,6 +35,7 @@ import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { FormSteps } from "@/components/form-steps";
 import { FormField, Input, Select } from "@/components/input";
@@ -924,6 +925,7 @@ export default function UnidadesPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={DoorOpen}
         title="Unidades"
         description="Unidades da carteira e situação de cobrança."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -985,8 +987,7 @@ export default function UnidadesPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -1037,7 +1038,7 @@ export default function UnidadesPage() {
               },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <ResponsiveTable
           desktop={desktopTable}

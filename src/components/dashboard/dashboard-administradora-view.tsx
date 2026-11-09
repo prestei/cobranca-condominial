@@ -214,7 +214,7 @@ export function DashboardAdministradoraView({ dados, chaveGrafico }: Props) {
         titulo="Últimos 7 dias"
         descricao={`De ${formatarData(dados.operacao.periodo.inicio)} a ${formatarData(dados.operacao.periodo.fim)}.`}
         linkLabel="Mais detalhes"
-        onLink={() => router.push("/relatorios?relatorio=equipe")}
+        onLink={() => router.push("/relatorios?relatorio=produtividade")}
       >
         <div className="grid grid-cols-1 gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-2">
           <CardMetric

@@ -14,6 +14,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
 | `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
+| `FiltrosSection` | `filtros-section.tsx` | Título **Filtros** (`text-label-lg`), espaçamento curto e seta para expandir/recolher. Envolve o `FilterBar` em todas as listagens. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
@@ -24,19 +25,18 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
 | `EmptyState` | `empty-state.tsx` | Sem dados: título, descrição, ícone e ação opcionais. |
-| `Skeleton`, `SkeletonListPage`, `SkeletonTable`, `SkeletonMetrics`, `SkeletonDashboard`, … | `skeleton.tsx` | Loading: blocos com pulse (`motion-safe:animate-pulse`). Preferir skeleton a texto “Carregando…” ou spinner em tela cheia. |
+| `Skeleton`, `SkeletonListPage`, `SkeletonTable`, `SkeletonMetrics`, `SkeletonDashboard`, … | `skeleton.tsx` | Loading padrão: blocos com pulse (`motion-safe:animate-pulse`). Não usar spinner/`Loader2` nem texto “Carregando…” em tela cheia. |
 | `Icon` | `icon.tsx` | Ícones Lucide com tamanhos `sm`, `md`, `lg` e traço padronizado. |
 | `Alert` | `alert.tsx` | Feedback inline. Variantes: `info`, `success`, `warning`, `error` (ícone Lucide por variante). |
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
 | `ConfirmDialog` | `confirm-dialog.tsx` | Confirmação com título, descrição, cancelar e confirmar. Usa `Dialog`. |
 | `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetBody`, `SheetFooter`, `SheetClose`, … | `sheet.tsx` | Painel lateral para cadastro (`open`, `onOpenChange`). `<dialog>` ancorado à direita, largura máx. padrão `max-w-sheet` (`calc(32rem + 150px)` em `@theme`); `SheetContent size="wide"` → 52rem somente quando documentado para a tela. Use `SheetForm`, `SheetHeaderLead`, `SheetHeaderIcon`, `SheetPanel`, `SheetToggleRow`, `SheetHelpText` e `SheetFooterForm` como padrão de formulário. |
 | `MatrizPermissoesCargo` | `matriz-permissoes-cargo.tsx` | Permissões do cargo no sheet `/cargos`: contador e barra de progresso, **Restaurar padrão** / **Desmarcar tudo**, cartão por área e checkboxes (Consultar, Cadastrar, Alterar, Excluir, Exportar dados). |
-| `ResumoPermissoesCargo` | `resumo-permissoes-cargo.tsx` | Listagem `/cargos`: painel com **N áreas**, lista de módulos e **Ver permissões**; variante `badges` para tags compactas. | 
 | `FormSteps` | `form-steps.tsx` | Indicador das etapas de um formulário grande dentro do `Sheet`. |
 | `ToastProvider`, `useToast` | `toast.tsx` | Notificações temporárias; envolver a app com `ToastProvider` (ver `app/providers.tsx`). |
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
-| `PageHeader`, `PageContent` | `page-header.tsx` | Título e descrição opcional (`text-body-sm`, bloco até `max-w-2xl`) e ações. Layout em flex: texto não encolhe com títulos curtos; ações à direita no desktop. |
+| `PageHeader`, `PageContent` | `page-header.tsx` | Título com ícone Lucide opcional (`icon`) em caixa `size-9` arredondada (`bg-primary-fixed/40 text-primary-container`), descrição opcional (`text-body-sm`, bloco até `max-w-2xl`) e ações. Layout em flex: texto não encolhe com títulos curtos; ações à direita no desktop. |
 
 ## Gráficos
 
@@ -111,28 +111,30 @@ Use `CheckboxField`, `RadioField` ou `SwitchField` para label clicável ao lado.
 
 ## Filtros
 
-`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. Busca, selects, datas, números e período usam rótulo acima do campo (`FormField`). Em todas as telas o padrão é o mesmo: grade com **no máximo 4 colunas** de **largura igual** (1 no mobile estreito, 2 a partir de ~480px, 4 a partir de 768px); a busca ocupa uma coluna como os demais campos. **Limpar** e **Filtrar** ficam sempre na linha de baixo (`col-span-full`), alinhados à direita, com Filtrar por último. **Limpar** usa `Button` variante **`surface`**, `size="sm"`; **Filtrar** usa **`primary`**, `size="sm"`. A variante `toolbar` (fila) segue a mesma grade e posição das ações; no mobile da fila mantém o card de 2 colunas.
+`FilterBar` compõe `Input`, `Select`, `PeriodInput` e `Button` sobre fundo `surface-subtle`, com borda `border-subtle`. O título **Filtros** fica fora do `FilterBar`, sempre via `FiltrosSection` (`filtros-section.tsx`): título `text-label-lg`, sem espaçamento vertical até a barra (`gap-0`) e seta à direita para expandir/recolher. Por padrão o painel inicia **fechado no mobile** (&lt;768px) e **expandido no desktop**. Em relatórios, `RelatorioFiltros` reutiliza o mesmo componente. Busca, selects, datas, números e período usam rótulo acima do campo (`FormField`). Em todas as telas o padrão é o mesmo: grade com **no máximo 4 colunas** de **largura igual** (1 no mobile estreito, 2 a partir de ~480px, 4 a partir de 768px); a busca ocupa uma coluna como os demais campos. **Limpar** e **Filtrar** ficam sempre na linha de baixo (`col-span-full`), alinhados à direita, com Filtrar por último. **Limpar** usa `Button` variante **`surface`**, `size="sm"`; **Filtrar** usa **`primary`**, `size="sm"`. A variante `toolbar` permanece disponível para usos compactos pontuais; a fila de Atendimentos usa o padrão `FiltrosSection` + `FilterBar` default.
 
 ```tsx
-<FilterBar
-  searchValue={search}
-  onSearchChange={setSearch}
-  searchPlaceholder="Buscar condomínio..."
-  onApply={handleApply}
-  onClear={handleClear}
-  fields={[
-    {
-      id: "situation",
-      label: "Situação",
-      value: situation,
-      onChange: setSituation,
-      options: [
-        { value: "todos", label: "Todos" },
-        { value: "ativo", label: "Ativo" },
-      ],
-    },
-  ]}
-/>
+<FiltrosSection>
+  <FilterBar
+    searchValue={search}
+    onSearchChange={setSearch}
+    searchPlaceholder="Buscar condomínio..."
+    onApply={handleApply}
+    onClear={handleClear}
+    fields={[
+      {
+        id: "situation",
+        label: "Situação",
+        value: situation,
+        onChange: setSituation,
+        options: [
+          { value: "todos", label: "Todos" },
+          { value: "ativo", label: "Ativo" },
+        ],
+      },
+    ]}
+  />
+</FiltrosSection>
 ```
 
 ## Abas
@@ -254,7 +256,9 @@ O texto mostra o intervalo visível (`1–20 de 35`). As setas, sem rótulo, fic
 
 ## Loading (skeleton)
 
-Enquanto a tela ou o painel busca dados, use os componentes de `@/components/skeleton` — não texto “Carregando…” nem `EmptyState` com spinner.
+**Padrão obrigatório:** enquanto a tela ou o painel busca dados, use os componentes de `@/components/skeleton`.
+
+**Proibido** como loading de conteúdo: spinner/`Loader2`/`animate-spin`, texto “Carregando…”, ou `EmptyState` com ícone circular. Em campos compactos (ex.: busca), use um bloco `Skeleton` pequeno no lugar do spinner.
 
 | Composição | Uso |
 | --- | --- |
@@ -431,6 +435,7 @@ Compor telas internas com `AppShell` + `PageHeader` + `PageContent`. Passe `user
   <AppShellMain>
     <PageContent>
       <PageHeader
+        icon={Building2}
         title="Condomínios"
         description="Texto de apoio."
         actions={<Button>Novo</Button>}

@@ -72,7 +72,7 @@ Colaborador que opera o sistema.
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | codigo | VARCHAR(32) | não | único | Código de login do colaborador |
-| codigo_re | VARCHAR(16) | sim | único quando preenchido | RE operacional do atendente (`RE-10000` …) |
+| codigo_re | VARCHAR(16) | sim | único quando preenchido | RE do colaborador (`RE-10000` …); login e identificador operacional |
 | cargo_id | INT | sim | FK → role.id | Cargo |
 | nome | VARCHAR(255) | sim | | |
 | telefone | VARCHAR(255) | sim | | |

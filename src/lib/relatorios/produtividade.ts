@@ -23,16 +23,16 @@ export const SERIES_GRAFICO_PRODUTIVIDADE = [
 ] as const;
 
 export const DEFINICOES_INDICADORES_PRODUTIVIDADE = [
-  "Atendimentos registrados: tentativas de cobrança gravadas pelo RE autor do registro (data/hora do atendimento dentro do período).",
-  "Retornos concluídos: retornos marcados como concluídos no período (data de conclusão), atribuídos ao RE que concluiu a ação.",
-  "Negociações: propostas de negociação criadas no período pelo RE autor do registro (exclui canceladas e recusadas).",
-  "Ações agendadas: atendimentos registrados no período pelo RE em que foi definida data de retorno ou próxima ação.",
-  "Acordos confirmados: propostas aceitas com confirmação no período, atribuídas ao RE que confirmou o acordo (quando informado).",
-  "Retornos previstos: agendamentos com data prevista no período, atribuídos ao RE que registrou o atendimento (independente do responsável atual da carteira).",
-  "Retornos atrasados: entre os retornos previstos no período, os que seguem em aberto com data prevista anterior a hoje (RE que agendou).",
-  "Retornos em aberto: entre os retornos previstos no período, os que seguem em aberto com data prevista hoje ou futura (RE que agendou).",
-  "Cobranças na carteira: unidades com atribuição vigente ao RE na data da consulta (snapshot atual).",
-  "Responsável atual da carteira ≠ autor do evento: redistribuição altera só a carteira vigente; autoria histórica permanece no RE que registrou.",
+  "Atendimentos registrados: tentativas de cobrança gravadas pelo colaborador autor do registro (data/hora do atendimento dentro do período).",
+  "Retornos concluídos: retornos marcados como concluídos no período (data de conclusão), atribuídos ao colaborador que concluiu a ação.",
+  "Negociações: propostas de negociação criadas no período pelo colaborador autor do registro (exclui canceladas e recusadas).",
+  "Ações agendadas: atendimentos registrados no período pelo colaborador em que foi definida data de retorno ou próxima ação.",
+  "Acordos confirmados: propostas aceitas com confirmação no período, atribuídas ao colaborador que confirmou o acordo (quando informado).",
+  "Retornos previstos: agendamentos com data prevista no período, atribuídos ao colaborador que registrou o atendimento (independente do responsável atual da carteira).",
+  "Retornos atrasados: entre os retornos previstos no período, os que seguem em aberto com data prevista anterior a hoje (colaborador que agendou).",
+  "Retornos em aberto: entre os retornos previstos no período, os que seguem em aberto com data prevista hoje ou futura (colaborador que agendou).",
+  "Cobranças na carteira: unidades com atribuição vigente ao colaborador na data da consulta (snapshot atual).",
+  "Responsável atual da carteira ≠ autor do evento: redistribuição altera só a carteira vigente; autoria histórica permanece no colaborador que registrou.",
 ] as const;
 
 export type ProdutividadePorReLinha = {

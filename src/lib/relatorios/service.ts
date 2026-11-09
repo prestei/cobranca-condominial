@@ -19,7 +19,7 @@ import {
   type Debito,
 } from "@/data/catalogo";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
-import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario, listarAtendentesComRe, nomeColaboradorPorCodigoRe } from "@/lib/colaboradores/re";
 import { listarDebitos } from "@/lib/debitos/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -53,7 +53,7 @@ export type RelatorioFiltros = {
 export type RelatorioOpcoesFiltro = {
   condominios: { id: number; nome: string }[];
   advogados: string[];
-  atendentesRe: { codigoRe: string }[];
+  atendentesRe: { codigoRe: string; nome: string }[];
   podeFiltrarPorRe: boolean;
 };
 
@@ -91,9 +91,11 @@ function somar(itens: Array<{ valorAtualizado: string }>) {
   return itens.reduce((total, item) => total + (Number(item.valorAtualizado) || 0), 0);
 }
 
-function reDoUsuario(usuarioId: number): string {
+function nomeColaboradorDoUsuario(usuarioId: number): string {
   const usuario = getCadastros().usuarios.find((item) => item.id === usuarioId);
   if (!usuario) return "—";
+  const nome = usuario.nome.trim();
+  if (nome) return nome;
   return codigoReDoUsuario(usuario) ?? "—";
 }
 
@@ -176,7 +178,7 @@ export function obterOpcoesFiltrosRelatorio(userId: number): RelatorioOpcoesFilt
   return {
     condominios,
     advogados: advogadosLista.length ? advogadosLista : [...advogados],
-    atendentesRe: listarAtendentesComRe().map((item) => ({ codigoRe: item.codigoRe })),
+    atendentesRe: listarAtendentesComRe().map((item) => ({ codigoRe: item.codigoRe, nome: item.nome })),
     podeFiltrarPorRe,
   };
 }
@@ -241,7 +243,7 @@ export function rotulosFiltrosAplicados(filtros: RelatorioFiltros, tipo: Relator
     const nome = cadastros.condominios.find((item) => item.id === filtros.condominioId)?.nome ?? String(filtros.condominioId);
     linhas.push(`Condomínio: ${nome}`);
   }
-  if (filtros.codigoRe !== "todos") linhas.push(`RE: ${filtros.codigoRe}`);
+  if (filtros.codigoRe !== "todos") linhas.push(`Colaborador: ${nomeColaboradorPorCodigoRe(filtros.codigoRe)}`);
   if (filtros.respondeu !== "todos") linhas.push(`Respondeu: ${filtros.respondeu}`);
   if (filtros.motivo !== "todos") linhas.push(`Motivo: ${filtros.motivo}`);
   if (filtros.canal !== "todos") linhas.push(`Meio: ${filtros.canal}`);
@@ -304,12 +306,12 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
       secoes: [
         {
           titulo: "Retornos pendentes",
-          colunas: ["Quando", "Condomínio", "Unidade", "RE", "Próxima ação", "Situação"],
+          colunas: ["Quando", "Condomínio", "Unidade", "Colaborador", "Próxima ação", "Situação"],
           linhas: itens.map((item) => [
             formatarData(item.dataPrevista),
             item.condominioNome,
             item.unidadeLabel,
-            item.codigoRe ?? "—",
+            item.codigoRe ? nomeColaboradorPorCodigoRe(item.codigoRe) : "—",
             item.proximaAcao || "—",
             rotuloRetorno[
               item.situacaoAgenda === "atrasado"
@@ -368,7 +370,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
   if (tipo === "produtividade") {
     const painel = montarPainelProdutividadePorRe(userId, filtros);
     const linhasResumo = painel.linhas.map((linha) => [
-      linha.codigoRe,
+      nomeColaboradorPorCodigoRe(linha.codigoRe),
       String(linha.atendimentosRegistrados),
       String(linha.retornosConcluidos),
       String(linha.negociacoesRegistradas),
@@ -385,17 +387,17 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
     const linhasMeio = painel.linhas.flatMap((linha) =>
       meios
         .filter((meio) => (linha.porMeio[meio] ?? 0) > 0)
-        .map((meio) => [linha.codigoRe, meio, String(linha.porMeio[meio] ?? 0)]),
+        .map((meio) => [nomeColaboradorPorCodigoRe(linha.codigoRe), meio, String(linha.porMeio[meio] ?? 0)]),
     );
     return {
-      titulo: "Produtividade por RE",
-      nomeArquivo: "produtividade-por-re",
+      titulo: "Produtividade por colaborador",
+      nomeArquivo: "produtividade-por-colaborador",
       meta: { geradoEm, filtros: metaFiltros },
       secoes: [
         {
-          titulo: "Indicadores por RE",
+          titulo: "Indicadores por colaborador",
           colunas: [
-            "RE",
+            "Colaborador",
             "Atendimentos",
             "Retornos concluídos",
             "Negociações",
@@ -410,7 +412,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
         },
         {
           titulo: "Atendimentos por meio (período)",
-          colunas: ["RE", "Meio", "Quantidade"],
+          colunas: ["Colaborador", "Meio", "Quantidade"],
           linhas: linhasMeio,
         },
         {
@@ -432,14 +434,14 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
       secoes: [
         {
           titulo: "Atendimentos do período",
-          colunas: ["Data", "Condomínio", "Unidade", "RE", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Retorno", "Próxima ação", "Situação"],
+          colunas: ["Data", "Condomínio", "Unidade", "Colaborador", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Retorno", "Próxima ação", "Situação"],
           linhas: lista.map((item) => {
             const condominio = condominioDaUnidade(item.unidadeId);
             return [
               formatarData(item.dataHora),
               condominio?.nome ?? "—",
               nomeUnidade(item.unidadeId),
-              reDoUsuario(item.usuarioId),
+              nomeColaboradorDoUsuario(item.usuarioId),
               condominio?.advogados[0] ?? "—",
               item.canal,
               item.respondeu || "—",

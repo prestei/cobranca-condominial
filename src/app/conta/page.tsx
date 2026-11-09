@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { IdCard, Mail, Phone } from "lucide-react";
+import { IdCard, Mail, Phone, UserRound } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
@@ -110,9 +110,9 @@ export default function ContaPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={UserRound}
         title="Minha conta"
         description="Dados da sua sessão no sistema de cobrança."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Minha conta" }]}
       />
       <PageContent>
         {sessaoCarregando || carregando ? (

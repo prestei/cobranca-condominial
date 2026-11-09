@@ -25,7 +25,6 @@ import {
   GraficoRosca,
   tomPorIndice,
 } from "@/components/charts";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -40,6 +39,7 @@ import {
   TableBody,
   TableCell,
   TableEmpty,
+  TableExport,
   TableHead,
   TableHeader,
   TableMobileCard,
@@ -49,7 +49,6 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
-  TableExport,
   type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
@@ -66,6 +65,8 @@ import {
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { exportarPdf } from "@/lib/exportar";
+import type { RelatorioExportPayload } from "@/lib/relatorios/service";
 import {
   acimaDoLimite,
   canaisAtendimento,
@@ -81,6 +82,7 @@ import {
   LIMITE_AMIGAVEL_DIAS,
   motivosPendencia,
   nomeUnidade,
+  nomeUsuario,
   situacaoRetorno,
   type Atendimento,
   type Condominio,
@@ -90,8 +92,6 @@ import { useAuth } from "@/context/auth-context";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
 import { listarDebitos } from "@/lib/debitos/service";
-import { exportarPdf } from "@/lib/exportar";
-import type { RelatorioExportPayload } from "@/lib/relatorios/service";
 
 const filtroInicial = {
   busca: "",
@@ -111,71 +111,44 @@ const rotuloRetorno = { atrasado: "Atrasado", hoje: "Hoje", semana: "Próximos 7
 const RELATORIOS = [
   {
     id: "produtividade",
-    titulo: "Produtividade por RE",
-    descricao: "Atendimentos, retornos e carteira por RE no período.",
+    titulo: "Produtividade por colaborador",
+    descricao: "Volume, resposta, horários e desempenho da equipe por colaborador.",
     icon: Users,
-    selo: "Gestão",
-  },
-  {
-    id: "equipe",
-    titulo: "Produtividade da equipe",
-    descricao: "Volume e desempenho da palitagem da equipe.",
-    icon: Phone,
-    selo: "Operação",
   },
   {
     id: "retornos",
     titulo: "Retornos pendentes",
     descricao: "Retornos atrasados, de hoje e da semana.",
     icon: CalendarClock,
-    selo: "Agenda",
   },
   {
     id: "efetividade",
     titulo: "Efetividade da cobrança",
     descricao: "Contatos que viraram pagamento ou acordo no mês seguinte.",
     icon: Wallet,
-    selo: "Resultado",
   },
   {
     id: "carteira",
     titulo: "Carteira e unidades",
     descricao: "Inadimplência, ranking e visão unidade a unidade.",
     icon: FileText,
-    selo: "Carteira",
   },
 ] as const;
 
 type RelatorioId = (typeof RELATORIOS)[number]["id"];
 
-const HUB_CARTAO_ESTILO: Record<
-  RelatorioId,
-  { iconClass: string; seloClass: string; badgeVariant: "primary" | "success" | "error" | "secondary" | "neutral" }
-> = {
+const HUB_CARTAO_ESTILO: Record<RelatorioId, { iconClass: string }> = {
   produtividade: {
     iconClass: "bg-primary-fixed/50 text-primary-container",
-    seloClass: "",
-    badgeVariant: "primary",
-  },
-  equipe: {
-    iconClass: "bg-status-settled/15 text-status-settled",
-    seloClass: "",
-    badgeVariant: "success",
   },
   retornos: {
     iconClass: "bg-tertiary-fixed/70 text-tertiary-container",
-    seloClass: "",
-    badgeVariant: "neutral",
   },
   efetividade: {
     iconClass: "bg-primary-fixed/40 text-primary-container",
-    seloClass: "bg-tertiary-container text-on-primary",
-    badgeVariant: "primary",
   },
   carteira: {
     iconClass: "bg-status-settled/15 text-status-settled",
-    seloClass: "bg-status-pending text-on-primary",
-    badgeVariant: "secondary",
   },
 };
 
@@ -186,14 +159,13 @@ function ehRelatorio(valor: string | null): valor is RelatorioId {
 function resolverRelatorio(abaLegado: string | null, relatorioPedido: string | null): RelatorioId | null {
   if (relatorioPedido === "unidades") return "carteira";
   if (relatorioPedido && ehRelatorio(relatorioPedido)) return relatorioPedido;
-  if (abaLegado === "cobranca") return "equipe";
   if (abaLegado === "inadimplencia") return "carteira";
   return null;
 }
 
 const COMPARATIVOS = [
   { id: "condominio" as const, rotulo: "Condomínio" },
-  { id: "atendente" as const, rotulo: "RE" },
+  { id: "atendente" as const, rotulo: "Colaborador" },
   { id: "advogado" as const, rotulo: "Advogado" },
   { id: "meio" as const, rotulo: "Meio" },
 ];
@@ -405,15 +377,26 @@ function TabelaTexto({
   );
 }
 
-function reDoUsuarioId(cadastros: ReturnType<typeof useCadastros>, usuarioId: number) {
+function nomeColaboradorId(cadastros: ReturnType<typeof useCadastros>, usuarioId: number) {
   const usuario = cadastros.usuarios.find((item) => item.id === usuarioId);
   if (!usuario) return "—";
-  return codigoReDoUsuario(usuario) ?? "—";
+  const nome = usuario.nome.trim();
+  if (nome) return nome;
+  return codigoReDoUsuario(usuario) ?? nomeUsuario(usuarioId);
+}
+
+function baixarBlob(blob: Blob, nome: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nome;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function RelatoriosPage() {
-  const { toast } = useToast();
   const { pode } = usePermissao();
+  const { toast } = useToast();
   const { user: sessao } = useAuth();
   const userId = sessao?.userId ?? 0;
   const router = useRouter();
@@ -421,20 +404,22 @@ function RelatoriosPage() {
   const pedidoRelatorio = params?.get("relatorio") ?? null;
   const pedidoAba = params?.get("aba") ?? null;
   const relatorioBruto = resolverRelatorio(pedidoAba, pedidoRelatorio);
-  const relatorio = relatorioBruto === "produtividade" ? null : relatorioBruto;
+  const relatorio = relatorioBruto;
   const atual = relatorio ? RELATORIOS.find((item) => item.id === relatorio)! : null;
+  const podeExportar = pode("relatorios", "exportar");
 
   useEffect(() => {
-    if (pedidoRelatorio !== "produtividade") return;
+    const legadoEquipe = pedidoRelatorio === "equipe" || pedidoAba === "cobranca";
+    if (!legadoEquipe) return;
     const qs = new URLSearchParams();
     if (params) {
       for (const [chave, valor] of params.entries()) {
         if (chave !== "relatorio" && chave !== "aba") qs.set(chave, valor);
       }
     }
-    const sufixo = qs.toString();
-    router.replace(sufixo ? `/relatorios/produtividade?${sufixo}` : "/relatorios/produtividade");
-  }, [pedidoRelatorio, params, router]);
+    qs.set("relatorio", "produtividade");
+    router.replace(`/relatorios?${qs.toString()}`);
+  }, [pedidoRelatorio, pedidoAba, params, router]);
 
   useEffect(() => {
     const condominioParam = params?.get("condominio")?.trim();
@@ -457,7 +442,7 @@ function RelatoriosPage() {
   const condominiosEscopo = escopoCondominios(cadastros, userId || undefined);
   const atendentesRe = listarAtendentesComRe();
   const podeFiltrarPorRe = pode("usuarios", "criar");
-  const relatoriosHub = RELATORIOS.filter((item) => item.id !== "produtividade" || podeFiltrarPorRe);
+  const relatoriosHub = RELATORIOS;
 
   function filtrosRelatorioServico() {
     const condominioId =
@@ -478,79 +463,91 @@ function RelatoriosPage() {
     };
   }
 
-  function tipoExportacao(): RelatorioId {
-    return relatorio ?? "equipe";
-  }
-
-  function queryExportParams() {
+  function queryExportParams(tipo: RelatorioId) {
+    const filtros = filtrosRelatorioServico();
     const qs = new URLSearchParams();
-    const tipo = tipoExportacao();
     qs.set("tipo", tipo);
-    if (aplicado.busca.trim()) qs.set("busca", aplicado.busca.trim());
-    if (tipo === "carteira") {
-      qs.set("dataBase", dataBase);
-    } else {
-      if (periodo.inicio) qs.set("de", periodo.inicio);
-      if (periodo.fim) qs.set("ate", periodo.fim);
-    }
-    if (aplicado.advogado !== "todos") qs.set("advogado", aplicado.advogado);
-    if (aplicado.condominio !== "todos") qs.set("condominio", aplicado.condominio);
-    if (aplicado.codigoRe !== "todos") qs.set("codigoRe", aplicado.codigoRe);
-    if (aplicado.respondeu !== "todos") qs.set("respondeu", aplicado.respondeu);
-    if (aplicado.motivo !== "todos") qs.set("motivo", aplicado.motivo);
-    if (aplicado.canal !== "todos") qs.set("canal", aplicado.canal);
+    if (filtros.de) qs.set("de", filtros.de);
+    if (filtros.ate) qs.set("ate", filtros.ate);
+    if (filtros.dataBase) qs.set("dataBase", filtros.dataBase);
+    if (filtros.condominioId != null) qs.set("condominio", String(filtros.condominioId));
+    if (filtros.advogado !== "todos") qs.set("advogado", filtros.advogado);
+    if (filtros.codigoRe !== "todos") qs.set("codigoRe", filtros.codigoRe);
+    if (filtros.respondeu !== "todos") qs.set("respondeu", filtros.respondeu);
+    if (filtros.motivo !== "todos") qs.set("motivo", filtros.motivo);
+    if (filtros.canal !== "todos") qs.set("canal", filtros.canal);
+    if (filtros.busca.trim()) qs.set("busca", filtros.busca.trim());
     return qs;
   }
 
-  async function exportarViaApi(formato: "csv" | "xls") {
-    const qs = queryExportParams();
-    qs.set("formato", formato);
+  async function aoExportar(formato: TableExportFormat) {
+    if (!relatorio) return;
     try {
-      const response = await fetch(`/api/relatorios/export?${qs.toString()}`, { credentials: "same-origin" });
+      const qs = queryExportParams(relatorio);
+      if (formato === "pdf") {
+        qs.set("formato", "json");
+        const response = await fetch(`/api/relatorios/export?${qs}`, { credentials: "same-origin" });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          toast({
+            variant: "error",
+            title: "Exportação não concluída",
+            description: body.error ?? "Verifique permissões e filtros.",
+          });
+          return;
+        }
+        const body = (await response.json()) as { payload?: RelatorioExportPayload };
+        const payload = body.payload;
+        if (!payload) {
+          toast({ variant: "error", title: "Exportação não concluída", description: "Resposta inválida do servidor." });
+          return;
+        }
+        const abriu = exportarPdf(
+          payload.titulo,
+          `${payload.nomeArquivo}.html`,
+          payload.secoes.map((secao) => ({ titulo: secao.titulo, colunas: secao.colunas, linhas: secao.linhas })),
+        );
+        if (abriu) {
+          toast({ variant: "success", title: "PDF", description: "Use imprimir ou salvar como PDF no navegador." });
+        } else {
+          toast({
+            variant: "info",
+            title: "Relatório baixado",
+            description: "Abra o arquivo HTML e use imprimir para salvar em PDF.",
+          });
+        }
+        return;
+      }
+
+      qs.set("formato", formato === "xls" ? "xls" : "csv");
+      const response = await fetch(`/api/relatorios/export?${qs}`, { credentials: "same-origin" });
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         toast({
           variant: "error",
           title: "Exportação não concluída",
-          description: body.error ?? "Verifique os filtros e tente novamente.",
+          description: body.error ?? "Verifique permissões e filtros.",
         });
         return;
       }
       const blob = await response.blob();
+      const ext = formato === "xls" ? "xls" : "csv";
       const disposition = response.headers.get("Content-Disposition") ?? "";
-      const match = disposition.match(/filename="([^"]+)"/);
-      const nome = match?.[1] ?? `relatorio.${formato === "csv" ? "csv" : "xls"}`;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = nome;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast({ variant: "success", title: formato === "csv" ? "CSV baixado" : "Planilha baixada" });
-    } catch {
+      const nomeMatch = disposition.match(/filename="([^"]+)"/);
+      baixarBlob(blob, nomeMatch?.[1] ?? `relatorio-${relatorio}.${ext}`);
       toast({
-        variant: "error",
-        title: "Falha na exportação",
-        description: "Não foi possível comunicar com o servidor.",
+        variant: "success",
+        title: formato === "csv" ? "CSV baixado" : "Planilha baixada",
+        description: "Arquivo gerado com data/hora e filtros aplicados.",
       });
+    } catch {
+      toast({ variant: "error", title: "Falha na exportação", description: "Tente novamente." });
     }
   }
 
   function abrirRelatorio(id: RelatorioId) {
     setPagina(1);
-    if (id === "produtividade") {
-      router.push("/relatorios/produtividade");
-      return;
-    }
     router.push(`/relatorios?relatorio=${id}`);
-  }
-
-  async function aoExportar(formato: TableExportFormat) {
-    if (formato === "pdf") {
-      await imprimir();
-      return;
-    }
-    await exportarViaApi(formato === "csv" ? "csv" : "xls");
   }
 
   function condominioDaUnidade(unidadeId: string) {
@@ -571,8 +568,9 @@ function RelatoriosPage() {
     const condominio = condominioDaUnidade(item.unidadeId);
     if (!combinaCarteira(condominio)) return false;
     if (aplicado.codigoRe !== "todos") {
-      const re = reDoUsuarioId(cadastros, item.usuarioId);
-      if (re.toUpperCase() !== aplicado.codigoRe.toUpperCase()) return false;
+      const usuario = cadastros.usuarios.find((itemUsuario) => itemUsuario.id === item.usuarioId);
+      const re = usuario ? codigoReDoUsuario(usuario) : null;
+      if (!re || re.toUpperCase() !== aplicado.codigoRe.toUpperCase()) return false;
     }
     if (aplicado.respondeu !== "todos" && item.respondeu !== aplicado.respondeu) return false;
     if (aplicado.motivo !== "todos" && item.motivo !== aplicado.motivo) return false;
@@ -583,7 +581,7 @@ function RelatoriosPage() {
 
   const atendimentosBase = userId ? listarAtendimentos(userId) : [];
   const atendimentos = atendimentosBase.filter((item) => combinaAtendimento(item, true));
-  const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
+    const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
   const unidadesContatadas = new Set(atendimentos.map((item) => item.unidadeId)).size;
   const retornosPeriodo = atendimentos.filter((item) => item.status !== "Resolvido" && item.dataProximaAcao);
   const taxaResposta = atendimentos.length ? (responderam / atendimentos.length) * 100 : 0;
@@ -602,7 +600,7 @@ function RelatoriosPage() {
   let pico = [...serie].sort((a, b) => b.quantidade - a.quantidade)[0];
 
   const porCondominio = agruparContagem(atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.nome ?? "—"));
-  let porAtendente = agruparContagem(atendimentos.map((item) => reDoUsuarioId(cadastros, item.usuarioId)));
+  let porAtendente = agruparContagem(atendimentos.map((item) => nomeColaboradorId(cadastros, item.usuarioId)));
   let porAdvogado = agruparContagem(
     atendimentos.map((item) => condominioDaUnidade(item.unidadeId)?.advogados[0] ?? "—"),
   );
@@ -629,7 +627,7 @@ function RelatoriosPage() {
   });
 
   let equipe = porAtendente.map((linha) => {
-    const itens = atendimentos.filter((item) => reDoUsuarioId(cadastros, item.usuarioId) === linha.nome);
+    const itens = atendimentos.filter((item) => nomeColaboradorId(cadastros, item.usuarioId) === linha.nome);
     const sim = itens.filter((item) => item.respondeu === "Sim").length;
     const atrasados = itens.filter((item) => item.status !== "Resolvido" && situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
     return {
@@ -821,42 +819,6 @@ function RelatoriosPage() {
     />
   );
 
-  async function imprimir() {
-    const tipo = tipoExportacao();
-    const metaRelatorio = RELATORIOS.find((item) => item.id === tipo);
-    if (!metaRelatorio) return;
-    const qs = queryExportParams();
-    qs.set("formato", "json");
-    try {
-      const response = await fetch(`/api/relatorios/export?${qs.toString()}`, { credentials: "same-origin" });
-      const body = (await response.json()) as { payload?: RelatorioExportPayload; error?: string };
-      if (!response.ok || !body.payload) {
-        toast({
-          variant: "error",
-          title: "Exportação não concluída",
-          description: body.error ?? "Verifique os filtros e tente novamente.",
-        });
-        return;
-      }
-      const meta = {
-        titulo: "Informações da exportação",
-        colunas: ["Detalhe"],
-        linhas: [[`Gerado em: ${body.payload.meta.geradoEm}`], ...body.payload.meta.filtros.map((linha) => [linha])],
-      };
-      const secoes = [meta, ...body.payload.secoes.map((secao) => ({ titulo: secao.titulo, colunas: secao.colunas, linhas: secao.linhas }))];
-      const abriu = exportarPdf(body.payload.titulo, `${tipo}.html`, secoes);
-      if (!abriu) {
-        toast({ variant: "info", title: "Relatório baixado", description: "Abra o arquivo e use imprimir para salvar em PDF." });
-      }
-    } catch {
-      toast({
-        variant: "error",
-        title: "Falha na exportação",
-        description: "Não foi possível comunicar com o servidor.",
-      });
-    }
-  }
-
   const camposBase = [
     {
       id: "periodo",
@@ -893,10 +855,10 @@ function RelatoriosPage() {
       ? [
           {
             id: "codigoRe",
-            label: "RE",
+            label: "Colaborador",
             value: filtro.codigoRe,
             onChange: (codigoRe: string) => setFiltro((atualFiltro) => ({ ...atualFiltro, codigoRe })),
-            options: [{ value: "todos", label: "Todos" }, ...atendentesRe.map((item) => ({ value: item.codigoRe, label: item.codigoRe }))],
+            options: [{ value: "todos", label: "Todos" }, ...atendentesRe.map((item) => ({ value: item.codigoRe, label: item.nome }))],
           },
         ]
       : []),
@@ -940,7 +902,7 @@ function RelatoriosPage() {
     formatarData(item.dataProximaAcao),
     condominioDaUnidade(item.unidadeId)?.nome ?? "—",
     nomeUnidade(item.unidadeId),
-    reDoUsuarioId(cadastros, item.usuarioId),
+    nomeColaboradorId(cadastros, item.usuarioId),
     item.proximaAcao || "—",
     rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"],
   ]);
@@ -949,7 +911,7 @@ function RelatoriosPage() {
     formatarData(item.dataHora),
     condominioDaUnidade(item.unidadeId)?.nome ?? "—",
     nomeUnidade(item.unidadeId),
-    reDoUsuarioId(cadastros, item.usuarioId),
+    nomeColaboradorId(cadastros, item.usuarioId),
     item.canal,
     item.respondeu || "—",
     item.motivo || "—",
@@ -990,8 +952,9 @@ function RelatoriosPage() {
   const celulasCalorExibir = celulasCalor;
   const picoCalorExibir = picoCalor;
 
+
   let corpo: ReactNode = null;
-  if (relatorio === "equipe") {
+  if (relatorio === "produtividade") {
     corpo = (
       <>
         {atendimentos.length > 0 ? (
@@ -1132,7 +1095,7 @@ function RelatoriosPage() {
         />
         <TabelaTexto
           rotulo="Lista detalhada do período"
-          colunas={["Data", "Condomínio", "Unidade", "RE", "Meio", "Respondeu", "Motivo"]}
+          colunas={["Data", "Condomínio", "Unidade", "Colaborador", "Meio", "Respondeu", "Motivo"]}
           linhas={linhasAtendimentosDetalhe}
           pagina={pagina}
           onPagina={setPagina}
@@ -1142,7 +1105,7 @@ function RelatoriosPage() {
     );
   } else if (relatorio === "retornos") {
     const porSituacao = agruparContagem(retornos.map((item) => rotuloRetorno[situacaoRetorno(item.dataProximaAcao) || "agendado"]));
-    const porAtendenteRetorno = agruparContagem(retornos.map((item) => reDoUsuarioId(cadastros, item.usuarioId)));
+    const porAtendenteRetorno = agruparContagem(retornos.map((item) => nomeColaboradorId(cadastros, item.usuarioId)));
     corpo = (
       <>
         {metricRetornosAgenda > 0 ? (
@@ -1184,7 +1147,7 @@ function RelatoriosPage() {
               }))}
             />
           </RelatorioPainel>
-          <RelatorioPainel titulo="Por RE">
+          <RelatorioPainel titulo="Por colaborador">
             <GraficoBarras
               chave={`${chave}-equipe`}
               vazio={vazio}
@@ -1198,7 +1161,7 @@ function RelatoriosPage() {
         </Grade>
         <TabelaTexto
           rotulo="Retornos pendentes"
-          colunas={["Quando", "Condomínio", "Unidade", "RE", "Próxima ação", "Situação"]}
+          colunas={["Quando", "Condomínio", "Unidade", "Colaborador", "Próxima ação", "Situação"]}
           linhas={linhasRetornosTabela}
           pagina={pagina}
           onPagina={setPagina}
@@ -1559,25 +1522,12 @@ function RelatoriosPage() {
     );
   }
 
-  function seloHubCartao(item: (typeof RELATORIOS)[number], atencaoRetornos: boolean, atencaoCarteira: boolean) {
-    const estilo = HUB_CARTAO_ESTILO[item.id];
-    if (item.id === "retornos" && atencaoRetornos) {
-      return { texto: "Atenção", variant: "error" as const, className: "" };
-    }
-    if (item.id === "carteira" && atencaoCarteira) {
-      return { texto: "Atenção", variant: "secondary" as const, className: "bg-status-pending text-on-primary" };
-    }
-    if (estilo.seloClass) {
-      return { texto: item.selo, variant: "neutral" as const, className: estilo.seloClass };
-    }
-    return { texto: item.selo, variant: estilo.badgeVariant, className: "" };
-  }
-
   function destaqueHub(id: RelatorioId) {
     if (id === "produtividade") {
-      return podeFiltrarPorRe ? "Por RE e período · exportável" : "Exclusivo da administradora";
+      return podeFiltrarPorRe
+        ? `${metricAtendimentos} atendimentos · ${percentual(metricTaxaResposta)} com resposta`
+        : "Exclusivo da administradora";
     }
-    if (id === "equipe") return `${metricAtendimentos} atendimentos · ${percentual(metricTaxaResposta)} com resposta`;
     if (id === "retornos") return `${metricRetornosAgenda} na agenda · ${metricRetornosAtrasados} atrasado${metricRetornosAtrasados === 1 ? "" : "s"}`;
     if (id === "efetividade") {
       return cruzamento.length ? `${comResultado} de ${cruzamento.length} com efeito no mês seguinte` : "Sem unidades contatadas no período";
@@ -1593,50 +1543,41 @@ function RelatoriosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
-        title={
-          relatorio ? (
-            (atual?.titulo ?? "Relatórios")
-          ) : (
-            <span className="inline-flex items-center gap-sm">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/40 text-primary-container">
-                <Icon icon={BarChart3} size="sm" />
-              </span>
-              Relatórios
-            </span>
-          )
-        }
+        icon={atual?.icon ?? BarChart3}
+        title={atual?.titulo ?? "Relatórios"}
         description={
           atual?.descricao ??
-          "Relatórios operacionais com filtros e exportação."
+          "Relatórios operacionais com filtros."
         }
-        actions={pode("relatorios", "exportar") ? <TableExport onExport={aoExportar} /> : undefined}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
+        actions={
+          relatorio ? (
+            <>
+              <VoltarRelatoriosHub />
+              {podeExportar ? <TableExport onExport={(formato) => void aoExportar(formato)} /> : null}
+            </>
+          ) : undefined
+        }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
         {!relatorio ? (
-          <div className="grid min-w-0 grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 gap-lg min-[768px]:grid-cols-2">
             {relatoriosHub.map((item) => {
-              const atencaoRetornos = item.id === "retornos" && retornosAtrasados > 0;
-              const atencaoCarteira = item.id === "carteira" && alertas.length > 0;
-              const selo = seloHubCartao(item, atencaoRetornos, atencaoCarteira);
               const estilo = HUB_CARTAO_ESTILO[item.id];
               return (
                 <article
                   key={item.id}
                   className="flex h-full min-w-0 flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
                 >
-                  <div className="flex items-start justify-between gap-sm">
+                  <div className="flex min-w-0 items-center gap-sm">
                     <span
                       className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${estilo.iconClass}`}
                     >
                       <Icon icon={item.icon} size="md" />
                     </span>
-                    <Badge variant={selo.variant} className={`max-w-[55%] shrink truncate ${selo.className}`}>
-                      {selo.texto}
-                    </Badge>
+                    <h2 className="min-w-0 text-headline-sm text-on-surface">{item.titulo}</h2>
                   </div>
                   <div className="flex min-w-0 flex-col gap-xs">
-                    <h2 className="text-headline-sm text-on-surface">{item.titulo}</h2>
                     <p className="text-body-sm text-on-surface-variant">{item.descricao}</p>
                     <p className="text-body-sm font-medium text-primary-container">{destaqueHub(item.id)}</p>
                   </div>
@@ -1650,7 +1591,6 @@ function RelatoriosPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-lg">
-            <VoltarRelatoriosHub />
             <RelatorioFiltros>
               <FilterBar
               searchValue={filtro.busca}

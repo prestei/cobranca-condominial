@@ -10,6 +10,7 @@ import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
 import { FormField, Select } from "@/components/input";
@@ -803,9 +804,9 @@ export default function ImportacoesPage() {
         onChange={handleArquivoSelecionado}
       />
       <PageHeader
+        icon={FileUp}
         title="Importações"
         description="Central de importação: inadimplência, condomínios, unidades e responsáveis — com validação, prévia e aprovação antes de gravar."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Importações" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
         actions={
           podeIniciarImportacao ? (
@@ -831,30 +832,32 @@ export default function ImportacoesPage() {
           <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
             <CardMetric
               accent="primary"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={FileUp} size="md" className="text-primary-container" />}
               rotulo="Importações"
               valor={metricValor(visible.length)}
+              detalhe="Com os filtros aplicados"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={FileUp} size="md" className="text-primary-container" />}
             />
             <CardMetric
-              accent="brass"
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
+              accent="tertiary"
               rotulo="Concluídas"
               valor={metricValor(concluidas)}
+              detalhe="Finalizadas com sucesso"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={CheckCircle2} size="md" className="text-tertiary-container" />}
             />
             <CardMetric
               accent="critical"
-              iconClassName="bg-error-container text-status-critical"
-              icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
               rotulo="Com erro"
               valor={metricValor(comErro)}
+              detalhe="Falharam no processamento"
+              iconClassName="bg-error-container text-status-critical"
+              icon={<Icon icon={AlertTriangle} size="md" className="text-status-critical" />}
             />
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -885,7 +888,7 @@ export default function ImportacoesPage() {
               },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <ResponsiveTable desktop={desktopTable} mobile={mobileTable} />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}

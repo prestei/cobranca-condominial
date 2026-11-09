@@ -22,6 +22,7 @@ import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
@@ -76,7 +77,7 @@ import {
 } from "@/lib/usuarios/sync-cliente";
 import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { usePermissao } from "@/hooks/use-permissao";
-import { codigoReDoUsuario, usuarioEhAtendente } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
 import { idsCondominiosDoAdvogado } from "@/lib/usuarios/advogado-condominios";
 
@@ -636,6 +637,7 @@ export default function UsuariosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={UserRound}
         title="Colaboradores"
         description="Colaboradores, cargos e acesso ao sistema."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -668,33 +670,35 @@ export default function UsuariosPage() {
               icon={KeyRound}
             />
           </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-4">
+          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
             <CardMetric
               accent="primary"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={UserRound} size="md" className="text-primary-container" />}
               rotulo="Total de colaboradores"
               valor={metricValor(visible.length)}
+              detalhe="Com os filtros aplicados"
+              iconClassName="bg-primary-fixed/50 text-primary-container"
+              icon={<Icon icon={UserRound} size="md" className="text-primary-container" />}
+            />
+            <CardMetric
+              accent="tertiary"
+              rotulo="Cargos cadastrados"
+              valor={metricValor(cargosNoRecorte)}
+              detalhe="Cargos distintos no recorte"
+              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+              icon={<Icon icon={Briefcase} size="md" className="text-tertiary-container" />}
             />
             <CardMetric
               accent="brass"
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={Briefcase} size="md" className="text-brass" />}
-              rotulo="Cargos cadastrados"
-              valor={metricValor(cargosNoRecorte)}
-            />
-            <CardMetric
-              accent="primary"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={KeyRound} size="md" className="text-primary-container" />}
-              rotulo="Colaboradores com acesso ao sistema"
+              rotulo="Com acesso ao sistema"
               valor={metricValor(comAcesso)}
+              detalhe="Com login ativo"
+              iconClassName="bg-gold-subtle text-brass"
+              icon={<Icon icon={KeyRound} size="md" className="text-brass" />}
             />
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -725,7 +729,7 @@ export default function UsuariosPage() {
               },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <section className="flex flex-col gap-md">
           <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
@@ -754,7 +758,7 @@ export default function UsuariosPage() {
                     {editingId === null ? "Novo colaborador" : "Editar colaborador"}
                   </SheetTitle>
                   <SheetDescription id={`${formId}-desc`}>
-                    Altere dados do colaborador. Atendentes recebem RE (login) no cadastro.
+                    Altere dados do colaborador. Todo colaborador recebe código RE (login) no cadastro.
                   </SheetDescription>
                 </SheetHeaderText>
               </SheetHeaderLead>

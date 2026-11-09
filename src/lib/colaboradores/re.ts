@@ -15,7 +15,6 @@ export function usuarioEstaAtivo(usuario: Usuario) {
 }
 
 export function codigoReDoUsuario(usuario: Usuario): string | null {
-  if (!usuarioEhAtendente(usuario)) return null;
   const re = usuario.codigoRe?.trim();
   if (!re || !codigoReValido(re)) return null;
   return normalizarCodigoRe(re);
@@ -32,6 +31,14 @@ export function identificadorColaboradorPorId(userId: number): string {
   return usuario.nome.trim() || "—";
 }
 
+export function nomeColaboradorPorCodigoRe(codigoRe: string): string {
+  const alvo = codigoRe.trim().toUpperCase();
+  if (!alvo) return "—";
+  const usuario = getCadastros().usuarios.find((item) => codigoReDoUsuario(item)?.toUpperCase() === alvo);
+  const nome = usuario?.nome?.trim();
+  return nome || codigoRe.trim() || "—";
+}
+
 export function listarAtendentesComRe() {
   const cargoId = cargoAtendenteId();
   if (cargoId === null) return [];
@@ -39,8 +46,15 @@ export function listarAtendentesComRe() {
     .usuarios.filter(
       (item) => item.cargoId === cargoId && usuarioEstaAtivo(item) && codigoReDoUsuario(item),
     )
-    .map((item) => ({ id: item.id, codigoRe: codigoReDoUsuario(item)! }))
-    .sort((a, b) => a.codigoRe.localeCompare(b.codigoRe, "pt-BR"));
+    .map((item) => {
+      const codigoRe = codigoReDoUsuario(item)!;
+      return {
+        id: item.id,
+        codigoRe,
+        nome: item.nome.trim() || codigoRe,
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.codigoRe.localeCompare(b.codigoRe, "pt-BR"));
 }
 
 export function snapshotAtendentesComRe() {

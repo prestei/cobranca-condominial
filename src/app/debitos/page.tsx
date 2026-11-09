@@ -32,6 +32,7 @@ import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select } from "@/components/input";
@@ -946,9 +947,9 @@ export default function DebitosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={Wallet}
         title="Inadimplência"
         description="Débitos em aberto na data-base, com valor original, valor atualizado e o corte entre a fase amigável e o jurídico."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Inadimplência" }]}
         actions={
           pode("debitos", "criar") ? (
             <Button size="md" onClick={openCreate}>
@@ -1002,8 +1003,7 @@ export default function DebitosPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+        <FiltrosSection>
           <FilterBar
             searchValue={search}
             onSearchChange={setSearch}
@@ -1089,7 +1089,7 @@ export default function DebitosPage() {
             },
             ]}
           />
-        </section>
+        </FiltrosSection>
 
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
           <h2 className="text-headline-sm text-on-surface">Percentuais</h2>

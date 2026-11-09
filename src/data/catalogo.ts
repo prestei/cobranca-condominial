@@ -387,6 +387,7 @@ const usuariosIniciais: Usuario[] = [
   {
     id: 1,
     codigo: "MILENA",
+    codigoRe: "RE-10003",
     cargoId: 1,
     nome: "Milena",
     telefone: "71999990001",
@@ -430,6 +431,7 @@ const usuariosIniciais: Usuario[] = [
   {
     id: 5,
     codigo: "ADRYELLE",
+    codigoRe: "RE-10004",
     cargoId: 3,
     nome: "Dra. Adryelle",
     telefone: "71999990005",
@@ -440,6 +442,7 @@ const usuariosIniciais: Usuario[] = [
   {
     id: 6,
     codigo: "12345",
+    codigoRe: "RE-10005",
     cargoId: 1,
     nome: "Usuário Teste",
     telefone: "",
@@ -558,9 +561,7 @@ function usuariosComSeed() {
     }
   }
   const lista = [...map.values()].sort((a, b) => a.id - b.id);
-  const cargoAtendenteId = state.cargos.find((item) => item.nome === "Atendente")?.id;
-  if (cargoAtendenteId === undefined) return lista;
-  return migrarCodigosReUsuarios(lista, cargoAtendenteId);
+  return migrarCodigosReUsuarios(lista);
 }
 
 function normalizarUnidade(item: Unidade): Unidade {

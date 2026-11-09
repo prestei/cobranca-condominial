@@ -84,19 +84,14 @@ export function reiniciarMutexReservaReParaTestes() {
   cadeiaReservaRe = Promise.resolve();
 }
 
-export type UsuarioMigracaoRe = { id: number; cargoId: number; codigoRe?: string };
+export type UsuarioMigracaoRe = { id: number; codigoRe?: string };
 
 /**
- * Atribui RE-10000+ aos atendentes existentes (ordem por id), preserva RE válidos já alocados
- * e remove RE de perfis que não são atendentes.
+ * Atribui RE-10000+ a todos os colaboradores (ordem por id), preserva RE válidos já alocados
+ * e reatribui formatos inválidos ou duplicados.
  */
-export function migrarCodigosReUsuarios<T extends UsuarioMigracaoRe>(
-  usuarios: T[],
-  cargoAtendenteId: number,
-): T[] {
-  const atendentes = usuarios
-    .filter((item) => item.cargoId === cargoAtendenteId)
-    .sort((a, b) => a.id - b.id);
+export function migrarCodigosReUsuarios<T extends UsuarioMigracaoRe>(usuarios: T[]): T[] {
+  const ordenados = [...usuarios].sort((a, b) => a.id - b.id);
 
   const reservados = new Set<string>();
   const atribuicoes = new Map<number, string>();
@@ -112,7 +107,7 @@ export function migrarCodigosReUsuarios<T extends UsuarioMigracaoRe>(
     return codigo;
   }
 
-  for (const item of atendentes) {
+  for (const item of ordenados) {
     const numero = numeroDoCodigoRe(item.codigoRe);
     if (numero !== null) {
       const codigo = formatarCodigoRe(numero);
@@ -126,11 +121,6 @@ export function migrarCodigosReUsuarios<T extends UsuarioMigracaoRe>(
   }
 
   return usuarios.map((item) => {
-    if (item.cargoId !== cargoAtendenteId) {
-      if (!item.codigoRe) return item;
-      const { codigoRe: _removido, ...resto } = item;
-      return resto as T;
-    }
     const atribuido = atribuicoes.get(item.id);
     if (!atribuido) return item;
     if (item.codigoRe && normalizarCodigoRe(item.codigoRe) === atribuido) return item;

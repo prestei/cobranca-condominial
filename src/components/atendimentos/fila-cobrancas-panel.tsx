@@ -27,9 +27,11 @@ import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { Checkbox, FormField, Select, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
+import { SkeletonMetrics, SkeletonTable } from "@/components/skeleton";
 import {
   Sheet,
   SheetBody,
@@ -571,105 +573,96 @@ export function FilaCobrancasPanel() {
   return (
     <div className="flex flex-col gap-md min-[768px]:gap-lg">
       <section aria-label="Indicadores da fila">
-        <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
-          <KpiMobileCard
-            rotulo="Em cobrança"
-            valor={carregando ? "—" : String(resumo.emCobranca)}
-            icon={Clock}
-            destaque
-          />
-          <KpiMobileCard
-            rotulo="Sem responsável"
-            valor={carregando ? "—" : String(resumo.semResponsavel)}
-            icon={Users}
-          />
-          <KpiMobileCard
-            rotulo="Retornos hoje"
-            valor={carregando ? "—" : String(resumo.retornosHoje)}
-            icon={RotateCcw}
-          />
-        </div>
-        <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
-          <CardMetric
-            accent="brass"
-            iconClassName="bg-gold-subtle text-brass"
-            icon={<Icon icon={Clock} size="md" className="text-brass" />}
-            rotulo="Em cobrança"
-            valor={carregando ? "—" : String(resumo.emCobranca)}
-          />
-          <CardMetric
-            accent="primary"
-            iconClassName="bg-primary-fixed/50 text-primary-container"
-            icon={<Icon icon={User} size="md" className="text-primary-container" />}
-            rotulo="Sem responsável"
-            valor={carregando ? "—" : String(resumo.semResponsavel)}
-          />
-          <CardMetric
-            accent="tertiary"
-            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-            icon={<Icon icon={RotateCcw} size="md" className="text-tertiary-container" />}
-            rotulo="Retornos hoje"
-            valor={carregando ? "—" : String(resumo.retornosHoje)}
-          />
-        </div>
+        {carregando ? (
+          <SkeletonMetrics count={3} desktopCols={3} label="Carregando indicadores da fila" />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+              <KpiMobileCard rotulo="Em cobrança" valor={String(resumo.emCobranca)} icon={Clock} destaque />
+              <KpiMobileCard rotulo="Sem responsável" valor={String(resumo.semResponsavel)} icon={Users} />
+              <KpiMobileCard rotulo="Retornos hoje" valor={String(resumo.retornosHoje)} icon={RotateCcw} />
+            </div>
+            <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+              <CardMetric
+                accent="brass"
+                iconClassName="bg-gold-subtle text-brass"
+                icon={<Icon icon={Clock} size="md" className="text-brass" />}
+                rotulo="Em cobrança"
+                valor={String(resumo.emCobranca)}
+              />
+              <CardMetric
+                accent="primary"
+                iconClassName="bg-primary-fixed/50 text-primary-container"
+                icon={<Icon icon={User} size="md" className="text-primary-container" />}
+                rotulo="Sem responsável"
+                valor={String(resumo.semResponsavel)}
+              />
+              <CardMetric
+                accent="tertiary"
+                iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+                icon={<Icon icon={RotateCcw} size="md" className="text-tertiary-container" />}
+                rotulo="Retornos hoje"
+                valor={String(resumo.retornosHoje)}
+              />
+            </div>
+          </>
+        )}
       </section>
 
-      <FilterBar
-        variant="toolbar"
-        toolbarMobile="fila"
-        searchLabel="Condomínio"
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Condomínio, unidade ou RE"
-        onApply={aplicarFiltros}
-        onClear={limparFiltros}
-        clearLabel="Limpar filtros"
-        fields={[
-          {
-            id: "condominio",
-            label: "Condomínio",
-            value: condominioId,
-            onChange: setCondominioId,
-            options: [{ value: "todos", label: "Todos" }, ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome }))],
-          },
-          {
-            id: "situacao",
-            label: "Situação",
-            value: situacao,
-            onChange: setSituacao,
-            options: [{ value: "todos", label: "Todas" }, ...situacoesFila.map((item) => ({ value: item, label: item }))],
-          },
-          ...(visaoGeral
-            ? [
-                {
-                  id: "re",
-                  label: "Responsável",
-                  value: filtroRe,
-                  onChange: setFiltroRe,
-                  options: [
-                    { value: "todos", label: "Todos" },
-                    { value: "sem", label: "Sem responsável" },
-                    ...atendentes.map((item) => ({ value: item.codigoRe, label: item.codigoRe })),
-                  ],
-                },
-              ]
-            : []),
-          {
-            id: "retorno",
-            label: "Retorno",
-            value: retorno,
-            onChange: setRetorno,
-            options: retornoOpcoes.map((item) => ({ value: item.value, label: item.label })),
-          },
-        ]}
-      />
+      <FiltrosSection>
+        <FilterBar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar condomínio, unidade ou RE..."
+          onApply={aplicarFiltros}
+          onClear={limparFiltros}
+          fields={[
+            {
+              id: "condominio",
+              label: "Condomínio",
+              value: condominioId,
+              onChange: setCondominioId,
+              options: [{ value: "todos", label: "Todos" }, ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome }))],
+            },
+            {
+              id: "situacao",
+              label: "Situação",
+              value: situacao,
+              onChange: setSituacao,
+              options: [{ value: "todos", label: "Todas" }, ...situacoesFila.map((item) => ({ value: item, label: item }))],
+            },
+            ...(visaoGeral
+              ? [
+                  {
+                    id: "re",
+                    label: "Responsável",
+                    value: filtroRe,
+                    onChange: setFiltroRe,
+                    options: [
+                      { value: "todos", label: "Todos" },
+                      { value: "sem", label: "Sem responsável" },
+                      ...atendentes.map((item) => ({ value: item.codigoRe, label: item.codigoRe })),
+                    ],
+                  },
+                ]
+              : []),
+            {
+              id: "retorno",
+              label: "Retorno",
+              value: retorno,
+              onChange: setRetorno,
+              options: retornoOpcoes.map((item) => ({ value: item.value, label: item.label })),
+            },
+          ]}
+        />
+      </FiltrosSection>
 
       {visaoGeral ? (
         <DistribuicaoAutomaticaPanel refreshKey={atribuicoesKey} onDistribuido={() => void recarregar()} />
       ) : null}
 
       {carregando ? (
-        <p className="text-body-md text-on-surface-variant">Carregando fila de cobranças…</p>
+        <SkeletonTable rows={8} cols={visaoGeral ? 9 : 8} label="Carregando fila de cobranças" />
       ) : total === 0 ? (
         <>
           <ResponsiveTable

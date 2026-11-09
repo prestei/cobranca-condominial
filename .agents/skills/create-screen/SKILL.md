@@ -82,9 +82,9 @@ Referência visual: `docs/design-system.md` e `/design-system`.
 
 ## Listagem
 
-Dentro de `PageContent`, nesta ordem: `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela, `Pagination`.
+Dentro de `PageContent`, nesta ordem: `FiltrosSection` + `FilterBar`, métricas (`CardMetric`) quando a tela tiver indicadores, tabela, `Pagination`.
 
-Usar `FilterBar`. Não remontar a barra com `Input`, `Select` e `Button` soltos.
+Usar `FiltrosSection` envolvendo `FilterBar` (título menor, mais próximo e seta para expandir/recolher). Não remontar a barra com `Input`, `Select` e `Button` soltos.
 
 - Busca e selects na primeira linha, mesma largura, com rótulo visível acima do campo e sem ícone dentro do campo. O rótulo da busca é `searchLabel` (padrão **Buscar**); o de cada select é `label`.
 - **Limpar** e **Filtrar** na linha de baixo, alinhados à direita, com Filtrar por último. Limpar é `outline` com `RotateCcw`; Filtrar é primário com `Search`.

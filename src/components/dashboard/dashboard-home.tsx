@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
-import { EmptyState } from "@/components/empty-state";
-import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { SkeletonDashboard } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { tituloInicio, usuarioSessaoApp } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
@@ -64,17 +63,12 @@ export function DashboardHome() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={LayoutDashboard}
         title={tituloInicio(usuario.name)}
-        description={dados ? descricaoPorPerfil[dados.perfil] : "Carregando indicadores…"}
+        description={dados ? descricaoPorPerfil[dados.perfil] : "Visão operacional da carteira."}
       />
       <PageContent className="flex flex-col gap-xl">
-        {carregando ? (
-          <EmptyState
-            icon={<Icon icon={Loader2} size="lg" className="animate-spin" />}
-            title="Carregando dashboard"
-            description="Consultando dados no servidor…"
-          />
-        ) : null}
+        {carregando ? <SkeletonDashboard metrics={4} panels={2} label="Carregando dashboard" /> : null}
 
         {!carregando && erro ? (
           <Alert variant="error" title="Erro ao carregar">

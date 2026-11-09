@@ -74,7 +74,7 @@ Nenhuma direta.
 
 ## Estados de interface
 
-- Carregamento: empty state com spinner.
+- Carregamento: `SkeletonDashboard` (métricas + painéis); busca global usa bloco `Skeleton` no campo.
 - Erro de API: alerta + “Tentar novamente”.
 - Ausência de dados: empty states em gráficos e tabelas (sem números ilustrativos).
 

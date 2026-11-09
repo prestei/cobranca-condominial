@@ -26,6 +26,7 @@ import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select, Switch, Textarea } from "@/components/input";
@@ -879,6 +880,7 @@ export default function CondominiosPage() {
   return (
     <WorkspaceShell>
         <PageHeader
+          icon={Building2}
           title="Condomínios"
           description="Condomínios da carteira e situação de cada um."
           className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -940,8 +942,7 @@ export default function CondominiosPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-md">
-            <h2 className="text-headline-sm text-on-surface">Filtros</h2>
+          <FiltrosSection>
             <FilterBar
               searchValue={search}
               onSearchChange={setSearch}
@@ -991,7 +992,7 @@ export default function CondominiosPage() {
                 },
               ]}
             />
-          </section>
+          </FiltrosSection>
 
         <ResponsiveTable
             desktop={desktopTable}

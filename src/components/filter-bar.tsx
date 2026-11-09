@@ -432,7 +432,7 @@ export function FilterBar({
       onApply={onApply}
       className={
         defaultMobile === "grid"
-          ? `hidden min-[768px]:grid min-[768px]:grid-cols-4 min-[768px]:gap-md rounded-lg border border-border-subtle bg-surface-subtle p-md`
+          ? "hidden min-[768px]:grid min-[768px]:grid-cols-4 min-[768px]:gap-md min-[768px]:rounded-lg min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-subtle min-[768px]:p-md"
           : `${fieldsGridClass} rounded-lg border border-border-subtle bg-surface-subtle p-md`
       }
     >

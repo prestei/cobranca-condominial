@@ -225,9 +225,9 @@ export default function AtendimentosPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={ClipboardList}
         title="Fila de cobranças"
         description="Acompanhe, distribua e gerencie as cobranças em um só lugar."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Atendimentos" }]}
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">

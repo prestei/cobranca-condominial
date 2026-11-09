@@ -144,9 +144,9 @@ export default function AjudaPage() {
   return (
     <WorkspaceShell>
       <PageHeader
+        icon={HelpCircle}
         title="Ajuda e suporte"
         description="Orientações rápidas para o dia a dia da cobrança."
-        breadcrumbs={[{ label: "Início", href: "/" }, { label: "Ajuda e suporte" }]}
       />
       <PageContent>
         <div className="flex w-full min-w-0 flex-col gap-xl">

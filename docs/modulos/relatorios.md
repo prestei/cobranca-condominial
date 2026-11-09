@@ -13,8 +13,9 @@ Relatórios de produtividade, retornos, efetividade e carteira/inadimplência, c
 
 ## Rotas e telas
 
-- `/relatorios` — hub e relatórios gerais (`?relatorio=equipe|retornos|efetividade|carteira`) — `src/app/relatorios/page.tsx`
-- `/relatorios/produtividade` — produtividade por pessoa (RE), tela dedicada — `src/app/relatorios/produtividade/page.tsx` (URL legada `?relatorio=produtividade` redireciona para cá)
+- `/relatorios` — hub e relatórios gerais (`?relatorio=produtividade|retornos|efetividade|carteira`) — `src/app/relatorios/page.tsx`
+- `/relatorios/produtividade` — redireciona para `/relatorios?relatorio=produtividade` (URL legada); o relatório completo de produtividade por colaborador fica no hub
+- URLs legadas `?relatorio=equipe` e `?aba=cobranca` redirecionam para `?relatorio=produtividade`
 - `/indicadores` — painel operacional (KPIs, gráficos, ranking por condomínio) — ver [indicadores.md](indicadores.md)
 
 ## Perfis e permissões
@@ -23,10 +24,9 @@ Relatórios de produtividade, retornos, efetividade e carteira/inadimplência, c
 | --- | --- |
 | Ver hub e relatórios | `relatorios.ler` |
 | Exportar | `relatorios.exportar` |
-| Filtrar por RE (toda a equipe) | tipicamente administradora (`usuarios.criar`) |
-| Painel **Produtividade por RE** (indicadores por colaborador) | exclusivo administradora (`usuarios.criar`) |
+| Filtrar por colaborador (toda a equipe) | tipicamente administradora (`usuarios.criar`) |
 
-Advogados veem apenas condomínios vinculados (`escopoCondominios`). Atendentes veem a própria operação conforme escopo de atendimentos/débitos e **não** acessam o painel global de produtividade por RE.
+Advogados veem apenas condomínios vinculados (`escopoCondominios`). Atendentes veem a própria operação conforme escopo de atendimentos/débitos.
 
 ## Dados e persistência
 
@@ -35,7 +35,7 @@ Agregações sobre cadastros persistidos (atendimentos, débitos, unidades, cond
 - `listarAtendimentos`, `listarDebitos`, `listarRetornosAgenda`
 - Escopo: `escopoCondominios` / `escopoUnidades`
 
-Atendentes são identificados por **RE** (`usuario.codigo_re`) em filtros e exportações.
+Na interface, atendentes aparecem pelo **nome do colaborador**. O filtro e a API continuam usando o código RE interno (`usuario.codigo_re`).
 
 ## API e contratos
 
@@ -68,14 +68,15 @@ Atendentes são identificados por **RE** (`usuario.codigo_re`) em filtros e expo
 
 1. Usuário abre relatório no hub e aplica filtros (período ou data-base na carteira).
 2. A tela calcula indicadores somente sobre dados no escopo do usuário (sem números ilustrativos).
-3. Exportação chama a API; o servidor reaplica os mesmos filtros e permissões antes de gerar o arquivo.
+3. No cabeçalho do relatório aberto: **Voltar** (hub) e **Exportar** (`TableExport`, se `relatorios.exportar`) — CSV/XLS/PDF via `GET /api/relatorios/export` com os filtros aplicados.
+4. Exportação chama a API; o servidor reaplica os mesmos filtros e permissões antes de gerar o arquivo.
 
 ## Regras de negócio
 
 - Filtros exibidos = parâmetros usados na exportação.
 - Exportação não inclui condomínios fora do vínculo do advogado.
 - Administradora pode segmentar por RE.
-- **Produtividade por RE (T23):** tela em `/relatorios/produtividade`; dados via `GET /api/relatorios/produtividade`. Contagens por colaborador no período — atendimentos (autor), retornos concluídos, negociações criadas, ações agendadas no registro, acordos confirmados; detalhe adicional de retornos previstos/atrasados/em aberto e carteira vigente na exportação. Gráfico comparativo com cinco séries; sem ranking, metas ou pontuação. Serviço: `src/lib/relatorios/produtividade.ts`.
+- **Produtividade por colaborador:** relatório completo em `/relatorios?relatorio=produtividade` — métricas de volume/resposta, mapa de horários, comparativos, resumo por condomínio e lista detalhada. Colunas e filtros de pessoa usam o **nome do colaborador** (código RE só internamente). Exportação `tipo=equipe` ou `tipo=produtividade` na API.
 - CSV usa `;` e BOM `\uFEFF` para acentuação em Excel pt-BR.
 
 ## Integrações

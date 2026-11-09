@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Icon } from "@/components/icon";
 import { Input } from "@/components/input";
+import { Skeleton } from "@/components/skeleton";
 import type { BuscaGlobalResultado } from "@/lib/dashboard/busca-global";
 
 type Props = {
@@ -156,8 +157,13 @@ function BuscaGlobalInput({
         autoComplete="off"
       />
       {carregando ? (
-        <span className="pointer-events-none absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant">
-          <Icon icon={Loader2} size="sm" className="animate-spin" aria-hidden />
+        <span
+          className="pointer-events-none absolute right-md top-1/2 -translate-y-1/2"
+          role="status"
+          aria-live="polite"
+          aria-label="Buscando"
+        >
+          <Skeleton className="size-4 rounded-full" />
         </span>
       ) : null}
     </div>

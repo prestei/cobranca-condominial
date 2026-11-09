@@ -34,6 +34,7 @@ import { CardMetric } from "@/components/card-metric";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
+import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon, iconSizes, iconStrokeWidths, type IconSize } from "@/components/icon";
 import {
@@ -349,61 +350,63 @@ function FilterBarSample({
   }
 
   return (
-    <div className="flex flex-col gap-md">
-      <FilterBar
-        searchId={`${idPrefix}-search`}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Buscar condomínio..."
-        onApply={handleApply}
-        onClear={handleClear}
-        fields={[
-          {
-            id: `${idPrefix}-periodo`,
-            label: "Período",
-            type: "period",
-            value: periodo,
-            onChange: setPeriodo,
-          },
-          {
-            id: `${idPrefix}-situation`,
-            label: "Situação",
-            value: situation,
-            onChange: setSituation,
-            options: [
-              { value: "todos", label: "Todos" },
-              { value: "ativo", label: "Ativo" },
-              { value: "pendente", label: "Pendente" },
-            ],
-          },
-          {
-            id: `${idPrefix}-activity`,
-            label: "Ativo / Inativo",
-            value: activity,
-            onChange: setActivity,
-            options: [
-              { value: "todos", label: "Todos" },
-              { value: "ativo", label: "Ativo" },
-              { value: "inativo", label: "Inativo" },
-            ],
-          },
-          {
-            id: `${idPrefix}-order`,
-            label: "Ordenar por",
-            value: order,
-            onChange: setOrder,
-            options: [
-              { value: "recentes", label: "Mais recentes" },
-              { value: "antigos", label: "Mais antigos" },
-              { value: "nome", label: "Nome" },
-            ],
-          },
-        ]}
-      />
-      {showApplied && applied ? (
-        <p className="text-body-sm text-on-surface-variant">Filtros aplicados: {applied}</p>
-      ) : null}
-    </div>
+    <FiltrosSection>
+      <div className="flex flex-col gap-md">
+        <FilterBar
+          searchId={`${idPrefix}-search`}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar condomínio..."
+          onApply={handleApply}
+          onClear={handleClear}
+          fields={[
+            {
+              id: `${idPrefix}-periodo`,
+              label: "Período",
+              type: "period",
+              value: periodo,
+              onChange: setPeriodo,
+            },
+            {
+              id: `${idPrefix}-situation`,
+              label: "Situação",
+              value: situation,
+              onChange: setSituation,
+              options: [
+                { value: "todos", label: "Todos" },
+                { value: "ativo", label: "Ativo" },
+                { value: "pendente", label: "Pendente" },
+              ],
+            },
+            {
+              id: `${idPrefix}-activity`,
+              label: "Ativo / Inativo",
+              value: activity,
+              onChange: setActivity,
+              options: [
+                { value: "todos", label: "Todos" },
+                { value: "ativo", label: "Ativo" },
+                { value: "inativo", label: "Inativo" },
+              ],
+            },
+            {
+              id: `${idPrefix}-order`,
+              label: "Ordenar por",
+              value: order,
+              onChange: setOrder,
+              options: [
+                { value: "recentes", label: "Mais recentes" },
+                { value: "antigos", label: "Mais antigos" },
+                { value: "nome", label: "Nome" },
+              ],
+            },
+          ]}
+        />
+        {showApplied && applied ? (
+          <p className="text-body-sm text-on-surface-variant">Filtros aplicados: {applied}</p>
+        ) : null}
+      </div>
+    </FiltrosSection>
   );
 }
 
@@ -1014,6 +1017,7 @@ export default function DesignSystemPage() {
             >
               <AppShellMain>
                 <PageHeader
+                  icon={Building}
                   title="Condomínios"
                   description="Acompanhe unidades e ações da carteira."
                   actions={
@@ -1283,7 +1287,8 @@ export default function DesignSystemPage() {
         <Showcase id="loading" title="Loading (skeleton)">
           <Panel>
             <p className="mb-lg text-body-sm text-on-surface-variant">
-              Preferir skeleton a texto “Carregando…” ou spinner em tela cheia. Composições em{" "}
+              Padrão obrigatório de loading: skeleton. Não usar texto “Carregando…” nem spinner em
+              tela cheia. Composições em{" "}
               <code className="text-body-sm text-on-surface">@/components/skeleton</code>.
             </p>
             <div className="flex flex-col gap-xl">

@@ -17,7 +17,7 @@ export default function AcessoNegadoPage() {
 
   return (
     <WorkspaceShell>
-      <PageHeader title="Acesso restrito" />
+      <PageHeader icon={ShieldOff} title="Acesso restrito" />
       <PageContent>
         <EmptyState
           icon={<Icon icon={ShieldOff} size="lg" />}
