@@ -1,3 +1,4 @@
+import { escopoCondominios, getCadastros } from "@/data/catalogo";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { ImportacaoDebitosError, previewImportacaoDebitos } from "@/lib/importacoes/debitos-service";
@@ -41,7 +42,11 @@ export async function POST(request: Request) {
 
   try {
     const preview = await previewImportacaoDebitos(session.userId, input);
-    return Response.json({ preview });
+    // Condomínio/unidade podem ter sido provisionados na prévia — sincroniza o cliente.
+    const condominios = escopoCondominios(getCadastros(), session.userId);
+    const scopeIds = new Set(condominios.map((item) => item.id));
+    const unidades = getCadastros().unidades.filter((item) => scopeIds.has(item.condominioId));
+    return Response.json({ preview, condominios, unidades });
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {
       return Response.json({ error: error.message }, { status: error.status });

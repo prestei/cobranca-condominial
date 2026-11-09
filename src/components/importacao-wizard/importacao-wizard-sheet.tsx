@@ -210,7 +210,12 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
             hashArquivo: retomada.hashArquivo,
           }),
         });
-        const body = (await response.json()) as { preview?: PreviewImportacaoModulo; error?: string };
+        const body = (await response.json()) as {
+          preview?: PreviewImportacaoModulo;
+          condominios?: Condominio[];
+          unidades?: Unidade[];
+          error?: string;
+        };
         if (!response.ok || !body.preview) {
           toast({
             variant: "error",
@@ -219,6 +224,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           });
           return;
         }
+        if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
+        if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
         setPreview(body.preview);
         setDataHoraPrevia(agoraIso());
         setStep(1);
@@ -347,7 +354,12 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           hashArquivo: hashRecebimento,
         }),
       });
-      const body = (await response.json()) as { preview?: PreviewImportacaoModulo; error?: string };
+      const body = (await response.json()) as {
+        preview?: PreviewImportacaoModulo;
+        condominios?: Condominio[];
+        unidades?: Unidade[];
+        error?: string;
+      };
       if (!response.ok || !body.preview) {
         toast({
           variant: "error",
@@ -356,6 +368,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         });
         return;
       }
+      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
+      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
       setPreview(body.preview);
       setLinhasIgnoradas([]);
       setDecisoesLinha([]);

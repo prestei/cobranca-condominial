@@ -1,4 +1,6 @@
 /** Extração PDF só com pdfjs — usada no worker Node puro (fora do bundle Next). */
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 type ParteTextoPdfJs = { x: number; y: number; str: string };
 
@@ -25,7 +27,26 @@ function montarLinhasPorCoordenadas(partes: ParteTextoPdfJs[], toleranciaY = 4):
 export async function extrairTextoInadimplenciaPdfJsPuro(
   buffer: Buffer,
 ): Promise<{ texto: string; paginas: number } | null> {
-  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Caminho absoluto evita o bundler do Next resolver o subpath do pacote.
+  const pdfModuleUrl = pathToFileURL(
+    path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.mjs"),
+  ).href;
+  const { getDocument } = (await import(pdfModuleUrl)) as {
+    getDocument: (src: {
+      data: Uint8Array;
+      useSystemFonts?: boolean;
+      isEvalSupported?: boolean;
+    }) => {
+      promise: Promise<{
+        numPages: number;
+        getPage: (n: number) => Promise<{
+          getTextContent: () => Promise<{
+            items: Array<{ str?: string; transform: number[] }>;
+          }>;
+        }>;
+      }>;
+    };
+  };
   const doc = await getDocument({
     data: new Uint8Array(buffer),
     useSystemFonts: true,

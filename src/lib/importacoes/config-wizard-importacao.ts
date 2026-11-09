@@ -34,7 +34,7 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloBotao: "Importar inadimplência",
     formato: FORMATO_IMPORTACAO_DEBITOS_V1,
     descricaoArquivo:
-      "CSV (;), XLSX, XLS ou PDF com colunas Unidade, Condomínio, Referência, Vencimento e valor.",
+      "CSV (;), XLSX, XLS ou PDF com colunas Unidade, Condomínio, Referência, Vencimento e valor. Condomínio e unidade ausentes são cadastrados automaticamente na prévia.",
     accept:
       ".csv,.xls,.xlsx,.pdf,.txt,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     origens: origensDebito,

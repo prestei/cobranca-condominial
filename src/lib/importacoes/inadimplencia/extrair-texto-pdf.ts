@@ -181,23 +181,9 @@ function extrairTextoViaPdfJsWorker(buffer: Buffer): { texto: string; paginas: n
   }
 }
 
-async function extrairTextoViaPdfJsDireto(buffer: Buffer): Promise<{ texto: string; paginas: number } | null> {
-  try {
-    const { extrairTextoInadimplenciaPdfJsPuro } = await import(
-      "@/lib/importacoes/inadimplencia/extrair-texto-pdf-interno"
-    );
-    return await extrairTextoInadimplenciaPdfJsPuro(buffer);
-  } catch {
-    return null;
-  }
-}
-
+/** pdfjs fica só no worker Node (`extrair-texto-pdf-interno.ts`) — fora do bundle Next. */
 async function extrairTextoViaPdfJs(buffer: Buffer): Promise<{ texto: string; paginas: number } | null> {
-  const direto = await extrairTextoViaPdfJsDireto(buffer);
-  if (direto?.texto.includes("UNIDADES INADIMPLENTES")) return direto;
-  const worker = extrairTextoViaPdfJsWorker(buffer);
-  if (worker) return worker;
-  return direto;
+  return extrairTextoViaPdfJsWorker(buffer);
 }
 
 function textoRelatorioInadimplenciaReconhecivel(texto: string): boolean {

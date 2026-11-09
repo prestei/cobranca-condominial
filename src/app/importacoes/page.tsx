@@ -555,7 +555,12 @@ function ImportacoesPage() {
           hashArquivo: hashRecebimento,
         }),
       });
-      const body = (await response.json()) as { preview?: PreviewImportacaoModulo; error?: string };
+      const body = (await response.json()) as {
+        preview?: PreviewImportacaoModulo;
+        condominios?: import("@/data/catalogo").Condominio[];
+        unidades?: import("@/data/catalogo").Unidade[];
+        error?: string;
+      };
       if (!response.ok || !body.preview) {
         toast({
           variant: "error",
@@ -564,6 +569,8 @@ function ImportacoesPage() {
         });
         return;
       }
+      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
+      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
       setPreview(body.preview);
       setDataHoraPrevia(agoraIso());
       setStep(1);
@@ -611,8 +618,8 @@ function ImportacoesPage() {
         return;
       }
       if (body.debitos) mesclarDebitosDoServidor(body.debitos);
-      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.id);
-      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.id);
+      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
+      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
       if (body.responsaveis || body.vinculos) {
         mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
       }

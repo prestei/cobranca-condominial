@@ -172,9 +172,16 @@ export function obterUnidadeDetalhe(userId: number, unidadeId: number) {
   };
 }
 
-export function criarUnidade(userId: number, input: UnidadeInput, meta?: { ip?: string; userAgent?: string }) {
+export function criarUnidade(
+  userId: number,
+  input: UnidadeInput,
+  meta?: { ip?: string; userAgent?: string },
+  opcoes?: { ignorarEscopo?: boolean },
+) {
   assertCondominioValido(input.condominioId);
-  assertCondominioNoEscopo(userId, input.condominioId);
+  if (!opcoes?.ignorarEscopo) {
+    assertCondominioNoEscopo(userId, input.condominioId);
+  }
   const dados = validarEntrada(input, null);
   const nextId = proximoNumero(getCadastros().unidades.map((item) => item.id));
   const unidade: Unidade = { id: nextId, ...dados };

@@ -13,13 +13,18 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuthOptional();
-  const [codigo, setCodigo] = useState("12345");
-  const [password, setPassword] = useState("12345");
+  const [codigo, setCodigo] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      setCodigo("12345");
+      setPassword("12345");
+    }
     setMontado(true);
   }, []);
 
@@ -66,24 +71,18 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen flex-col bg-[#F6F8FB]">
       <div className="flex flex-1 flex-col items-center justify-center px-md py-xl">
-        <div className="w-full max-w-[420px] rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-          <div className="mb-lg flex flex-col gap-md border-b border-border-subtle pb-md">
+        <div className="w-full max-w-[420px] rounded-xl border border-border-subtle bg-primary-container p-lg shadow-card">
+          <div className="mb-lg flex flex-col items-center gap-md border-b border-white/15 pb-md text-center">
             <img
               src="/logo-daniel-jorge.webp"
               alt="Daniel Jorge Advocacia"
-              className="h-12 w-auto max-w-full self-start rounded-md object-contain object-left"
+              className="h-12 w-auto max-w-full rounded-md object-contain object-center"
             />
-            <div className="flex flex-col gap-xs">
-              <h1 className="text-headline-sm text-on-surface">Entrar no sistema</h1>
-              <p className="text-body-sm text-on-surface-variant">
-                Por enquanto: código 12345 ou RE-10005 e senha 12345 (admin de teste). Todo colaborador
-                entra com o código RE (ou o login legado), senha 12345.
-              </p>
-            </div>
+            <h1 className="text-headline-sm text-on-primary">Entrar no sistema</h1>
           </div>
 
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
-            <FormField label="Código RE ou login" required>
+            <FormField label="Código RE" className="[&>label]:!text-on-primary">
               <Input
                 icon={KeyRound}
                 type="text"
@@ -96,7 +95,7 @@ function LoginForm() {
                 placeholder="Ex.: RE-10000"
               />
             </FormField>
-            <FormField label="Senha" required>
+            <FormField label="Senha" className="[&>label]:!text-on-primary">
               <Input
                 icon={Lock}
                 type="password"
@@ -114,7 +113,12 @@ function LoginForm() {
                 {error}
               </p>
             ) : null}
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="w-full hover:!translate-y-0 hover:!from-brass hover:!to-secondary-container hover:!text-primary-container hover:!shadow-button-hover"
+              disabled={submitting}
+            >
               {submitting ? "Entrando…" : "Entrar"}
             </Button>
           </form>
