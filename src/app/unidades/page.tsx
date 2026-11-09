@@ -148,6 +148,7 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 export default function UnidadesPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
+  const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -565,6 +566,10 @@ export default function UnidadesPage() {
       textoDebitoExport(item),
       valorAbertoExport(item),
     ]);
+  }
+
+  function abrirImportacao() {
+    router.push("/importacoes?modulo=unidades&abrir=1");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -1044,6 +1049,8 @@ export default function UnidadesPage() {
           desktop={desktopTable}
           mobile={mobileTable}
           onExport={aoExportar}
+          onImport={abrirImportacao}
+          showImport={podeImportar}
           mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}

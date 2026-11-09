@@ -54,3 +54,9 @@ test("linhaSeraGravada considera apenas novos e atualizações sem erro", () => 
     false,
   );
 });
+
+test("linhaSeraGravada respeita decisão explícita de atualizar em revisão", () => {
+  const linha = { linha: 5, situacao: "revisao" as const };
+  assert.equal(linhaSeraGravada(linha), false);
+  assert.equal(linhaSeraGravada(linha, undefined, new Map([[5, "atualizar_existente"]])), true);
+});

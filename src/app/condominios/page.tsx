@@ -156,6 +156,7 @@ const formularioVazio: Omit<Condominio, "id"> = {
 export default function CondominiosPage() {
   const { toast } = useToast();
   const { pode } = usePermissao();
+  const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const formId = useId();
@@ -695,6 +696,10 @@ export default function CondominiosPage() {
     ]);
   }
 
+  function abrirImportacao() {
+    router.push("/importacoes?modulo=condominios&abrir=1");
+  }
+
   function aoExportar(formato: TableExportFormat) {
     if (visible.length === 0) {
       toast({
@@ -998,6 +1003,8 @@ export default function CondominiosPage() {
             desktop={desktopTable}
             mobile={mobileTable}
             onExport={aoExportar}
+            onImport={abrirImportacao}
+            showImport={podeImportar}
             mobileDataBarClassName={condominiosMobileDataBarClassName}
           />
           {visible.length > 0 ? (

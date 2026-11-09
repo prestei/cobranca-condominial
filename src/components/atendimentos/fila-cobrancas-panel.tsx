@@ -93,6 +93,8 @@ import type { HistoricoAtribuicaoItem } from "@/lib/distribuicao/service";
 const filaMobileDataBarClassName =
   "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
 
+const filaDesktopDataBarClassName = "px-md pt-md";
+
 const retornoOpcoes = [
   { value: "todos", label: "Todos" },
   { value: "atrasado", label: "Atrasados" },
@@ -702,6 +704,7 @@ export function FilaCobrancasPanel() {
               onImport={abrirImportacao}
               showImport={podeImportar}
               mobileDataBarClassName={filaMobileDataBarClassName}
+              desktopDataBarClassName={filaDesktopDataBarClassName}
               desktop={
                 <Table
                   aria-label="Fila de cobranças ativas"

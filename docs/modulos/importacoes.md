@@ -74,7 +74,7 @@ Exemplos: `19/09/2026` → `2026-09-19`; `R$ 1.250,50` → `1250.50`; `"  JOÃO 
 ## Fluxos principais
 
 1. Usuário escolhe **origem** (Superlógica, PDF, Outra administradora) e envia arquivo **CSV (;)**, **XLSX**, **XLS** (XML Spreadsheet) ou **PDF** via `POST /api/importacoes/arquivo` (validação de extensão, MIME, assinatura, tamanho e limites **antes** da prévia).
-2. **Prévia** (Ticket 07 — tela padronizada `ImportacaoPreVisualizacao`) exibe cabeçalho com arquivo, módulo, usuário, data/hora e contadores (válidos, atenção, erros, duplicidades), tabela de conferência com colunas do módulo, busca, filtros por situação e tipo de inconsistência, detalhes com dados originais/normalizados, correção de campos editáveis na conferência e ações voltar/cancelar. Classifica cada linha: novo, atualização, duplicado, **revisão**, erro ou manual protegido; conflitos expõem `conflito.acoesPermitidas` (Ticket 06).
+2. **Prévia** (Ticket 07 — tela padronizada `ImportacaoPreVisualizacao`) no sheet `size="xl"`: cabeçalho com arquivo, módulo, usuário, data/hora e contadores (válidos, atenção, erros, duplicidades); tabela de conferência com colunas do módulo, busca e filtros (Situação e Inconsistência) em três colunas iguais; **Detalhes** abre a caixa de conferência (Dialog) com identificação da linha (origem, arquivo, condomínio/unidade quando houver), bloco **Duplicidade e conflito com a base** (critérios coincidentes/divergentes e seletor de ação quando há mais de uma opção), inconsistências em lista, abas Conferência / Dados originais / Dados normalizados e correção dos valores editáveis na prévia. Classifica cada linha: novo, atualização, duplicado, **revisão**, erro ou manual protegido; conflitos expõem `conflito.acoesPermitidas` (Ticket 06). Decisões escolhidas na prévia são enviadas em `decisoesLinha` na confirmação e gravadas no relatório do histórico.
 3. **Confirmação** revalida o arquivo no servidor, grava débitos válidos, histórico `import` e auditoria em **transação atômica** (`confirmacao.ts` + `executarTransacaoCatalogo`, contrato alinhado a `prisma.$transaction`); **atualizações exigem `decisoesLinha` explícitas**; `linhasIgnoradas` só afeta linhas marcadas na confirmação. Na inadimplência, reutiliza as linhas conferidas da prévia (`processoId`) e o formato PDF detectado no upload; a gravação de débitos **mescla** o escopo da importação sem apagar débitos de outros condomínios. Reconfirmação do **mesmo hash** só é idempotente quando a importação anterior gravou ao menos um débito (novo ou atualizado).
 4. **Resultado** exibe relatório (novos, atualizados, duplicados, erros, manuais protegidos, revisões).
 
@@ -94,7 +94,7 @@ Colunas mínimas (cabeçalho flexível, acentos ignorados):
 | Bloco | condicional | Quando há unidades homônimas |
 | Descrição, Valor original, Multa, Juros, Correção, Status, Identificador externo, Data pagamento, Valor pago | não | Enriquecimento e deduplicação |
 
-**PDF (relatório Gestão Condominial / Condomínio21):** formato `relatorio-inadimplencia-gestao-v1` — extração via `pdftotext` (quando disponível no servidor) ou layout por coordenadas (FlateDecode); interpretação em `src/lib/importacoes/inadimplencia/` com colunas Condomínio, Unidade, Responsável, Categoria, Referência, Vencimento, componentes financeiros e Total (Proj. Rec.), página e linha de origem; reconciliação de subtotais por unidade e total geral do relatório (valores do arquivo, sem recálculo de encargos). Homologação: fixture `src/test/fixtures/relatorio-inadimplencia-residencial-do-mar.pdf` (8 páginas). Demais layouts PDF permanecem pendentes — [DECISOES_PENDENTES.md](../DECISOES_PENDENTES.md).
+**PDF (relatório Gestão Condominial / Condomínio21 / export Daniel Jorge Advocacia com o mesmo layout):** formato `relatorio-inadimplencia-gestao-v1` — extração via `pdftotext` (quando disponível no servidor) ou layout por coordenadas (FlateDecode); interpretação em `src/lib/importacoes/inadimplencia/` com colunas Condomínio, Unidade, Responsável, Categoria, Referência, Vencimento, componentes financeiros e Total (Proj. Rec.), página e linha de origem; reconciliação de subtotais por unidade e total geral do relatório (valores do arquivo, sem recálculo de encargos). Unidades no formato `Unidade: MB-0102 — Nome` também são reconhecidas. Homologação: fixtures `relatorio-inadimplencia-residencial-do-mar.pdf` (8 páginas, marca Gestão Condominial) e `relatorio-inadimplencia-daniel-jorge-advocacia.pdf` (amostra 1 página). Demais layouts PDF permanecem pendentes — [DECISOES_PENDENTES.md](../DECISOES_PENDENTES.md).
 
 ## Recebimento de arquivo (Fase 2 — Ticket 03)
 
@@ -161,7 +161,7 @@ Testes da arquitetura: `src/lib/importacao-centro/arquitetura.test.ts`, `importa
 - Campos editáveis em débitos: `valorOriginal`, `multa`, `juros`, `correcao`, `valorAtualizado` (demais campos do módulo permanecem bloqueados).
 - Cada correção passa por normalização monetária, **revalidação** no motor (`revalidar-linha.ts`), nova detecção de duplicidade no arquivo e nova classificação na base; `dadosOriginais` da planilha não são alterados.
 - Histórico: `RegistroHistoricoCorrecaoPrevia` (original, corrigido, usuário, data, resultado da revalidação); na confirmação, entradas são serializadas em `observacaoInterna.relatorio.correcoesPrevia` do registro `import`.
-- UI: detalhe da linha chama `POST …/preview/corrigir` e atualiza contadores/resumo da prévia.
+- UI: o botão **Detalhes** abre a caixa de conferência; **Aplicar correções na prévia** chama `POST …/preview/corrigir` e atualiza contadores/resumo da prévia.
 
 Testes: `src/lib/importacao-centro/correcao-previa/correcao-previa.test.ts`.
 
@@ -197,7 +197,7 @@ Superlógica e demais administradoras — leitores adicionais em [integracao-sup
 
 ## Estados de interface
 
-- Wizard: Arquivo → Prévia → Aprovação (resumo + checkboxes) → Resultado.
+- Wizard: Arquivo (`SheetContent` padrão) → Prévia e Aprovação (`size="xl"`, tabela de conferência com scroll horizontal) → Resultado.
 - Histórico: filtros por tipo e situação (todas do Ticket 11); métricas de total, concluídas e com falha; sheet **Ver detalhes** com identificador, usuários, datas, contadores, inconsistências, resultado financeiro (débitos) e trilha de ações.
 
 ## Pendências e decisões

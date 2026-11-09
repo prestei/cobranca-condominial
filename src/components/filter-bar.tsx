@@ -81,6 +81,8 @@ type FilterBarProps = {
   toolbarMobile?: "fila";
   /** Variante mobile do layout `default`: grade 2 colunas em card (ex.: Inadimplência). */
   defaultMobile?: "grid";
+  /** Colunas iguais no desktop (máx. 4). Use 3 quando houver busca + 2 filtros em container estreito. */
+  desktopCols?: 2 | 3 | 4;
   /** `false` evita `<form>` aninhado quando o FilterBar está dentro de outro formulário (ex.: prévia no Sheet). */
   useFormElement?: boolean;
 };
@@ -135,9 +137,12 @@ function applyButtonProps(useFormElement: boolean, onApply: () => void) {
     : ({ type: "button" as const, onClick: () => onApply() });
 }
 
-/** Grade padrão: no máximo 4 campos por linha, larguras iguais. */
-const fieldsGridClass =
-  "grid grid-cols-1 gap-md min-[480px]:grid-cols-2 min-[768px]:grid-cols-4";
+const desktopColsClassName: Record<2 | 3 | 4, string> = {
+  2: "min-[768px]:grid-cols-2",
+  3: "min-[768px]:grid-cols-3",
+  4: "min-[768px]:grid-cols-4",
+};
+
 const fieldCellClass = "min-w-0 w-full";
 const actionsRowClass =
   "col-span-full flex flex-wrap items-center justify-end gap-sm";
@@ -188,9 +193,11 @@ export function FilterBar({
   toolbarLayout: _toolbarLayout = "flex",
   toolbarMobile,
   defaultMobile,
+  desktopCols = 4,
   useFormElement = true,
 }: FilterBarProps) {
   void _toolbarLayout;
+  const fieldsGridClass = `grid grid-cols-1 gap-md min-[480px]:grid-cols-2 ${desktopColsClassName[desktopCols]}`;
   const searchInputClass = searchReadOnly
     ? "h-control! cursor-not-allowed bg-surface-subtle text-on-surface-variant"
     : "h-control!";
@@ -432,7 +439,7 @@ export function FilterBar({
       onApply={onApply}
       className={
         defaultMobile === "grid"
-          ? "hidden min-[768px]:grid min-[768px]:grid-cols-4 min-[768px]:gap-md min-[768px]:rounded-lg min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-subtle min-[768px]:p-md"
+          ? `hidden min-[768px]:grid ${desktopColsClassName[desktopCols]} min-[768px]:gap-md min-[768px]:rounded-lg min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-subtle min-[768px]:p-md`
           : `${fieldsGridClass} rounded-lg border border-border-subtle bg-surface-subtle p-md`
       }
     >

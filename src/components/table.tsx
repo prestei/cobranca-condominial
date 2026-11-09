@@ -734,6 +734,7 @@ type ResponsiveTableProps = {
   showImport?: boolean;
   importDisabled?: boolean;
   mobileDataBarClassName?: string;
+  desktopDataBarClassName?: string;
 };
 
 export function ResponsiveTable({
@@ -747,10 +748,12 @@ export function ResponsiveTable({
   showImport = false,
   importDisabled,
   mobileDataBarClassName,
+  desktopDataBarClassName,
 }: ResponsiveTableProps) {
   const barDesktop =
     showExport && (onExport || (showImport && onImport)) ? (
       <TableDataBar
+        className={desktopDataBarClassName}
         onExport={onExport}
         onImport={onImport}
         showImport={showImport}

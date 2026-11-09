@@ -65,8 +65,10 @@ export type ResultadoInterpretacaoRelatorioInadimplencia = {
 };
 
 const REGEX_PAGINA = /Pág:\s*(\d+)\s*\/\s*(\d+)/i;
-const REGEX_CONDOMINIO = /Condomínio\s+(.+)/i;
+const REGEX_CONDOMINIO = /Condomínio\s+(.+?)(?:\s+Data Base:.*)?$/i;
 const REGEX_UNIDADE = /^\s*([A-Z]{2}-\d{4})\s*$/;
+const REGEX_UNIDADE_COM_RESPONSAVEL =
+  /^Unidade:\s*([A-Z]{2}-\d{4})\s*(?:[—–-]\s*(.+)|\s*-\s*(.+))?$/i;
 const REGEX_DEBITO =
   /^(.+?)\s+(\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s*$/;
 
@@ -165,6 +167,13 @@ export function interpretarTextoRelatorioInadimplenciaGestao(textoBruto: string)
         correcao: co.valor ?? "",
         total: to.valor ?? "",
       });
+      continue;
+    }
+
+    const unidadeComResponsavel = compacta.match(REGEX_UNIDADE_COM_RESPONSAVEL);
+    if (unidadeComResponsavel) {
+      unidadeAtual = unidadeComResponsavel[1].toUpperCase();
+      responsavelAtual = (unidadeComResponsavel[2] ?? unidadeComResponsavel[3] ?? "").trim();
       continue;
     }
 
@@ -380,5 +389,9 @@ export function interpretarTextoRelatorioInadimplenciaGestao(textoBruto: string)
 
 export function textoPareceRelatorioInadimplenciaGestao(texto: string): boolean {
   const t = texto.trim();
-  return t.includes("UNIDADES INADIMPLENTES") && (t.includes("Gestão Condominial") || t.includes("Condomínio21"));
+  if (!t.includes("UNIDADES INADIMPLENTES")) return false;
+  if (t.includes("Gestão Condominial") || t.includes("Condomínio21")) return true;
+  if (/Gestão\s+e\s+Cobrança\s+Condominial/i.test(t)) return true;
+  if (/Unidade:\s*[A-Z]{2}-\d{4}/i.test(t) && /Proj\.\s*Rec/i.test(t)) return true;
+  return false;
 }

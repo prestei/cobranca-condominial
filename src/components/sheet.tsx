@@ -55,12 +55,13 @@ export function Sheet({ open, onOpenChange, children }: SheetProps) {
 
 type SheetContentProps = HTMLAttributes<HTMLDialogElement> & {
   children: ReactNode;
-  /** Padrão `max-w-sheet` (32rem + 150px); `wide` só onde a tela documentar. */
-  size?: "default" | "wide";
+  /** Padrão `max-w-sheet` (32rem + 150px); `wide`/`xl` só onde a tela documentar. */
+  size?: "default" | "wide" | "xl";
 };
 
 export function SheetContent({ children, className, size = "default", ...props }: SheetContentProps) {
-  const maxWidthClass = size === "wide" ? "open:max-w-[52rem]" : "open:max-w-sheet";
+  const maxWidthClass =
+    size === "xl" ? "open:max-w-[min(96vw,80rem)]" : size === "wide" ? "open:max-w-[52rem]" : "open:max-w-sheet";
   const { open, onOpenChange } = useSheetContext();
   const ref = useRef<HTMLDialogElement>(null);
   const ignoreCloseRef = useRef(false);

@@ -1,3 +1,5 @@
+import { situacaoParaAcaoConflito } from "@/lib/importacao-centro/detecao-duplicidades/aplicar-decisoes";
+import type { AcaoConflitoImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 import type { LinhaConferencia, SituacaoLinhaImportacao } from "@/lib/importacao-centro/types";
 import type { RegistroValidadoImportacao, ResultadoValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
 
@@ -59,21 +61,44 @@ export function contarPreVisualizacao(
   return { validos, atencao, erros, duplicidades };
 }
 
+export function situacaoEfetivaPreVisualizacao(
+  item: Pick<LinhaConferencia, "linha" | "situacao">,
+  opts?: {
+    linhasIgnoradas?: ReadonlySet<number>;
+    decisoes?: ReadonlyMap<number, AcaoConflitoImportacao>;
+  },
+): SituacaoLinhaImportacao {
+  if (opts?.linhasIgnoradas?.has(item.linha)) return "ignorado";
+  const decisao = opts?.decisoes?.get(item.linha);
+  if (decisao) return situacaoParaAcaoConflito(decisao);
+  return item.situacao;
+}
+
 export function linhaSeraGravada(
   item: Pick<LinhaConferencia, "linha" | "situacao" | "validacao">,
   linhasIgnoradas?: ReadonlySet<number>,
+  decisoes?: ReadonlyMap<number, AcaoConflitoImportacao>,
 ): boolean {
-  if (linhasIgnoradas?.has(item.linha)) return false;
+  const situacao = situacaoEfetivaPreVisualizacao(item, { linhasIgnoradas, decisoes });
   if (
-    item.situacao === "erro" ||
-    item.situacao === "duplicado" ||
-    item.situacao === "manual_protegido" ||
-    item.situacao === "revisao"
+    situacao === "erro" ||
+    situacao === "duplicado" ||
+    situacao === "manual_protegido" ||
+    situacao === "revisao" ||
+    situacao === "ignorado"
   ) {
     return false;
   }
   if (item.validacao?.resultado === "erro") return false;
-  return item.situacao === "novo" || item.situacao === "atualizacao";
+  return situacao === "novo" || situacao === "atualizacao";
+}
+
+export function serializarDecisoesLinha(
+  decisoes: ReadonlyMap<number, AcaoConflitoImportacao>,
+): import("@/lib/importacao-centro/detecao-duplicidades/types").DecisaoLinhaImportacao[] {
+  return [...decisoes.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([linha, acao]) => ({ linha, acao }));
 }
 
 export function mensagensLinhaPreVisualizacao(

@@ -63,6 +63,7 @@ import {
   podeEnviarAprovacaoImportacao,
 } from "@/components/importacao-aprovacao/importacao-aprovacao";
 import { ImportacaoResultado } from "@/components/importacao-aprovacao/importacao-resultado";
+import type { DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 import { linhaSeraGravada } from "@/lib/importacao-centro/pre-visualizacao";
 import { normalizarSituacaoImportacao } from "@/lib/importacao-centro/situacao-importacao";
 import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
@@ -111,8 +112,16 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
   const [confirmacaoMarcada, setConfirmacaoMarcada] = useState(false);
   const [cienciaParcial, setCienciaParcial] = useState(false);
   const [confirmacaoJaEnviada, setConfirmacaoJaEnviada] = useState(false);
+  const [linhasIgnoradas, setLinhasIgnoradas] = useState<number[]>([]);
+  const [decisoesLinha, setDecisoesLinha] = useState<DecisaoLinhaImportacao[]>([]);
 
   const configModulo = useMemo(() => configWizardImportacao(moduloWizard), [moduloWizard]);
+
+  const mapaDecisoesConfirmacao = useMemo(
+    () => new Map(decisoesLinha.map((item) => [item.linha, item.acao])),
+    [decisoesLinha],
+  );
+  const conjuntoIgnoradas = useMemo(() => new Set(linhasIgnoradas), [linhasIgnoradas]);
 
   function resetWizardForModulo(modulo: ModuloWizardImportacao) {
     setModuloWizard(modulo);
@@ -128,6 +137,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
     setErroOrigem("");
     setErroArquivo("");
     setConfirmacaoMarcada(false);
+    setLinhasIgnoradas([]);
+    setDecisoesLinha([]);
     setCienciaParcial(false);
     setConfirmacaoJaEnviada(false);
     setProcessando(false);
@@ -179,6 +190,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
       setPreview(null);
       setResultado(null);
       setConfirmacaoMarcada(false);
+      setLinhasIgnoradas([]);
+      setDecisoesLinha([]);
       setCienciaParcial(false);
       setConfirmacaoJaEnviada(false);
       setErroOrigem("");
@@ -273,8 +286,9 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
 
   const gravacaoNaPrevia = useMemo(() => {
     if (!preview) return 0;
-    return preview.linhas.filter((item) => linhaSeraGravada(item)).length;
-  }, [preview]);
+    return preview.linhas.filter((item) => linhaSeraGravada(item, conjuntoIgnoradas, mapaDecisoesConfirmacao))
+      .length;
+  }, [preview, conjuntoIgnoradas, mapaDecisoesConfirmacao]);
 
   const avancoPrevia = useMemo(() => {
     if (!preview?.resumoAprovacao) {
@@ -343,6 +357,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         return;
       }
       setPreview(body.preview);
+      setLinhasIgnoradas([]);
+      setDecisoesLinha([]);
       setDataHoraPrevia(agoraIso());
       setStep(1);
     } catch {
@@ -368,6 +384,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           hashArquivo: preview.hashArquivo,
           confirmacaoExplicita: true,
           cienciaImportacaoParcial: preview.resumoAprovacao.importacaoParcial ? cienciaParcial : undefined,
+          linhasIgnoradas: linhasIgnoradas.length > 0 ? linhasIgnoradas : undefined,
+          decisoesLinha: decisoesLinha.length > 0 ? decisoesLinha : undefined,
         }),
       });
       const body = (await response.json()) as {
@@ -490,7 +508,7 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         }}
       >
         <SheetContent
-          size={step === 0 ? "default" : "wide"}
+          size={step === 0 ? "default" : "xl"}
           aria-labelledby={`${formId}-title`}
           aria-describedby={`${formId}-desc`}
         >
@@ -573,14 +591,23 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
                   linhas={preview.linhas}
                   sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
                   hashArquivo={preview.hashArquivo}
-                  onPreviewAtualizado={setPreview}
+                  onPreviewAtualizado={(proximo) => {
+                    setPreview(proximo);
+                    setDecisoesLinha([]);
+                  }}
                   onVoltarArquivo={() => {
                     setStep(0);
                     setPreview(null);
                     setDataHoraPrevia("");
+                    setLinhasIgnoradas([]);
+                    setDecisoesLinha([]);
                   }}
                   onCancelar={closeSheet}
+                  onLinhasIgnoradasChange={setLinhasIgnoradas}
+                  decisoesLinha={decisoesLinha}
+                  onDecisoesLinhaChange={setDecisoesLinha}
                   permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
+                  permissaoDecidirConflito={podeAprovarImportacao}
                   gravacaoPrevista={gravacaoNaPrevia}
                   podeContinuarAprovacao={avancoPrevia.pode}
                   motivoBloqueioContinuar={avancoPrevia.motivo}

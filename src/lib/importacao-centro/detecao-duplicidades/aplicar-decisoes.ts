@@ -1,7 +1,7 @@
 import type { LinhaConferencia, SituacaoLinhaImportacao } from "@/lib/importacao-centro/types";
 import type { AcaoConflitoImportacao, DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 
-function situacaoParaAcao(acao: AcaoConflitoImportacao): SituacaoLinhaImportacao {
+export function situacaoParaAcaoConflito(acao: AcaoConflitoImportacao): SituacaoLinhaImportacao {
   switch (acao) {
     case "importar_novo":
       return "novo";
@@ -32,7 +32,7 @@ function resolverAcaoLinha(
       };
     }
     return {
-      situacao: situacaoParaAcao(acao),
+      situacao: situacaoParaAcaoConflito(acao),
       mensagem: decisao?.motivo ?? linha.mensagem,
       acaoAplicada: decisao ? decisao.acao : "padrao_pipeline",
     };
@@ -48,7 +48,7 @@ function resolverAcaoLinha(
 
   if (decisao) {
     return {
-      situacao: situacaoParaAcao(decisao.acao),
+      situacao: situacaoParaAcaoConflito(decisao.acao),
       mensagem: decisao.motivo ?? linha.mensagem,
       acaoAplicada: decisao.acao,
     };

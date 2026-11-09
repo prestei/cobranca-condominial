@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Debito } from "@/data/catalogo";
 import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
+import type { Unidade } from "@/data/catalogo";
+import type { UnidadeInput } from "@/lib/unidades/service";
 import {
+  chaveDuplicidadeUnidadeNoArquivo,
   chaveNaturalDebito,
   detectarDuplicidadeDebito,
   detectarDuplicidadeCondominio,
+  detectarDuplicidadeResponsavel,
+  detectarDuplicidadeUnidade,
 } from "@/lib/importacao-centro/detecao-duplicidades";
 import { aplicarDecisoesNasLinhas } from "@/lib/importacao-centro/detecao-duplicidades/aplicar-decisoes";
 import type { LinhaConferencia } from "@/lib/importacao-centro/types";
@@ -119,4 +124,74 @@ test("detectarDuplicidadeCondominio: mesmo nome sem ID externo gera possível co
     ],
   );
   assert.equal(detecao.correspondencia, "possivel");
+});
+
+test("detectarDuplicidadeUnidade usa condomínio, bloco e código", () => {
+  const payload: UnidadeInput = {
+    condominioId: 3,
+    identificacao: "101",
+    bloco: "A",
+    tipo: "Apartamento",
+    situacao: "Ativa",
+  };
+  const existentes: Unidade[] = [
+    {
+      id: 7,
+      condominioId: 3,
+      identificacao: "101",
+      bloco: "A",
+      tipo: "Apartamento",
+      situacao: "Ativa",
+    },
+  ];
+  const detecao = detectarDuplicidadeUnidade(payload, existentes);
+  assert.equal(detecao.correspondencia, "exata");
+  assert.equal(chaveDuplicidadeUnidadeNoArquivo(payload), "3:a:101");
+});
+
+test("detectarDuplicidadeResponsavel confirma por documento", () => {
+  const detecao = detectarDuplicidadeResponsavel(
+    { nome: "Maria", cpfCnpj: "123.456.789-09" },
+    [{ id: 1, nome: "Maria Silva", cpfCnpj: "12345678909", email: "", telefone: "" }],
+  );
+  assert.equal(detecao.correspondencia, "exata");
+  assert.ok(detecao.acoesPermitidas.includes("atualizar_existente"));
+});
+
+test("detectarDuplicidadeCondominio: ID externo coincide", () => {
+  const detecao = detectarDuplicidadeCondominio(
+    {
+      nome: "Torre Norte",
+      identificadorExterno: "ADM-99",
+      advogados: [],
+      status: "Ativo",
+      cidade: "",
+      estado: "",
+      administradora: "",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      observacao: "",
+    },
+    [
+      {
+        id: 2,
+        nome: "Outro nome",
+        identificadorExterno: "ADM-99",
+        advogados: [],
+        status: "Ativo",
+        cidade: "",
+        estado: "",
+        administradora: "",
+        cep: "",
+        logradouro: "",
+        numero: "",
+        complemento: "",
+        observacao: "",
+      },
+    ],
+  );
+  assert.equal(detecao.correspondencia, "exata");
+  assert.equal(detecao.acaoPadrao, "ignorar_existente");
 });
