@@ -111,16 +111,15 @@ fi
 
 echo "==> Troca de tráfego → app_${NEXT}:3000"
 printf 'reverse_proxy app_%s:3000\n' "$NEXT" > runtime/upstream
-if ! docker compose --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
-  # Último recurso: recreate caddy (rápido; TLS em volume)
-  docker compose --env-file .env.production up -d --no-deps --force-recreate caddy
-fi
+# Recreate Caddy aplica o import do upstream de forma confiável (TLS permanece no volume).
+docker compose --env-file .env.production up -d --no-deps --force-recreate caddy
 
-sleep 1
-if ! docker exec "$NEXT_CTR" node -e "fetch('http://127.0.0.1:3000/login').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+sleep 2
+if ! curl -fsSk "https://${DOMAIN:-danieljorgeadv.com}/login" >/dev/null 2>&1 \
+  && ! docker exec cobranca-caddy-1 wget -qO- "http://app_${NEXT}:3000/login" >/dev/null 2>&1; then
   echo "ERROR: pós-troca falhou — revertendo para ${ACTIVE}" >&2
   printf 'reverse_proxy app_%s:3000\n' "$ACTIVE" > runtime/upstream
-  docker compose --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+  docker compose --env-file .env.production up -d --no-deps --force-recreate caddy
   exit 1
 fi
 
