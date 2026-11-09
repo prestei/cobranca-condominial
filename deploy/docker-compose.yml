@@ -34,6 +34,8 @@ x-app: &app_base
     timeout: 5s
     retries: 12
     start_period: 40s
+  volumes:
+    - catalogo_data:/app/.data
 
 services:
   caddy:
@@ -122,5 +124,6 @@ networks:
 
 volumes:
   pgdata:
+  catalogo_data:
   caddy_data:
   caddy_config:

@@ -87,7 +87,7 @@ cp .env.example .env   # se ainda não existir
 # Ajuste DATABASE_URL para o seu PostgreSQL local
 ```
 
-A aplicação ainda persiste cadastros em memória (`catalogo.ts`) até a entrega da T02 (migrations + repositórios); a URL já fica pronta no `.env`.
+O catálogo operacional (`catalogo.ts`) fica em memória no processo Node e é **gravado automaticamente** em `.data/catalogo-operacional.json` a cada alteração (debounce ~300 ms), restaurado na subida via `src/instrumentation.ts`. Assim reinícios do `next dev` ou deploy local não apagam importações nem débitos. Caminho customizável: `CATALOGO_DATA_PATH`; desativar: `CATALOGO_PERSISTIR=0`. Migração definitiva para PostgreSQL (T02) usa a URL em `.env`.
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 

@@ -523,7 +523,7 @@ const importacoesIniciais: Importacao[] = [];
 
 const auditoriaInicial: Auditoria[] = [];
 
-type Cadastros = {
+export type Cadastros = {
   condominios: Condominio[];
   cargos: Cargo[];
   usuarios: Usuario[];
@@ -543,6 +543,9 @@ type Cadastros = {
   notificacoesInternas: NotificacaoInterna[];
   notificacaoFalhas: NotificacaoFalha[];
 };
+
+/** Evita gravar em disco durante testes que resetam o catálogo. */
+let pularPersistenciaCatalogo = false;
 
 let state: Cadastros = {
   condominios: condominiosIniciais,
@@ -640,12 +643,34 @@ export function buscarUsuarioPorCodigoLogin(codigo: string) {
   return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
 }
 
+function sinalizarPersistenciaCatalogo() {
+  if (typeof window !== "undefined") return;
+  void import("@/lib/catalogo/persistencia-disco").then((modulo) => {
+    modulo.agendarPersistenciaCatalogo(
+      exportarEstadoCatalogoParaPersistencia,
+      () => pularPersistenciaCatalogo,
+    );
+  });
+}
+
+/** Substitui o estado operacional (ex.: restauração após reinício do servidor). */
+export function substituirEstadoCatalogo(next: Cadastros) {
+  state = structuredClone(next);
+  atualizarCadastrosSnapshot();
+  emit();
+}
+
+export function exportarEstadoCatalogoParaPersistencia(): Cadastros {
+  return structuredClone(state);
+}
+
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
   const value = typeof next === "function" ? next(state[key]) : next;
   if (value === state[key]) return;
   state = { ...state, [key]: value };
   atualizarCadastrosSnapshot();
   emit();
+  sinalizarPersistenciaCatalogo();
 }
 
 export function setCondominios(next: Condominio[] | ((current: Condominio[]) => Condominio[])) {
@@ -758,9 +783,14 @@ const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
 
 /** Restaura o catálogo em memória ao seed inicial — uso exclusivo em testes automatizados. */
 export function resetCadastrosParaTestes() {
-  state = structuredClone(cadastrosSnapshotParaTestes);
-  atualizarCadastrosSnapshot();
-  emit();
+  pularPersistenciaCatalogo = true;
+  try {
+    state = structuredClone(cadastrosSnapshotParaTestes);
+    atualizarCadastrosSnapshot();
+    emit();
+  } finally {
+    pularPersistenciaCatalogo = false;
+  }
 }
 
 /**
@@ -775,6 +805,7 @@ export function executarTransacaoCatalogo<T>(fn: () => T): T {
     state = snapshot;
     atualizarCadastrosSnapshot();
     emit();
+    sinalizarPersistenciaCatalogo();
     throw error;
   }
 }
@@ -788,6 +819,7 @@ export async function executarTransacaoCatalogoAsync<T>(fn: () => Promise<T>): P
     state = snapshot;
     atualizarCadastrosSnapshot();
     emit();
+    sinalizarPersistenciaCatalogo();
     throw error;
   }
 }
@@ -813,6 +845,7 @@ export function registrarAuditoria(
   state = { ...state, auditoria: [registro, ...state.auditoria] };
   atualizarCadastrosSnapshot();
   emit();
+  sinalizarPersistenciaCatalogo();
 }
 
 export function formatarData(value: string) {
