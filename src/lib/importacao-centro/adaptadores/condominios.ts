@@ -77,6 +77,7 @@ export const adaptadorImportacaoCondominios: AdaptadorImportacao<CondominioImpor
     modulo: "condominios",
     tipoImportacao: "condominios",
     formato: FORMATO_IMPORTACAO_CONDOMINIOS_V1,
+    politicaAprovacao: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
 
     prepararContexto(userId) {
       void userId;

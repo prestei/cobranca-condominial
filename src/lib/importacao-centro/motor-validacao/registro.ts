@@ -2,6 +2,7 @@ import {
   classificarResultadoValidacao,
   mensagemPrincipalValidacao,
 } from "@/lib/importacao-centro/motor-validacao/classificacao";
+import { CODIGOS_VALIDACAO } from "@/lib/importacao-centro/motor-validacao/codigos";
 import type { InconsistenciaValidacao, RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
 
 export function criarInconsistencia(
@@ -14,7 +15,7 @@ export function inconsistenciaDeErroParse(mensagem: string): InconsistenciaValid
   return {
     categoria: "cadastral",
     severidade: "erro",
-    codigo: "cadastral.parse_rejeitado",
+    codigo: CODIGOS_VALIDACAO.cadastral.parseRejeitado,
     mensagem,
   };
 }
@@ -39,6 +40,7 @@ export function finalizarRegistroValidado<TPayload>(
     ...(pagina ? { pagina } : {}),
     dadosOriginais: base.dadosOriginais,
     dadosNormalizados: base.dadosNormalizados,
+    camposNormalizados: base.camposNormalizados,
     inconsistencias,
     regrasAplicadas,
     resultado,

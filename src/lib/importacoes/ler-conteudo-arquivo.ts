@@ -1,8 +1,8 @@
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";
-import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
+import { LIMITES_ARQUIVO_IMPORTACAO, type FormatoArquivoImportacao } from "@/lib/importacoes/limites";
+import { lerMatrizPlanilha, PlanilhaLimiteError } from "@/lib/planilha/ler-planilha";
 import { lerMatrizXlsx } from "@/lib/planilha/ler-xlsx";
 import { ZipMinimoError } from "@/lib/planilha/zip-minimo";
-import type { FormatoArquivoImportacao } from "@/lib/importacoes/limites";
 
 export class LeituraArquivoImportacaoError extends Error {
   constructor(
@@ -68,15 +68,30 @@ export function lerConteudoPlanilha(buffer: Buffer, formato: FormatoArquivoImpor
 
   if (formato === "xlsx") {
     try {
-      const matriz = lerMatrizXlsx(buffer);
+      const matriz = lerMatrizXlsx(buffer, LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos);
       if (matriz.length === 0) {
         throw new LeituraArquivoImportacaoError("Arquivo vazio.", "arquivo_vazio");
       }
       return { formato, matriz, quantidadeRegistros: contarRegistros(matriz) };
     } catch (error) {
       if (error instanceof LeituraArquivoImportacaoError) throw error;
+      if (error instanceof PlanilhaLimiteError) {
+        throw new LeituraArquivoImportacaoError(
+          `O arquivo excede o limite de ${LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos.toLocaleString("pt-BR")} registros.`,
+          "muitos_registros",
+        );
+      }
       if (error instanceof ZipMinimoError) {
-        throw new LeituraArquivoImportacaoError(error.message, "arquivo_corrompido");
+        const macros = /macro/i.test(error.message);
+        const protegido = /senha|protegido/i.test(error.message);
+        throw new LeituraArquivoImportacaoError(
+          macros
+            ? error.message
+            : protegido
+              ? "Planilha protegida por senha ou que não pode ser lida. Envie uma versão desbloqueada."
+              : error.message,
+          macros || protegido ? "arquivo_protegido" : "arquivo_corrompido",
+        );
       }
       throw new LeituraArquivoImportacaoError("Arquivo Excel inválido ou corrompido.", "arquivo_corrompido");
     }
@@ -89,8 +104,14 @@ export function lerConteudoPlanilha(buffer: Buffer, formato: FormatoArquivoImpor
 
   let matriz: string[][];
   try {
-    matriz = lerMatrizPlanilha(conteudoTexto);
-  } catch {
+    matriz = lerMatrizPlanilha(conteudoTexto, LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos);
+  } catch (error) {
+    if (error instanceof PlanilhaLimiteError) {
+      throw new LeituraArquivoImportacaoError(
+        `O arquivo excede o limite de ${LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos.toLocaleString("pt-BR")} registros.`,
+        "muitos_registros",
+      );
+    }
     throw new LeituraArquivoImportacaoError("Arquivo corrompido ou ilegível.", "arquivo_corrompido");
   }
 

@@ -2,6 +2,7 @@ import type { Importacao } from "@/data/catalogo";
 import type { RegistroHistoricoCorrecaoPrevia } from "@/lib/importacao-centro/correcao-previa/types";
 import type { ConflitoImportacaoLinha, DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 import type { InconsistenciaValidacao, RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
+import type { ResultadoNormalizacao } from "@/lib/importacao-centro/normalizacao-resultado";
 import type { ResumoAprovacaoImportacao } from "@/lib/importacao-centro/resumo-aprovacao";
 
 /** Situação de cada linha após parse, validação e conferência com a base. */
@@ -21,6 +22,8 @@ export type LinhaParseada<TPayload> = {
   erro?: string;
   /** Resultado do motor central de validação (Ticket 05). */
   validacao?: RegistroValidadoImportacao<TPayload>;
+  /** Ticket 04: original × normalizado por campo, antes das regras de negócio. */
+  camposNormalizados?: Record<string, ResultadoNormalizacao<string>>;
 };
 
 export type LinhaConferencia<TPayload = unknown> = {
@@ -100,6 +103,23 @@ export type MetaExecucaoImportacao = {
   userAgent?: string;
 };
 
+/** Política de aprovação do módulo (Ticket 09), declarada no adaptador — não no orquestrador. */
+export type PoliticaAprovacaoModuloImportacao = {
+  permitirImportacaoParcial: boolean;
+  suportaTotalFinanceiro: boolean;
+};
+
+/** Metadados do arquivo já lido (ex.: PDF de inadimplência), sem persistência. */
+export type MetadadosLeituraArquivoImportacao = {
+  tipo: string;
+  inconsistencias: InconsistenciaValidacao[];
+};
+
+export type EntradaGanchosLeituraImportacao<TContexto> = {
+  metadadosRelatorio?: MetadadosLeituraArquivoImportacao;
+  contextoSessao?: TContexto;
+};
+
 export type SacolaPersistencia<TPayload, TContexto> = {
   contexto: TContexto;
   payloadsPorLinha: Map<number, TPayload>;
@@ -113,6 +133,8 @@ export interface AdaptadorImportacao<TPayload, TContexto> {
   readonly modulo: string;
   readonly tipoImportacao: Importacao["tipo"];
   readonly formato: string;
+  /** Regras de aprovação do módulo; o serviço central só consulta este contrato. */
+  readonly politicaAprovacao?: PoliticaAprovacaoModuloImportacao;
 
   prepararContexto(userId: number): TContexto;
 
@@ -167,6 +189,35 @@ export interface AdaptadorImportacao<TPayload, TContexto> {
     userId: number,
     meta?: MetaExecucaoImportacao,
     aprovacao?: DadosAprovacaoImportacao,
+  ): void;
+
+  /**
+   * Gancho opcional do módulo antes do parse. Não deve gravar linhas importadas.
+   * (Ex.: provisionar cadastros auxiliares de débitos.)
+   */
+  antesDeInterpretar?(
+    matriz: string[][],
+    meta: { userId: number; origem: string; execucao?: MetaExecucaoImportacao },
+  ): void;
+
+  /** Aplica metadados do arquivo ou da sessão no contexto, sem regras no orquestrador. */
+  aplicarMetadadosLeitura?(
+    contexto: TContexto,
+    entrada: EntradaGanchosLeituraImportacao<TContexto>,
+  ): TContexto;
+
+  inconsistenciasArquivo?(contexto: TContexto): InconsistenciaValidacao[];
+
+  formatoEfetivo?(contexto: TContexto): string | undefined;
+
+  /** Pós-processa a conferência para a prévia (sem persistir). */
+  aposConferencia?(linhas: LinhaConferencia<TPayload>[], contexto: TContexto): LinhaConferencia<TPayload>[];
+
+  /** Validação de escopo/autorização imediatamente antes da gravação. */
+  assertAntesDePersistir?(
+    userId: number,
+    linhas: LinhaConferencia<TPayload>[],
+    input: EntradaConfirmacaoImportacao,
   ): void;
 }
 

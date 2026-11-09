@@ -1,4 +1,5 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile, chmod, readdir, stat } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -25,7 +26,17 @@ const processos = new Map<string, ProcessoArquivoImportacao>();
 let limpezaAgendada = false;
 
 function diretorioBaseImportacoes() {
-  return path.join(os.tmpdir(), "lc-importacoes");
+  return path.resolve(os.tmpdir(), "lc-importacoes");
+}
+
+function caminhoTemporarioSeguro(id: string): string {
+  const base = diretorioBaseImportacoes();
+  const caminhoAbsoluto = path.resolve(base, `${id}.bin`);
+  const relativo = path.relative(base, caminhoAbsoluto);
+  if (relativo.startsWith("..") || path.isAbsolute(relativo)) {
+    throw new Error("caminho_temporario_invalido");
+  }
+  return caminhoAbsoluto;
 }
 
 export function hashBufferArquivo(buffer: Buffer): string {
@@ -47,10 +58,11 @@ export async function criarProcessoArquivoTemporario(input: {
   const id = randomUUID();
   const base = diretorioBaseImportacoes();
   await mkdir(base, { recursive: true, mode: 0o700 });
+  await chmod(base, 0o700).catch(() => undefined);
 
-  const nomeSeguro = `${id}.bin`;
-  const caminhoAbsoluto = path.join(base, nomeSeguro);
+  const caminhoAbsoluto = caminhoTemporarioSeguro(id);
   await writeFile(caminhoAbsoluto, input.buffer, { mode: 0o600 });
+  await chmod(caminhoAbsoluto, 0o600).catch(() => undefined);
 
   const processo: ProcessoArquivoImportacao = {
     id,
@@ -107,9 +119,45 @@ export async function limparProcessosExpirados() {
     (item) => agora - item.criadoEm > LIMITES_ARQUIVO_IMPORTACAO.retencaoTemporariaMs,
   );
   await Promise.all(expirados.map((item) => removerProcessoArquivoTemporario(item.id)));
+  await limparArquivosOrfaosNoDisco();
+}
+
+async function limparArquivosOrfaosNoDisco() {
+  const base = diretorioBaseImportacoes();
+  let nomes: string[] = [];
+  try {
+    nomes = await readdir(base);
+  } catch {
+    return;
+  }
+  const vivos = new Set([...processos.values()].map((item) => path.basename(item.caminhoAbsoluto)));
+  const agora = Date.now();
+  await Promise.all(
+    nomes.map(async (nome) => {
+      if (!/^[0-9a-f-]{36}\.bin$/i.test(nome) || vivos.has(nome)) return;
+      const caminho = path.resolve(base, nome);
+      if (!caminho.startsWith(base + path.sep)) return;
+      try {
+        const info = await stat(caminho);
+        if (agora - info.mtimeMs > LIMITES_ARQUIVO_IMPORTACAO.retencaoTemporariaMs) {
+          await rm(caminho, { force: true });
+        }
+      } catch {
+        // ignora arquivo removido concorrentemente
+      }
+    }),
+  );
 }
 
 /** Apenas para testes. */
 export function _limparTodosProcessosTemporariosParaTeste() {
+  const caminhos = [...processos.values()].map((item) => item.caminhoAbsoluto);
   processos.clear();
+  for (const caminho of caminhos) {
+    try {
+      rmSync(caminho, { force: true });
+    } catch {
+      // ignora falha de limpeza em teste
+    }
+  }
 }

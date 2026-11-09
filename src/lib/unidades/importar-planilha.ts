@@ -6,12 +6,19 @@ import {
   tiposUnidade,
 } from "@/data/catalogo";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
+import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import {
+  aplicarNormalizacaoRegistro,
+  normalizarClassificacaoImportacao,
+} from "@/lib/importacao-centro/normalizacao-campos";
+import type { ResultadoNormalizacao } from "@/lib/importacao-centro/normalizacao-resultado";
 import type { UnidadeInput } from "@/lib/unidades/service";
 
 export type ResultadoLinhaImportacaoUnidade = {
   linha: number;
   payload?: UnidadeInput;
   erro?: string;
+  camposNormalizados?: Record<string, ResultadoNormalizacao<string>>;
 };
 
 export type ResumoImportacaoUnidades = {
@@ -20,12 +27,7 @@ export type ResumoImportacaoUnidades = {
 };
 
 function normalizarCabecalho(valor: string) {
-  return valor
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, " ");
+  return normalizarCabecalhoPlanilha(valor);
 }
 
 const mapaCabecalho: Record<string, keyof UnidadeInput | "condominioNome" | "condominioId"> = {
@@ -65,52 +67,71 @@ function resolverCondominioId(
 function montarPayloadParcial(
   valores: Partial<Record<keyof UnidadeInput | "condominioNome" | "condominioId", string>>,
   condominios: Array<{ id: number; nome: string }>,
-): { payload?: UnidadeInput; erro?: string } {
+): {
+  payload?: UnidadeInput;
+  erro?: string;
+  camposNormalizados: Record<string, ResultadoNormalizacao<string>>;
+} {
+  const camposNormalizados = aplicarNormalizacaoRegistro({
+    identificacao: { tipo: "codigo", raw: valores.identificacao },
+    bloco: { tipo: "codigo", raw: valores.bloco },
+    condominioNome: { tipo: "nome", raw: valores.condominioNome },
+    tipo: { tipo: "categoria", raw: valores.tipo },
+    status: { tipo: "categoria", raw: valores.status },
+    situacao: { tipo: "categoria", raw: valores.situacao },
+  });
+
   const condominioId = resolverCondominioId(valores.condominioId, valores.condominioNome, condominios);
   if (!condominioId) {
-    return { erro: "Condomínio inválido ou fora do escopo." };
+    return { erro: "Condomínio inválido ou fora do escopo.", camposNormalizados };
   }
 
-  const identificacao = valores.identificacao?.trim() ?? "";
+  const identificacao = camposNormalizados.identificacao.normalizado ?? "";
   if (!identificacao) {
-    return { erro: "Informe a identificação da unidade." };
+    return { erro: "Informe a identificação da unidade.", camposNormalizados };
   }
 
-  const tipo = valores.tipo?.trim() ?? "";
-  if (!tipo || !tiposUnidade.includes(tipo as (typeof tiposUnidade)[number])) {
-    return { erro: "Tipo de unidade inválido." };
-  }
-
-  const statusRaw = valores.status?.trim() || "Ativa";
-  if (!statusUnidade.includes(statusRaw as (typeof statusUnidade)[number])) {
-    return { erro: "Situação cadastral inválida (use Ativa ou Inativa)." };
-  }
-
-  const situacao = situacaoCobrancaUnidade({ situacao: valores.situacao?.trim() || SITUACAO_COBRANCA_PADRAO });
-  if (!situacoesUnidade.includes(situacao as (typeof situacoesUnidade)[number])) {
-    return { erro: "Situação de cobrança inválida." };
-  }
-
-  const bloco = valores.bloco?.trim();
-  if (bloco === "—" || bloco === "-") {
+  const tipoResultado = normalizarClassificacaoImportacao(valores.tipo, tiposUnidade, {
+    obrigatorio: true,
+    mensagemInvalida: "Tipo de unidade inválido.",
+  });
+  if (tipoResultado.erro || !tipoResultado.normalizado) {
     return {
-      payload: {
-        condominioId,
-        identificacao,
-        bloco: "",
-        tipo,
-        status: statusRaw,
-        situacao,
-      },
+      erro: tipoResultado.erro ?? "Tipo de unidade inválido.",
+      camposNormalizados: { ...camposNormalizados, tipo: tipoResultado },
     };
   }
 
+  const statusResultado = normalizarClassificacaoImportacao(valores.status, statusUnidade);
+  if (statusResultado.erro) {
+    return {
+      erro: "Situação cadastral inválida (use Ativa ou Inativa).",
+      camposNormalizados: { ...camposNormalizados, status: statusResultado },
+    };
+  }
+  const statusRaw = statusResultado.normalizado ?? "Ativa";
+
+  const situacaoInformada = camposNormalizados.situacao.vazio
+    ? SITUACAO_COBRANCA_PADRAO
+    : (camposNormalizados.situacao.normalizado ?? valores.situacao?.trim() ?? "");
+  const situacao = situacaoCobrancaUnidade({ situacao: situacaoInformada || SITUACAO_COBRANCA_PADRAO });
+  if (!situacoesUnidade.includes(situacao as (typeof situacoesUnidade)[number])) {
+    return { erro: "Situação de cobrança inválida.", camposNormalizados };
+  }
+
+  const bloco = camposNormalizados.bloco.vazio ? "" : (camposNormalizados.bloco.normalizado ?? "");
+
   return {
+    camposNormalizados: {
+      ...camposNormalizados,
+      tipo: tipoResultado,
+      status: statusResultado,
+    },
     payload: {
       condominioId,
       identificacao,
-      bloco: bloco ?? "",
-      tipo,
+      bloco,
+      tipo: tipoResultado.normalizado,
       status: statusRaw,
       situacao,
     },
@@ -157,13 +178,13 @@ export function interpretarPlanilhaUnidades(
     }
 
     const numeroLinha = i + 1;
-    const { payload, erro } = montarPayloadParcial(valores, condominiosEscopo);
+    const { payload, erro, camposNormalizados } = montarPayloadParcial(valores, condominiosEscopo);
     if (erro) {
-      linhas.push({ linha: numeroLinha, erro });
+      linhas.push({ linha: numeroLinha, erro, camposNormalizados });
       continue;
     }
     if (payload) {
-      linhas.push({ linha: numeroLinha, payload });
+      linhas.push({ linha: numeroLinha, payload, camposNormalizados });
       importaveis.push(payload);
     }
   }

@@ -77,10 +77,11 @@ function inflarStreamsPdf(buffer: Buffer): string[] {
     if (fim < 0) break;
     let data = Buffer.from(latin.slice(inicio + 6, fim), "latin1");
     if (data[0] === 10) data = data.subarray(1);
+    if (streams.length >= 200) break;
     try {
-      streams.push(inflateSync(data).toString("latin1"));
+      streams.push(inflateSync(data, { maxOutputLength: 8 * 1024 * 1024 }).toString("latin1"));
     } catch {
-      /* stream não-Flate ou incompleto */
+      /* stream não-Flate, incompleto ou acima do limite */
     }
     pos = fim + 9;
   }

@@ -102,6 +102,23 @@ test("pipelineConferencia não persiste e classifica novos vs duplicados na base
   assert.equal(contagem.novo, 2, "primeira ocorrência e código distinto");
 });
 
+test("previewImportacaoCentral não chama persistirLinha", async () => {
+  let persistiu = false;
+  const adapter = {
+    ...adaptadorTeste,
+    persistirLinha() {
+      persistiu = true;
+      return "novo" as const;
+    },
+  };
+  await previewImportacaoCentral(adapter, 1, {
+    origem: "Teste",
+    arquivo: "a.csv",
+    conteudo: "Codigo;Valor\nA;1\n",
+  });
+  assert.equal(persistiu, false);
+});
+
 test("previewImportacaoCentral rejeita conteúdo vazio", async () => {
   await assert.rejects(
     () =>

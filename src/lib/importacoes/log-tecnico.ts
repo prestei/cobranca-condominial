@@ -2,7 +2,6 @@ type EntradaLogImportacao = {
   codigo: string;
   processoId?: string;
   modulo?: string;
-  nomeArquivo?: string;
   detalhe?: string;
 };
 
@@ -10,7 +9,10 @@ type EntradaLogImportacao = {
 export function registrarErroTecnicoImportacao(entrada: EntradaLogImportacao) {
   const payload = {
     evento: "importacao_arquivo",
-    ...entrada,
+    codigo: entrada.codigo,
+    processoId: entrada.processoId,
+    modulo: entrada.modulo,
+    detalhe: entrada.detalhe,
     quando: new Date().toISOString(),
   };
   console.error(JSON.stringify(payload));

@@ -95,6 +95,8 @@ Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`.
 | `npm run test:unit` | Somente unitários |
 | `npm run test:integracao` | Fluxos e permissões (catálogo em memória, sem HTTP) |
 
+Importações (Ticket 03): arquivos temporários em `os.tmpdir()/lc-importacoes/` (não publicados via HTTP; `{uuid}.bin`, permissão `0600`, retenção 1 h com limpeza de órfãos). Nenhuma variável de ambiente extra. `pdftotext` é opcional no servidor para PDF de inadimplência; se ausente, usa extração FlateDecode. ZIP64 e macros em XLSX são recusados.
+
 Detalhes e roteiro manual: [`README.md`](../README.md) e [`testes/roteiro-qa-t21.md`](testes/roteiro-qa-t21.md).
 
 Credenciais de demonstração usam os e-mails de `catalogo.ts` e a senha inicial documentada no módulo [usuarios](modulos/usuarios.md). Persistência em PostgreSQL para `user` será ligada em tarefa posterior; o login valida o catálogo em memória no servidor.

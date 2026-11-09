@@ -1,5 +1,11 @@
 import { statusCondominio, type Condominio, type StatusCondominio } from "@/data/catalogo";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
+import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import {
+  aplicarNormalizacaoRegistro,
+  normalizarClassificacaoImportacao,
+} from "@/lib/importacao-centro/normalizacao-campos";
+import type { ResultadoNormalizacao } from "@/lib/importacao-centro/normalizacao-resultado";
 
 export type CondominioImportPayload = Omit<Condominio, "id">;
 
@@ -7,6 +13,7 @@ export type ResultadoLinhaImportacaoCondominio = {
   linha: number;
   payload?: CondominioImportPayload;
   erro?: string;
+  camposNormalizados?: Record<string, ResultadoNormalizacao<string>>;
 };
 
 export type ResumoImportacaoCondominios = {
@@ -20,12 +27,7 @@ type CampoPlanilha =
   | "_ignore";
 
 function normalizarCabecalho(valor: string) {
-  return valor
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, " ");
+  return normalizarCabecalhoPlanilha(valor);
 }
 
 const mapaCabecalho: Record<string, CampoPlanilha> = {
@@ -67,41 +69,61 @@ function parseAdvogados(texto: string, advogadosValidos: string[]): { advogados?
   return { advogados: partes };
 }
 
-function parseStatus(valor: string | undefined): StatusCondominio {
-  const texto = valor?.trim() ?? "";
-  if (!texto || texto === "—" || texto === "-") return "Ativo";
-  if (statusCondominio.includes(texto as StatusCondominio)) return texto as StatusCondominio;
-  return "Ativo";
-}
-
 function montarPayload(
   valores: Partial<Record<CampoPlanilha, string>>,
   advogadosValidos: string[],
-): { payload?: CondominioImportPayload; erro?: string } {
-  const nome = valores.nome?.trim() ?? "";
+): {
+  payload?: CondominioImportPayload;
+  erro?: string;
+  camposNormalizados: Record<string, ResultadoNormalizacao<string>>;
+} {
+  const camposNormalizados = aplicarNormalizacaoRegistro({
+    nome: { tipo: "nome", raw: valores.nome },
+    identificadorExterno: { tipo: "codigo", raw: valores.identificadorExterno },
+    administradora: { tipo: "nome", raw: valores.administradora },
+    cep: { tipo: "codigo", raw: valores.cep },
+    logradouro: { tipo: "nome", raw: valores.logradouro },
+    numero: { tipo: "codigo", raw: valores.numero },
+    complemento: { tipo: "nome", raw: valores.complemento },
+    cidade: { tipo: "nome", raw: valores.cidade },
+    estado: { tipo: "codigo", raw: valores.estado },
+    observacao: { tipo: "nome", raw: valores.observacao },
+    status: { tipo: "categoria", raw: valores.status },
+  });
+
+  const nome = camposNormalizados.nome.normalizado ?? "";
   if (!nome) {
-    return { erro: "Informe o nome do condomínio." };
+    return { erro: "Informe o nome do condomínio.", camposNormalizados };
   }
 
   const { advogados, erro: erroAdv } = parseAdvogados(valores.advogados?.trim() ?? "", advogadosValidos);
   if (erroAdv || !advogados) {
-    return { erro: erroAdv ?? "Advogados inválidos." };
+    return { erro: erroAdv ?? "Advogados inválidos.", camposNormalizados };
   }
 
+  const statusResultado = normalizarClassificacaoImportacao(valores.status, statusCondominio, {
+    mensagemInvalida: `Situação inválida (${statusCondominio.join(", ")}).`,
+  });
+  if (statusResultado.erro) {
+    return { erro: statusResultado.erro, camposNormalizados: { ...camposNormalizados, status: statusResultado } };
+  }
+  const status = (statusResultado.normalizado ?? "Ativo") as StatusCondominio;
+
   return {
+    camposNormalizados: { ...camposNormalizados, status: statusResultado },
     payload: {
       nome,
-      identificadorExterno: valores.identificadorExterno?.trim() ?? "",
-      status: parseStatus(valores.status),
+      identificadorExterno: camposNormalizados.identificadorExterno.normalizado ?? "",
+      status,
       advogados,
-      administradora: valores.administradora?.trim() ?? "",
-      cep: valores.cep?.trim() ?? "",
-      logradouro: valores.logradouro?.trim() ?? "",
-      numero: valores.numero?.trim() ?? "",
-      complemento: valores.complemento?.trim() ?? "",
-      cidade: valores.cidade?.trim() ?? "",
-      estado: valores.estado?.trim() ?? "",
-      observacao: valores.observacao?.trim() ?? "",
+      administradora: camposNormalizados.administradora.normalizado ?? "",
+      cep: camposNormalizados.cep.normalizado ?? "",
+      logradouro: camposNormalizados.logradouro.normalizado ?? "",
+      numero: camposNormalizados.numero.normalizado ?? "",
+      complemento: camposNormalizados.complemento.normalizado ?? "",
+      cidade: camposNormalizados.cidade.normalizado ?? "",
+      estado: camposNormalizados.estado.normalizado ?? "",
+      observacao: camposNormalizados.observacao.normalizado ?? "",
     },
   };
 }
@@ -150,13 +172,13 @@ export function interpretarPlanilhaCondominios(
     }
 
     const numeroLinha = i + 1;
-    const { payload, erro } = montarPayload(valores, advogadosValidos);
+    const { payload, erro, camposNormalizados } = montarPayload(valores, advogadosValidos);
     if (erro) {
-      linhas.push({ linha: numeroLinha, erro });
+      linhas.push({ linha: numeroLinha, erro, camposNormalizados });
       continue;
     }
     if (payload) {
-      linhas.push({ linha: numeroLinha, payload });
+      linhas.push({ linha: numeroLinha, payload, camposNormalizados });
       importaveis.push(payload);
     }
   }

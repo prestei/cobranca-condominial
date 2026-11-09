@@ -1,7 +1,6 @@
-import { adaptadorImportacaoUnidades } from "@/lib/importacao-centro/adaptadores/unidades";
 import { criarServicoImportacaoModulo, ImportacaoCentroError } from "@/lib/importacoes/preview-importacao-modulo";
 
-const servico = criarServicoImportacaoModulo(adaptadorImportacaoUnidades);
+const servico = criarServicoImportacaoModulo("unidades");
 
 export { ImportacaoCentroError as ImportacaoUnidadesError };
 export type { PreviewImportacaoModulo as PreviewImportacaoUnidades, ResultadoConfirmacaoModulo as ResultadoConfirmacaoUnidades } from "@/lib/importacoes/preview-importacao-modulo";

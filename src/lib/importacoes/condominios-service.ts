@@ -1,7 +1,6 @@
-import { adaptadorImportacaoCondominios } from "@/lib/importacao-centro/adaptadores/condominios";
 import { criarServicoImportacaoModulo, ImportacaoCentroError } from "@/lib/importacoes/preview-importacao-modulo";
 
-const servico = criarServicoImportacaoModulo(adaptadorImportacaoCondominios);
+const servico = criarServicoImportacaoModulo("condominios");
 
 export { ImportacaoCentroError as ImportacaoCondominiosError };
 export type { PreviewImportacaoModulo as PreviewImportacaoCondominios, ResultadoConfirmacaoModulo as ResultadoConfirmacaoCondominios } from "@/lib/importacoes/preview-importacao-modulo";

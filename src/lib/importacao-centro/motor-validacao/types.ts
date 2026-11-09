@@ -31,6 +31,11 @@ export type RegistroValidadoImportacao<TPayload = unknown> = {
   pagina?: number;
   dadosOriginais: Record<string, string>;
   dadosNormalizados: TPayload | Record<string, unknown> | null;
+  /** Ticket 04: rastreio campo a campo (original ≠ normalizado). */
+  camposNormalizados?: Record<
+    string,
+    { original: string; normalizado: string | null; vazio: boolean; ambiguo?: boolean; erro?: string }
+  >;
   resultado: ResultadoValidacaoImportacao;
   inconsistencias: InconsistenciaValidacao[];
   regrasAplicadas: string[];
@@ -43,6 +48,7 @@ export type EntradaValidacaoRegistro<TPayload, TContexto> = {
   payload?: TPayload;
   erroParse?: string;
   contexto: TContexto;
+  camposNormalizados?: RegistroValidadoImportacao["camposNormalizados"];
 };
 
 export type ValidadorModuloImportacao<TPayload = unknown, TContexto = unknown> = {
@@ -51,6 +57,8 @@ export type ValidadorModuloImportacao<TPayload = unknown, TContexto = unknown> =
   readonly colunasReconhecidas: ReadonlySet<string>;
   /** Colunas obrigatórias no cabeçalho; ausência gera ERRO estrutural na linha 1. */
   readonly colunasObrigatorias: readonly string[];
+  /** Regras deste módulo (além das categorias A–E do motor). */
+  readonly regrasDoModulo?: readonly string[];
 
   validarEstruturaArquivo?(matriz: string[][]): InconsistenciaValidacao[];
 

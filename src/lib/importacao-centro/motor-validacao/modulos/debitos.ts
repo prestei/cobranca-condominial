@@ -1,12 +1,33 @@
 import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
 import type { ContextoImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
+import { detectarDuplicidadeDebito } from "@/lib/importacao-centro/detecao-duplicidades";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import { statusDebito } from "@/data/catalogo";
+import { validarCodigoQuandoInformado } from "@/lib/importacao-centro/motor-validacao/cadastral";
+import {
+  REGRAS_CADASTRAIS_MOTOR,
+  REGRAS_FINANCEIRAS_MOTOR,
+  REGRAS_NEGOCIO_MOTOR,
+  REGRAS_RELACIONAIS_MOTOR,
+  CODIGOS_VALIDACAO,
+} from "@/lib/importacao-centro/motor-validacao/codigos";
 import { criarInconsistencia, inconsistenciaDeErroParse } from "@/lib/importacao-centro/motor-validacao/registro";
 import {
   extrairCabecalhoNormalizado,
+  inconsistenciaTipoDadoIncorreto,
   montarDadosOriginaisLinha,
   validarCabecalhoEstrutural,
 } from "@/lib/importacao-centro/motor-validacao/estrutural";
+import {
+  inconsistenciaRegistroFinanceiroDuplicado,
+  validarValoresFinanceiros,
+} from "@/lib/importacao-centro/motor-validacao/financeira";
+import { validarRestricaoCadastroInativo } from "@/lib/importacao-centro/motor-validacao/negocio";
+import {
+  localizarCondominioRelacional,
+  localizarUnidadeRelacional,
+  validarUnidadeComCondominio,
+} from "@/lib/importacao-centro/motor-validacao/relacional";
 import type {
   EntradaValidacaoRegistro,
   InconsistenciaValidacao,
@@ -63,117 +84,62 @@ const COLUNAS_RECONHECIDAS = new Set(
 
 const COLUNAS_OBRIGATORIAS = ["unidade", "referencia", "vencimento"];
 
-function valorNumerico(valor: string): number | null {
-  const n = Number(valor);
-  return Number.isFinite(n) ? n : null;
-}
-
-function validarFinanceiro(row: DebitoImportRow): InconsistenciaValidacao[] {
+function validarCadastralDebito(row: DebitoImportRow, contexto: ContextoImportacaoDebitos): InconsistenciaValidacao[] {
   const itens: InconsistenciaValidacao[] = [];
-  const atualizado = valorNumerico(row.valorAtualizado);
-  if (atualizado !== null && atualizado < 0) {
+  if (!row.referencia?.trim()) {
     itens.push(
       criarInconsistencia({
-        categoria: "financeira",
+        categoria: "cadastral",
         severidade: "erro",
-        codigo: "financeira.valor_negativo",
-        mensagem: "Valor atualizado não pode ser negativo.",
-        campo: "valorAtualizado",
+        codigo: CODIGOS_VALIDACAO.cadastral.campoObrigatorio,
+        mensagem: "Referência da cobrança é obrigatória.",
+        campo: "referencia",
       }),
     );
   }
-
-  const componentes = ["valorOriginal", "multa", "juros", "correcao"] as const;
-  for (const campo of componentes) {
-    const n = valorNumerico(row[campo]);
-    if (n !== null && n < 0) {
-      itens.push(
-        criarInconsistencia({
-          categoria: "financeira",
-          severidade: "erro",
-          codigo: "financeira.valor_negativo",
-          mensagem: `Campo ${campo} não pode ser negativo.`,
-          campo,
-        }),
-      );
-    }
-  }
-
-  if (atualizado !== null && atualizado > 0) {
-    const soma =
-      (valorNumerico(row.valorOriginal) ?? valorNumerico(row.valor) ?? 0) +
-      (valorNumerico(row.multa) ?? 0) +
-      (valorNumerico(row.juros) ?? 0) +
-      (valorNumerico(row.correcao) ?? 0);
-    if (soma > 0 && Math.abs(soma - atualizado) > 0.02) {
-      itens.push(
-        criarInconsistencia({
-          categoria: "financeira",
-          severidade: "atencao",
-          codigo: "financeira.soma_divergente",
-          mensagem: "Soma de componentes difere do valor atualizado; confira antes de importar.",
-          campo: "valorAtualizado",
-        }),
-      );
-    }
-  }
-
-  if (!row.dataVencimento?.trim()) {
+  itens.push(...validarCodigoQuandoInformado(row.identificadorExterno, "identificadorExterno", "Identificador externo"));
+  if (!row.descricao?.trim()) {
     itens.push(
       criarInconsistencia({
-        categoria: "financeira",
-        severidade: "erro",
-        codigo: "financeira.vencimento_invalido",
-        mensagem: "Data de vencimento inválida ou ausente.",
-        campo: "dataVencimento",
+        categoria: "cadastral",
+        severidade: "atencao",
+        codigo: "cadastral.categoria_ausente",
+        mensagem: "Categoria do débito não informada.",
+        campo: "descricao",
       }),
     );
   }
-
+  if (!row.metaOrigem?.responsavel?.trim()) {
+    itens.push(
+      criarInconsistencia({
+        categoria: "cadastral",
+        severidade: "atencao",
+        codigo: "cadastral.responsavel_ausente",
+        mensagem: "Responsável financeiro não identificado na linha.",
+        campo: "responsavel",
+      }),
+    );
+  }
+  const detecao = detectarDuplicidadeDebito(row, contexto.debitos);
+  if (detecao.correspondencia === "exata" || detecao.correspondencia === "possivel") {
+    itens.push(
+      inconsistenciaRegistroFinanceiroDuplicado(
+        "Já existe débito equivalente na base; a conferência definirá se atualiza ou ignora.",
+      ),
+    );
+  }
   return itens;
 }
 
-function validarRelacional(
-  row: DebitoImportRow,
-  contexto: ContextoImportacaoDebitos,
-): InconsistenciaValidacao[] {
-  const itens: InconsistenciaValidacao[] = [];
-  const condominio = contexto.condominios.find((item) => item.id === row.condominioId);
-  if (!condominio) {
+function validarNegocioDebito(row: DebitoImportRow, contexto: ContextoImportacaoDebitos): InconsistenciaValidacao[] {
+  const condominio = localizarCondominioRelacional(contexto.condominios, row.condominioId);
+  const unidade = localizarUnidadeRelacional(contexto.unidades, row.unidadeId);
+  const itens = validarRestricaoCadastroInativo({ condominio, unidade });
+  if (row.status?.trim() && !statusDebito.includes(row.status as (typeof statusDebito)[number])) {
     itens.push(
-      criarInconsistencia({
-        categoria: "relacional",
-        severidade: "erro",
-        codigo: "relacional.condominio_inexistente",
-        mensagem: "Condomínio não encontrado no escopo.",
-        campo: "condominioId",
-      }),
+      inconsistenciaTipoDadoIncorreto("status", "Tipo de dado incorreto: situação do débito não reconhecida."),
     );
   }
-
-  const unidade = contexto.unidades.find((item) => item.id === row.unidadeId);
-  if (!unidade) {
-    itens.push(
-      criarInconsistencia({
-        categoria: "relacional",
-        severidade: "erro",
-        codigo: "relacional.unidade_inexistente",
-        mensagem: "Unidade não encontrada no escopo.",
-        campo: "unidadeId",
-      }),
-    );
-  } else if (unidade.condominioId !== row.condominioId) {
-    itens.push(
-      criarInconsistencia({
-        categoria: "relacional",
-        severidade: "erro",
-        codigo: "relacional.vinculo_incompativel",
-        mensagem: "Unidade não pertence ao condomínio informado.",
-        campo: "unidadeId",
-      }),
-    );
-  }
-
   return itens;
 }
 
@@ -181,6 +147,12 @@ export const validadorImportacaoDebitos: ValidadorModuloImportacao<DebitoImportR
   modulo: "debitos",
   colunasReconhecidas: COLUNAS_RECONHECIDAS,
   colunasObrigatorias: COLUNAS_OBRIGATORIAS,
+  regrasDoModulo: [
+    ...REGRAS_CADASTRAIS_MOTOR,
+    ...REGRAS_RELACIONAIS_MOTOR,
+    ...REGRAS_FINANCEIRAS_MOTOR,
+    ...REGRAS_NEGOCIO_MOTOR,
+  ],
 
   validarEstruturaArquivo(matriz) {
     const cabecalho = extrairCabecalhoNormalizado(matriz);
@@ -198,8 +170,6 @@ export const validadorImportacaoDebitos: ValidadorModuloImportacao<DebitoImportR
 
   validarRegistro(entrada: EntradaValidacaoRegistro<DebitoImportRow, ContextoImportacaoDebitos>) {
     const inconsistencias: InconsistenciaValidacao[] = [];
-    const regrasAplicadas: string[] = ["motor.validar_registro"];
-
     const dadosOriginais = montarDadosOriginaisLinha(entrada.cabecalho, entrada.linhaBruta);
 
     if (entrada.erroParse) {
@@ -207,41 +177,18 @@ export const validadorImportacaoDebitos: ValidadorModuloImportacao<DebitoImportR
     }
 
     if (entrada.payload) {
-      inconsistencias.push(...validarRelacional(entrada.payload, entrada.contexto));
-      inconsistencias.push(...validarFinanceiro(entrada.payload));
-      if (!entrada.payload.referencia?.trim()) {
-        inconsistencias.push(
-          criarInconsistencia({
-            categoria: "cadastral",
-            severidade: "erro",
-            codigo: "cadastral.campo_obrigatorio",
-            mensagem: "Referência da cobrança é obrigatória.",
-            campo: "referencia",
-          }),
-        );
-      }
-      if (!entrada.payload.descricao?.trim()) {
-        inconsistencias.push(
-          criarInconsistencia({
-            categoria: "cadastral",
-            severidade: "atencao",
-            codigo: "cadastral.categoria_ausente",
-            mensagem: "Categoria do débito não informada.",
-            campo: "descricao",
-          }),
-        );
-      }
-      if (!entrada.payload.metaOrigem?.responsavel?.trim()) {
-        inconsistencias.push(
-          criarInconsistencia({
-            categoria: "cadastral",
-            severidade: "atencao",
-            codigo: "cadastral.responsavel_ausente",
-            mensagem: "Responsável financeiro não identificado na linha.",
-            campo: "responsavel",
-          }),
-        );
-      }
+      inconsistencias.push(
+        ...validarUnidadeComCondominio({
+          condominioId: entrada.payload.condominioId,
+          unidadeId: entrada.payload.unidadeId,
+          condominios: entrada.contexto.condominios,
+          unidades: entrada.contexto.unidades,
+          exigirUnidade: true,
+        }),
+      );
+      inconsistencias.push(...validarValoresFinanceiros(entrada.payload));
+      inconsistencias.push(...validarCadastralDebito(entrada.payload, entrada.contexto));
+      inconsistencias.push(...validarNegocioDebito(entrada.payload, entrada.contexto));
       if (entrada.payload.metaOrigem?.interpretacaoSegura === false) {
         inconsistencias.push(
           criarInconsistencia({
@@ -258,7 +205,7 @@ export const validadorImportacaoDebitos: ValidadorModuloImportacao<DebitoImportR
         criarInconsistencia({
           categoria: "estrutural",
           severidade: "erro",
-          codigo: "estrutural.registro_vazio",
+          codigo: CODIGOS_VALIDACAO.estrutural.registroVazio,
           mensagem: "Registro sem dados interpretáveis.",
         }),
       );
@@ -268,7 +215,7 @@ export const validadorImportacaoDebitos: ValidadorModuloImportacao<DebitoImportR
       dadosOriginais,
       dadosNormalizados: entrada.payload ?? null,
       inconsistencias,
-      regrasAplicadas,
+      regrasAplicadas: [CODIGOS_VALIDACAO.motor.validarRegistro],
     };
   },
 };

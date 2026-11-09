@@ -9,10 +9,31 @@ export type ResultadoNormalizacao<T> = {
   erro?: string;
 };
 
+export type TipoCampoNormalizacao =
+  | "data"
+  | "monetario"
+  | "decimal"
+  | "telefone"
+  | "email"
+  | "cpfCnpj"
+  | "nome"
+  | "codigo"
+  | "categoria"
+  | "vazio";
+
+export type SpecCampoNormalizacao = {
+  tipo: TipoCampoNormalizacao;
+  raw: string | undefined | null;
+  obrigatorio?: boolean;
+};
+
 export type OpcoesValorMonetario = {
   obrigatorio?: boolean;
   casasDecimais?: number;
-  /** Usado somente quando a célula está vazia e o campo é opcional. */
+  /**
+   * Preenchimento explícito do adaptador quando a célula está vazia.
+   * Não é interpretação: o normalizador marca `vazio: true`.
+   */
   valorSeVazio?: string | null;
 };
 

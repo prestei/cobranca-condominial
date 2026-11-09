@@ -1,7 +1,6 @@
-import { adaptadorImportacaoResponsaveis } from "@/lib/importacao-centro/adaptadores/responsaveis";
 import { criarServicoImportacaoModulo, ImportacaoCentroError } from "@/lib/importacoes/preview-importacao-modulo";
 
-const servico = criarServicoImportacaoModulo(adaptadorImportacaoResponsaveis);
+const servico = criarServicoImportacaoModulo("responsaveis");
 
 export { ImportacaoCentroError as ImportacaoResponsaveisError };
 export type { PreviewImportacaoModulo as PreviewImportacaoResponsaveis, ResultadoConfirmacaoModulo as ResultadoConfirmacaoResponsaveis } from "@/lib/importacoes/preview-importacao-modulo";

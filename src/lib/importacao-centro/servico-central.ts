@@ -4,26 +4,20 @@ import {
   encerrarSessaoPrevia,
   obterEstadoSessaoPreviaParaConfirmacao,
 } from "@/lib/importacao-centro/correcao-previa/servico";
-import { montarPreview, pipelineConferencia } from "@/lib/importacao-centro/conferencia";
-import { lerArquivoImportacao } from "@/lib/importacao-centro/leitura-arquivo";
-import { aplicarMotorValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao";
+import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
+import { obterAdaptadorImportacao } from "@/lib/importacao-centro/registro-adaptadores";
 import { validarEntradaLeitura } from "@/lib/importacao-centro/validacao";
 import { registrarPreviaImportacao } from "@/lib/importacao-centro/historico-auditoria";
 import { removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { resolverEntradaImportacao } from "@/lib/importacoes/resolver-entrada-importacao";
-import {
-  enriquecerLinhasConferenciaDebitos,
-  type ContextoImportacaoDebitos,
-} from "@/lib/importacao-centro/adaptadores/debitos";
-import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
-import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
 import type {
   AdaptadorImportacao,
   EntradaConfirmacaoImportacao,
   EntradaImportacaoArquivo,
   LinhaConferencia,
   MetaExecucaoImportacao,
+  PreviewImportacaoCentral,
   ResultadoConfirmacaoCentral,
 } from "@/lib/importacao-centro/types";
 
@@ -34,14 +28,14 @@ function arquivoPadrao(nome: string, fallback: string): string {
 
 /**
  * Serviço central de importação: leitura → normalização/parse (adaptador) → validação →
- * duplicidade no arquivo → conferência com a base → pré-visualização (sem persistência).
+ * duplicidade no arquivo → conferência com a base → pré-visualização (sem persistência de linhas).
  */
 export async function previewImportacaoCentral<TPayload, TContexto>(
   adapter: AdaptadorImportacao<TPayload, TContexto>,
   userId: number,
   input: EntradaImportacaoArquivo,
 ): Promise<{
-  preview: Awaited<ReturnType<typeof montarPreview>>;
+  preview: Awaited<ReturnType<typeof processarArquivoImportacao<TPayload, TContexto>>>["preview"];
   contexto: TContexto;
   linhasInternas: LinhaConferencia<TPayload>[];
   processoId?: string;
@@ -63,50 +57,15 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
   const hashArquivo = entrada.hashArquivo;
   const arquivo = arquivoPadrao(entrada.arquivo, `importacao-${adapter.modulo}.csv`);
 
-  const matriz = lerArquivoImportacao(entrada.conteudo, entrada.matrizPlanilha);
-  if (adapter.modulo === "debitos") {
-    provisionarCadastrosImportacaoDebitos(matriz, userId, origem);
-  }
-  const contexto = adapter.prepararContexto(userId);
-  if (adapter.modulo === "debitos" && entrada.metadadosRelatorio) {
-    const ctxDebitos = contexto as ContextoImportacaoDebitos;
-    ctxDebitos.formatoDetectado = entrada.metadadosRelatorio.tipo;
-    ctxDebitos.inconsistenciasRelatorio = [...entrada.metadadosRelatorio.inconsistencias];
-  }
-  const parseadas = adapter.interpretarMatriz(matriz, contexto);
-  const resultadoMotor = aplicarMotorValidacaoImportacao(parseadas, {
-    modulo: adapter.modulo,
-    matriz,
-    contexto,
-  });
-  if (adapter.modulo === "debitos") {
-    const extras = (contexto as ContextoImportacaoDebitos).inconsistenciasRelatorio ?? [];
-    if (extras.length > 0) {
-      resultadoMotor.inconsistenciasArquivo.push(...extras);
-    }
-  }
-  const validadas = resultadoMotor.linhas;
-  let linhasInternas = pipelineConferencia(validadas, adapter, contexto);
-  if (adapter.modulo === "debitos") {
-    linhasInternas = enriquecerLinhasConferenciaDebitos(linhasInternas as LinhaConferencia<DebitoImportRow>[]);
-  }
-
-  const adapterPreview =
-    adapter.modulo === "debitos" && (contexto as ContextoImportacaoDebitos).formatoDetectado
-      ? {
-          ...adapter,
-          formato: (contexto as ContextoImportacaoDebitos).formatoDetectado ?? adapter.formato,
-        }
-      : adapter;
-
-  const preview = montarPreview({
-    hashArquivo,
+  const processado = processarArquivoImportacao(adapter, {
+    modo: "preview",
+    userId,
     origem,
     arquivo,
-    adapter: adapterPreview,
-    contexto,
-    linhas: linhasInternas,
-    inconsistenciasArquivo: resultadoMotor.inconsistenciasArquivo,
+    hashArquivo,
+    conteudo: entrada.conteudo,
+    matrizPlanilha: entrada.matrizPlanilha,
+    metadadosRelatorio: entrada.metadadosRelatorio,
   });
 
   const sessaoPreviaId = entrada.processoId?.trim() || undefined;
@@ -118,9 +77,9 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
       origem,
       arquivo,
       hashArquivo,
-      quantidadeRegistros: preview.quantidadeRegistros,
-      contadores: preview.contadores,
-      resumoAprovacao: preview.resumoAprovacao,
+      quantidadeRegistros: processado.preview.quantidadeRegistros,
+      contadores: processado.preview.contadores,
+      resumoAprovacao: processado.preview.resumoAprovacao,
     });
     criarSessaoPreviaAposPreview({
       sessaoPreviaId,
@@ -128,16 +87,22 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
       hashArquivo,
       origem,
       arquivo,
-      matriz,
-      contexto,
+      matriz: processado.matriz,
+      contexto: processado.contexto,
       adapter,
-      parseadas: validadas,
-      linhasInternas,
-      inconsistenciasArquivo: resultadoMotor.inconsistenciasArquivo,
+      parseadas: processado.parseadas,
+      linhasInternas: processado.linhasInternas,
+      inconsistenciasArquivo: processado.inconsistenciasArquivo,
     });
   }
 
-  return { preview, contexto, linhasInternas, processoId: entrada.processoId, sessaoPreviaId };
+  return {
+    preview: processado.preview,
+    contexto: processado.contexto,
+    linhasInternas: processado.linhasInternas,
+    processoId: entrada.processoId,
+    sessaoPreviaId,
+  };
 }
 
 /**
@@ -186,4 +151,33 @@ export async function confirmarImportacaoCentral<TPayload, TContexto>(
   }
 
   return resultado;
+}
+
+/**
+ * Prévia pelo módulo registrado. Impede importação de aba sem adaptador no centro.
+ */
+export async function previewImportacaoPorModulo(
+  modulo: string,
+  userId: number,
+  input: EntradaImportacaoArquivo,
+): Promise<{
+  preview: PreviewImportacaoCentral;
+  contexto: unknown;
+  linhasInternas: LinhaConferencia[];
+  processoId?: string;
+  sessaoPreviaId?: string;
+}> {
+  return previewImportacaoCentral(obterAdaptadorImportacao(modulo), userId, input);
+}
+
+/**
+ * Confirmação pelo módulo registrado. Persistência só após aprovação do pipeline central.
+ */
+export async function confirmarImportacaoPorModulo(
+  modulo: string,
+  userId: number,
+  input: EntradaConfirmacaoImportacao,
+  meta?: MetaExecucaoImportacao,
+): Promise<ResultadoConfirmacaoCentral> {
+  return confirmarImportacaoCentral(obterAdaptadorImportacao(modulo), userId, input, meta);
 }

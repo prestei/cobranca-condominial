@@ -106,6 +106,7 @@ export const adaptadorImportacaoResponsaveis: AdaptadorImportacao<
   modulo: "responsaveis",
   tipoImportacao: "responsaveis",
   formato: FORMATO_IMPORTACAO_RESPONSAVEIS_V1,
+  politicaAprovacao: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
 
   prepararContexto(userId) {
     const cadastros = getCadastros();

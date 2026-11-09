@@ -27,17 +27,25 @@ import {
 import { montarCamposHistoricoFinal } from "@/lib/importacao-centro/historico-auditoria";
 import { resolverSituacaoFinalImportacao, importacaoConcluidaOuParcial } from "@/lib/importacao-centro/situacao-importacao";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
+import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+import { assertEscopoGravacaoImportacaoDebitos } from "@/lib/importacoes/permissoes";
 import type {
   AdaptadorImportacao,
   ContadoresImportacao,
   LinhaConferencia,
   LinhaParseada,
-  MetaExecucaoImportacao,
 } from "@/lib/importacao-centro/types";
 
 export type ContextoImportacaoDebitos = {
-  condominios: Array<{ id: number; nome: string; identificadorExterno: string }>;
-  unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>;
+  condominios: Array<{ id: number; nome: string; identificadorExterno: string; status?: string }>;
+  unidades: Array<{
+    id: number;
+    condominioId: number;
+    identificacao: string;
+    bloco: string;
+    status: string;
+    situacao?: string;
+  }>;
   debitos: Debito[];
   debitosMutaveis: Debito[];
   formatoDetectado?: string;
@@ -173,9 +181,10 @@ function importacaoConcluidaComHash(hash: string): boolean {
 }
 
 export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, ContextoImportacaoDebitos> = {
-  modulo: "debitos",
-  tipoImportacao: "debitos",
-  formato: FORMATO_IMPORTACAO_DEBITOS_V1,
+    modulo: "debitos",
+    tipoImportacao: "debitos",
+    formato: FORMATO_IMPORTACAO_DEBITOS_V1,
+    politicaAprovacao: { permitirImportacaoParcial: true, suportaTotalFinanceiro: true },
 
   prepararContexto(userId) {
     const cadastros = getCadastros();
@@ -186,6 +195,7 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
       identificacao: item.identificacao,
       bloco: item.bloco ?? "",
       status: item.status,
+      situacao: item.situacao,
     }));
     const idsCondominio = new Set(condominios.map((item) => item.id));
     const debitos = cadastros.debitos.filter((item) => idsCondominio.has(item.condominioId));
@@ -293,6 +303,40 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
       iniciadoEm: rascunho?.iniciadoEm ?? metaRascunho?.iniciadoEm ?? campos.aprovadoEm ?? agoraIso(),
       ...campos,
     };
+  },
+
+  antesDeInterpretar(matriz, meta) {
+    provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao);
+  },
+
+  aplicarMetadadosLeitura(contexto, entrada) {
+    const sessao = entrada.contextoSessao;
+    if (sessao?.formatoDetectado) {
+      contexto.formatoDetectado = sessao.formatoDetectado;
+      contexto.inconsistenciasRelatorio = sessao.inconsistenciasRelatorio ?? [];
+      return contexto;
+    }
+    if (entrada.metadadosRelatorio) {
+      contexto.formatoDetectado = entrada.metadadosRelatorio.tipo;
+      contexto.inconsistenciasRelatorio = [...entrada.metadadosRelatorio.inconsistencias];
+    }
+    return contexto;
+  },
+
+  inconsistenciasArquivo(contexto) {
+    return contexto.inconsistenciasRelatorio ?? [];
+  },
+
+  formatoEfetivo(contexto) {
+    return contexto.formatoDetectado;
+  },
+
+  aposConferencia(linhas) {
+    return enriquecerLinhasConferenciaDebitos(linhas);
+  },
+
+  assertAntesDePersistir(userId, linhas, input) {
+    assertEscopoGravacaoImportacaoDebitos(userId, linhas, input.linhasIgnoradas);
   },
 
   registrarAuditoriaConfirmacao(importacao, contadores: ContadoresImportacao, userId, meta, aprovacao) {

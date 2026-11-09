@@ -1,12 +1,14 @@
 import { origensDebito, statusDebito } from "@/data/catalogo";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
 import {
+  aplicarNormalizacaoRegistro,
   normalizarCodigoIdentificacaoImportacao,
   normalizarDataImportacao,
   normalizarNomeImportacao,
   normalizarStatusDebitoImportacao,
   normalizarValorMonetarioImportacao,
 } from "@/lib/importacao-centro/normalizacao-campos";
+import type { ResultadoNormalizacao } from "@/lib/importacao-centro/normalizacao-resultado";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
 
 /** Formato extensível v1 — CSV (;) ou XML Spreadsheet (.xls exportado pelo sistema). */
@@ -49,6 +51,7 @@ export type ResultadoLinhaImportacaoDebito = {
   linha: number;
   payload?: DebitoImportRow;
   erro?: string;
+  camposNormalizados?: Record<string, ResultadoNormalizacao<string>>;
 };
 
 export type ResumoParseDebitos = {
@@ -218,10 +221,36 @@ function montarPayload(
   blocoTexto: string | undefined,
   condominios: Array<{ id: number; nome: string; identificadorExterno: string }>,
   unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string; status: string }>,
-): { payload?: DebitoImportRow; erro?: string; interpretacaoInsegura?: boolean } {
+): {
+  payload?: DebitoImportRow;
+  erro?: string;
+  interpretacaoInsegura?: boolean;
+  camposNormalizados: Record<string, ResultadoNormalizacao<string>>;
+} {
+  const camposNormalizados = aplicarNormalizacaoRegistro({
+    unidade: { tipo: "codigo", raw: unidadeTexto },
+    bloco: { tipo: "codigo", raw: blocoTexto },
+    condominioNome: { tipo: "nome", raw: valores.condominioNome },
+    condominioIdentificador: { tipo: "codigo", raw: valores.condominioIdentificador },
+    referencia: { tipo: "codigo", raw: valores.referencia },
+    dataVencimento: { tipo: "data", raw: valores.dataVencimento, obrigatorio: true },
+    valorAtualizado: { tipo: "monetario", raw: valores.valorAtualizado?.trim() || valores.valor, obrigatorio: true },
+    valor: { tipo: "monetario", raw: valores.valor },
+    valorOriginal: { tipo: "monetario", raw: valores.valorOriginal },
+    multa: { tipo: "monetario", raw: valores.multa },
+    juros: { tipo: "monetario", raw: valores.juros },
+    correcao: { tipo: "monetario", raw: valores.correcao },
+    valorPago: { tipo: "monetario", raw: valores.valorPago },
+    dataPagamento: { tipo: "data", raw: valores.dataPagamento },
+    identificadorExterno: { tipo: "codigo", raw: valores.identificadorExterno },
+    categoria: { tipo: "categoria", raw: valores.categoria ?? valores.descricao },
+    responsavel: { tipo: "nome", raw: valores.responsavel },
+    status: { tipo: "categoria", raw: valores.status },
+  });
+
   const condominioId = resolverCondominioIdImportacaoDebitos(valores, condominios);
   if (!condominioId) {
-    return { erro: "Condomínio inválido ou fora do escopo." };
+    return { erro: "Condomínio inválido ou fora do escopo.", camposNormalizados };
   }
 
   const { unidadeId, erro: erroUnidade } = resolverUnidadeIdImportacaoDebitos(
@@ -231,22 +260,22 @@ function montarPayload(
     unidades,
   );
   if (erroUnidade || !unidadeId) {
-    return { erro: erroUnidade ?? "Unidade inválida." };
+    return { erro: erroUnidade ?? "Unidade inválida.", camposNormalizados };
   }
 
   const referenciaNorm = normalizarCodigoIdentificacaoImportacao(valores.referencia);
   const referencia = referenciaNorm.normalizado ?? "";
   if (!referencia) {
-    return { erro: "Informe a referência da cobrança." };
+    return { erro: "Informe a referência da cobrança.", camposNormalizados };
   }
 
   const { data: dataVencimento, erro: erroData } = parseData(valores.dataVencimento);
   if (erroData || !dataVencimento) {
-    return { erro: erroData ?? "Vencimento inválido." };
+    return { erro: erroData ?? "Vencimento inválido.", camposNormalizados };
   }
 
   const valorAtualizado = parseMoeda(valores.valorAtualizado?.trim() || valores.valor, true);
-  if (valorAtualizado.erro) return { erro: valorAtualizado.erro };
+  if (valorAtualizado.erro) return { erro: valorAtualizado.erro, camposNormalizados };
 
   const valorPrincipal = parseMoeda(valores.valor, false);
   const valorOriginal = parseMoeda(valores.valorOriginal, false);
@@ -258,7 +287,10 @@ function montarPayload(
     padraoSeVazio: "Vencido",
   });
   if (statusResultado.erro || !statusResultado.normalizado) {
-    return { erro: statusResultado.erro ?? `Status inválido (${statusDebito.join(", ")}).` };
+    return {
+      erro: statusResultado.erro ?? `Status inválido (${statusDebito.join(", ")}).`,
+      camposNormalizados: { ...camposNormalizados, status: statusResultado },
+    };
   }
   const statusRaw = statusResultado.normalizado;
 
@@ -266,7 +298,7 @@ function montarPayload(
   let dataPagamento = "";
   if (dataPagamentoRaw) {
     const pg = parseData(dataPagamentoRaw);
-    if (pg.erro) return { erro: pg.erro };
+    if (pg.erro) return { erro: pg.erro, camposNormalizados };
     dataPagamento = pg.data ?? "";
   }
 
@@ -306,6 +338,7 @@ function montarPayload(
       },
     },
     interpretacaoInsegura: !interpretacaoSegura,
+    camposNormalizados: { ...camposNormalizados, status: statusResultado },
   };
 }
 
@@ -458,7 +491,7 @@ export function interpretarPlanilhaDebitos(
     if (linhaVazia) continue;
 
     const numeroLinha = i + 1;
-    const { payload, erro, interpretacaoInsegura } = montarPayload(
+    const { payload, erro, camposNormalizados } = montarPayload(
       valores,
       unidadeTexto,
       blocoTexto,
@@ -466,11 +499,11 @@ export function interpretarPlanilhaDebitos(
       unidadesEscopo,
     );
     if (erro) {
-      linhas.push({ linha: numeroLinha, erro });
+      linhas.push({ linha: numeroLinha, erro, camposNormalizados });
       continue;
     }
     if (payload) {
-      linhas.push({ linha: numeroLinha, payload });
+      linhas.push({ linha: numeroLinha, payload, camposNormalizados });
       validos.push(payload);
     }
   }

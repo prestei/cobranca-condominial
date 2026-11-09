@@ -1,5 +1,8 @@
 import {
   detectarFormatoPorAssinatura,
+  eAssinaturaExecutavel,
+  eAssinaturaOleComposto,
+  eAssinaturaZip,
   pdfPareceCorrompido,
   pdfProtegidoOuCriptografado,
 } from "@/lib/importacoes/detectar-formato";
@@ -9,6 +12,8 @@ import {
   LIMITES_ARQUIVO_IMPORTACAO,
   extensaoDoNome,
   formatoPorExtensao,
+  mensagemLimiteRegistros,
+  mensagemTamanhoMaximoArquivo,
   mimePermitidoParaFormato,
   type ModuloImportacaoArquivo,
 } from "@/lib/importacoes/limites";
@@ -39,8 +44,17 @@ export type ResultadoRecebimentoArquivo = {
   quantidadeRegistros: number;
 };
 
-function rejeitar(codigo: string, mensagem: string, status = 400, detalhe?: string): never {
-  registrarErroTecnicoImportacao({ codigo, detalhe });
+function rejeitar(
+  codigo: string,
+  mensagem: string,
+  status = 400,
+  extra?: { detalhe?: string; modulo?: string },
+): never {
+  registrarErroTecnicoImportacao({
+    codigo,
+    detalhe: extra?.detalhe,
+    modulo: extra?.modulo,
+  });
   throw new RecebimentoArquivoError(mensagem, status, codigo);
 }
 
@@ -52,55 +66,107 @@ export async function receberArquivoImportacao(input: {
   mimeDeclarado?: string;
 }): Promise<ResultadoRecebimentoArquivo> {
   const nomeArquivo = input.nomeArquivo.trim();
-  if (!nomeArquivo) rejeitar("nome_ausente", "Informe o nome do arquivo.");
+  const contextoErro = { modulo: input.modulo };
+  if (!nomeArquivo) rejeitar("nome_ausente", "Informe o nome do arquivo.", 400, contextoErro);
 
   if (!input.buffer || input.buffer.length === 0) {
-    rejeitar("arquivo_vazio", "O arquivo está vazio.");
+    rejeitar("arquivo_vazio", "O arquivo está vazio.", 400, contextoErro);
   }
 
   if (input.buffer.length > LIMITES_ARQUIVO_IMPORTACAO.tamanhoMaximoBytes) {
-    rejeitar(
-      "arquivo_grande",
-      `O arquivo excede o tamanho máximo de ${Math.round(LIMITES_ARQUIVO_IMPORTACAO.tamanhoMaximoBytes / (1024 * 1024))} MiB.`,
-    );
+    rejeitar("arquivo_grande", mensagemTamanhoMaximoArquivo(), 400, contextoErro);
   }
 
   const extensao = extensaoDoNome(nomeArquivo);
-  if (!extensao) rejeitar("extensao_ausente", "O arquivo deve ter uma extensão reconhecida (.csv, .xlsx, .xls ou .pdf).");
+  if (!extensao) {
+    rejeitar(
+      "extensao_ausente",
+      "O arquivo deve ter uma extensão reconhecida (.csv, .xlsx, .xls ou .pdf).",
+      400,
+      contextoErro,
+    );
+  }
 
   const formatoPorNome = formatoPorExtensao(extensao, input.modulo);
   if (!formatoPorNome) {
-    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.");
+    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.", 400, contextoErro);
+  }
+
+  if (eAssinaturaExecutavel(input.buffer)) {
+    rejeitar(
+      "formato_nao_autorizado",
+      "Arquivo executável ou de sistema não é autorizado para importação.",
+      400,
+      contextoErro,
+    );
+  }
+
+  if (eAssinaturaOleComposto(input.buffer)) {
+    rejeitar(
+      "arquivo_protegido",
+      "Arquivo Excel binário (.xls) ou protegido por senha não é suportado. Exporte para CSV ou XLSX sem senha.",
+      400,
+      contextoErro,
+    );
+  }
+
+  if (eAssinaturaZip(input.buffer) && formatoPorNome !== "xlsx") {
+    rejeitar(
+      "extensao_incompativel",
+      `A extensão ${extensao} não corresponde ao conteúdo do arquivo (xlsx).`,
+      400,
+      contextoErro,
+    );
   }
 
   const assinatura = detectarFormatoPorAssinatura(input.buffer);
   if (!assinatura) {
-    rejeitar("assinatura_desconhecida", "Não foi possível identificar o tipo real do arquivo. Verifique se não está corrompido.");
+    if (eAssinaturaZip(input.buffer)) {
+      rejeitar(
+        "formato_nao_autorizado",
+        "O arquivo compactado não é uma planilha XLSX autorizada.",
+        400,
+        contextoErro,
+      );
+    }
+    rejeitar(
+      "assinatura_desconhecida",
+      "Não foi possível identificar o tipo real do arquivo. Verifique se não está corrompido.",
+      400,
+      contextoErro,
+    );
   }
 
   if (assinatura.formato !== formatoPorNome) {
     rejeitar(
       "extensao_incompativel",
       `A extensão ${extensao} não corresponde ao conteúdo do arquivo (${assinatura.formato}).`,
+      400,
+      contextoErro,
     );
   }
 
   const formatosModulo = FORMATOS_AUTORIZADOS_POR_MODULO[input.modulo];
   if (!formatosModulo.includes(assinatura.formato)) {
-    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.");
+    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.", 400, contextoErro);
   }
 
   const mime = input.mimeDeclarado?.trim() ?? "";
   if (mime && !mimePermitidoParaFormato(assinatura.formato, mime)) {
-    rejeitar("mime_invalido", "O tipo MIME informado não é compatível com o arquivo.");
+    rejeitar("mime_invalido", "O tipo MIME informado não é compatível com o arquivo.", 400, contextoErro);
   }
 
   if (assinatura.formato === "pdf") {
     if (pdfProtegidoOuCriptografado(input.buffer)) {
-      rejeitar("pdf_protegido", "PDF protegido por senha ou criptografado. Envie uma versão desbloqueada.");
+      rejeitar(
+        "pdf_protegido",
+        "PDF protegido por senha ou criptografado. Envie uma versão desbloqueada.",
+        400,
+        contextoErro,
+      );
     }
     if (pdfPareceCorrompido(input.buffer)) {
-      rejeitar("arquivo_corrompido", "PDF corrompido ou incompleto.");
+      rejeitar("arquivo_corrompido", "PDF corrompido ou incompleto.", 400, contextoErro);
     }
   }
 
@@ -109,20 +175,17 @@ export async function receberArquivoImportacao(input: {
     leitura = lerConteudoPlanilha(input.buffer, assinatura.formato);
   } catch (error) {
     if (error instanceof LeituraArquivoImportacaoError) {
-      rejeitar(error.codigo, error.message);
+      rejeitar(error.codigo, error.message, 400, contextoErro);
     }
-    rejeitar("leitura_falhou", "Não foi possível ler o arquivo.");
+    rejeitar("leitura_falhou", "Não foi possível ler o arquivo.", 400, contextoErro);
   }
 
   if (leitura.quantidadeRegistros === 0) {
-    rejeitar("arquivo_vazio", "Nenhum registro de dados encontrado no arquivo.");
+    rejeitar("arquivo_vazio", "Nenhum registro de dados encontrado no arquivo.", 400, contextoErro);
   }
 
   if (leitura.quantidadeRegistros > LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos) {
-    rejeitar(
-      "muitos_registros",
-      `O arquivo excede o limite de ${LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos.toLocaleString("pt-BR")} registros.`,
-    );
+    rejeitar("muitos_registros", mensagemLimiteRegistros(), 400, contextoErro);
   }
 
   const hashArquivo =
@@ -145,7 +208,7 @@ export async function receberArquivoImportacao(input: {
       metadadosRelatorio: leitura.metadadosRelatorio,
     });
   } catch {
-    rejeitar("armazenamento_falhou", "Não foi possível preparar o arquivo para processamento.", 500);
+    rejeitar("armazenamento_falhou", "Não foi possível preparar o arquivo para processamento.", 500, contextoErro);
   }
 
   return {

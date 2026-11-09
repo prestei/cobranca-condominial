@@ -17,7 +17,8 @@ Matriz completa de abas, entidades, formatos, permissões e lacunas: [MATRIZ_AUD
 
 ## Rotas e telas
 
-- **Tela removida.** A rota `/importacoes` e os componentes de UI do wizard/histórico não estão mais no produto. O backend (`/api/importacoes/*`, `src/lib/importacoes/*`, `src/lib/importacao-centro/*`) permanece disponível para uso programático ou futura reintrodução da interface.
+- `/importacoes` — `src/app/importacoes/page.tsx` — histórico e wizard (arquivo → prévia → aprovação → resultado) para débitos, condomínios, unidades e responsáveis. Query `?modulo=debitos&abrir=1` abre o sheet já no módulo de inadimplência.
+- Atalho na tela **Inadimplência** (`/debitos`): botão **Importar** ao lado de **Exportar** (permissão `importacoes.criar`). A fila de cobranças também redireciona para `/importacoes`.
 
 ## Perfis e permissões
 
@@ -56,15 +57,19 @@ Quem executa fica registrado em `import.usuario_id` (colaborador logado).
 
 Códigos comuns: `400` (validação), `401`, `403`, `409` (hash não confere com a prévia).
 
-## Normalização (pré-validação)
+## Normalização (pré-validação — Ticket 04)
 
-Antes das regras de negócio, campos extraídos da planilha passam por `src/lib/importacao-centro/normalizacao-campos.ts`. Cada função devolve um `ResultadoNormalizacao` com:
+Antes das regras de negócio, campos extraídos passam por `aplicarNormalizacaoRegistro` / `normalizacao-campos.ts`. Cada campo gera um `ResultadoNormalizacao` em `camposNormalizados` da linha:
 
-- `original` — valor da célula, para rastreabilidade;
-- `normalizado` — valor padronizado (`AAAA-MM-DD`, decimal com ponto, dígitos de CPF/CNPJ, etc.) ou `null` se vazio/não interpretável;
-- `vazio`, `ambiguo` e `erro` — sinalizam linha sem conteúdo, interpretação duvidosa ou falha de conversão **sem inventar dados**.
+- `original` — célula do arquivo, inalterada, para rastreabilidade;
+- `normalizado` — valor padronizado ou `null` se vazio ou não interpretável;
+- `vazio`, `ambiguo` e `erro` — ausência, interpretação duvidosa ou falha de conversão.
 
-Exemplos: `19/09/2026` → `2026-09-19`; `R$ 1.250,50` → `1250.50`; nomes com espaços extras colapsados preservando a caixa. Tipos auxiliares em `normalizacao-resultado.ts` e cabeçalhos em `normalizacao.ts`. A importação de débitos (`importar-debitos-planilha.ts`) aplica datas, moeda, status, identificadores e nomes antes das validações de negócio.
+O motor (`inconsistenciasDeNormalizacao`) emite `normalizacao.campo_ambiguo` (atenção) e `normalizacao.interpretacao_rejeitada` **antes** das regras cadastrais/financeiras. Não inventa dado ausente nem substitui classificação desconhecida por valor fictício. Defaults de cadastro (ex.: situação vazia → Ativo/Ativa/Vencido) só ocorrem depois, no adaptador, com o original preservado.
+
+Tipos: data (`AAAA-MM-DD`; `DD/MM/AAAA` com dia e mês ≤ 12 fica **ambíguo**), monetário/decimal (ponto e casas fixas; agrupamento inválido como `1.2.3` é rejeitado; `1.250` fica **ambíguo**), telefone e CPF/CNPJ (dígitos; quantidade inválida de CPF/CNPJ não vira valor normalizado), e-mail (minúsculas), nome e código (espaços colapsados, caixa preservada), categoria/classificação, vazio/`n/a`/`null`. Default de cadastro (ex.: status vazio → Vencido) só entra se o **adaptador** passar `padraoSeVazio`; o normalizador sozinho não inventa.
+
+Exemplos: `19/09/2026` → `2026-09-19`; `R$ 1.250,50` → `1250.50`; `"  JOÃO DA SILVA  "` → `"JOÃO DA SILVA"`. Débitos, condomínios, unidades e responsáveis aplicam o mesmo conjunto. A prévia distingue original e normalizado no detalhe da linha.
 
 ## Fluxos principais
 
@@ -93,16 +98,20 @@ Colunas mínimas (cabeçalho flexível, acentos ignorados):
 
 ## Recebimento de arquivo (Fase 2 — Ticket 03)
 
+Arquivos inválidos são recusados **antes** da validação de registros de negócio. A leitura não grava linhas importadas; a persistência definitiva só ocorre na aprovação (Ticket 09).
+
 | Etapa | Implementação |
 | --- | --- |
-| Formatos | CSV, XLSX, XLS (XML), PDF (módulo débitos) |
-| Validação | Extensão, MIME declarado, assinatura binária, tamanho máx. 15 MiB, máx. 50.000 registros, vazio/corrompido/protegido |
+| Formatos | CSV, XLSX, XLS (XML Spreadsheet). PDF só no módulo débitos. Outros tipos (`.xlsm`, XLS binário/OLE, ZIP que não é OOXML de planilha, executáveis MZ/ELF) são rejeitados |
+| Validação | Extensão, MIME declarado, assinatura real (não só a extensão; BOM UTF-8 ignorado), tamanho máx. 15 MiB (`Content-Length` e `File.size` antes de materializar), máx. 50.000 registros (abortando a leitura ao exceder), vazio, corrompido, protegido/criptografado, macros em XLSX |
 | Identificador | UUID `processoId` por envio (`armazenamento-temporario.ts`) |
-| Armazenamento | Diretório temporário do SO (`lc-importacoes/`), permissão `0600`, sem exposição HTTP |
-| Retenção | 1 hora; limpeza periódica e após confirmação |
-| Erros técnicos | `log-tecnico.ts` (JSON no stderr, sem conteúdo do arquivo) |
+| Armazenamento | Diretório temporário do SO (`os.tmpdir()/lc-importacoes/`), diretório `0700`, arquivo `0600` com nome `{uuid}.bin` — **fora** de `public/` |
+| Leitura | Parsers próprios (CSV/XML, ZIP OOXML restrito com limites de descompressão, PDF texto). Não abre o arquivo no Excel/LibreOffice e não executa macros |
+| Retenção | 1 hora; limpeza periódica (memória + órfãos em disco), após confirmação e ao excluir o histórico |
+| Erros técnicos | `log-tecnico.ts` (JSON no stderr, sem conteúdo do arquivo nem nome original) |
+| Falhas na UI | Mensagem retornada em `{ error }` no `POST /api/importacoes/arquivo` e exibida no wizard |
 
-Código: `src/lib/importacoes/receber-arquivo.ts`, `resolver-entrada-importacao.ts`, integrado ao `servico-central.ts` antes da validação de registros.
+Código: `src/lib/importacoes/receber-arquivo.ts`, `resolver-entrada-importacao.ts`, `src/app/api/importacoes/arquivo/route.ts`, integrado ao `servico-central.ts` antes da validação de registros.
 
 ## Regras de negócio
 
@@ -114,24 +123,26 @@ Código: `src/lib/importacoes/receber-arquivo.ts`, `resolver-entrada-importacao.
 
 ## Arquitetura central (`src/lib/importacao-centro`)
 
-Todas as importações por planilha devem usar o **mesmo pipeline**, separando leitura, validação, conferência e gravação:
+Ticket 02: todas as abas usam a **mesma infraestrutura**. Processamento, validação e gravação são etapas distintas. A leitura do arquivo **não** grava linhas importadas; persistência só ocorre após aprovação, em `persistencia.ts`. Novo módulo = novo adaptador + registro (`registro-adaptadores.ts`), sem alterar o orquestrador. Fachada dos nove serviços: `servicos.ts`. APIs de aba usam `previewImportacaoPorModulo` / `confirmarImportacaoPorModulo` (somente módulos registrados).
 
 | Serviço | Arquivo | Responsabilidade |
 | --- | --- | --- |
-| Recebimento seguro | `importacoes/receber-arquivo.ts` | Validação binária + temp + `processoId` |
+| Serviço central | `servico-central.ts` | Orquestra prévia e confirmação (`previewImportacaoCentral`, `confirmarImportacaoCentral`, `*PorModulo`) |
+| Processamento | `processamento.ts` | Leitura → parse do adaptador → motor de validação → duplicidades → conferência (sem gravar linhas) |
 | Leitura de arquivo | `leitura-arquivo.ts`, `planilha/ler-xlsx.ts` | CSV, XLS XML ou XLSX → matriz, sem persistência |
-| Normalização | `normalizacao.ts`, `normalizacao-campos.ts` | Cabeçalhos, datas, moeda, documentos (reutilizável pelos módulos) |
+| Recebimento seguro | `importacoes/receber-arquivo.ts` | Validação binária + temp + `processoId` |
+| Normalização (Ticket 04) | `normalizacao.ts`, `normalizacao-campos.ts`, `inconsistencias-normalizacao.ts` | Cabeçalhos e campos tipados; original × normalizado; ambíguo/não interpretado |
 | Validação de entrada | `validacao.ts` | Origem e conteúdo obrigatório |
 | **Motor central de validação** | `motor-validacao/` | Regras estruturais, cadastrais, relacionais, financeiras e de negócio por módulo (Ticket 05); **não grava** no banco |
 | Duplicidades no arquivo | `duplicidades.ts` | Linhas repetidas no mesmo envio |
 | **Detecção de duplicidades (Ticket 06)** | `detecao-duplicidades/` | Regras por entidade; correspondência exata vs possível; ações e decisões |
-| Conferência / prévia | `conferencia.ts` | Classificação contra a base via adaptador |
+| Conferência / prévia | `conferencia.ts`, `pre-visualizacao.ts` | Classificação contra a base via adaptador |
 | Aprovação | `aprovacao.ts`, `resumo-aprovacao.ts` (Ticket 09) | Hash SHA-256 da prévia, confirmação explícita (`confirmacaoExplicita`), resumo final, bloqueio por erros impeditivos, ciência de importação parcial, auditoria de quem aprovou e quando |
 | Persistência transacional | `confirmacao.ts`, `persistencia.ts`, `transacao-confirmacao.ts` | Revalidação na confirmação, bloqueio por hash, `executarTransacaoCatalogo` (espelho de `prisma.$transaction`) |
 | Histórico e auditoria (Ticket 11) | `historico-auditoria.ts`, `historico-service.ts`, `situacao-importacao.ts` | Rascunho no recebimento → prévia → aprovação → conclusão; `audit_log` nas confirmações; consulta com sanitização de metadados sensíveis |
-| Orquestração | `servico-central.ts` | `previewImportacaoCentral` e `confirmarImportacaoCentral` |
+| Registro de adaptadores | `registro-adaptadores.ts` | `registrarAdaptadorImportacao` / `obterAdaptadorImportacao`; `MODULOS_IMPORTACAO_CENTRAL` |
 
-Cada módulo expõe um **adaptador** em `adaptadores/` com regras próprias:
+Cada módulo expõe um **adaptador** em `adaptadores/` com regras próprias (`politicaAprovacao`, parse, conferência, persistência). Ganchos opcionais (`antesDeInterpretar`, `aplicarMetadadosLeitura`, `aposConferencia`, `assertAntesDePersistir`, etc.) ficam no adaptador — o serviço central **não** ramifica por `modulo === "…"`. Fachadas de API: `criarServicoImportacaoModulo("<modulo>")` em `preview-importacao-modulo.ts`.
 
 | Módulo | Adaptador | Situação |
 | --- | --- | --- |
@@ -140,7 +151,9 @@ Cada módulo expõe um **adaptador** em `adaptadores/` com regras próprias:
 | Unidades | `adaptadores/unidades.ts` | Central (wizard + APIs `unidades/preview` e `confirmar`) |
 | Responsáveis | `adaptadores/responsaveis.ts` | Central (wizard + APIs `responsaveis/preview` e `confirmar`; vínculo com unidade existente) |
 
-**Regras obrigatórias:** não persistir na leitura; não implementar importação paralela fora do centro; incluir novo módulo = novo adaptador, sem alterar o orquestrador.
+**Regras obrigatórias:** não persistir linhas importadas na leitura; não implementar importação paralela fora do centro; incluir novo módulo = novo adaptador + `registrarAdaptadorImportacao`, sem reconstruir o pipeline.
+
+Testes da arquitetura: `src/lib/importacao-centro/arquitetura.test.ts`, `importacao-centro.test.ts`, `adaptadores-modulos.test.ts`.
 
 ### Correção na pré-visualização (Ticket 08)
 
@@ -154,17 +167,29 @@ Testes: `src/lib/importacao-centro/correcao-previa/correcao-previa.test.ts`.
 
 ### Motor central de validação (Ticket 05)
 
-Após o parse da planilha e **antes** da conferência com a base, `aplicarMotorValidacaoImportacao` avalia cada registro:
+Após o parse da planilha e **antes** da conferência com a base, `aplicarMotorValidacaoImportacao` avalia **todo** registro. Sem validador específico, aplica-se um validador genérico — nenhum registro segue sem `validacao`. O motor **não grava** em tabelas de negócio.
 
 | Classificação | Significado |
 | --- | --- |
 | `valido` | Pode seguir para conferência e aprovação |
-| `atencao` | Exige conferência; **não** bloqueia sozinho |
-| `erro` | Impede importação até correção |
+| `atencao` | Exige conferência; **não** bloqueia sozinho (payload permanece) |
+| `erro` | Impede importação até correção (payload retirado da linha) |
 
-Cada registro validado expõe: `identificador`, linha de origem, `dadosOriginais`, `dadosNormalizados`, `resultado`, lista de `inconsistencias` (com categoria e severidade) e `regrasAplicadas`. Novos módulos registram um validador em `motor-validacao/modulos/` e `registrarValidadorModuloImportacao`.
+Cada inconsistência tem categoria, severidade (`erro` \| `atencao`), código estável e mensagem — erros e avisos não se misturam na classificação agregada (`classificarResultadoValidacao`: qualquer `erro` vence).
 
-Testes: `src/lib/importacao-centro/importacao-centro.test.ts` (pipeline com adaptador mock) e `normalizacao-campos.test.ts`.
+| Categoria | Exemplos de códigos |
+| --- | --- |
+| Estrutural | `estrutural.campo_obrigatorio_ausente`, `coluna_desconhecida` (atenção), `coluna_duplicada`, `formato_incompativel`, `tipo_dado_incorreto` |
+| Cadastral | `cadastral.nome_ausente`, `codigo_invalido`, `email_invalido`, `documento_invalido` (quando informado), `registro_existente` (atenção) |
+| Relacional | `relacional.condominio_inexistente` (unidade sem condomínio), `unidade_inexistente` (débito sem unidade), `registro_inexistente` (responsável sem cadastro), `vinculo_incompativel` |
+| Financeira | `financeira.valor_invalido`, `valor_negativo`, `soma_divergente` (atenção), `vencimento_invalido`, `referencia_inconsistente` (atenção), `registro_duplicado` (atenção) |
+| Negócio | `negocio.regra_modulo`, `permissao`, `restricao_existente`, `estado_incompativel` (ex.: unidade inativa) |
+
+Permissões de importação continuam no servidor (`permissoes.ts`); o motor trata o contexto já recortado por escopo e estados/restrições do cadastro. Formato/tipo incompatível na normalização (Ticket 04) entram como `normalizacao.interpretacao_rejeitada` / `campo_ambiguo` **antes** das regras de módulo.
+
+Cada registro validado expõe: `identificador`, `linha` (e `pagina` quando houver), `dadosOriginais`, `dadosNormalizados`, `resultado`, lista de `inconsistencias` e `regrasAplicadas`. Novos módulos registram um validador em `motor-validacao/modulos/` e `registrarValidadorModuloImportacao`.
+
+Testes: `src/lib/importacao-centro/motor-validacao/motor-validacao.test.ts`, `normalizacao-campos.test.ts` e `importacao-centro.test.ts`.
 
 ## Integrações
 

@@ -1,6 +1,12 @@
 import { tiposPessoa, tiposVinculo, type Responsavel } from "@/data/catalogo";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
-import { normalizarCpfCnpjImportacao } from "@/lib/importacao-centro/normalizacao-campos";
+import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import {
+  aplicarNormalizacaoRegistro,
+  normalizarClassificacaoImportacao,
+  normalizarCpfCnpjImportacao,
+} from "@/lib/importacao-centro/normalizacao-campos";
+import type { ResultadoNormalizacao } from "@/lib/importacao-centro/normalizacao-resultado";
 
 export type ResponsavelVinculoImportPayload = {
   unidadeId: number;
@@ -14,6 +20,7 @@ export type ResultadoLinhaImportacaoResponsavel = {
   linha: number;
   payload?: ResponsavelVinculoImportPayload;
   erro?: string;
+  camposNormalizados?: Record<string, ResultadoNormalizacao<string>>;
 };
 
 export type ResumoImportacaoResponsaveis = {
@@ -22,12 +29,7 @@ export type ResumoImportacaoResponsaveis = {
 };
 
 function normalizarCabecalho(valor: string) {
-  return valor
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, " ");
+  return normalizarCabecalhoPlanilha(valor);
 }
 
 const mapaCabecalho: Record<string, string> = {
@@ -115,82 +117,89 @@ function parseTipoPessoa(valor: string | undefined, doc: string): string {
   return digitos.length > 11 ? "Juridica" : "Fisica";
 }
 
-function parseTipoVinculo(valor: string | undefined): string | null {
-  const texto = valor?.trim() ?? "";
-  if (!texto) return "Proprietario";
-  const alvo = texto
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, " ");
-  const mapa: Record<string, string> = {
-    proprietario: "Proprietario",
-    proprietário: "Proprietario",
-    inquilino: "Inquilino",
-    administrador: "Administrador",
-    sindico: "Sindico",
-    síndico: "Sindico",
-  };
-  const chave = alvo.toLocaleLowerCase("pt-BR");
-  const normalizado = mapa[chave] ?? texto;
-  if (tiposVinculo.includes(normalizado as (typeof tiposVinculo)[number])) {
-    return normalizado;
-  }
-  return null;
-}
-
 function montarPayload(
   valores: Record<string, string | undefined>,
   condominios: Array<{ id: number; nome: string }>,
   unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string }>,
-): { payload?: ResponsavelVinculoImportPayload; erro?: string } {
+): {
+  payload?: ResponsavelVinculoImportPayload;
+  erro?: string;
+  camposNormalizados: Record<string, ResultadoNormalizacao<string>>;
+} {
+  const camposNormalizados = aplicarNormalizacaoRegistro({
+    identificacao: { tipo: "codigo", raw: valores.identificacao },
+    bloco: { tipo: "codigo", raw: valores.bloco },
+    condominioNome: { tipo: "nome", raw: valores.condominioNome },
+    nome: { tipo: "nome", raw: valores.nome },
+    cpfCnpj: { tipo: "cpfCnpj", raw: valores.cpfCnpj, obrigatorio: true },
+    telefone: { tipo: "telefone", raw: valores.telefone },
+    whatsapp: { tipo: "telefone", raw: valores.whatsapp },
+    email: { tipo: "email", raw: valores.email },
+    endereco: { tipo: "nome", raw: valores.endereco },
+    observacoes: { tipo: "nome", raw: valores.observacoes },
+    identificadorExterno: { tipo: "codigo", raw: valores.identificadorExterno },
+    tipoVinculo: { tipo: "categoria", raw: valores.tipoVinculo },
+    tipoPessoa: { tipo: "categoria", raw: valores.tipoPessoa },
+  });
+
   const condominioId = resolverCondominioId(valores.condominioId, valores.condominioNome, condominios);
   if (!condominioId) {
-    return { erro: "Condomínio inválido ou fora do escopo." };
+    return { erro: "Condomínio inválido ou fora do escopo.", camposNormalizados };
   }
 
-  const identificacao = valores.identificacao?.trim() ?? "";
+  const identificacao = camposNormalizados.identificacao.normalizado ?? "";
   if (!identificacao) {
-    return { erro: "Informe a identificação da unidade." };
+    return { erro: "Informe a identificação da unidade.", camposNormalizados };
   }
 
-  const bloco = valores.bloco?.trim() ?? "";
+  const bloco = camposNormalizados.bloco.vazio ? "" : (camposNormalizados.bloco.normalizado ?? "");
   const unidadeId = resolverUnidadeId(condominioId, identificacao, bloco, unidades);
   if (!unidadeId) {
-    return { erro: "Unidade não encontrada no condomínio informado." };
+    return { erro: "Unidade não encontrada no condomínio informado.", camposNormalizados };
   }
 
-  const nome = valores.nome?.trim() ?? "";
+  const nome = camposNormalizados.nome.normalizado ?? "";
   if (!nome) {
-    return { erro: "Informe o nome do responsável." };
+    return { erro: "Informe o nome do responsável.", camposNormalizados };
   }
 
-  const cpfResultado = normalizarCpfCnpjImportacao(valores.cpfCnpj ?? "");
+  const cpfResultado = camposNormalizados.cpfCnpj;
   if (cpfResultado.erro || !cpfResultado.normalizado) {
-    return { erro: cpfResultado.erro ?? "CPF/CNPJ inválido ou ausente." };
+    return { erro: cpfResultado.erro ?? "CPF/CNPJ inválido ou ausente.", camposNormalizados };
   }
 
-  const tipoVinculo = parseTipoVinculo(valores.tipoVinculo);
-  if (!tipoVinculo) {
-    return { erro: "Tipo de vínculo inválido." };
+  const vinculoResultado = normalizarClassificacaoImportacao(valores.tipoVinculo, tiposVinculo, {
+    mensagemInvalida: "Tipo de vínculo inválido.",
+  });
+  if (vinculoResultado.erro) {
+    return {
+      erro: vinculoResultado.erro,
+      camposNormalizados: { ...camposNormalizados, tipoVinculo: vinculoResultado },
+    };
   }
+  const tipoVinculo = vinculoResultado.normalizado ?? "Proprietario";
 
   const docFormatado = cpfResultado.normalizado;
+  const email = camposNormalizados.email.erro ? "" : (camposNormalizados.email.normalizado ?? "");
+  const telefone = camposNormalizados.telefone.erro ? "" : (camposNormalizados.telefone.normalizado ?? "");
+  const whatsapp = camposNormalizados.whatsapp.erro ? "" : (camposNormalizados.whatsapp.normalizado ?? "");
 
   return {
+    camposNormalizados: { ...camposNormalizados, tipoVinculo: vinculoResultado, cpfCnpj: cpfResultado },
     payload: {
       unidadeId,
       tipoVinculo,
       principal: parsePrincipal(valores.principal),
-      identificadorExterno: valores.identificadorExterno?.trim() || undefined,
+      identificadorExterno: camposNormalizados.identificadorExterno.normalizado || undefined,
       responsavel: {
         nome,
         cpfCnpj: docFormatado,
         tipoPessoa: parseTipoPessoa(valores.tipoPessoa, docFormatado),
-        telefone: valores.telefone?.trim() ?? "",
-        whatsapp: valores.whatsapp?.trim() ?? "",
-        email: valores.email?.trim() ?? "",
-        endereco: valores.endereco?.trim() ?? "",
-        observacoes: valores.observacoes?.trim() ?? "",
+        telefone,
+        whatsapp,
+        email,
+        endereco: camposNormalizados.endereco.normalizado ?? "",
+        observacoes: camposNormalizados.observacoes.normalizado ?? "",
       },
     },
   };
@@ -227,8 +236,8 @@ export function interpretarPlanilhaResponsaveis(
       valores[campo] = linhaBruta[indice]?.trim();
     }
 
-    const { payload, erro } = montarPayload(valores, condominios, unidades);
-    const registro: ResultadoLinhaImportacaoResponsavel = { linha: i + 1 };
+    const { payload, erro, camposNormalizados } = montarPayload(valores, condominios, unidades);
+    const registro: ResultadoLinhaImportacaoResponsavel = { linha: i + 1, camposNormalizados };
     if (erro) {
       registro.erro = erro;
     } else if (payload) {

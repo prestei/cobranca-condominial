@@ -3,13 +3,16 @@ export type {
   ContadoresImportacao,
   DadosAprovacaoImportacao,
   EntradaConfirmacaoImportacao,
+  EntradaGanchosLeituraImportacao,
   EntradaImportacaoArquivo,
   LinhaConferencia,
   LinhaParseada,
+  MetadadosLeituraArquivoImportacao,
   PreviewImportacaoCentral,
   ResultadoConfirmacaoCentral,
   SituacaoLinhaImportacao,
   MetaExecucaoImportacao,
+  PoliticaAprovacaoModuloImportacao,
 } from "@/lib/importacao-centro/types";
 export { ImportacaoCentroError } from "@/lib/importacao-centro/types";
 
@@ -19,10 +22,16 @@ export type {
   OpcoesDecimal,
   OpcoesValorMonetario,
   ResultadoNormalizacao,
+  SpecCampoNormalizacao,
+  TipoCampoNormalizacao,
 } from "@/lib/importacao-centro/normalizacao-resultado";
 export {
+  aplicarNormalizacaoRegistro,
+  mapaValoresNormalizados,
+  normalizarCampoTipadoImportacao,
   normalizarCampoVazioImportacao,
   normalizarCategoriaImportacao,
+  normalizarClassificacaoImportacao,
   normalizarCodigoIdentificacaoImportacao,
   normalizarCpfCnpjImportacao,
   normalizarDataImportacao,
@@ -33,6 +42,7 @@ export {
   normalizarTelefoneImportacao,
   normalizarValorMonetarioImportacao,
 } from "@/lib/importacao-centro/normalizacao-campos";
+export { inconsistenciasDeNormalizacao } from "@/lib/importacao-centro/inconsistencias-normalizacao";
 export { validarEntradaLeitura } from "@/lib/importacao-centro/validacao";
 export { marcarDuplicidadesNoArquivo, contarPorSituacao } from "@/lib/importacao-centro/duplicidades";
 export {
@@ -62,7 +72,20 @@ export { montarResumoAprovacaoImportacao, type ResumoAprovacaoImportacao } from 
 export { executarPersistenciaAprovada } from "@/lib/importacao-centro/persistencia";
 export { registrarHistoricoImportacao } from "@/lib/importacao-centro/historico-auditoria";
 export { executarConfirmacaoImportacaoTransacional } from "@/lib/importacao-centro/confirmacao";
-export { previewImportacaoCentral, confirmarImportacaoCentral } from "@/lib/importacao-centro/servico-central";
+export {
+  previewImportacaoCentral,
+  confirmarImportacaoCentral,
+  previewImportacaoPorModulo,
+  confirmarImportacaoPorModulo,
+} from "@/lib/importacao-centro/servico-central";
+export { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
+export {
+  listarModulosAdaptadorImportacao,
+  MODULOS_IMPORTACAO_CENTRAL,
+  obterAdaptadorImportacao,
+  registrarAdaptadorImportacao,
+  type ModuloImportacaoCentral,
+} from "@/lib/importacao-centro/registro-adaptadores";
 
 export type {
   CategoriaValidacaoImportacao,
@@ -74,6 +97,7 @@ export type {
 export {
   aplicarMotorValidacaoImportacao,
   classificarResultadoValidacao,
+  CODIGOS_VALIDACAO,
   obterValidadorModuloImportacao,
   registrarValidadorModuloImportacao,
 } from "@/lib/importacao-centro/motor-validacao";

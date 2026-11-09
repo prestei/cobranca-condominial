@@ -1,4 +1,6 @@
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import { CODIGOS_VALIDACAO } from "@/lib/importacao-centro/motor-validacao/codigos";
+import { criarInconsistencia } from "@/lib/importacao-centro/motor-validacao/registro";
 import type { InconsistenciaValidacao } from "@/lib/importacao-centro/motor-validacao/types";
 
 export function extrairCabecalhoNormalizado(matriz: string[][]): string[] {
@@ -28,25 +30,29 @@ export function validarCabecalhoEstrutural(params: {
     if (!coluna) continue;
     vistos.set(coluna, (vistos.get(coluna) ?? 0) + 1);
     if (!params.colunasReconhecidas.has(coluna)) {
-      inconsistencias.push({
-        categoria: "estrutural",
-        severidade: "atencao",
-        codigo: "estrutural.coluna_desconhecida",
-        mensagem: `Coluna desconhecida no cabeçalho: "${coluna}".`,
-        campo: coluna,
-      });
+      inconsistencias.push(
+        criarInconsistencia({
+          categoria: "estrutural",
+          severidade: "atencao",
+          codigo: CODIGOS_VALIDACAO.estrutural.colunaDesconhecida,
+          mensagem: `Coluna desconhecida no cabeçalho: "${coluna}".`,
+          campo: coluna,
+        }),
+      );
     }
   }
 
   for (const [coluna, quantidade] of vistos) {
     if (quantidade > 1) {
-      inconsistencias.push({
-        categoria: "estrutural",
-        severidade: "erro",
-        codigo: "estrutural.coluna_duplicada",
-        mensagem: `Coluna duplicada no cabeçalho: "${coluna}".`,
-        campo: coluna,
-      });
+      inconsistencias.push(
+        criarInconsistencia({
+          categoria: "estrutural",
+          severidade: "erro",
+          codigo: CODIGOS_VALIDACAO.estrutural.colunaDuplicada,
+          mensagem: `Coluna duplicada no cabeçalho: "${coluna}".`,
+          campo: coluna,
+        }),
+      );
     }
   }
 
@@ -54,15 +60,37 @@ export function validarCabecalhoEstrutural(params: {
   for (const obrigatoria of params.colunasObrigatorias) {
     const normalizada = normalizarCabecalhoPlanilha(obrigatoria);
     if (!presentes.has(normalizada)) {
-      inconsistencias.push({
-        categoria: "estrutural",
-        severidade: "erro",
-        codigo: "estrutural.campo_obrigatorio_ausente",
-        mensagem: `Coluna obrigatória ausente: "${obrigatoria}".`,
-        campo: obrigatoria,
-      });
+      inconsistencias.push(
+        criarInconsistencia({
+          categoria: "estrutural",
+          severidade: "erro",
+          codigo: CODIGOS_VALIDACAO.estrutural.campoObrigatorioAusente,
+          mensagem: `Coluna obrigatória ausente: "${obrigatoria}".`,
+          campo: obrigatoria,
+        }),
+      );
     }
   }
 
   return inconsistencias;
+}
+
+export function inconsistenciaFormatoIncompativel(campo: string, mensagem: string): InconsistenciaValidacao {
+  return criarInconsistencia({
+    categoria: "estrutural",
+    severidade: "erro",
+    codigo: CODIGOS_VALIDACAO.estrutural.formatoIncompativel,
+    mensagem,
+    campo,
+  });
+}
+
+export function inconsistenciaTipoDadoIncorreto(campo: string, mensagem: string): InconsistenciaValidacao {
+  return criarInconsistencia({
+    categoria: "estrutural",
+    severidade: "erro",
+    codigo: CODIGOS_VALIDACAO.estrutural.tipoDadoIncorreto,
+    mensagem,
+    campo,
+  });
 }

@@ -2,6 +2,8 @@
 export const LIMITES_ARQUIVO_IMPORTACAO = {
   /** 15 MiB — evita carregar relatórios enormes na memória do processo. */
   tamanhoMaximoBytes: 15 * 1024 * 1024,
+  /** Folga para envelope multipart (nome, boundary) ao checar Content-Length. */
+  folgaMultipartBytes: 1024 * 1024,
   /** Linhas de dados (exclui cabeçalho) após leitura estrutural. */
   registrosMaximos: 50_000,
   /** Processos temporários expiram após 1 hora. */
@@ -9,6 +11,21 @@ export const LIMITES_ARQUIVO_IMPORTACAO = {
   /** Intervalo da limpeza automática em background. */
   intervaloLimpezaMs: 5 * 60 * 1000,
 } as const;
+
+export function mensagemTamanhoMaximoArquivo(): string {
+  return `O arquivo excede o tamanho máximo de ${Math.round(LIMITES_ARQUIVO_IMPORTACAO.tamanhoMaximoBytes / (1024 * 1024))} MiB.`;
+}
+
+export function mensagemLimiteRegistros(): string {
+  return `O arquivo excede o limite de ${LIMITES_ARQUIVO_IMPORTACAO.registrosMaximos.toLocaleString("pt-BR")} registros.`;
+}
+
+export function tamanhoRequisicaoExcedeLimite(contentLength: number): boolean {
+  return (
+    Number.isFinite(contentLength) &&
+    contentLength > LIMITES_ARQUIVO_IMPORTACAO.tamanhoMaximoBytes + LIMITES_ARQUIVO_IMPORTACAO.folgaMultipartBytes
+  );
+}
 
 export type ModuloImportacaoArquivo = "debitos" | "unidades" | "condominios" | "responsaveis";
 

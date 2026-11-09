@@ -29,7 +29,7 @@ import type {
 export const FORMATO_IMPORTACAO_UNIDADES_V1 = "planilha-unidades-v1";
 
 export type ContextoImportacaoUnidades = {
-  condominios: Array<{ id: number; nome: string }>;
+  condominios: Array<{ id: number; nome: string; status?: string }>;
   unidades: Unidade[];
   unidadesMutaveis: Unidade[];
 };
@@ -54,12 +54,14 @@ export const adaptadorImportacaoUnidades: AdaptadorImportacao<UnidadeInput, Cont
   modulo: "unidades",
   tipoImportacao: "unidades",
   formato: FORMATO_IMPORTACAO_UNIDADES_V1,
+  politicaAprovacao: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
 
   prepararContexto(userId) {
     const cadastros = getCadastros();
     const condominios = escopoCondominios(cadastros, userId).map((item) => ({
       id: item.id,
       nome: item.nome,
+      status: item.status,
     }));
     const unidades = [...cadastros.unidades];
     return { condominios, unidades, unidadesMutaveis: [...unidades] };

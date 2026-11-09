@@ -5,16 +5,31 @@ function escaparXml(valor: string) {
     .replace(/&amp;/g, "&");
 }
 
-/** CSV com separador ; (exportação pt-BR) ou XML Spreadsheet (.xls gerado pelo sistema). */
-export function lerMatrizPlanilha(conteudo: string): string[][] {
-  const texto = conteudo.replace(/^\uFEFF/, "");
-  if (texto.trimStart().startsWith("<?xml") || texto.includes("<Workbook")) {
-    return lerXmlSpreadsheet(texto);
+export class PlanilhaLimiteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanilhaLimiteError";
   }
-  return lerCsvSemicolon(texto);
 }
 
-function lerCsvSemicolon(texto: string): string[][] {
+/** CSV com separador ; (exportação pt-BR) ou XML Spreadsheet (.xls gerado pelo sistema). */
+export function lerMatrizPlanilha(conteudo: string, maxLinhasDados?: number): string[][] {
+  const texto = conteudo.replace(/^\uFEFF/, "");
+  if (texto.trimStart().startsWith("<?xml") || texto.includes("<Workbook")) {
+    return lerXmlSpreadsheet(texto, maxLinhasDados);
+  }
+  return lerCsvSemicolon(texto, maxLinhasDados);
+}
+
+function registrarLinha(linhas: string[][], linha: string[], maxLinhasDados?: number) {
+  if (!linha.some((item) => item.trim())) return;
+  if (linhas.length > 0 && maxLinhasDados !== undefined && linhas.length - 1 >= maxLinhasDados) {
+    throw new PlanilhaLimiteError("Limite de registros excedido.");
+  }
+  linhas.push(linha);
+}
+
+function lerCsvSemicolon(texto: string, maxLinhasDados?: number): string[][] {
   const linhas: string[][] = [];
   let linha: string[] = [];
   let celula = "";
@@ -48,7 +63,7 @@ function lerCsvSemicolon(texto: string): string[][] {
       if (ch === "\r" && texto[i + 1] === "\n") i += 1;
       linha.push(celula);
       celula = "";
-      if (linha.some((item) => item.trim())) linhas.push(linha);
+      registrarLinha(linhas, linha, maxLinhasDados);
       linha = [];
       continue;
     }
@@ -56,11 +71,11 @@ function lerCsvSemicolon(texto: string): string[][] {
   }
 
   linha.push(celula);
-  if (linha.some((item) => item.trim())) linhas.push(linha);
+  registrarLinha(linhas, linha, maxLinhasDados);
   return linhas;
 }
 
-function lerXmlSpreadsheet(xml: string): string[][] {
+function lerXmlSpreadsheet(xml: string, maxLinhasDados?: number): string[][] {
   const linhas: string[][] = [];
   const blocosLinha = xml.matchAll(/<Row[^>]*>([\s\S]*?)<\/Row>/g);
   for (const bloco of blocosLinha) {
@@ -69,7 +84,7 @@ function lerXmlSpreadsheet(xml: string): string[][] {
     for (const item of dados) {
       celulas.push(escaparXml(item[1].trim()));
     }
-    if (celulas.length > 0) linhas.push(celulas);
+    if (celulas.length > 0) registrarLinha(linhas, celulas, maxLinhasDados);
   }
   return linhas;
 }

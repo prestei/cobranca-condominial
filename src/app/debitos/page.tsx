@@ -71,6 +71,7 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableExport,
+  TableImport,
   TableRow,
   type TableExportFormat,
   type TableSortDirection,
@@ -203,6 +204,7 @@ export default function DebitosPage() {
   const { toast } = useToast();
   const { user: sessao, loading: authLoading } = useAuth();
   const { pode } = usePermissao();
+  const podeImportar = pode("importacoes", "criar");
   const formId = useId();
   const cadastros = useCadastros();
   const debitos = cadastros.debitos;
@@ -774,6 +776,10 @@ export default function DebitosPage() {
     ]);
   }
 
+  function abrirImportacao() {
+    router.push("/importacoes?modulo=debitos&abrir=1");
+  }
+
   function aoExportar(formato: TableExportFormat) {
     if (visible.length === 0) {
       toast({
@@ -1146,6 +1152,7 @@ export default function DebitosPage() {
           <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
             <h2 className="text-headline-sm text-on-surface">Registros de Inadimplência</h2>
             <div className="flex w-full flex-wrap gap-sm min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
+              {podeImportar ? <TableImport onImport={abrirImportacao} /> : null}
               <TableExport onExport={aoExportar} />
             </div>
           </div>

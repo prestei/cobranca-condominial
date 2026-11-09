@@ -11,6 +11,7 @@ import type {
 
 const SITUACOES_GRAVAVEIS: SituacaoLinhaImportacao[] = ["novo", "atualizacao"];
 
+/** Única etapa do pipeline que chama `persistirLinha` / gravação de negócio. */
 export function executarPersistenciaAprovada<TPayload, TContexto>(
   adapter: AdaptadorImportacao<TPayload, TContexto>,
   contexto: TContexto,

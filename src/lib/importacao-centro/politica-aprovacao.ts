@@ -1,19 +1,19 @@
-/** Regras de aprovação por módulo (Ticket 09). */
-export type PoliticaAprovacaoModuloImportacao = {
-  /** Permite gravar apenas registros válidos quando há erros nas demais linhas. */
-  permitirImportacaoParcial: boolean;
-  /** Calcula total financeiro para exibição no resumo final, quando aplicável. */
-  suportaTotalFinanceiro: boolean;
+import { obterAdaptadorImportacao } from "@/lib/importacao-centro/registro-adaptadores";
+import type { PoliticaAprovacaoModuloImportacao } from "@/lib/importacao-centro/types";
+
+export type { PoliticaAprovacaoModuloImportacao };
+
+const POLITICA_ADAPTADOR_NAO_REGISTRADO: PoliticaAprovacaoModuloImportacao = {
+  permitirImportacaoParcial: true,
+  suportaTotalFinanceiro: false,
 };
 
-const POLITICAS: Record<string, PoliticaAprovacaoModuloImportacao> = {
-  debitos: { permitirImportacaoParcial: true, suportaTotalFinanceiro: true },
-  condominios: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
-  unidades: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
-  responsaveis: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
-  teste: { permitirImportacaoParcial: true, suportaTotalFinanceiro: false },
-};
-
+/** Lê a política no adaptador do módulo. O orquestrador não ramifica por nome de aba. */
 export function politicaAprovacaoModuloImportacao(modulo: string): PoliticaAprovacaoModuloImportacao {
-  return POLITICAS[modulo] ?? { permitirImportacaoParcial: false, suportaTotalFinanceiro: false };
+  try {
+    const adapter = obterAdaptadorImportacao(modulo);
+    return adapter.politicaAprovacao ?? POLITICA_ADAPTADOR_NAO_REGISTRADO;
+  } catch {
+    return POLITICA_ADAPTADOR_NAO_REGISTRADO;
+  }
 }

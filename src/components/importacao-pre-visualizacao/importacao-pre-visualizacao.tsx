@@ -129,11 +129,8 @@ export function ImportacaoPreVisualizacao({
   onCancelar,
   onLinhasIgnoradasChange,
   permissaoCorrigir = true,
-  gravacaoPrevista,
   podeContinuarAprovacao = true,
   motivoBloqueioContinuar,
-  processandoContinuar = false,
-  wizardFormId,
 }: ImportacaoPreVisualizacaoProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -367,7 +364,7 @@ export function ImportacaoPreVisualizacao({
 
       <CardMetricRow desktopCols={4}>
         <CardMetric
-          accent="primary"
+          className="border-l-[3px] border-l-primary-container"
           rotulo="Válidos"
           valor={String(contagensDinamicas.validos).padStart(2, "0")}
           detalhe="Prontos para gravação"
@@ -375,7 +372,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-success-subtle text-status-success"
         />
         <CardMetric
-          accent="brass"
+          className="border-l-[3px] border-l-brass"
           rotulo="Atenção"
           valor={String(contagensDinamicas.atencao).padStart(2, "0")}
           detalhe="Exigem conferência"
@@ -383,7 +380,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-gold-subtle text-brass"
         />
         <CardMetric
-          accent="critical"
+          className="border-l-[3px] border-l-status-critical"
           rotulo="Erros"
           valor={String(contagensDinamicas.erros).padStart(2, "0")}
           detalhe="Não serão gravados"
@@ -391,7 +388,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-error-container text-status-critical"
         />
         <CardMetric
-          accent="tertiary"
+          className="border-l-[3px] border-l-outline-variant"
           rotulo="Duplicidades"
           valor={String(contagensDinamicas.duplicidades).padStart(2, "0")}
           detalhe="Possível repetição no arquivo ou base"
@@ -416,7 +413,7 @@ export function ImportacaoPreVisualizacao({
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Buscar por linha, unidade, condomínio, mensagem..."
+          searchPlaceholder="Buscar por linha, unidade, condomínio"
           onApply={handleApplyFilters}
           onClear={handleClearFilters}
           defaultMobile="grid"
@@ -580,29 +577,16 @@ export function ImportacaoPreVisualizacao({
       <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
         <div className="flex flex-wrap items-center justify-between gap-sm">
           <div className="flex flex-wrap gap-sm">
-            <Button type="button" variant="secondary" size="sm" onClick={onVoltarArquivo}>
+            <Button type="button" variant="secondary" onClick={onVoltarArquivo}>
               Voltar e substituir arquivo
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onCancelar}>
+            <Button type="button" variant="outline" onClick={onCancelar}>
               Cancelar importação
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-sm">
-            {ignoradas.size > 0 ? (
-              <Badge variant="secondary">{ignoradas.size} ignorado(s) só na conferência</Badge>
-            ) : null}
-            <span className="text-body-sm text-on-surface-variant">
-              {gravacaoPrevista ?? gravacaoCount} registro(s) previsto(s) para gravação
-            </span>
-            <Button
-              type="submit"
-              form={wizardFormId}
-              size="sm"
-              disabled={!podeContinuarAprovacao || processandoContinuar || !wizardFormId}
-            >
-              {processandoContinuar ? "Processando…" : "Continuar para aprovação"}
-            </Button>
-          </div>
+          {ignoradas.size > 0 ? (
+            <Badge variant="secondary">{ignoradas.size} ignorado(s) só na conferência</Badge>
+          ) : null}
         </div>
       </div>
 

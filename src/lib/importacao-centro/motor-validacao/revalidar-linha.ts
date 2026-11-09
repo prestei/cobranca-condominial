@@ -1,8 +1,11 @@
 import type { LinhaParseada } from "@/lib/importacao-centro/types";
+import { inconsistenciasDeNormalizacao } from "@/lib/importacao-centro/inconsistencias-normalizacao";
 import { classificarResultadoValidacao } from "@/lib/importacao-centro/motor-validacao/classificacao";
+import { CODIGOS_VALIDACAO } from "@/lib/importacao-centro/motor-validacao/codigos";
 import { extrairCabecalhoNormalizado } from "@/lib/importacao-centro/motor-validacao/estrutural";
 import { finalizarRegistroValidado, registroValidadoParaLinhaParseada } from "@/lib/importacao-centro/motor-validacao/registro";
 import { obterValidadorModuloImportacao } from "@/lib/importacao-centro/motor-validacao/registry";
+import { criarValidadorGenericoImportacao } from "@/lib/importacao-centro/motor-validacao/validador-generico";
 
 /**
  * Revalida um único registro após correção na pré-visualização (Ticket 08).
@@ -18,8 +21,8 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
     dadosOriginaisPreservados?: Record<string, string>;
   },
 ): LinhaParseada<TPayload> {
-  const validador = obterValidadorModuloImportacao(params.modulo);
-  if (!validador) return item;
+  const validador =
+    obterValidadorModuloImportacao(params.modulo) ?? criarValidadorGenericoImportacao(params.modulo);
 
   const cabecalho = extrairCabecalhoNormalizado(params.matriz);
   const linhaPorNumero = new Map<number, string[]>();
@@ -35,6 +38,7 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
     payload: item.payload,
     erroParse: item.erro,
     contexto: params.contexto,
+    camposNormalizados: item.camposNormalizados,
   });
 
   const dadosOriginais =
@@ -42,15 +46,16 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
       ? params.dadosOriginaisPreservados
       : parcial.dadosOriginais;
 
+  const inconsistenciasNorm = inconsistenciasDeNormalizacao(item.camposNormalizados);
   const registro = finalizarRegistroValidado(params.modulo, item.linha, {
     ...parcial,
     dadosOriginais,
     dadosNormalizados: item.payload ?? parcial.dadosNormalizados,
-    inconsistencias: [...inconsistenciasArquivo, ...parcial.inconsistencias],
+    inconsistencias: [...inconsistenciasArquivo, ...inconsistenciasNorm, ...parcial.inconsistencias],
     regrasAplicadas: [
       ...parcial.regrasAplicadas,
-      ...(inconsistenciasArquivo.length > 0 ? ["motor.validar_estrutura_arquivo"] : []),
-      "motor.revalidar_linha_previa",
+      ...(inconsistenciasArquivo.length > 0 ? [CODIGOS_VALIDACAO.motor.validarEstruturaArquivo] : []),
+      CODIGOS_VALIDACAO.motor.revalidarLinha,
     ],
   });
   registro.resultado = classificarResultadoValidacao(registro.inconsistencias);
@@ -58,6 +63,7 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
   const convertido = registroValidadoParaLinhaParseada(registro, item.payload);
   return {
     linha: item.linha,
+    camposNormalizados: item.camposNormalizados,
     ...convertido,
   };
 }

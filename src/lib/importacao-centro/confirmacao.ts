@@ -1,13 +1,11 @@
 import { agoraIso, executarTransacaoCatalogo } from "@/data/catalogo";
 import { validarAprovacao } from "@/lib/importacao-centro/aprovacao";
-import { montarPreview, pipelineConferencia } from "@/lib/importacao-centro/conferencia";
 import {
   anexarAcaoConfirmacao,
   registrarHistoricoImportacao,
 } from "@/lib/importacao-centro/historico-auditoria";
-import { lerArquivoImportacao } from "@/lib/importacao-centro/leitura-arquivo";
-import { aplicarMotorValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao";
 import { executarPersistenciaAprovada } from "@/lib/importacao-centro/persistencia";
+import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
 import { comBloqueioConfirmacaoImportacao } from "@/lib/importacao-centro/transacao-confirmacao";
 import type {
   AdaptadorImportacao,
@@ -18,31 +16,8 @@ import type {
   ResultadoConfirmacaoCentral,
 } from "@/lib/importacao-centro/types";
 import type { RegistroHistoricoCorrecaoPrevia } from "@/lib/importacao-centro/correcao-previa/types";
-import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
-import { assertEscopoGravacaoImportacaoDebitos } from "@/lib/importacoes/permissoes";
 import type { EntradaImportacaoResolvida } from "@/lib/importacoes/resolver-entrada-importacao";
-import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
-import type { ContextoImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
 import type { LinhaConferencia, LinhaParseada } from "@/lib/importacao-centro/types";
-
-function prepararContextoConfirmacaoDebitos<TContexto>(
-  adapter: AdaptadorImportacao<unknown, TContexto>,
-  userId: number,
-  entrada: EntradaImportacaoResolvida,
-  overrides?: OverridesConfirmacaoPrevia<unknown, TContexto>,
-): TContexto {
-  const contexto = adapter.prepararContexto(userId);
-  const ctx = contexto as ContextoImportacaoDebitos;
-  const ctxSessao = overrides?.contexto as ContextoImportacaoDebitos | undefined;
-  if (ctxSessao?.formatoDetectado) {
-    ctx.formatoDetectado = ctxSessao.formatoDetectado;
-    ctx.inconsistenciasRelatorio = ctxSessao.inconsistenciasRelatorio ?? [];
-  } else if (entrada.metadadosRelatorio) {
-    ctx.formatoDetectado = entrada.metadadosRelatorio.tipo;
-    ctx.inconsistenciasRelatorio = [...entrada.metadadosRelatorio.inconsistencias];
-  }
-  return contexto;
-}
 
 function arquivoPadrao(nome: string, fallback: string): string {
   const trimmed = nome.trim();
@@ -91,66 +66,29 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
   const chaveBloqueio = `${adapter.tipoImportacao}:${hashArquivo}`;
 
   return comBloqueioConfirmacaoImportacao(chaveBloqueio, async () => {
-    let validadas: LinhaParseada<TPayload>[];
-    let linhasConferidas: LinhaConferencia<TPayload>[];
-    let inconsistenciasArquivo: import("@/lib/importacao-centro/motor-validacao/types").InconsistenciaValidacao[] =
-      [];
-
-    const matriz = lerArquivoImportacao(entrada.conteudo, entrada.matrizPlanilha);
-    if (adapter.modulo === "debitos") {
-      provisionarCadastrosImportacaoDebitos(matriz, userId, origem, meta);
-    }
-    const contexto =
-      adapter.modulo === "debitos"
-        ? prepararContextoConfirmacaoDebitos(adapter, userId, entrada, overrides as OverridesConfirmacaoPrevia<unknown, TContexto> | undefined)
-        : (overrides?.contexto ?? adapter.prepararContexto(userId));
-    if (overrides?.parseadas) {
-      const resultadoMotor = aplicarMotorValidacaoImportacao(overrides.parseadas, {
-        modulo: adapter.modulo,
-        matriz,
-        contexto,
-      });
-      validadas = resultadoMotor.linhas;
-      inconsistenciasArquivo = resultadoMotor.inconsistenciasArquivo;
-    } else {
-      const parseadas = adapter.interpretarMatriz(matriz, contexto);
-      const resultadoMotor = aplicarMotorValidacaoImportacao(parseadas, {
-        modulo: adapter.modulo,
-        matriz,
-        contexto,
-      });
-      validadas = resultadoMotor.linhas;
-      inconsistenciasArquivo = resultadoMotor.inconsistenciasArquivo;
-    }
-    if (overrides?.linhasConferidas) {
-      linhasConferidas = overrides.linhasConferidas;
-    } else {
-      linhasConferidas = pipelineConferencia(validadas, adapter, contexto);
-    }
-
-    const preview = montarPreview({
-      hashArquivo,
+    const processado = processarArquivoImportacao(adapter, {
+      modo: "confirmacao",
+      userId,
       origem,
       arquivo,
-      adapter,
-      contexto,
-      linhas: linhasConferidas,
-      inconsistenciasArquivo,
+      hashArquivo,
+      conteudo: entrada.conteudo,
+      matrizPlanilha: entrada.matrizPlanilha,
+      metadadosRelatorio: entrada.metadadosRelatorio,
+      contextoSessao: overrides?.contexto,
+      parseadas: overrides?.parseadas,
+      linhasConferidas: overrides?.linhasConferidas,
+      metaExecucao: meta,
     });
+
+    const { preview, contexto, parseadas: validadas, linhasInternas: linhasConferidas } = processado;
 
     const entradaConfirmacao: EntradaConfirmacaoImportacao = {
       ...input,
       confirmacaoExplicita: input.confirmacaoExplicita ?? true,
     };
     const resumoAprovacao = validarAprovacao(preview, entradaConfirmacao, adapter.modulo);
-
-    if (adapter.modulo === "debitos") {
-      assertEscopoGravacaoImportacaoDebitos(
-        userId,
-        linhasConferidas as LinhaConferencia<DebitoImportRow>[],
-        input.linhasIgnoradas,
-      );
-    }
+    adapter.assertAntesDePersistir?.(userId, linhasConferidas, entradaConfirmacao);
 
     const dadosAprovacao: DadosAprovacaoImportacao = {
       confirmacaoExplicita: true,

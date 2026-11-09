@@ -1,12 +1,23 @@
+import { statusUnidade, tiposUnidade } from "@/data/catalogo";
 import type { UnidadeInput } from "@/lib/unidades/service";
 import type { ContextoImportacaoUnidades } from "@/lib/importacao-centro/adaptadores/unidades";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
+import {
+  inconsistenciaRegistroExistente,
+  validarCodigoQuandoInformado,
+} from "@/lib/importacao-centro/motor-validacao/cadastral";
+import { CODIGOS_VALIDACAO, REGRAS_CADASTRAIS_MOTOR, REGRAS_NEGOCIO_MOTOR, REGRAS_RELACIONAIS_MOTOR } from "@/lib/importacao-centro/motor-validacao/codigos";
 import { criarInconsistencia, inconsistenciaDeErroParse } from "@/lib/importacao-centro/motor-validacao/registro";
 import {
   extrairCabecalhoNormalizado,
   montarDadosOriginaisLinha,
   validarCabecalhoEstrutural,
 } from "@/lib/importacao-centro/motor-validacao/estrutural";
+import { validarClassificacaoPermitida, validarRestricaoCadastroInativo } from "@/lib/importacao-centro/motor-validacao/negocio";
+import {
+  localizarCondominioRelacional,
+  validarUnidadeComCondominio,
+} from "@/lib/importacao-centro/motor-validacao/relacional";
 import type {
   EntradaValidacaoRegistro,
   InconsistenciaValidacao,
@@ -35,21 +46,32 @@ const COLUNAS_RECONHECIDAS = new Set(
 
 const COLUNAS_OBRIGATORIAS = ["unidade", "condominio"];
 
-function validarRelacionalUnidade(
-  payload: UnidadeInput,
-  contexto: ContextoImportacaoUnidades,
-): InconsistenciaValidacao[] {
+function validarCadastralUnidade(payload: UnidadeInput, contexto: ContextoImportacaoUnidades): InconsistenciaValidacao[] {
   const itens: InconsistenciaValidacao[] = [];
-  const condominio = contexto.condominios.find((item) => item.id === payload.condominioId);
-  if (!condominio) {
+  if (!payload.identificacao?.trim()) {
     itens.push(
       criarInconsistencia({
-        categoria: "relacional",
+        categoria: "cadastral",
         severidade: "erro",
-        codigo: "relacional.condominio_inexistente",
-        mensagem: "Unidade sem condomínio correspondente no escopo.",
-        campo: "condominioId",
+        codigo: CODIGOS_VALIDACAO.cadastral.campoObrigatorio,
+        mensagem: "Identificação da unidade é obrigatória.",
+        campo: "identificacao",
       }),
+    );
+  }
+  itens.push(...validarCodigoQuandoInformado(payload.identificacao, "identificacao", "Código da unidade"));
+  const existente = contexto.unidades.find(
+    (item) =>
+      item.condominioId === payload.condominioId &&
+      item.identificacao.trim().toLocaleLowerCase("pt-BR") === payload.identificacao.trim().toLocaleLowerCase("pt-BR") &&
+      (item.bloco ?? "") === (payload.bloco ?? ""),
+  );
+  if (existente) {
+    itens.push(
+      inconsistenciaRegistroExistente(
+        "identificacao",
+        "Já existe unidade com o mesmo código neste condomínio; confira se não é duplicidade.",
+      ),
     );
   }
   return itens;
@@ -59,11 +81,11 @@ export const validadorImportacaoUnidades: ValidadorModuloImportacao<UnidadeInput
   modulo: "unidades",
   colunasReconhecidas: COLUNAS_RECONHECIDAS,
   colunasObrigatorias: COLUNAS_OBRIGATORIAS,
+  regrasDoModulo: [...REGRAS_CADASTRAIS_MOTOR, ...REGRAS_RELACIONAIS_MOTOR, ...REGRAS_NEGOCIO_MOTOR],
 
   validarEstruturaArquivo(matriz) {
     const cabecalho = extrairCabecalhoNormalizado(matriz);
-    const temCondominio =
-      cabecalho.includes("condominio") || cabecalho.includes("condominio id");
+    const temCondominio = cabecalho.includes("condominio") || cabecalho.includes("condominio id");
     const obrigatorias = temCondominio ? ["unidade"] : COLUNAS_OBRIGATORIAS;
     return validarCabecalhoEstrutural({
       cabecalho,
@@ -81,25 +103,28 @@ export const validadorImportacaoUnidades: ValidadorModuloImportacao<UnidadeInput
     }
 
     if (entrada.payload) {
-      if (!entrada.payload.identificacao?.trim()) {
-        inconsistencias.push(
-          criarInconsistencia({
-            categoria: "cadastral",
-            severidade: "erro",
-            codigo: "cadastral.campo_obrigatorio",
-            mensagem: "Identificação da unidade é obrigatória.",
-            campo: "identificacao",
-          }),
-        );
-      }
-      inconsistencias.push(...validarRelacionalUnidade(entrada.payload, entrada.contexto));
+      inconsistencias.push(...validarCadastralUnidade(entrada.payload, entrada.contexto));
+      inconsistencias.push(
+        ...validarUnidadeComCondominio({
+          condominioId: entrada.payload.condominioId,
+          condominios: entrada.contexto.condominios,
+        }),
+      );
+      const condominio = localizarCondominioRelacional(entrada.contexto.condominios, entrada.payload.condominioId);
+      inconsistencias.push(...validarRestricaoCadastroInativo({ condominio }));
+      inconsistencias.push(
+        ...validarClassificacaoPermitida(entrada.payload.tipo, tiposUnidade, "tipo", "Tipo da unidade"),
+      );
+      inconsistencias.push(
+        ...validarClassificacaoPermitida(entrada.payload.status, statusUnidade, "status", "Situação cadastral da unidade"),
+      );
     }
 
     return {
       dadosOriginais,
       dadosNormalizados: entrada.payload ?? null,
       inconsistencias,
-      regrasAplicadas: ["motor.validar_registro"],
+      regrasAplicadas: [CODIGOS_VALIDACAO.motor.validarRegistro],
     };
   },
 };

@@ -1,8 +1,7 @@
 import type { Importacao } from "@/data/catalogo";
-import type { AdaptadorImportacao } from "@/lib/importacao-centro/types";
 import {
-  confirmarImportacaoCentral,
-  previewImportacaoCentral,
+  confirmarImportacaoPorModulo,
+  previewImportacaoPorModulo,
   ImportacaoCentroError,
 } from "@/lib/importacao-centro";
 import { obterSessaoPreviaImportacao } from "@/lib/importacao-centro/correcao-previa/sessao";
@@ -71,7 +70,7 @@ export type EntradaConfirmarImportacaoModulo = EntradaPreviewImportacaoModulo & 
 };
 
 export function mapearPreviewImportacaoModulo(
-  preview: Awaited<ReturnType<typeof previewImportacaoCentral>>["preview"],
+  preview: Awaited<ReturnType<typeof previewImportacaoPorModulo>>["preview"],
   moduloDestino: string,
   extras?: { sessaoPreviaId?: string; userId?: number; hashArquivo?: string },
 ): PreviewImportacaoModulo {
@@ -110,13 +109,11 @@ export function mapearPreviewImportacaoModulo(
   };
 }
 
-export function criarServicoImportacaoModulo<TPayload, TContexto>(
-  adapter: AdaptadorImportacao<TPayload, TContexto>,
-) {
+export function criarServicoImportacaoModulo(modulo: string) {
   return {
     async preview(userId: number, input: EntradaPreviewImportacaoModulo): Promise<PreviewImportacaoModulo> {
-      const { preview, sessaoPreviaId } = await previewImportacaoCentral(adapter, userId, input);
-      return mapearPreviewImportacaoModulo(preview, adapter.modulo, {
+      const { preview, sessaoPreviaId } = await previewImportacaoPorModulo(modulo, userId, input);
+      return mapearPreviewImportacaoModulo(preview, modulo, {
         sessaoPreviaId,
         userId,
         hashArquivo: preview.hashArquivo,
@@ -128,8 +125,8 @@ export function criarServicoImportacaoModulo<TPayload, TContexto>(
       input: EntradaConfirmarImportacaoModulo,
       meta?: MetaExecucaoImportacao,
     ): Promise<ResultadoConfirmacaoModulo> {
-      const resultado = await confirmarImportacaoCentral(
-        adapter,
+      const resultado = await confirmarImportacaoPorModulo(
+        modulo,
         userId,
         { ...input, confirmacaoExplicita: input.confirmacaoExplicita ?? true },
         meta,

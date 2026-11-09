@@ -1,3 +1,4 @@
+import { PlanilhaLimiteError } from "@/lib/planilha/ler-planilha";
 import { lerEntradasZip, ZipMinimoError } from "@/lib/planilha/zip-minimo";
 
 function escaparXml(valor: string) {
@@ -29,7 +30,7 @@ function valorCelula(conteudo: string, tipo: string, shared: string[]): string {
 }
 
 /** Converte a primeira planilha de um .xlsx em matriz de strings (somente leitura). */
-export function lerMatrizXlsx(buffer: Buffer): string[][] {
+export function lerMatrizXlsx(buffer: Buffer, maxLinhasDados?: number): string[][] {
   let entradas;
   try {
     entradas = lerEntradasZip(buffer);
@@ -38,11 +39,25 @@ export function lerMatrizXlsx(buffer: Buffer): string[][] {
     throw new ZipMinimoError("Arquivo Excel inválido ou corrompido.");
   }
 
+  const temMacro = entradas.some(
+    (item) => /vbaProject/i.test(item.nome) || item.nome.toLowerCase().includes("xl/macrosheets/"),
+  );
+  const tipos = entradas.find((item) => item.nome === "[Content_Types].xml")?.dados.toString("utf8") ?? "";
+  if (temMacro || /macroEnabled/i.test(tipos)) {
+    throw new ZipMinimoError("Planilha com macros ou conteúdo executável. Exporte para XLSX sem macros.");
+  }
+
   const sharedXml = entradas.find((item) => item.nome === "xl/sharedStrings.xml")?.dados.toString("utf8") ?? "";
   const shared = sharedXml ? lerSharedStrings(sharedXml) : [];
   const sheet =
     entradas.find((item) => item.nome === "xl/worksheets/sheet1.xml")?.dados.toString("utf8") ??
     entradas.find((item) => /^xl\/worksheets\/sheet\d+\.xml$/.test(item.nome))?.dados.toString("utf8");
+
+  const ehPacoteXlsx =
+    entradas.some((item) => item.nome === "[Content_Types].xml" || item.nome.startsWith("xl/"));
+  if (!ehPacoteXlsx) {
+    throw new ZipMinimoError("O conteúdo não é uma planilha XLSX válida.");
+  }
 
   if (!sheet) throw new ZipMinimoError("Planilha vazia ou sem aba legível.");
 
@@ -58,7 +73,12 @@ export function lerMatrizXlsx(buffer: Buffer): string[][] {
       const inline = /<t[^>]*>([\s\S]*?)<\/t>/.exec(celula[2])?.[1];
       celulas.push(inline !== undefined ? escaparXml(inline) : valorCelula(valor, tipo, shared));
     }
-    if (celulas.some((item) => item.trim())) linhas.push(celulas);
+    if (celulas.some((item) => item.trim())) {
+      if (linhas.length > 0 && maxLinhasDados !== undefined && linhas.length - 1 >= maxLinhasDados) {
+        throw new PlanilhaLimiteError("Limite de registros excedido.");
+      }
+      linhas.push(celulas);
+    }
   }
 
   return linhas;
