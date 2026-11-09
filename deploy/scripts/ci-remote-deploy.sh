@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # Deploy blue/green SEM derrubar o site online.
-# 1) Build da imagem nova (slot atual continua no ar)
-# 2) Sobe o slot inativo
-# 3) Healthcheck
-# 4) Troca o upstream do Caddy + reload
-# 5) Para o slot antigo
+# Build no slot inativo → healthcheck → troca Caddy → derruba o antigo.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export HOME="${HOME:-/root}"
@@ -40,36 +36,57 @@ ACTIVE_CTR="cobranca-app-${ACTIVE}"
 
 echo "==> Slot ativo: ${ACTIVE} | novo: ${NEXT}"
 
-# DB + Caddy (não mexe no app ativo)
-DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}" docker compose --env-file .env.production up -d db caddy
+# Só sobe o DB agora — NÃO recria o Caddy (evita apontar para slot inexistente)
+DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}" docker compose --env-file .env.production up -d db
 
-# Migração one-shot: container legado cobranca-app-1 → blue
+ensure_aliases() {
+  local ctr="$1"
+  local alias_name="$2"
+  local net
+  for net in cobranca_edge cobranca_internal; do
+    docker network inspect "$net" >/dev/null 2>&1 || continue
+    docker network disconnect "$net" "$ctr" >/dev/null 2>&1 || true
+    docker network connect --alias "$alias_name" --alias "$ctr" "$net" "$ctr" >/dev/null 2>&1 || true
+  done
+}
+
+# Legado cobranca-app-1 → slot ativo, com DNS app_blue/app_green
 if docker ps -a --format '{{.Names}}' | grep -qx 'cobranca-app-1'; then
-  if ! docker ps --format '{{.Names}}' | grep -qx "$ACTIVE_CTR"; then
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CTR"; then
     echo "==> Migrando cobranca-app-1 → ${ACTIVE_CTR}"
-    docker rename cobranca-app-1 "$ACTIVE_CTR" 2>/dev/null || true
+    docker rename cobranca-app-1 "$ACTIVE_CTR"
+  else
+    docker rm -f cobranca-app-1 >/dev/null 2>&1 || true
   fi
 fi
 
-# Se ainda não há slot ativo rodando, sobe o ACTIVE primeiro (bootstrap)
-if ! docker ps --format '{{.Names}}' | grep -qx "$ACTIVE_CTR"; then
-  echo "==> Bootstrap: subindo slot ativo ${ACTIVE}"
+if docker ps --format '{{.Names}}' | grep -qx "$ACTIVE_CTR"; then
+  ensure_aliases "$ACTIVE_CTR" "app_${ACTIVE}"
+fi
+
+# Bootstrap: nenhum app no ar
+if ! docker ps --format '{{.Names}}' | grep -Eq "cobranca-app-(blue|green)$"; then
+  echo "==> Bootstrap: subindo ${ACTIVE_SERVICE}"
   DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}" docker compose --env-file .env.production --profile "$ACTIVE" build "$ACTIVE_SERVICE"
   docker compose --env-file .env.production --profile "$ACTIVE" up -d --no-deps "$ACTIVE_SERVICE"
   printf 'reverse_proxy app_%s:3000\n' "$ACTIVE" > runtime/upstream
-  docker compose --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
-    || docker compose --env-file .env.production up -d --force-recreate caddy
+  docker compose --env-file .env.production up -d caddy
+  docker compose --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
 fi
 
-echo "==> Build ${NEXT_SERVICE} (site atual permanece no ar)"
+# Garante Caddy no ar sem forçar recreate (mantém config em memória se já estiver ok)
+if ! docker ps --format '{{.Names}}' | grep -qx 'cobranca-caddy-1'; then
+  docker compose --env-file .env.production up -d caddy
+fi
+
+echo "==> Build ${NEXT_SERVICE} (tráfego continua no ${ACTIVE})"
 DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-0}" docker compose --env-file .env.production --profile "$NEXT" build "$NEXT_SERVICE"
 
 echo "==> Subindo ${NEXT_CTR} em paralelo"
 docker compose --env-file .env.production --profile "$NEXT" up -d --no-deps --force-recreate "$NEXT_SERVICE"
 
 wait_healthy() {
-  local ctr="$1"
-  local i status
+  local ctr="$1" i status
   for i in $(seq 1 60); do
     status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$ctr" 2>/dev/null || echo missing)"
     if [[ "$status" == "healthy" ]]; then
@@ -92,9 +109,10 @@ if ! wait_healthy "$NEXT_CTR"; then
   exit 1
 fi
 
-echo "==> Troca de tráfego Caddy → app_${NEXT}:3000"
+echo "==> Troca de tráfego → app_${NEXT}:3000"
 printf 'reverse_proxy app_%s:3000\n' "$NEXT" > runtime/upstream
 if ! docker compose --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+  # Último recurso: recreate caddy (rápido; TLS em volume)
   docker compose --env-file .env.production up -d --no-deps --force-recreate caddy
 fi
 
