@@ -11,3 +11,5 @@ deploy/secrets/*
 *.tsbuildinfo
 __pycache__/
 *.pyc
+deploy/runtime/upstream
+deploy/runtime/active-slot

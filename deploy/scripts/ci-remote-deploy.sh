@@ -125,9 +125,12 @@ if ! docker exec "$NEXT_CTR" node -e "fetch('http://127.0.0.1:3000/login').then(
 fi
 
 echo "$NEXT" > runtime/active-slot
+# Confirma persistência do upstream (não versionado)
+grep -q "app_${NEXT}:3000" runtime/upstream
 
 echo "==> Desligando slot antigo ${ACTIVE_CTR}"
-docker compose --env-file .env.production --profile "$ACTIVE" stop "$ACTIVE_SERVICE" >/dev/null 2>&1 || true
+docker stop "$ACTIVE_CTR" >/dev/null 2>&1 || true
+docker rm -f "$ACTIVE_CTR" >/dev/null 2>&1 || true
 docker compose --env-file .env.production --profile "$ACTIVE" rm -f "$ACTIVE_SERVICE" >/dev/null 2>&1 || true
 docker rm -f cobranca-app-1 >/dev/null 2>&1 || true
 

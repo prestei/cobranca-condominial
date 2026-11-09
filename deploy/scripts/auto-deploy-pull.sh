@@ -26,12 +26,17 @@ if [[ ! -d .git ]]; then
   exit 1
 fi
 
-# Preserva env de produção fora do tracking
+# Preserva env + estado blue/green fora do tracking
 ENV_FILE="deploy/.env.production"
 ENV_BACKUP=""
+RUNTIME_BACKUP=""
 if [[ -f "$ENV_FILE" ]]; then
   ENV_BACKUP="$(mktemp)"
   cp -a "$ENV_FILE" "$ENV_BACKUP"
+fi
+if [[ -d deploy/runtime ]]; then
+  RUNTIME_BACKUP="$(mktemp -d)"
+  cp -a deploy/runtime/. "$RUNTIME_BACKUP/" || true
 fi
 
 "${GIT_SAFE[@]}" fetch --prune "$REMOTE" "$BRANCH"
@@ -50,6 +55,11 @@ if [[ -n "$ENV_BACKUP" && -f "$ENV_BACKUP" ]]; then
   cp -a "$ENV_BACKUP" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   rm -f "$ENV_BACKUP"
+fi
+if [[ -n "$RUNTIME_BACKUP" && -d "$RUNTIME_BACKUP" ]]; then
+  mkdir -p deploy/runtime
+  cp -a "$RUNTIME_BACKUP"/. deploy/runtime/
+  rm -rf "$RUNTIME_BACKUP"
 fi
 
 chmod +x deploy/scripts/*.sh 2>/dev/null || true
