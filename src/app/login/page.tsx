@@ -8,6 +8,8 @@ import { Button } from "@/components/button";
 import { FormField, Input } from "@/components/input";
 import { SkeletonLogin } from "@/components/skeleton";
 import { useAuthOptional } from "@/context/auth-context";
+import { destinoSeguroAposLogin } from "@/lib/auth/destino-pos-login";
+import type { PermissoesCargo } from "@/lib/permissions/modulos";
 
 function LoginForm() {
   const router = useRouter();
@@ -29,7 +31,6 @@ function LoginForm() {
   }, []);
 
   const destino = searchParams?.get("from") ?? null;
-  const redirectTo = destino && destino.startsWith("/") && !destino.startsWith("//") ? destino : "/";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,6 +54,15 @@ function LoginForm() {
         setError(message);
         return;
       }
+
+      const permissoes =
+        data &&
+        typeof data === "object" &&
+        (data as { permissoes?: PermissoesCargo }).permissoes &&
+        typeof (data as { permissoes?: PermissoesCargo }).permissoes === "object"
+          ? (data as { permissoes: PermissoesCargo }).permissoes
+          : {};
+      const redirectTo = destinoSeguroAposLogin(destino, permissoes);
 
       await auth?.refresh();
       router.replace(redirectTo);

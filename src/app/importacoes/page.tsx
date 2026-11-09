@@ -458,7 +458,14 @@ function ImportacoesPage() {
         body: formData,
       });
       const body = (await response.json()) as {
-        recebimento?: { processoId: string; nomeArquivo: string; hashArquivo: string };
+        recebimento?: {
+          processoId: string;
+          nomeArquivo: string;
+          hashArquivo: string;
+          moduloEfetivo?: ModuloWizardImportacao;
+          moduloCorrigido?: boolean;
+          mensagemModulo?: string;
+        };
         error?: string;
       };
       if (!response.ok || !body.recebimento) {
@@ -467,6 +474,17 @@ function ImportacoesPage() {
         setHashRecebimento("");
         setNomeArquivo("");
         return;
+      }
+      const efetivo = body.recebimento.moduloEfetivo;
+      if (efetivo && moduloWizardValido(efetivo) && efetivo !== moduloWizard) {
+        setModuloWizard(efetivo);
+      }
+      if (body.recebimento.moduloCorrigido && body.recebimento.mensagemModulo) {
+        toast({
+          variant: "warning",
+          title: "Destino ajustado pelo arquivo",
+          description: body.recebimento.mensagemModulo,
+        });
       }
       setProcessoId(body.recebimento.processoId);
       setHashRecebimento(body.recebimento.hashArquivo);
@@ -559,6 +577,8 @@ function ImportacoesPage() {
         preview?: PreviewImportacaoModulo;
         condominios?: import("@/data/catalogo").Condominio[];
         unidades?: import("@/data/catalogo").Unidade[];
+        responsaveis?: import("@/data/catalogo").Responsavel[];
+        vinculos?: import("@/data/catalogo").Vinculo[];
         error?: string;
       };
       if (!response.ok || !body.preview) {
@@ -571,6 +591,9 @@ function ImportacoesPage() {
       }
       if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
       if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.responsaveis || body.vinculos) {
+        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+      }
       setPreview(body.preview);
       setDataHoraPrevia(agoraIso());
       setStep(1);

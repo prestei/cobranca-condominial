@@ -19,7 +19,7 @@ Gestão de colaboradores, login individual, código RE para todos os colaborador
 
 ## Perfis e permissões
 
-Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra-negocio.md). A sessão carrega `userId`, `email`, `nome` e `cargoId`. Autorização por módulo e ação (`ler`, `criar`, `editar`, `excluir`, `exportar`) conforme [cargos.md](cargos.md) e `src/lib/permissions/`.
+Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra-negocio.md). A sessão carrega `userId`, `email`, `nome` e `cargoId`. Login e `GET /api/auth/session` também devolvem `permissoes` resolvidas no servidor a partir do cargo (não ficam no JWT). Autorização por módulo e ação (`ler`, `criar`, `editar`, `excluir`, `exportar`) conforme [cargos.md](cargos.md) e `src/lib/permissions/`.
 
 ## Dados e persistência
 
@@ -45,9 +45,9 @@ Helpers: `codigoReDoUsuario`, `identificadorColaboradorPorId`, `listarAtendentes
 
 | Método | Path | Body | Resposta |
 | --- | --- | --- | --- |
-| POST | `/api/auth/login` | `{ codigo, password }` | `200` `{ user: { userId, email, nome, cargoId } }` ou `401` `{ error }` |
+| POST | `/api/auth/login` | `{ codigo, password }` | `200` `{ user, permissoes }` ou `401` `{ error }` |
 | POST | `/api/auth/logout` | — | `200` `{ ok: true }` |
-| GET | `/api/auth/session` | — | `200` `{ user: SessionUser \| null }` (`cargoId` incluso) |
+| GET | `/api/auth/session` | — | `200` `{ user: SessionUser \| null, permissoes: PermissoesCargo \| null }` |
 
 Cookie: `lc_session`, HTTP-only, `SameSite=Lax`, duração 7 dias.
 
@@ -69,7 +69,7 @@ Sincronização cliente: `src/lib/usuarios/sync-cliente.ts` (`garantirUsuariosPe
 
 ## Fluxos principais
 
-1. **Login:** usuário envia código e senha → API valida no cadastro (ativo) → cookie de sessão → redirecionamento.
+1. **Login:** usuário envia código e senha → API valida no cadastro (ativo) → cookie de sessão → redirecionamento. Se a URL trouxe `?from=/rota` sem permissão de **ver** naquele módulo (ex.: colaborador com `from=/cargos`), o cliente usa `destinoSeguroAposLogin` e cai no início (`/`) ou na primeira rota liberada — não na tela de acesso negado.
 2. **Cadastro:** POST `/api/usuarios` → servidor reserva próximo RE → resposta exibe `codigoRe` (toast na UI).
 3. **Desativar:** PATCH `/api/usuarios/:id/situacao` com `{ ativo: false }` → login bloqueado; RE mantido.
 4. **Advogado:** marcar condomínios no sheet → atualiza vínculos no cadastro de condomínios.

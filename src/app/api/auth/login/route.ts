@@ -1,5 +1,6 @@
 import { findUsuarioPorCredenciais } from "@/lib/auth/credentials";
 import { createSession } from "@/lib/auth/session";
+import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -36,5 +37,6 @@ export async function POST(request: Request) {
       nome: usuario.nome,
       cargoId: usuario.cargoId,
     },
+    permissoes: permissoesDoUsuarioId(usuario.id),
   });
 }

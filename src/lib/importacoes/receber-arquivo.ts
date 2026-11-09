@@ -8,10 +8,10 @@ import {
 } from "@/lib/importacoes/detectar-formato";
 import { LeituraArquivoImportacaoError, lerConteudoPlanilha } from "@/lib/importacoes/ler-conteudo-arquivo";
 import {
-  FORMATOS_AUTORIZADOS_POR_MODULO,
+  FORMATOS_IMPORTACAO_CONHECIDOS,
   LIMITES_ARQUIVO_IMPORTACAO,
   extensaoDoNome,
-  formatoPorExtensao,
+  formatoPorExtensaoConhecida,
   mensagemLimiteRegistros,
   mensagemTamanhoMaximoArquivo,
   mimePermitidoParaFormato,
@@ -22,6 +22,10 @@ import {
   hashBufferArquivo,
   type ProcessoArquivoImportacao,
 } from "@/lib/importacoes/armazenamento-temporario";
+import {
+  detectarModuloImportacaoPorConteudo,
+  mensagemModuloCorrigido,
+} from "@/lib/importacoes/detectar-modulo-conteudo";
 import { hashConteudoArquivo } from "@/lib/importacoes/hash-arquivo";
 import { registrarErroTecnicoImportacao } from "@/lib/importacoes/log-tecnico";
 
@@ -42,6 +46,13 @@ export type ResultadoRecebimentoArquivo = {
   hashArquivo: string;
   tamanhoBytes: number;
   quantidadeRegistros: number;
+  /** Módulo escolhido na UI. */
+  moduloSolicitado: ModuloImportacaoArquivo;
+  /** Módulo efetivo após detecção do conteúdo (pode diferir do solicitado). */
+  moduloEfetivo: ModuloImportacaoArquivo;
+  /** true quando o arquivo foi redirecionado para outro destino. */
+  moduloCorrigido: boolean;
+  mensagemModulo?: string;
 };
 
 function rejeitar(
@@ -87,9 +98,15 @@ export async function receberArquivoImportacao(input: {
     );
   }
 
-  const formatoPorNome = formatoPorExtensao(extensao, input.modulo);
+  // Aceita qualquer formato conhecido: o conteúdo define o módulo efetivo.
+  const formatoPorNome = formatoPorExtensaoConhecida(extensao);
   if (!formatoPorNome) {
-    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.", 400, contextoErro);
+    rejeitar(
+      "formato_nao_autorizado",
+      "Formato não autorizado. Use CSV, XLSX, XLS ou PDF.",
+      400,
+      contextoErro,
+    );
   }
 
   if (eAssinaturaExecutavel(input.buffer)) {
@@ -146,9 +163,8 @@ export async function receberArquivoImportacao(input: {
     );
   }
 
-  const formatosModulo = FORMATOS_AUTORIZADOS_POR_MODULO[input.modulo];
-  if (!formatosModulo.includes(assinatura.formato)) {
-    rejeitar("formato_nao_autorizado", "Formato não autorizado para este módulo.", 400, contextoErro);
+  if (!FORMATOS_IMPORTACAO_CONHECIDOS.includes(assinatura.formato)) {
+    rejeitar("formato_nao_autorizado", "Formato não autorizado. Use CSV, XLSX, XLS ou PDF.", 400, contextoErro);
   }
 
   const mime = input.mimeDeclarado?.trim() ?? "";
@@ -188,6 +204,14 @@ export async function receberArquivoImportacao(input: {
     rejeitar("muitos_registros", mensagemLimiteRegistros(), 400, contextoErro);
   }
 
+  const moduloEfetivo = detectarModuloImportacaoPorConteudo({
+    moduloSolicitado: input.modulo,
+    matriz: leitura.matriz,
+    metadadosRelatorio: leitura.metadadosRelatorio,
+  });
+  const moduloCorrigido = moduloEfetivo !== input.modulo;
+  const avisoModulo = mensagemModuloCorrigido(input.modulo, moduloEfetivo);
+
   const hashArquivo =
     assinatura.formato === "xlsx" || assinatura.formato === "pdf"
       ? hashBufferArquivo(input.buffer)
@@ -197,7 +221,7 @@ export async function receberArquivoImportacao(input: {
   try {
     processo = await criarProcessoArquivoTemporario({
       userId: input.userId,
-      modulo: input.modulo,
+      modulo: moduloEfetivo,
       nomeArquivo,
       formato: assinatura.formato,
       buffer: input.buffer,
@@ -218,6 +242,10 @@ export async function receberArquivoImportacao(input: {
     hashArquivo: processo.hashArquivo,
     tamanhoBytes: processo.tamanhoBytes,
     quantidadeRegistros: leitura.quantidadeRegistros,
+    moduloSolicitado: input.modulo,
+    moduloEfetivo,
+    moduloCorrigido,
+    mensagemModulo: avisoModulo,
   };
 }
 

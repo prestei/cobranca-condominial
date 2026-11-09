@@ -42,11 +42,16 @@ export async function POST(request: Request) {
 
   try {
     const preview = await previewImportacaoDebitos(session.userId, input);
-    // Condomínio/unidade podem ter sido provisionados na prévia — sincroniza o cliente.
-    const condominios = escopoCondominios(getCadastros(), session.userId);
+    // Condomínio/unidade/responsável podem ter sido provisionados na prévia — sincroniza o cliente.
+    const cadastros = getCadastros();
+    const condominios = escopoCondominios(cadastros, session.userId);
     const scopeIds = new Set(condominios.map((item) => item.id));
-    const unidades = getCadastros().unidades.filter((item) => scopeIds.has(item.condominioId));
-    return Response.json({ preview, condominios, unidades });
+    const unidades = cadastros.unidades.filter((item) => scopeIds.has(item.condominioId));
+    const unidadeIds = new Set(unidades.map((item) => item.id));
+    const vinculos = cadastros.vinculos.filter((item) => unidadeIds.has(item.unidadeId));
+    const responsavelIds = new Set(vinculos.map((item) => item.responsavelId));
+    const responsaveis = cadastros.responsaveis.filter((item) => responsavelIds.has(item.id));
+    return Response.json({ preview, condominios, unidades, responsaveis, vinculos });
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {
       return Response.json({ error: error.message }, { status: error.status });

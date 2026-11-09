@@ -88,11 +88,16 @@ export async function POST(request: Request) {
 
   try {
     const resultado = await confirmarImportacaoDebitos(session.userId, input, requestMeta(request));
-    const scopeIds = new Set(escopoCondominios(getCadastros(), session.userId).map((item) => item.id));
-    const debitos = getCadastros().debitos.filter((item) => scopeIds.has(item.condominioId));
-    const condominios = escopoCondominios(getCadastros(), session.userId);
-    const unidades = getCadastros().unidades.filter((item) => scopeIds.has(item.condominioId));
-    return Response.json({ resultado, debitos, condominios, unidades });
+    const cadastros = getCadastros();
+    const condominios = escopoCondominios(cadastros, session.userId);
+    const scopeIds = new Set(condominios.map((item) => item.id));
+    const debitos = cadastros.debitos.filter((item) => scopeIds.has(item.condominioId));
+    const unidades = cadastros.unidades.filter((item) => scopeIds.has(item.condominioId));
+    const unidadeIds = new Set(unidades.map((item) => item.id));
+    const vinculos = cadastros.vinculos.filter((item) => unidadeIds.has(item.unidadeId));
+    const responsavelIds = new Set(vinculos.map((item) => item.responsavelId));
+    const responsaveis = cadastros.responsaveis.filter((item) => responsavelIds.has(item.id));
+    return Response.json({ resultado, debitos, condominios, unidades, responsaveis, vinculos });
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {
       return Response.json({ error: error.message }, { status: error.status });

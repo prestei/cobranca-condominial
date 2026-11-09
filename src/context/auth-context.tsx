@@ -4,9 +4,11 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { SessionUser } from "@/lib/auth/types";
 import { setUsuarioLogadoId } from "@/lib/auth/usuario-logado";
+import type { PermissoesCargo } from "@/lib/permissions/modulos";
 
 type AuthContextValue = {
   user: SessionUser | null;
+  permissoes: PermissoesCargo | null;
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
@@ -14,24 +16,36 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function fetchSession(): Promise<SessionUser | null> {
+type SessionPayload = {
+  user: SessionUser | null;
+  permissoes: PermissoesCargo | null;
+};
+
+async function fetchSession(): Promise<SessionPayload> {
   const response = await fetch("/api/auth/session", { credentials: "same-origin" });
-  if (!response.ok) return null;
+  if (!response.ok) return { user: null, permissoes: null };
   const data: unknown = await response.json();
-  if (!data || typeof data !== "object") return null;
-  const user = (data as { user?: SessionUser | null }).user;
-  if (!user || typeof user.userId !== "number") return null;
-  return user;
+  if (!data || typeof data !== "object") return { user: null, permissoes: null };
+  const record = data as { user?: SessionUser | null; permissoes?: PermissoesCargo | null };
+  const user = record.user;
+  if (!user || typeof user.userId !== "number") {
+    return { user: null, permissoes: null };
+  }
+  const permissoes =
+    record.permissoes && typeof record.permissoes === "object" ? record.permissoes : null;
+  return { user, permissoes };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [permissoes, setPermissoes] = useState<PermissoesCargo | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const sessionUser = await fetchSession();
-    setUser(sessionUser);
-    setUsuarioLogadoId(sessionUser?.userId ?? null);
+    const session = await fetchSession();
+    setUser(session.user);
+    setPermissoes(session.permissoes);
+    setUsuarioLogadoId(session.user?.userId ?? null);
   }, []);
 
   useEffect(() => {
@@ -48,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     setUser(null);
+    setPermissoes(null);
     setUsuarioLogadoId(null);
     window.location.assign("/login");
   }, []);
@@ -55,11 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      permissoes,
       loading,
       refresh,
       logout,
     }),
-    [user, loading, refresh, logout],
+    [user, permissoes, loading, refresh, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

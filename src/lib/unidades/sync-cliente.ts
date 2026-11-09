@@ -1,6 +1,4 @@
 import {
-  escopoCondominios,
-  escopoUnidades,
   getCadastros,
   setResponsaveis,
   setUnidades,
@@ -22,23 +20,21 @@ function normalizarUnidadeApi(unidade: Unidade): Unidade {
   };
 }
 
+/**
+ * Inclui unidades novas (ex.: provisionadas na importação) mesmo que o catálogo local
+ * ainda não conheça o condomínio/unidade — o filtro pelo escopo antigo descartava esses IDs.
+ */
 export function sincronizarUnidadesDoServidor(unidades: Unidade[], userId?: number) {
   const cadastros = getCadastros();
-  const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
-  const idsUnidade = new Set(escopoUnidades(cadastros, userId).map((item) => item.id));
   const perm = permissoesDoUsuarioId(userId ?? -1, cadastros);
   const escopoAdministrativo =
     temPermissao(perm, "condominios", "criar") || temPermissao(perm, "condominios", "editar");
   const doServidor = unidades.map(normalizarUnidadeApi);
   setUnidades((current) => {
     if (escopoAdministrativo) {
-      const filtradas = doServidor.filter(
-        (item) => idsCondominio.has(item.condominioId) && idsUnidade.has(item.id),
-      );
-      const foraDoEscopoVisivel = current.filter(
-        (item) => !idsCondominio.has(item.condominioId) || !idsUnidade.has(item.id),
-      );
-      return [...foraDoEscopoVisivel, ...filtradas];
+      const idsApi = new Set(doServidor.map((item) => item.id));
+      const locaisAindaNaoNoServidor = current.filter((item) => !idsApi.has(item.id));
+      return [...locaisAindaNaoNoServidor, ...doServidor];
     }
     return [...doServidor];
   });

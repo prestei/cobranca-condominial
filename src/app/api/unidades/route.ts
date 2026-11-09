@@ -1,3 +1,4 @@
+import { getCadastros } from "@/data/catalogo";
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
 import {
   criarUnidade,
@@ -26,7 +27,12 @@ export async function GET() {
   const denied = await requirePermissao(session, "unidades", "ler");
   if (denied) return denied;
   const unidades = listarUnidades(session.userId);
-  return Response.json({ unidades });
+  const unidadeIds = new Set(unidades.map((item) => item.id));
+  const cadastros = getCadastros();
+  const vinculos = cadastros.vinculos.filter((item) => unidadeIds.has(item.unidadeId));
+  const responsavelIds = new Set(vinculos.map((item) => item.responsavelId));
+  const responsaveis = cadastros.responsaveis.filter((item) => responsavelIds.has(item.id));
+  return Response.json({ unidades, vinculos, responsaveis });
 }
 
 export async function POST(request: Request) {

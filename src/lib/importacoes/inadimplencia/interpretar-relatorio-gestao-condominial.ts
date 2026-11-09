@@ -78,6 +78,9 @@ const REGEX_DEBITO =
 
 const REGEX_TOTAL_DETALHADO =
   /^Total:\s*([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i;
+/** TOTAL GERAL ACUMULADO (layout Daniel Jorge / Solar) — 5 colunas monetárias. */
+const REGEX_TOTAL_GERAL_ACUMULADO =
+  /TOTAL\s+GERAL\s+ACUMULADO\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/i;
 
 function categoriaDebitoReconhecida(categoria: string): boolean {
   const c = categoria.trim().toLocaleUpperCase("pt-BR");
@@ -88,7 +91,10 @@ function categoriaDebitoReconhecida(categoria: string): boolean {
     c.startsWith("SERVI") ||
     c.startsWith("SERVIÇO") ||
     c.startsWith("OBRA") ||
-    c.startsWith("RESERVA")
+    c.startsWith("RESERVA") ||
+    c.startsWith("FUNDO") ||
+    c.startsWith("CONSUMO") ||
+    c.startsWith("RATEIO")
   );
 }
 
@@ -190,6 +196,16 @@ export function interpretarTextoRelatorioInadimplenciaGestao(textoBruto: string)
       continue;
     }
 
+    const totalGeralAcumulado = compacta.match(REGEX_TOTAL_GERAL_ACUMULADO);
+    if (totalGeralAcumulado) {
+      const vo = normalizarMoedaRelatorio(totalGeralAcumulado[1]);
+      const to = normalizarMoedaRelatorio(totalGeralAcumulado[5]);
+      if (vo.valor && to.valor) {
+        totaisGerais = { valorOriginal: vo.valor, total: to.valor };
+      }
+      continue;
+    }
+
     const totalDetalhado = compacta.match(REGEX_TOTAL_DETALHADO);
     if (totalDetalhado) {
       const vo = normalizarMoedaRelatorio(totalDetalhado[1]);
@@ -251,29 +267,61 @@ export function interpretarTextoRelatorioInadimplenciaGestao(textoBruto: string)
     if (
       unidadeAtual &&
       !responsavelAtual &&
-      !compacta.includes("TAXA") &&
-      !compacta.includes("ACORDO") &&
-      !compacta.includes("MULTA") &&
-      !compacta.includes("SERVI") &&
+      !categoriaDebitoReconhecida(compacta) &&
       !compacta.includes("Total") &&
       !compacta.includes("Logo") &&
       !compacta.includes("UNIDADES") &&
       !compacta.includes("Mês Ref") &&
+      !/M[eê]s\s*Ref/i.test(compacta) &&
       !compacta.includes("Mês:") &&
       !compacta.includes("Proj. Rec") &&
       !compacta.includes("Correção:") &&
       !compacta.includes("Juros:") &&
-      !compacta.match(REGEX_PAGINA) &&
-      compacta.length > 2
+      !compacta.includes("Data Base") &&
+      !compacta.includes("Condomínio") &&
+      !compacta.includes("Inadimplência") &&
+      !REGEX_PAGINA.test(compacta) &&
+      !REGEX_DEBITO.test(compacta) &&
+      !/\d{2}\/\d{4}/.test(compacta) &&
+      compacta.length > 2 &&
+      compacta.length < 120
     ) {
       responsavelAtual = compacta;
     }
   }
 
   if (!totaisGerais) {
-    const resumoFinal = [...linhasTexto].reverse().find((item) => REGEX_TOTAL_GERAL.test(item.trim()) && item.includes(","));
+    const resumoAcumulado = [...linhasTexto]
+      .reverse()
+      .map((item) => normalizarLinhaLayout(item))
+      .find((item) => REGEX_TOTAL_GERAL_ACUMULADO.test(item));
+    if (resumoAcumulado) {
+      const match = resumoAcumulado.match(REGEX_TOTAL_GERAL_ACUMULADO);
+      if (match) {
+        const vo = normalizarMoedaRelatorio(match[1]);
+        const to = normalizarMoedaRelatorio(match[5]);
+        if (vo.valor && to.valor) {
+          totaisGerais = { valorOriginal: vo.valor, total: to.valor };
+        }
+      }
+    }
+  }
+
+  if (!totaisGerais) {
+    const resumoFinal = [...linhasTexto]
+      .reverse()
+      .map((item) => normalizarLinhaLayout(item))
+      .find(
+        (item) =>
+          /^Total(\s|:)/i.test(item) &&
+          REGEX_TOTAL_GERAL.test(item) &&
+          item.includes(",") &&
+          !/Total\s+'/i.test(item) &&
+          !/Total\s+de\s+/i.test(item) &&
+          !/Total\s+Lan[cç]/i.test(item),
+      );
     if (resumoFinal) {
-      const match = resumoFinal.trim().match(REGEX_TOTAL_GERAL);
+      const match = resumoFinal.match(REGEX_TOTAL_GERAL);
       if (match) {
         const vo = normalizarMoedaRelatorio(match[1]);
         const to = normalizarMoedaRelatorio(match[2]);

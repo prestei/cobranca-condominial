@@ -95,11 +95,15 @@ import {
   tiposUnidade,
   tiposVinculo,
   unidadeComDebitoOperacional,
+  type Responsavel,
   type Unidade,
+  type Vinculo,
 } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { sincronizarDebitosDoServidor } from "@/lib/debitos/sync-cliente";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
+import { mesclarResponsaveisImportacao } from "@/lib/importacoes/sync-cliente";
 import {
   aplicarUnidadeExcluida,
   aplicarUnidadeSalva,
@@ -149,6 +153,7 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 function UnidadesPage() {
   const { toast } = useToast();
   const { pode, permissoes } = usePermissao();
+  const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -194,8 +199,22 @@ function UnidadesPage() {
   async function recarregarUnidadesDoServidor() {
     const response = await fetch("/api/unidades", { credentials: "same-origin" });
     if (!response.ok) return;
-    const payload = (await response.json()) as { unidades?: Unidade[] };
+    const payload = (await response.json()) as {
+      unidades?: Unidade[];
+      vinculos?: Vinculo[];
+      responsaveis?: Responsavel[];
+    };
     if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, user?.userId);
+    if (payload.responsaveis || payload.vinculos) {
+      mesclarResponsaveisImportacao(payload.responsaveis ?? [], payload.vinculos ?? []);
+    }
+  }
+
+  async function recarregarDebitosDoServidor() {
+    const response = await fetch("/api/debitos", { credentials: "same-origin" });
+    if (!response.ok) return;
+    const payload = (await response.json()) as { debitos?: import("@/data/catalogo").Debito[] };
+    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, user?.userId);
   }
 
   async function prepararCondominiosParaSalvar(): Promise<boolean> {
@@ -217,6 +236,8 @@ function UnidadesPage() {
       await garantirCondominiosPersistidosNoServidor(user?.userId);
       if (cancelled) return;
       await recarregarUnidadesDoServidor();
+      if (cancelled) return;
+      await recarregarDebitosDoServidor();
       if (cancelled) return;
     })();
     return () => {
@@ -597,6 +618,10 @@ function UnidadesPage() {
       textoDebitoExport(item),
       valorAbertoExport(item),
     ]);
+  }
+
+  function abrirImportacao() {
+    router.push("/importacoes?modulo=unidades&abrir=1");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -1080,6 +1105,8 @@ function UnidadesPage() {
           desktop={desktopTable}
           mobile={mobileTable}
           onExport={aoExportar}
+          onImport={abrirImportacao}
+          showImport={podeImportar}
           mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}

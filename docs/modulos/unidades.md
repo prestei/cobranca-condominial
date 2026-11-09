@@ -13,7 +13,7 @@ Cadastro e consulta de unidades por condomínio, com condôminos/responsáveis f
 
 ## Rotas e telas
 
-- `/unidades` — `src/app/unidades/page.tsx` — listagem, filtros, CRUD em `Sheet`, consulta detalhada em `UnidadeDetalheSheet`
+- `/unidades` — `src/app/unidades/page.tsx` — listagem, filtros, CRUD em `Sheet`, consulta detalhada em `UnidadeDetalheSheet`, **Importar** / **Exportar** na tabela (`showImport` + `onExport`; Importar exige `importacoes.criar` e abre `/importacoes?modulo=unidades&abrir=1`)
 - Atalhos: `/debitos?unidade={id}`, `/atendimentos?unidade={id}`, `/atendimentos?novo=1&unidade={id}`
 
 ## Perfis e permissões
@@ -22,6 +22,7 @@ Cadastro e consulta de unidades por condomínio, com condôminos/responsáveis f
 | --- | --- |
 | Ver listagem e detalhe | `unidades.ler` |
 | Criar | `unidades.criar` |
+| Importar (atalho na listagem) | `importacoes.criar` |
 | Editar unidade e vínculos | `unidades.editar` |
 | Excluir (sem histórico) | `unidades.excluir` |
 
@@ -58,7 +59,7 @@ Implementação: `src/lib/unidades/service.ts`, `src/lib/historico-unidade/servi
 
 ## Fluxos principais
 
-1. Listar → filtrar → **Consultar** (detalhe + histórico resumido) ou **Editar** / **Novo**; **Importar** (CSV ou XLS exportado) cria unidades em lote com permissão `unidades.criar` — colunas mínimas: Unidade, Condomínio, Tipo (demais opcionais, alinhadas à exportação)
+1. Listar → filtrar → **Consultar** (detalhe + histórico resumido) ou **Editar** / **Novo**; **Importar** na barra da tabela (`showImport` + `importacoes.criar`) abre `/importacoes?modulo=unidades&abrir=1` — CSV/XLS (colunas mínimas: Unidade, Condomínio, Tipo) ou PDF de inadimplência redirecionado ao módulo efetivo
 2. **Novo:** etapa 1 (dados da unidade) → **Continuar** → etapa 2 (responsável opcional) → **Salvar** (cria unidade e vínculo quando informado)
 3. No detalhe: vincular proprietário/responsável financeiro; **linha do tempo** da cobrança; ir a débitos ou atendimentos filtrados
 4. Inativar unidade (`status` = `Inativa`) mantém vínculos e histórico
@@ -77,7 +78,7 @@ Nenhuma direta; importações futuras podem criar unidades e vínculos (ver [imp
 
 ## Estados de interface
 
-Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor`. Layout alinhado às demais telas de carteira: `PageHeader` com descrição, quatro indicadores (`CardMetric` + `CardMetricRow`) sobre o recorte filtrado, seção **Filtros** com `FilterBar`, tabela responsiva com exportação/importação, paginação de 20. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
+Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor; resposta inclui `unidades`, `vinculos` e `responsaveis` do recorte) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor` + responsáveis; também recarrega débitos (`GET /api/debitos`) para exibir valores em aberto após importação. Layout alinhado às demais telas de carteira: `PageHeader` com descrição, quatro indicadores (`CardMetric` + `CardMetricRow`) sobre o recorte filtrado, seção **Filtros** com `FilterBar`, tabela responsiva com exportação/importação, paginação de 20. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
 
 ## Pendências e decisões
 

@@ -1,16 +1,15 @@
-import { escopoCondominios, escopoUnidades, getCadastros, setDebitos, type Debito } from "@/data/catalogo";
+import { setDebitos, type Debito } from "@/data/catalogo";
 
-export function sincronizarDebitosDoServidor(debitos: Debito[], userId?: number) {
-  const idsCondominio = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  const idsUnidade = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+/**
+ * Mescla débitos da API no catálogo do cliente.
+ * Aceita débitos de unidades/condomínios recém-provisionados na importação
+ * (não filtrar pelo escopo local antigo — isso descartava os novos).
+ */
+export function sincronizarDebitosDoServidor(debitos: Debito[], _userId?: number) {
   setDebitos((current) => {
-    const foraDoEscopoVisivel = current.filter(
-      (item) => !idsCondominio.has(item.condominioId) || !idsUnidade.has(item.unidadeId),
-    );
-    const noEscopo = debitos.filter(
-      (item) => idsCondominio.has(item.condominioId) && idsUnidade.has(item.unidadeId),
-    );
-    return [...foraDoEscopoVisivel, ...noEscopo].sort(
+    const idsApi = new Set(debitos.map((item) => item.id));
+    const locaisAindaNaoNoServidor = current.filter((item) => !idsApi.has(item.id));
+    return [...locaisAindaNaoNoServidor, ...debitos].sort(
       (a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id,
     );
   });

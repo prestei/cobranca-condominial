@@ -4,7 +4,6 @@ import {
   escopoUnidades,
   getCadastros,
   nomeCondominio,
-  nomeUnidade,
   proximoNumero,
   registrarAuditoria,
   setDebitos,
@@ -52,10 +51,17 @@ export type ContextoImportacaoDebitos = {
   inconsistenciasRelatorio?: InconsistenciaValidacao[];
 };
 
+/** Código da unidade (ex.: MB-0102) — sem prefixar o condomínio (já vai em `condominio`). */
+export function identificacaoUnidadeResumoDebito(unidadeId: number): string {
+  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const codigo = unidade?.identificacao?.trim();
+  return codigo && codigo.length > 0 ? codigo : "—";
+}
+
 export function montarResumoLinhaDebitoImportacao(row: DebitoImportRow): Record<string, string> {
   return {
     condominio: nomeCondominio(row.condominioId),
-    unidade: nomeUnidade(row.unidadeId),
+    unidade: identificacaoUnidadeResumoDebito(row.unidadeId),
     responsavel: row.metaOrigem?.responsavel?.trim() || "—",
     categoria: row.descricao.trim() || row.status.trim() || "—",
     referencia: row.referencia,

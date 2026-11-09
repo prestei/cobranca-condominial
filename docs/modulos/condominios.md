@@ -22,7 +22,8 @@ Cadastro e gestão dos condomínios da carteira do escritório, base compartilha
 | Ação | Módulo / ação |
 | --- | --- |
 | Ver listagem e detalhe | `condominios.ler` |
-| Criar e importar planilha | `condominios.criar` |
+| Criar | `condominios.criar` |
+| Importar (atalho na listagem) | `importacoes.criar` |
 | Editar, inativar/reativar | `condominios.editar` |
 | Excluir (sem histórico) | `condominios.excluir` |
 
@@ -56,7 +57,7 @@ Implementação: `src/lib/condominios/service.ts`, rotas em `src/app/api/condomi
 3. **Novo / Editar** — sheet em 3 etapas; CEP consultado via ViaCEP (`src/lib/cep.ts`); validação de nome e ao menos um advogado; POST ou PATCH; auditoria em `audit_log`.
 4. **Inativar / Reativar** — PATCH parcial `{ status }`; histórico operacional permanece consultável.
 5. **Excluir** — DELETE; bloqueado com unidades ou débitos/atendimentos/atribuições vinculados.
-6. **Importar** — CSV (`;`) ou XLS exportado pela tela; colunas mínimas **Nome** e **Advogados**; duplicidade por `identificadorExterno` ignorada ou 409.
+6. **Importar** — atalho na tabela (`showImport`) abre `/importacoes?modulo=condominios&abrir=1` com permissão `importacoes.criar`; CSV (`;`) ou XLS com colunas mínimas **Nome** e **Advogados**; duplicidade por `identificadorExterno` ignorada ou 409.
 7. **Exportar** — CSV, XLS ou PDF (HTML para impressão) do recorte filtrado.
 
 ## Regras de negócio

@@ -145,6 +145,8 @@ export type ReferenciaCadastralMatrizDebito = {
   condominioIdentificador?: string;
   unidade: string;
   bloco?: string;
+  /** Nome do responsável financeiro extraído do relatório/planilha (quando houver). */
+  responsavel?: string;
 };
 
 export function resolverCondominioIdImportacaoDebitos(
@@ -385,12 +387,14 @@ export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): R
     const unidadeNorm = normalizarCodigoIdentificacaoImportacao(unidadeTexto).normalizado ?? unidadeTexto.trim();
     if (!unidadeNorm) continue;
 
+    const responsavelNome = valores.responsavel?.trim() ?? "";
     const chave = [
       valores.condominioId?.trim() ?? "",
       valores.condominioIdentificador?.trim() ?? "",
       valores.condominioNome?.trim() ?? "",
       unidadeNorm,
       blocoTexto?.trim() ?? "",
+      responsavelNome,
     ].join("|");
     if (vistos.has(chave)) continue;
     vistos.add(chave);
@@ -401,6 +405,7 @@ export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): R
       condominioIdentificador: valores.condominioIdentificador,
       unidade: unidadeNorm,
       bloco: blocoTexto,
+      responsavel: responsavelNome || undefined,
     });
   }
 

@@ -46,8 +46,9 @@ import {
 import {
   LIMITES_ARQUIVO_IMPORTACAO,
   extensaoDoNome,
-  formatoPorExtensao,
+  formatoPorExtensaoConhecida,
   mensagemTamanhoMaximoArquivo,
+  type ModuloImportacaoArquivo,
 } from "@/lib/importacoes/limites";
 import {
   aplicarImportacaoSalva,
@@ -214,6 +215,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           preview?: PreviewImportacaoModulo;
           condominios?: Condominio[];
           unidades?: Unidade[];
+          responsaveis?: Responsavel[];
+          vinculos?: Vinculo[];
           error?: string;
         };
         if (!response.ok || !body.preview) {
@@ -226,6 +229,9 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         }
         if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
         if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+        if (body.responsaveis || body.vinculos) {
+          mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+        }
         setPreview(body.preview);
         setDataHoraPrevia(agoraIso());
         setStep(1);
@@ -250,8 +256,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
       return;
     }
     const extensao = extensaoDoNome(arquivo.name);
-    if (!extensao || !formatoPorExtensao(extensao, moduloWizard)) {
-      setErroArquivo("Formato não autorizado para este módulo.");
+    if (!extensao || !formatoPorExtensaoConhecida(extensao)) {
+      setErroArquivo("Formato não autorizado. Use CSV, XLSX, XLS ou PDF.");
       setProcessoId("");
       setHashRecebimento("");
       setNomeArquivo("");
@@ -268,7 +274,14 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         body: formData,
       });
       const body = (await response.json()) as {
-        recebimento?: { processoId: string; nomeArquivo: string; hashArquivo: string };
+        recebimento?: {
+          processoId: string;
+          nomeArquivo: string;
+          hashArquivo: string;
+          moduloEfetivo?: ModuloImportacaoArquivo;
+          moduloCorrigido?: boolean;
+          mensagemModulo?: string;
+        };
         error?: string;
       };
       if (!response.ok || !body.recebimento) {
@@ -277,6 +290,18 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         setHashRecebimento("");
         setNomeArquivo("");
         return;
+      }
+      const efetivo = body.recebimento.moduloEfetivo;
+      // O conteúdo manda: mesmo com módulo “travado” na UI, processamos no destino certo.
+      if (efetivo && moduloWizardValido(efetivo) && efetivo !== moduloWizard) {
+        setModuloWizard(efetivo);
+      }
+      if (body.recebimento.moduloCorrigido && body.recebimento.mensagemModulo) {
+        toast({
+          variant: "warning",
+          title: "Destino ajustado pelo arquivo",
+          description: body.recebimento.mensagemModulo,
+        });
       }
       setProcessoId(body.recebimento.processoId);
       setHashRecebimento(body.recebimento.hashArquivo);
@@ -358,6 +383,8 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         preview?: PreviewImportacaoModulo;
         condominios?: Condominio[];
         unidades?: Unidade[];
+        responsaveis?: Responsavel[];
+        vinculos?: Vinculo[];
         error?: string;
       };
       if (!response.ok || !body.preview) {
@@ -370,6 +397,9 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
       }
       if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
       if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.responsaveis || body.vinculos) {
+        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+      }
       setPreview(body.preview);
       setLinhasIgnoradas([]);
       setDecisoesLinha([]);

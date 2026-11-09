@@ -13,7 +13,7 @@ Consultar e acompanhar débitos por unidade e condomínio, com valores e situaç
 
 ## Rotas e telas
 
-- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs (original, atualizado, faixas até/acima do limite), gráfico de unidades inadimplentes, filtros, tabela **Registros de Inadimplência** com **Importar** (ao lado de **Exportar**; exige `importacoes.criar`; abre `/importacoes?modulo=debitos&abrir=1`) e exportação CSV/XLS/PDF, cadastro/edição em sheet (três etapas), confirmação de unidade quitada.
+- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs (original, atualizado, faixas até/acima do limite), gráfico de unidades inadimplentes, filtros e tabela com **Importar** / **Exportar** no mesmo padrão das demais listagens (`showImport` + `onExport` no `ResponsiveTable`; Importar exige `importacoes.criar` e abre `/importacoes?modulo=debitos&abrir=1`), cadastro/edição em sheet (três etapas), confirmação de unidade quitada.
 
 ## Perfis e permissões
 

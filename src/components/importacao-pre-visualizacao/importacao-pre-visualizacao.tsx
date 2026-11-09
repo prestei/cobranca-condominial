@@ -78,9 +78,16 @@ const opcoesInconsistencia: { value: FiltroInconsistenciaPreVisualizacao; label:
   { value: "negocio", label: "Negócio" },
 ];
 
+/** Código da unidade para agrupamento (aceita legado "Condomínio · MB-0102"). */
 function chaveUnidadeGrupo(linha: LinhaPreVisualizacaoImportacaoUi): string {
   const bruto = linha.resumo?.unidade?.trim();
-  return bruto && bruto.length > 0 ? bruto : "—";
+  if (!bruto || bruto === "—") return "—";
+  const separador = bruto.lastIndexOf(" · ");
+  if (separador >= 0) {
+    const codigo = bruto.slice(separador + 3).trim();
+    if (codigo) return codigo;
+  }
+  return bruto;
 }
 
 /** Mantém a ordem de aparição das unidades no arquivo e agrupa as linhas de cada uma. */
@@ -516,7 +523,13 @@ export function ImportacaoPreVisualizacao({
                         <TableCell className="sticky left-10 z-[1] bg-inherit tabular-nums font-medium">
                           {item.linha}
                         </TableCell>
-                        {colunas.map((coluna) => (
+                        {colunas.map((coluna) => {
+                          const valor =
+                            agruparPorUnidade && coluna.id === "unidade"
+                              ? unidadeAtual
+                              : coluna.valor(item);
+                          const titulo = typeof valor === "string" ? valor : undefined;
+                          return (
                           <TableCell
                             key={coluna.id}
                             className={[
@@ -527,11 +540,12 @@ export function ImportacaoPreVisualizacao({
                             ]
                               .filter(Boolean)
                               .join(" ")}
-                            title={typeof coluna.valor(item) === "string" ? coluna.valor(item) : undefined}
+                            title={titulo}
                           >
-                            {agruparPorUnidade && coluna.id === "unidade" ? "—" : coluna.valor(item)}
+                            {valor}
                           </TableCell>
-                        ))}
+                          );
+                        })}
                         <TableCell>
                           <div className="flex flex-col gap-xs min-[640px]:flex-row">
                             <Button

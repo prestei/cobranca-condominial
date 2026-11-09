@@ -34,6 +34,7 @@ OBRA FACHADA (02/06) 06/2025 15/06/2025 350,00 59,50 7,00 21,80 438,30
 Total 'A-0104': 2.650,00 485,00 53,00 182,37 3.370,37
 Unidade: B-0501 — Juliana Martins Peixoto
 RESERVA DE ESPAÇO GOURMET 09/2026 20/09/2026 280,00 5,60 5,60 2,10 293,30
+TOTAL GERAL ACUMULADO 1.780,00 283,60 35,60 106,35 2.205,55
 Proj. Rec.
 `;
 
@@ -45,4 +46,21 @@ Proj. Rec.
     relatorio.linhas.map((l) => l.unidade),
     ["A-0104", "A-0104", "B-0501"],
   );
+  assert.deepEqual(relatorio.totaisGerais, { valorOriginal: "1780.00", total: "2205.55" });
+  assert.ok(!relatorio.inconsistencias.some((item) => item.codigo === "financeira.total_geral_divergente"));
+});
+
+test("PDF Solar das Palmeiras — extrai condomínio, unidades, responsáveis e totais", async () => {
+  const buffer = readFileSync(
+    path.join(process.cwd(), "src/test/fixtures/relatorio-inadimplencia-solar-das-palmeiras.pdf"),
+  );
+  const relatorio = await interpretarPdfInadimplencia(buffer);
+  assert.ok(relatorio);
+  assert.equal(relatorio.condominioNome, "Edifício Solar das Palmeiras");
+  assert.equal(relatorio.linhas.length, 8);
+  assert.deepEqual([...new Set(relatorio.linhas.map((l) => l.unidade))].sort(), ["A-0104", "A-0302", "B-0501"]);
+  assert.equal(relatorio.linhas[0]?.responsavel, "Rodrigo Fernandes de Oliveira");
+  assert.equal(relatorio.totaisGerais?.valorOriginal, "6380.00");
+  assert.equal(relatorio.totaisGerais?.total, "7532.62");
+  assert.ok(!relatorio.inconsistencias.some((item) => item.codigo === "financeira.total_geral_divergente"));
 });

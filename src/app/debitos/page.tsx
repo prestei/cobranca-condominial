@@ -70,8 +70,6 @@ import {
   TableMobileField,
   TableMobileList,
   TableMobileTitle,
-  TableExport,
-  TableImport,
   TableRow,
   type TableExportFormat,
   type TableSortDirection,
@@ -1148,16 +1146,13 @@ function DebitosPage() {
           </Alert>
         </section>
 
-        <section className="flex flex-col gap-md">
-          <div className="flex flex-col gap-sm min-[768px]:flex-row min-[768px]:flex-wrap min-[768px]:items-center min-[768px]:justify-between min-[768px]:gap-md">
-            <h2 className="text-headline-sm text-on-surface">Registros de Inadimplência</h2>
-            <div className="flex w-full flex-wrap gap-sm min-[768px]:w-auto min-[768px]:justify-end [&>button]:w-full [&>button]:justify-center min-[768px]:[&>button]:w-auto">
-              {podeImportar ? <TableImport onImport={abrirImportacao} /> : null}
-              <TableExport onExport={aoExportar} />
-            </div>
-          </div>
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
-        </section>
+        <ResponsiveTable
+          desktop={desktopTable}
+          mobile={mobileTable}
+          onExport={aoExportar}
+          onImport={abrirImportacao}
+          showImport={podeImportar}
+        />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
         </>
         )}

@@ -45,16 +45,29 @@ const mimesPorFormato: Record<FormatoArquivoImportacao, readonly string[]> = {
   pdf: ["application/pdf"],
 };
 
-/** Formatos autorizados por módulo (extensão + assinatura devem concordar). */
+/**
+ * Formatos que o módulo processa nativamente.
+ * PDF de inadimplência pode ser enviado em qualquer módulo: o recebimento detecta o
+ * conteúdo e redireciona para `debitos`, gravando condomínio/unidade/responsável/débito
+ * cada um no cadastro certo.
+ */
 export const FORMATOS_AUTORIZADOS_POR_MODULO: Record<
   ModuloImportacaoArquivo,
   readonly FormatoArquivoImportacao[]
 > = {
   debitos: ["csv", "xlsx", "xls-xml", "pdf"],
-  unidades: ["csv", "xlsx", "xls-xml"],
-  condominios: ["csv", "xlsx", "xls-xml"],
-  responsaveis: ["csv", "xlsx", "xls-xml"],
+  unidades: ["csv", "xlsx", "xls-xml", "pdf"],
+  condominios: ["csv", "xlsx", "xls-xml", "pdf"],
+  responsaveis: ["csv", "xlsx", "xls-xml", "pdf"],
 };
+
+/** Qualquer formato conhecido de importação (independente do módulo escolhido na UI). */
+export const FORMATOS_IMPORTACAO_CONHECIDOS: readonly FormatoArquivoImportacao[] = [
+  "csv",
+  "xlsx",
+  "xls-xml",
+  "pdf",
+];
 
 export function extensoesPermitidas(modulo: ModuloImportacaoArquivo): string[] {
   const formatos = FORMATOS_AUTORIZADOS_POR_MODULO[modulo];
@@ -81,6 +94,15 @@ export function extensaoDoNome(nomeArquivo: string): string {
 export function formatoPorExtensao(ext: string, modulo: ModuloImportacaoArquivo): FormatoArquivoImportacao | null {
   const normalizada = ext.startsWith(".") ? ext : `.${ext}`;
   for (const formato of FORMATOS_AUTORIZADOS_POR_MODULO[modulo]) {
+    if (extensoesPorFormato[formato].includes(normalizada)) return formato;
+  }
+  return null;
+}
+
+/** Aceita extensão de qualquer formato de importação (o servidor decide o módulo efetivo). */
+export function formatoPorExtensaoConhecida(ext: string): FormatoArquivoImportacao | null {
+  const normalizada = ext.startsWith(".") ? ext : `.${ext}`;
+  for (const formato of FORMATOS_IMPORTACAO_CONHECIDOS) {
     if (extensoesPorFormato[formato].includes(normalizada)) return formato;
   }
   return null;

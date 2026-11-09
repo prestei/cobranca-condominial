@@ -126,12 +126,28 @@ test("rejeita CSV só com cabeçalho", async () => {
   );
 });
 
-test("rejeita formato não autorizado para o módulo", async () => {
+test("PDF genérico sem relatório de inadimplência é rejeitado na leitura", async () => {
   const buffer = Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n", "utf8");
   await rejeita(
     { userId: 1, modulo: "condominios", nomeArquivo: "relatorio.pdf", buffer, mimeDeclarado: "application/pdf" },
-    "formato_nao_autorizado",
+    "pdf_sem_texto",
   );
+});
+
+test("PDF de inadimplência enviado como unidades é redirecionado para debitos", async () => {
+  const { readFileSync } = await import("node:fs");
+  const buffer = readFileSync("src/test/fixtures/relatorio-inadimplencia-solar-das-palmeiras.pdf");
+  const resultado = await receberArquivoImportacao({
+    userId: 1,
+    modulo: "unidades",
+    nomeArquivo: "solar.pdf",
+    buffer,
+    mimeDeclarado: "application/pdf",
+  });
+  assert.equal(resultado.moduloSolicitado, "unidades");
+  assert.equal(resultado.moduloEfetivo, "debitos");
+  assert.equal(resultado.moduloCorrigido, true);
+  assert.ok(resultado.quantidadeRegistros >= 8);
 });
 
 test("rejeita extensão não autorizada", async () => {

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     criarImportacaoEmProcessamento({
       processoId: recebido.processoId,
       userId: session.userId,
-      modulo,
+      modulo: recebido.moduloEfetivo,
       arquivo: recebido.nomeArquivo,
       quantidadeRegistros: recebido.quantidadeRegistros,
       hashArquivo: recebido.hashArquivo,

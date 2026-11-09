@@ -34,7 +34,7 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloBotao: "Importar inadimplência",
     formato: FORMATO_IMPORTACAO_DEBITOS_V1,
     descricaoArquivo:
-      "CSV (;), XLSX, XLS ou PDF com colunas Unidade, Condomínio, Referência, Vencimento e valor. Condomínio e unidade ausentes são cadastrados automaticamente na prévia.",
+      "CSV (;), XLSX, XLS ou PDF com colunas Unidade, Condomínio, Referência, Vencimento e valor. Condomínio, unidade e responsável ausentes são cadastrados automaticamente nos módulos certos.",
     accept:
       ".csv,.xls,.xlsx,.pdf,.txt,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     origens: origensDebito,
@@ -46,9 +46,15 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloSheet: "Importar condomínios",
     tituloBotao: "Importar condomínios",
     formato: FORMATO_IMPORTACAO_CONDOMINIOS_V1,
-    descricaoArquivo: "CSV (;) ou XLS/XLSX com colunas Nome e Advogados (demais opcionais).",
+    descricaoArquivo:
+      "CSV (;) ou XLS/XLSX com colunas Nome e Advogados. PDF/planilha de inadimplência também é aceito: o sistema redireciona e grava cada dado no cadastro certo.",
     accept: extensoesPermitidas("condominios")
-      .concat(["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"])
+      .concat([
+        "text/csv",
+        "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ])
       .join(","),
     origens: [ORIGEM_CARTEIRA, "Outra administradora"],
     origemPadraoCarteira: ORIGEM_CARTEIRA,
@@ -59,9 +65,15 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloSheet: "Importar unidades",
     tituloBotao: "Importar unidades",
     formato: FORMATO_IMPORTACAO_UNIDADES_V1,
-    descricaoArquivo: "CSV (;) ou XLS/XLSX com Unidade, Condomínio e Tipo.",
+    descricaoArquivo:
+      "CSV (;) ou XLS/XLSX com Unidade, Condomínio e Tipo. PDF/planilha de inadimplência também é aceito e redirecionado automaticamente.",
     accept: extensoesPermitidas("unidades")
-      .concat(["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"])
+      .concat([
+        "text/csv",
+        "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ])
       .join(","),
     origens: [ORIGEM_CARTEIRA, "Outra administradora"],
     origemPadraoCarteira: ORIGEM_CARTEIRA,
@@ -73,9 +85,14 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloBotao: "Importar responsáveis",
     formato: FORMATO_IMPORTACAO_RESPONSAVEIS_V1,
     descricaoArquivo:
-      "CSV (;) ou XLS/XLSX com Condomínio, Unidade, Nome, CPF/CNPJ e Tipo de vínculo (unidade já cadastrada).",
+      "CSV (;) ou XLS/XLSX com Condomínio, Unidade, Nome, CPF/CNPJ e Tipo de vínculo. PDF/planilha de inadimplência também é aceito e redirecionado automaticamente.",
     accept: extensoesPermitidas("responsaveis")
-      .concat(["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"])
+      .concat([
+        "text/csv",
+        "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ])
       .join(","),
     origens: [ORIGEM_CARTEIRA, "Outra administradora"],
     origemPadraoCarteira: ORIGEM_CARTEIRA,

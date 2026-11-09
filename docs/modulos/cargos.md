@@ -11,7 +11,7 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 - **Módulos relacionados:** [usuarios](usuarios.md)
 - **Dados:** `role` em [banco.md](../banco.md); `Cargo` em `catalogo.ts`
 - **Regras globais:** [regra-negocio.md](../regra-negocio.md)
-- **Código transversal:** `src/lib/permissions/*`, `src/middleware.ts`, `src/hooks/use-permissao.ts`
+- **Código transversal:** `src/lib/permissions/*`, `src/proxy.ts`, `src/hooks/use-permissao.ts`, `src/lib/auth/destino-pos-login.ts`
 
 ## Rotas e telas
 
@@ -30,8 +30,9 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 **Enforcement:**
 
-- **Rotas:** `middleware` bloqueia acesso sem `ler` no módulo da rota.
-- **Menu:** `WorkspaceShell` oculta links sem `ler`.
+- **Rotas:** `src/proxy.ts` bloqueia acesso sem `ler` no módulo da rota.
+- **Login:** `destinoSeguroAposLogin` evita mandar o colaborador para uma rota sem `ler` quando a URL traz `from`.
+- **Menu:** `WorkspaceShell` oculta links sem `ler` (permissões da sessão vindas do servidor).
 - **Ações:** telas de CRUD usam `usePermissao().pode(modulo, acao)` para botões Novo / Editar / Excluir e exportação em relatórios.
 
 ## Dados e persistência
@@ -52,14 +53,14 @@ Serviço: `src/lib/cargos/service.ts`. Sessão: `cargoId` no JWT (`SessionUser` 
 ## Fluxos principais
 
 1. Admin abre `/cargos` → **Novo** ou **Editar** → preenche nome, descrição e matriz por módulo → salva via API (`permissaoJson` serializado no servidor).
-2. Colaborador faz login → permissões derivadas do `cargoId` + `permissaoJson` do cargo.
-3. Tentativa de abrir rota sem `ler` → redirecionamento para `/acesso-negado?modulo=…`.
+2. Colaborador faz login → permissões derivadas do `cargoId` + `permissaoJson` do cargo (servidor) e enviadas em `login`/`session`.
+3. Tentativa de abrir rota sem `ler` → redirecionamento para `/acesso-negado?modulo=…` (exceto no pós-login com `from` sem permissão, que cai no início).
 
 ## Regras de negócio
 
 - Todo cargo deve ter ao menos uma permissão marcada ao salvar.
 - Cargo em uso por colaboradores não pode ser excluído.
-- Alterações de cargo no cliente refletem imediatamente no menu via `usePermissao` (lê `catalogo` no browser). O `middleware` usa o seed do servidor até persistência compartilhada (PostgreSQL).
+- Menu e ações no cliente usam as permissões da sessão (`GET /api/auth/session`); o proxy revalida no servidor a cada navegação com o catálogo persistido.
 
 ## Integrações
 
