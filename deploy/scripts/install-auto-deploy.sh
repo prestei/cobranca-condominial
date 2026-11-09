@@ -7,6 +7,8 @@ BRANCH="${DEPLOY_BRANCH:-main}"
 
 cd "$APP_DIR"
 
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+
 if [[ ! -d .git ]]; then
   echo "==> Inicializando git em ${APP_DIR}"
   git init -b "$BRANCH"

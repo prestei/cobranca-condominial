@@ -16,6 +16,7 @@ if ! flock -n 9; then
 fi
 
 cd "$APP_DIR"
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 
 if [[ ! -d .git ]]; then
   logger -t "$LOG_TAG" "sem .git em ${APP_DIR} — abortando"

@@ -47,7 +47,21 @@ openssl rand -hex 24   # POSTGRES_PASSWORD / REPLICATION_PASSWORD
 
 Em `deploy/.env.production`, `DATABASE_URL` deve usar o usuário/senha do Postgres e host `db` (rede Docker).
 
-## Subir / atualizar a VPS principal
+## Deploy automático
+
+Na VPS, um timer systemd consulta o GitHub a cada **2 minutos**. Se `main` avançou, faz `git pull` + rebuild da app (preserva `deploy/.env.production`).
+
+Instalação (já feita na produção):
+
+```bash
+bash /opt/cobranca-condominial/deploy/scripts/install-auto-deploy.sh
+```
+
+Status: `systemctl status cobranca-auto-deploy.timer`
+
+Há também `.github/workflows/deploy.yml` (Actions). Para ativar, configure os secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_PRIVATE_KEY`, `VPS_APP_DIR`.
+
+## Subir / atualizar a VPS principal (manual)
 
 ```bash
 chmod +x deploy/scripts/*.sh deploy/scripts/ssh_pty.py
