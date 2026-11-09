@@ -76,7 +76,9 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 ## Produção (VPS)
 
-Deploy (Node + systemd + Caddy + PostgreSQL, **sem Docker**): ver [`deploy/README.md`](../deploy/README.md). Do seu PC: `./deploy/scripts/push.sh`.
+Deploy (Node + systemd + Caddy + PostgreSQL, **sem Docker**): ver [`deploy/README.md`](../deploy/README.md).
+
+VPS limpa (só IP + senha SSH): `npm run vps:subir`. Atualizar: `npm run vps:push`.
 
 ## PostgreSQL (desenvolvimento)
 

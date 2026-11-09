@@ -1,54 +1,59 @@
 # Deploy — Node.js + PostgreSQL + Caddy (sem Docker)
 
 A aplicação sobe como processo **Next.js** (`npm run start`) gerenciado por **systemd**.  
-Dados vivem **somente no PostgreSQL** (`DATABASE_URL`). Não há Docker nem volume `.data`.
+Dados vivem **somente no PostgreSQL**. Não há Docker nem volume `.data`.
+
+## Subir VPS limpa (recomendado)
+
+No seu PC, na raiz do projeto:
+
+```bash
+npm run vps:subir
+# ou: ./deploy/scripts/push.sh --assistente
+```
+
+A tela pede **somente**:
+
+1. IP da VPS  
+2. Senha SSH (root)
+
+O assistente gera segredos, envia o código, instala Node/Caddy/PostgreSQL, abre firewall, roda migrate/build e deixa o serviço no ar.
+
+Depois aponte o DNS `A` de `danieljorgeadv.com` e `www` para esse IP (HTTPS/Let's Encrypt).
+
+Atualizações seguintes (já com secrets salvos):
+
+```bash
+npm run vps:push
+```
 
 ## Arquitetura
 
 ```
-Internet → Caddy :443 (Let's Encrypt) → 127.0.0.1:3000 (Next.js / systemd)
-                                      → PostgreSQL (DATABASE_URL)
+Internet → Caddy :443/:80 → 127.0.0.1:3000 (Next.js / systemd)
+                          → PostgreSQL local (127.0.0.1:5432)
 ```
 
 | Peça | Função |
 | --- | --- |
-| `systemd/cobranca-app.service` | Processo Node da aplicação |
-| `scripts/remote-bootstrap.sh` | Na VPS: Node, Caddy, unit systemd |
+| `scripts/subir-vps.py` | Assistente: IP + senha → VPS no ar |
+| `scripts/push.sh` | Re-deploy (ou abre o assistente se faltar config) |
+| `scripts/remote-bootstrap.sh` | Node, Caddy, Postgres, UFW, systemd |
 | `scripts/ci-remote-deploy.sh` | migrate + build + restart |
-| `scripts/push.sh` | Do seu PC: sync/código + deploy remoto |
-| `scripts/auto-deploy-pull.sh` | Timer: pull `main` + deploy |
+| `systemd/cobranca-app.service` | Processo da aplicação |
 
-## Pré-requisitos
+## Pré-requisitos no seu PC
 
-1. DNS `A` do domínio apontando para a VPS
-2. PostgreSQL acessível (instalação nativa, managed cloud, etc.) — **não** use container efêmero
-3. `deploy/.env.production` com `AUTH_SECRET` (≥32) e `DATABASE_URL`
+- `python3`, `ssh`, `rsync`
+- VPS Ubuntu limpa com acesso SSH root + senha
 
-```bash
-cp deploy/env.example deploy/.env.production
-openssl rand -hex 32   # AUTH_SECRET
-# Ajuste DATABASE_URL
-```
-
-## Bootstrap (VPS limpa)
+## Deploy manual (só se precisar)
 
 ```bash
-# No servidor, com o código em /opt/cobranca-condominial
-sudo bash deploy/scripts/remote-bootstrap.sh
-# Opcional Postgres local:
-# sudo INSTALL_LOCAL_POSTGRES=1 bash deploy/scripts/remote-bootstrap.sh
+# Na VPS, com código já em /opt/cobranca-condominial e .env.production
+sudo INSTALL_LOCAL_POSTGRES=1 bash deploy/scripts/remote-bootstrap.sh
 sudo bash deploy/scripts/ci-remote-deploy.sh
 ```
-
-## Deploy / atualização
-
-```bash
-./deploy/scripts/push.sh
-# ou na VPS:
-APP_DIR=/opt/cobranca-condominial bash deploy/scripts/ci-remote-deploy.sh
-```
-
-O deploy roda `npm run db:migrate`, `npm run build` e `systemctl restart cobranca-app`.
 
 ## Auto-deploy
 

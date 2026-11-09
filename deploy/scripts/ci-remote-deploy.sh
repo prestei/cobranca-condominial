@@ -34,6 +34,10 @@ npm run db:migrate
 echo "==> Build Next.js"
 npm run build
 
+echo "==> Permissões do usuário do serviço"
+id -u cobranca >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin cobranca
+chown -R cobranca:cobranca "$APP_DIR"
+
 echo "==> Reinicia serviço"
 systemctl daemon-reload || true
 systemctl enable cobranca-app.service >/dev/null 2>&1 || true
