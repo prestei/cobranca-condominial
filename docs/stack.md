@@ -76,18 +76,26 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 ## Produção (VPS)
 
-Deploy idempotente (Docker + Caddy/HTTPS + Postgres com replicação pronta para contingência): ver [`deploy/README.md`](../deploy/README.md). Comando do seu PC: `./deploy/scripts/push.sh`.
+Deploy (Node + systemd + Caddy + PostgreSQL, **sem Docker**): ver [`deploy/README.md`](../deploy/README.md). Do seu PC: `./deploy/scripts/push.sh`.
 
 ## PostgreSQL (desenvolvimento)
 
-Use um PostgreSQL local. Configure `DATABASE_URL` no `.env` (veja `.env.example`).
+PostgreSQL é **obrigatório** (sem Docker, sem `.data`, sem persistência só em memória).
 
 ```bash
-cp .env.example .env   # se ainda não existir
-# Ajuste DATABASE_URL para o seu PostgreSQL local
+cp .env.example .env
+# Ajuste DATABASE_URL (Postgres nativo ou managed)
+npm run db:migrate
+npm run db:sync-operacional   # opcional: força snapshot atual → PG
 ```
 
-O catálogo operacional (`catalogo.ts`) fica em memória no processo Node e é **gravado automaticamente** em `.data/catalogo-operacional.json` a cada alteração (debounce ~300 ms), restaurado na subida via `src/instrumentation.ts`. Assim reinícios do `next dev` ou deploy local não apagam importações nem débitos. Caminho customizável: `CATALOGO_DATA_PATH`; desativar: `CATALOGO_PERSISTIR=0`. Migração definitiva para PostgreSQL (T02) usa a URL em `.env`.
+**Fonte da verdade = PostgreSQL:**
+
+- Snapshot completo: `catalogo_snapshot` (`src/lib/db/catalogo-snapshot-pg.ts`) — toda mutação agenda gravação no banco.
+- Identidade: `role` / `"user"` (`identity-pg.ts`) — login e CRUD.
+- Operacional normalizado: condomínios, unidades, débitos, import, auditoria (`operacional-pg.ts`).
+- Domínios adicionais: tabelas em `docs/migrations/2026-11-10-catalogo-snapshot-e-dominios.sql`.
+- Deploy: Node + systemd + Caddy — ver [`deploy/README.md`](../deploy/README.md). Sem Docker.
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 

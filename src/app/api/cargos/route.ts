@@ -19,7 +19,7 @@ export async function GET() {
   if (denied) return denied;
 
   try {
-    const cargos = listarCargos(session.userId);
+    const cargos = await listarCargos(session.userId);
     return Response.json({ cargos });
   } catch (error) {
     if (error instanceof CargoServiceError) {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const cargo = criarCargo(session.userId, parsed, requestMeta(request));
+    const cargo = await criarCargo(session.userId, parsed, requestMeta(request));
     return Response.json({ cargo }, { status: 201 });
   } catch (error) {
     if (error instanceof CargoServiceError) {

@@ -38,7 +38,7 @@ export async function GET() {
   const denied = await requirePermissao(session, "usuarios", "ler");
   if (denied) return denied;
 
-  const usuarios = listarUsuarios();
+  const usuarios = await listarUsuarios();
   return Response.json({ usuarios });
 }
 

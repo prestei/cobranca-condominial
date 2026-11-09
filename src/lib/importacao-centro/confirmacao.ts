@@ -111,7 +111,7 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
       return resultadoIdempotente(preview, existenteAntes);
     }
 
-    return executarTransacaoCatalogo(() => {
+    const resultado = executarTransacaoCatalogo(() => {
       const existenteNaTransacao = adapter.buscarImportacaoIdempotente(hashArquivo);
       if (existenteNaTransacao) {
         return resultadoIdempotente(preview, existenteNaTransacao);
@@ -156,5 +156,15 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
 
       return { importacao, contadores, idempotente: false } satisfies ResultadoConfirmacaoCentral;
     });
+
+    // Persistência definitiva no PostgreSQL (fonte operacional da importação).
+    const { getCadastros } = await import("@/data/catalogo");
+    const { salvarOperacionalNoPostgres } = await import("@/lib/db/operacional-pg");
+    const gravou = await salvarOperacionalNoPostgres(getCadastros());
+    if (!gravou) {
+      console.error("[importacao] confirmação gravou no catálogo, mas falhou ao persistir no PostgreSQL.");
+    }
+
+    return resultado;
   });
 }

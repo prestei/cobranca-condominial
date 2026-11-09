@@ -313,6 +313,11 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
 
   antesDeInterpretar(matriz, meta) {
     provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao);
+    // Espelha condomínio/unidade/responsável provisionados no PostgreSQL.
+    void import("@/lib/db/operacional-pg").then(async ({ salvarOperacionalNoPostgres }) => {
+      const { getCadastros } = await import("@/data/catalogo");
+      await salvarOperacionalNoPostgres(getCadastros());
+    });
   },
 
   aplicarMetadadosLeitura(contexto, entrada) {

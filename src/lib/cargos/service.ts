@@ -5,10 +5,29 @@ import {
   setCargos,
   type Cargo,
 } from "@/data/catalogo";
+import {
+  excluirCargoPg,
+  identityPgDisponivel,
+  listarCargosPg,
+  upsertCargoPg,
+} from "@/lib/db/identity-pg";
 import { temPermissao } from "@/lib/permissions/check";
 import { cargoTemAlgumaPermissao, parsePermissoesJson, serializarPermissoes } from "@/lib/permissions/parse";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+
+async function persistirCargoNoPostgres(cargo: Cargo) {
+  if (!identityPgDisponivel()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new CargoServiceError("PostgreSQL indisponível para gravar cargo.", 503);
+    }
+    return;
+  }
+  const ok = await upsertCargoPg(cargo);
+  if (!ok) {
+    throw new CargoServiceError("Falha ao gravar cargo no PostgreSQL.", 500);
+  }
+}
 
 export class CargoServiceError extends Error {
   constructor(
@@ -83,16 +102,23 @@ function validarEntrada(input: CargoInput, cargoId?: number): CargoInput {
   };
 }
 
-export function listarCargos(userId: number): Cargo[] {
+export async function listarCargos(userId: number): Promise<Cargo[]> {
   assertPermissao(userId, "ler");
+  if (identityPgDisponivel()) {
+    const doPg = await listarCargosPg();
+    if (doPg) {
+      setCargos(doPg);
+      return [...doPg].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    }
+  }
   return [...getCadastros().cargos].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-export function criarCargo(
+export async function criarCargo(
   actorUserId: number,
   input: CargoInput,
   meta?: { ip?: string; userAgent?: string },
-): Cargo {
+): Promise<Cargo> {
   assertPermissao(actorUserId, "criar");
   const dados = validarEntrada(input);
   const id = proximoNumero(getCadastros().cargos.map((item) => item.id));
@@ -105,6 +131,7 @@ export function criarCargo(
     ativo: dados.ativo !== false,
   };
 
+  await persistirCargoNoPostgres(cargo);
   setCargos((current) => [...current, cargo]);
   registrarAuditoria(
     {
@@ -121,12 +148,12 @@ export function criarCargo(
   return cargo;
 }
 
-export function atualizarCargo(
+export async function atualizarCargo(
   actorUserId: number,
   cargoId: number,
   input: CargoInput,
   meta?: { ip?: string; userAgent?: string },
-): Cargo {
+): Promise<Cargo> {
   assertPermissao(actorUserId, "editar");
   const anterior = getCadastros().cargos.find((item) => item.id === cargoId);
   if (!anterior) {
@@ -143,6 +170,7 @@ export function atualizarCargo(
     ativo: dados.ativo !== false,
   };
 
+  await persistirCargoNoPostgres(atualizado);
   setCargos((current) => current.map((item) => (item.id === cargoId ? atualizado : item)));
   registrarAuditoria(
     {
@@ -165,7 +193,7 @@ export function atualizarCargo(
   return atualizado;
 }
 
-export function excluirCargo(
+export async function excluirCargo(
   actorUserId: number,
   cargoId: number,
   meta?: { ip?: string; userAgent?: string },
@@ -177,6 +205,15 @@ export function excluirCargo(
   }
   if (getCadastros().usuarios.some((item) => item.cargoId === cargoId)) {
     throw new CargoServiceError("Existem colaboradores com este cargo.", 409);
+  }
+
+  if (identityPgDisponivel()) {
+    const ok = await excluirCargoPg(cargoId);
+    if (!ok) {
+      throw new CargoServiceError("Falha ao excluir cargo no PostgreSQL.", 500);
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    throw new CargoServiceError("PostgreSQL indisponível para excluir cargo.", 503);
   }
 
   setCargos((current) => current.filter((item) => item.id !== cargoId));

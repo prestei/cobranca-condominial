@@ -13,8 +13,40 @@ import {
 } from "@/lib/colaboradores/re-sequencia";
 import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { hashPassword, isPasswordHash } from "@/lib/auth/password";
+import {
+  excluirUsuarioPg,
+  identityPgDisponivel,
+  listarUsuariosPg,
+  upsertUsuarioPg,
+} from "@/lib/db/identity-pg";
 import { sincronizarCondominiosAdvogado } from "@/lib/usuarios/advogado-condominios";
 import { usuarioParaResposta, type UsuarioPublico } from "@/lib/usuarios/apresentacao";
+
+async function persistirUsuarioNoPostgres(usuario: Usuario) {
+  if (!identityPgDisponivel()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new UsuarioServiceError("PostgreSQL indisponível para gravar colaborador.", 503);
+    }
+    return;
+  }
+  const ok = await upsertUsuarioPg(usuario);
+  if (!ok) {
+    throw new UsuarioServiceError("Falha ao gravar colaborador no PostgreSQL.", 500);
+  }
+}
+
+async function removerUsuarioDoPostgres(usuarioId: number) {
+  if (!identityPgDisponivel()) {
+    if (process.env.NODE_ENV === "production") {
+      throw new UsuarioServiceError("PostgreSQL indisponível para excluir colaborador.", 503);
+    }
+    return;
+  }
+  const ok = await excluirUsuarioPg(usuarioId);
+  if (!ok) {
+    throw new UsuarioServiceError("Falha ao excluir colaborador no PostgreSQL.", 500);
+  }
+}
 
 export type UsuarioInput = {
   codigo: string;
@@ -169,7 +201,14 @@ function montarUsuarioComRe(
   return { id: usuarioId, ...base, codigo: loginRe, codigoRe };
 }
 
-export function listarUsuarios(): UsuarioPublico[] {
+export async function listarUsuarios(): Promise<UsuarioPublico[]> {
+  if (identityPgDisponivel()) {
+    const doPg = await listarUsuariosPg();
+    if (doPg) {
+      setUsuarios(doPg);
+      return doPg.map(usuarioParaResposta);
+    }
+  }
   return getCadastros().usuarios.map(usuarioParaResposta);
 }
 
@@ -233,6 +272,8 @@ export async function criarUsuario(
     setUsuarios((current) => [...current, usuario]);
   }
 
+  await persistirUsuarioNoPostgres(usuario);
+
   if (input.condominioIds) {
     sincronizarCondominiosAdvogado(
       actorUserId,
@@ -287,6 +328,8 @@ export async function atualizarUsuario(
     setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
   }
 
+  await persistirUsuarioNoPostgres(atualizado);
+
   if (input.condominioIds) {
     sincronizarCondominiosAdvogado(
       actorUserId,
@@ -331,6 +374,7 @@ export async function alterarSituacaoUsuario(
 
   const atualizado: Usuario = { ...atual, ativo };
   setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
+  await persistirUsuarioNoPostgres(atualizado);
 
   registrarAuditoria(
     {
@@ -347,7 +391,7 @@ export async function alterarSituacaoUsuario(
   return usuarioParaResposta(atualizado);
 }
 
-export function excluirUsuario(
+export async function excluirUsuario(
   actorUserId: number,
   usuarioId: number,
   meta?: { ip?: string; userAgent?: string },
@@ -363,6 +407,7 @@ export function excluirUsuario(
     );
   }
 
+  await removerUsuarioDoPostgres(usuarioId);
   setUsuarios((current) => current.filter((item) => item.id !== usuarioId));
   registrarAuditoria(
     {

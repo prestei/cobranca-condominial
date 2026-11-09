@@ -1,0 +1,23 @@
+[Unit]
+Description=Cobrança condominial (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/cobranca-condominial
+EnvironmentFile=/opt/cobranca-condominial/deploy/.env.production
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3000
+Restart=on-failure
+RestartSec=5
+Nice=5
+
+# Segurança básica
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

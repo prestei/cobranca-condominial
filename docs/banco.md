@@ -2,6 +2,8 @@
 
 Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os tipos abaixo valem para o motor que for escolhido. Campo JSON vira `JSONB` no PostgreSQL.
 
+**Persistência:** `npm run db:migrate` aplica `docs/migrations/*.sql`. Identidade e importação ficam em tabelas normalizadas; o estado completo do sistema também é gravado em `catalogo_snapshot` (JSONB) a cada mutação — reinício não perde dados. Sem Docker e sem arquivo `.data` como fonte da verdade.
+
 | Tabela | Papel |
 | --- | --- |
 | [role](#role) | Cargo e permissões |
@@ -63,6 +65,7 @@ Cargo do colaborador. As permissões ficam em JSON.
 | nome | VARCHAR(255) | sim | | Nome do cargo |
 | descricao | VARCHAR(255) | sim | | |
 | permissao_json | TEXT | sim | | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. |
+| ativo | BOOLEAN | não | padrão `true` | Cargo inativo não deve ser atribuído a novos colaboradores |
 
 ## user
 

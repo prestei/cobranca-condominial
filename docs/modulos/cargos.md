@@ -37,7 +37,7 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 ## Dados e persistência
 
-Protótipo em memória (`setCargos` em `catalogo.ts`). Modelo lógico em `docs/banco.md` (`role.permissao_json`).
+Persistência em PostgreSQL (`role` via `src/lib/db/identity-pg.ts`). Cache de processo só espelha o banco. Modelo lógico em `docs/banco.md` (`role.permissao_json`).
 
 ## API e contratos
 

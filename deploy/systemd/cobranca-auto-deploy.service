@@ -1,6 +1,6 @@
 [Unit]
-Description=Cobrança condominial — auto deploy (git pull + rebuild)
-After=network-online.target docker.service
+Description=Cobrança condominial — auto deploy (git pull + build)
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -10,7 +10,6 @@ Environment=HOME=/root
 Environment=APP_DIR=/opt/cobranca-condominial
 Environment=DEPLOY_BRANCH=main
 Environment=DEPLOY_REMOTE=origin
-Environment=DOCKER_BUILDKIT=0
 ExecStart=/opt/cobranca-condominial/deploy/scripts/auto-deploy-pull.sh
 Nice=10
 IOSchedulingClass=best-effort

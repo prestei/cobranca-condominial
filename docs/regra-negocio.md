@@ -19,6 +19,7 @@ Automatiza e organiza o processo do escritório de advocacia responsável pela c
 - Cada colaborador entra com **código e senha** próprios (`/login`).
 - A sessão é mantida em cookie HTTP-only assinado no servidor (7 dias); sem sessão válida, as telas internas redirecionam para o login.
 - Após o login, o parâmetro `from` só é honrado se o cargo tiver permissão de **ver** naquele módulo; caso contrário o destino é o início (ou a primeira área liberada).
+- Colaboradores, cargos e permissões são persistidos no **PostgreSQL** (`role` / `"user"`). Reinício ou deploy não pode apagar usuários: a fonte da verdade não é memória nem arquivo `.data`.
 - Atendimentos, importações e auditoria registram o **ID do colaborador logado**, não um atendente escolhido na tela.
 
 ### Quem vai usar o sistema?

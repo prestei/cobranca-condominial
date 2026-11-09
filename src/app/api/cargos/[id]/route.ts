@@ -39,7 +39,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const cargo = atualizarCargo(session.userId, cargoId, parsed, requestMeta(request));
+    const cargo = await atualizarCargo(session.userId, cargoId, parsed, requestMeta(request));
     return Response.json({ cargo });
   } catch (error) {
     if (error instanceof CargoServiceError) {
@@ -62,7 +62,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   try {
-    excluirCargo(session.userId, cargoId, requestMeta(_request));
+    await excluirCargo(session.userId, cargoId, requestMeta(_request));
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof CargoServiceError) {

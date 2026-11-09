@@ -547,28 +547,58 @@ export type Cadastros = {
 /** Evita gravar em disco durante testes que resetam o catálogo. */
 let pularPersistenciaCatalogo = false;
 
-let state: Cadastros = {
-  condominios: condominiosIniciais,
-  cargos: cargosIniciais,
-  usuarios: usuariosIniciais,
-  unidades: unidadesIniciais,
-  responsaveis: responsaveisIniciais,
-  vinculos: vinculosIniciais,
-  debitos: debitosIniciais,
-  atendimentos: atendimentosIniciais,
-  propostasNegociacao: propostasNegociacaoIniciais,
-  encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
-  documentosJuridicos: documentosJuridicosIniciais,
-  parcelasAcordo: parcelasAcordoIniciais,
-  pagamentosAcordo: pagamentosAcordoIniciais,
-  atribuicoesCobranca: atribuicoesIniciais,
-  importacoes: importacoesIniciais,
-  auditoria: auditoriaInicial,
-  notificacoesInternas: [],
-  notificacaoFalhas: [],
+function estadoCatalogoSeed(): Cadastros {
+  return {
+    condominios: condominiosIniciais,
+    cargos: cargosIniciais,
+    usuarios: usuariosIniciais,
+    unidades: unidadesIniciais,
+    responsaveis: responsaveisIniciais,
+    vinculos: vinculosIniciais,
+    debitos: debitosIniciais,
+    atendimentos: atendimentosIniciais,
+    propostasNegociacao: propostasNegociacaoIniciais,
+    encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
+    documentosJuridicos: documentosJuridicosIniciais,
+    parcelasAcordo: parcelasAcordoIniciais,
+    pagamentosAcordo: pagamentosAcordoIniciais,
+    atribuicoesCobranca: atribuicoesIniciais,
+    importacoes: importacoesIniciais,
+    auditoria: auditoriaInicial,
+    notificacoesInternas: [],
+    notificacaoFalhas: [],
+  };
+}
+
+/**
+ * Sobrevive ao hot-reload do Next: o módulo é reavaliado, mas `globalThis` permanece.
+ * Sem isso, importações “somem” e o seed volta a sobrescrever a UI até o próximo restart.
+ */
+type CatalogoGlobalStore = {
+  __cobrancaCatalogoState?: Cadastros;
+  __cobrancaCatalogoListeners?: Set<() => void>;
 };
 
-const listeners = new Set<() => void>();
+const catalogoGlobal = globalThis as typeof globalThis & CatalogoGlobalStore;
+
+function resolverEstadoInicialCatalogo(): Cadastros {
+  if (catalogoGlobal.__cobrancaCatalogoState) {
+    return catalogoGlobal.__cobrancaCatalogoState;
+  }
+  // Estado inicial transitório até `instrumentation.ts` hidratar do PostgreSQL.
+  return estadoCatalogoSeed();
+}
+
+let state: Cadastros = resolverEstadoInicialCatalogo();
+catalogoGlobal.__cobrancaCatalogoState = state;
+
+const listeners = catalogoGlobal.__cobrancaCatalogoListeners ?? new Set<() => void>();
+catalogoGlobal.__cobrancaCatalogoListeners = listeners;
+
+function publicarEstadoCatalogo(next: Cadastros) {
+  state = next;
+  catalogoGlobal.__cobrancaCatalogoState = state;
+}
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -584,6 +614,12 @@ function normalizarUsuario(item: Usuario): Usuario {
 }
 
 function usuariosComSeed() {
+  // Com PostgreSQL, o estado hidratado do banco é a única lista — sem reinjetar seed.
+  if (process.env.DATABASE_URL?.trim()) {
+    return migrarCodigosReUsuarios(
+      [...state.usuarios.map(normalizarUsuario)].sort((a, b) => a.id - b.id),
+    );
+  }
   const map = new Map(state.usuarios.map((item) => [item.id, normalizarUsuario(item)]));
   for (const seed of usuariosIniciais) {
     if (!map.has(seed.id)) {
@@ -634,28 +670,28 @@ function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
   return Boolean(re && normalizarCodigoUsuario(re) === chave);
 }
 
-/** Login: seed do servidor tem precedência (senha bcrypt correta no deploy / após alteração do seed). Aceita código de login ou RE. */
+/** Login legado (sem PG): lê do estado em processo. Com DATABASE_URL use identity-pg. */
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
   const noEstado = state.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
   if (noEstado) return noEstado;
+  if (process.env.DATABASE_URL?.trim()) return undefined;
   return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
 }
 
 function sinalizarPersistenciaCatalogo() {
   if (typeof window !== "undefined") return;
-  void import("@/lib/catalogo/persistencia-disco").then((modulo) => {
-    modulo.agendarPersistenciaCatalogo(
-      exportarEstadoCatalogoParaPersistencia,
-      () => pularPersistenciaCatalogo,
-    );
+  if (pularPersistenciaCatalogo) return;
+  // Persistência durável exclusiva no PostgreSQL.
+  void import("@/lib/db/catalogo-snapshot-pg").then((modulo) => {
+    modulo.agendarPersistenciaCatalogoNoPostgres(exportarEstadoCatalogoParaPersistencia);
   });
 }
 
 /** Substitui o estado operacional (ex.: restauração após reinício do servidor). */
 export function substituirEstadoCatalogo(next: Cadastros) {
-  state = structuredClone(next);
+  publicarEstadoCatalogo(structuredClone(next));
   atualizarCadastrosSnapshot();
   emit();
 }
@@ -667,7 +703,7 @@ export function exportarEstadoCatalogoParaPersistencia(): Cadastros {
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
   const value = typeof next === "function" ? next(state[key]) : next;
   if (value === state[key]) return;
-  state = { ...state, [key]: value };
+  publicarEstadoCatalogo({ ...state, [key]: value });
   atualizarCadastrosSnapshot();
   emit();
   sinalizarPersistenciaCatalogo();
@@ -785,7 +821,7 @@ const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
 export function resetCadastrosParaTestes() {
   pularPersistenciaCatalogo = true;
   try {
-    state = structuredClone(cadastrosSnapshotParaTestes);
+    publicarEstadoCatalogo(structuredClone(cadastrosSnapshotParaTestes));
     atualizarCadastrosSnapshot();
     emit();
   } finally {
@@ -802,7 +838,7 @@ export function executarTransacaoCatalogo<T>(fn: () => T): T {
   try {
     return fn();
   } catch (error) {
-    state = snapshot;
+    publicarEstadoCatalogo(snapshot);
     atualizarCadastrosSnapshot();
     emit();
     sinalizarPersistenciaCatalogo();
@@ -816,7 +852,7 @@ export async function executarTransacaoCatalogoAsync<T>(fn: () => Promise<T>): P
   try {
     return await fn();
   } catch (error) {
-    state = snapshot;
+    publicarEstadoCatalogo(snapshot);
     atualizarCadastrosSnapshot();
     emit();
     sinalizarPersistenciaCatalogo();

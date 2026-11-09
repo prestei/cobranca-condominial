@@ -8,7 +8,7 @@ Gestão de colaboradores, login individual, código RE para todos os colaborador
 
 - **Mapa:** [mapa-do-projeto.md](../mapa-do-projeto.md) — linha `usuarios`
 - **Módulos relacionados:** [cargos](cargos.md), [atendimentos](atendimentos.md), [auditoria](auditoria.md), [condominios](condominios.md)
-- **Dados:** `user` em [banco.md](../banco.md); tipo `Usuario` em `src/data/catalogo.ts` (estado em memória no servidor, espelhado no cliente)
+- **Dados:** `user` / `role` em [banco.md](../banco.md) e PostgreSQL (`src/lib/db/identity-pg.ts`); tipo `Usuario` em `src/data/catalogo.ts` (cache de processo hidratado do banco)
 - **Migração RE:** [migrations/2026-10-29-codigo-re-usuarios.md](../migrations/2026-10-29-codigo-re-usuarios.md)
 - **Stack:** [stack.md](../stack.md) — `AUTH_SECRET`, cookies de sessão
 
@@ -23,7 +23,7 @@ Perfis via `cargo` / `role` — regras detalhadas em [regra-negocio.md](../regra
 
 ## Dados e persistência
 
-Modelo lógico em `docs/banco.md` (`user`, `role`). Colaboradores e senhas (bcrypt) ficam no estado servidor de `catalogo.ts`; o CRUD em `/usuarios` persiste via API. Login valida no servidor com `buscarUsuarioPorCodigoLogin` + `verifyPassword` (bloqueia `ativo === false`).
+Modelo lógico em `docs/banco.md` (`user`, `role`). Colaboradores e senhas (bcrypt) vivem no **PostgreSQL**; o CRUD em `/usuarios` grava no banco antes de atualizar o cache de processo. Login valida com `buscarUsuarioPorCodigoLoginPg` + `verifyPassword` (bloqueia `ativo === false`). Sem `DATABASE_URL` em produção o servidor não sobe.
 
 ## Código RE
 

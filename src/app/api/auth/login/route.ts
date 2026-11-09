@@ -1,5 +1,6 @@
 import { findUsuarioPorCredenciais } from "@/lib/auth/credentials";
 import { createSession } from "@/lib/auth/session";
+import { identityPgDisponivel, permissoesDoUsuarioIdPg } from "@/lib/db/identity-pg";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export async function POST(request: Request) {
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
     cargoId: usuario.cargoId,
   });
 
+  const permissoes = identityPgDisponivel()
+    ? ((await permissoesDoUsuarioIdPg(usuario.id)) ?? permissoesDoUsuarioId(usuario.id))
+    : permissoesDoUsuarioId(usuario.id);
+
   return Response.json({
     user: {
       userId: usuario.id,
@@ -37,6 +42,6 @@ export async function POST(request: Request) {
       nome: usuario.nome,
       cargoId: usuario.cargoId,
     },
-    permissoes: permissoesDoUsuarioId(usuario.id),
+    permissoes,
   });
 }

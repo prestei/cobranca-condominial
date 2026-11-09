@@ -43,7 +43,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   }
 
   try {
-    excluirUsuario(session.userId, usuarioId, requestMeta(_request));
+    await excluirUsuario(session.userId, usuarioId, requestMeta(_request));
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof UsuarioServiceError) {

@@ -95,6 +95,7 @@ import {
   tiposUnidade,
   tiposVinculo,
   unidadeComDebitoOperacional,
+  unidadeNaFilaCobrancaAtiva,
   type Responsavel,
   type Unidade,
   type Vinculo,
@@ -578,16 +579,20 @@ function UnidadesPage() {
   }
 
   function celulaDebito(item: Unidade) {
-    if (!emDebitoOperacional(item)) {
-      return <Badge variant="success">Em dia</Badge>;
+    if (emDebitoOperacional(item)) {
+      const valor = debitosAbertos.get(item.id) ?? 0;
+      return (
+        <span className="inline-flex flex-col items-start gap-xs">
+          <Badge variant="error">Devendo</Badge>
+          <span className="tabular-nums">{formatarMoeda(String(valor))}</span>
+        </span>
+      );
     }
-    const valor = debitosAbertos.get(item.id) ?? 0;
-    return (
-      <span className="inline-flex flex-col items-start gap-xs">
-        <Badge variant="error">Devendo</Badge>
-        <span className="tabular-nums">{formatarMoeda(String(valor))}</span>
-      </span>
-    );
+    // Em cobrança sem débitos na base = prévia sem confirmação ou sync incompleto — não é "em dia".
+    if (unidadeNaFilaCobrancaAtiva(item)) {
+      return <Badge variant="secondary">Sem débitos</Badge>;
+    }
+    return <Badge variant="success">Em dia</Badge>;
   }
 
   const colunasExportacao = [
@@ -600,8 +605,9 @@ function UnidadesPage() {
   ] as const;
 
   function textoDebitoExport(item: Unidade) {
-    if (!emDebitoOperacional(item)) return "Em dia";
-    return "Devendo";
+    if (emDebitoOperacional(item)) return "Devendo";
+    if (unidadeNaFilaCobrancaAtiva(item)) return "Sem débitos";
+    return "Em dia";
   }
 
   function valorAbertoExport(item: Unidade) {
@@ -883,6 +889,7 @@ function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
+          <TableHead>Cobrança</TableHead>
           <TableHead sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
@@ -891,7 +898,7 @@ function UnidadesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -918,6 +925,7 @@ function UnidadesPage() {
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
+              <TableCell>{celulaCobranca(item)}</TableCell>
               <TableCell>{celulaDebito(item)}</TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableRow>
@@ -933,8 +941,6 @@ function UnidadesPage() {
     ) : (
       <TableMobileList aria-label="Unidades">
         {pageRows.map((item, index) => {
-          const emDebito = emDebitoOperacional(item);
-          const valorAberto = debitosAbertos.get(item.id) ?? 0;
           return (
             <TableMobileCard key={item.id}>
               <TableMobileCardHeader>
@@ -967,9 +973,7 @@ function UnidadesPage() {
                 <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
                   <div className="min-w-0">
                     <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
-                    <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                      {emDebito ? formatarMoeda(String(valorAberto)) : "Em dia"}
-                    </p>
+                    <div className="mt-xs">{celulaDebito(item)}</div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-xs">
                     <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 import { readSessionToken } from "@/lib/auth/jwt";
+import { identityPgDisponivel, permissoesDoUsuarioIdPg } from "@/lib/db/identity-pg";
 import { moduloDaRota } from "@/lib/permissions/modulos";
 import { podeAcessarRota } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -63,7 +64,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const modulo = moduloDaRota(pathname);
-  const permissoes = permissoesDoUsuarioId(session.userId);
+  const permissoes = identityPgDisponivel()
+    ? ((await permissoesDoUsuarioIdPg(session.userId)) ?? permissoesDoUsuarioId(session.userId))
+    : permissoesDoUsuarioId(session.userId);
   if (!podeAcessarRota(permissoes, modulo)) {
     const destino = new URL("/acesso-negado", request.url);
     destino.searchParams.set("modulo", modulo);

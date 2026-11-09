@@ -1,153 +1,86 @@
 #!/usr/bin/env bash
-# Executa NA VPS. Idempotente: pode rodar em máquina limpa ou já provisionada.
+# Bootstrap na VPS: Node.js, Caddy, PostgreSQL local ou remoto, systemd — sem Docker.
 set -euo pipefail
-export DEBIAN_FRONTEND=noninteractive
 
 APP_DIR="${APP_DIR:-/opt/cobranca-condominial}"
 DOMAIN="${DOMAIN:-danieljorgeadv.com}"
-SWAP_MB="${SWAP_MB:-4096}"
 
-log() { printf '\n==> %s\n' "$*"; }
+log() { echo "==> $*"; }
 
-need_root() {
-  if [[ "${EUID}" -ne 0 ]]; then
-    echo "Execute como root." >&2
-    exit 1
-  fi
-}
-
-ensure_swap() {
-  if swapon --show | grep -q .; then
-    log "Swap já ativo"
+install_node() {
+  if command -v node >/dev/null 2>&1; then
+    log "Node já instalado: $(node -v)"
     return
   fi
-  if [[ -f /swapfile ]]; then
-    swapon /swapfile || true
-    return
-  fi
-  log "Criando swap ${SWAP_MB}MB (VPS com pouca RAM)"
-  fallocate -l "${SWAP_MB}M" /swapfile || dd if=/dev/zero of=/swapfile bs=1M count="${SWAP_MB}"
-  chmod 600 /swapfile
-  mkswap /swapfile
-  swapon /swapfile
-  if ! grep -q '^/swapfile ' /etc/fstab; then
-    echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  fi
-}
-
-install_docker() {
-  export DEBIAN_FRONTEND=noninteractive
-  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    log "Docker já instalado: $(docker --version)"
-    return
-  fi
-  log "Instalando Docker (pacotes Ubuntu: docker.io + compose)"
+  log "Instalando Node.js 22 (NodeSource)"
   apt-get update -y
-  apt-get install -y ca-certificates curl gnupg docker.io docker-compose-v2 \
-    || apt-get install -y docker.io docker-compose
-  systemctl enable --now docker
-  docker --version
-  docker compose version
+  apt-get install -y ca-certificates curl gnupg
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
 }
 
-wait_apt() {
-  local i
-  for i in $(seq 1 60); do
-    if ! fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
-      && ! fuser /var/lib/dpkg/lock >/dev/null 2>&1; then
-      return 0
-    fi
-    log "Aguardando apt/dpkg (unattended-upgrades?)… ${i}/60"
-    sleep 5
-  done
-  return 1
-}
-
-configure_firewall() {
-  log "Configurando UFW (22, 80, 443, 5432)"
-  wait_apt || true
-  apt-get install -y ufw
-  ufw allow OpenSSH
-  ufw allow 80/tcp
-  ufw allow 443/tcp
-  ufw allow 443/udp
-  # Postgres só necessário quando o standby existir — deixe aberto por enquanto
-  ufw allow 5432/tcp comment 'postgres replication'
-  ufw --force enable
-}
-
-ensure_env() {
-  local envf="${APP_DIR}/deploy/.env.production"
-  if [[ ! -f "$envf" ]]; then
-    echo "Arquivo ausente: ${envf}" >&2
-    echo "Gere a partir de deploy/env.example antes do bootstrap." >&2
-    exit 1
+install_caddy() {
+  if command -v caddy >/dev/null 2>&1; then
+    log "Caddy já instalado"
+    return
   fi
-  # shellcheck disable=SC1090
-  set -a; source "$envf"; set +a
-  if [[ -z "${AUTH_SECRET:-}" || ${#AUTH_SECRET} -lt 32 ]]; then
-    echo "AUTH_SECRET inválido em .env.production (mín. 32 chars)" >&2
-    exit 1
+  log "Instalando Caddy"
+  apt-get update -y
+  apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update -y
+  apt-get install -y caddy
+}
+
+install_postgres_optional() {
+  if [[ "${INSTALL_LOCAL_POSTGRES:-0}" != "1" ]]; then
+    log "Pulando Postgres local (use DATABASE_URL apontando para seu banco). Para instalar: INSTALL_LOCAL_POSTGRES=1"
+    return
   fi
-  if [[ -z "${POSTGRES_PASSWORD:-}" || -z "${REPLICATION_PASSWORD:-}" ]]; then
-    echo "POSTGRES_PASSWORD e REPLICATION_PASSWORD são obrigatórios" >&2
-    exit 1
+  if command -v psql >/dev/null 2>&1; then
+    log "PostgreSQL já instalado"
+    return
   fi
+  log "Instalando PostgreSQL"
+  apt-get update -y
+  apt-get install -y postgresql postgresql-contrib
+  systemctl enable --now postgresql
 }
 
-start_stack() {
-  log "Subindo stack (blue/green) em ${APP_DIR}"
-  chmod +x "${APP_DIR}/deploy/scripts/"*.sh || true
-  # Deploy zero-downtime: build no slot inativo, troca Caddy, derruba o antigo
-  APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/ci-remote-deploy.sh"
+configure_caddy() {
+  log "Configurando Caddy para ${DOMAIN}"
+  mkdir -p /etc/caddy
+  cat > /etc/caddy/Caddyfile <<EOF
+${DOMAIN}, www.${DOMAIN} {
+  encode gzip
+  reverse_proxy 127.0.0.1:3000
 }
-
-wait_healthy() {
-  log "Validando site"
-  local i
-  for i in $(seq 1 30); do
-    if curl -fsSk "https://${DOMAIN}/login" >/dev/null 2>&1 \
-      || curl -fsS -H "Host: ${DOMAIN}" "http://127.0.0.1/login" >/dev/null 2>&1; then
-      log "Stack responsiva"
-      return 0
-    fi
-    sleep 3
-  done
-  log "Aviso: healthcheck lento — docker ps / logs caddy"
-  docker ps --filter name=cobranca- || true
-}
-
-print_dns_hint() {
-  local ip
-  ip="$(curl -4 -fsS https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
-  cat <<EOF
-
---------------------------------------------
-Domínio: ${DOMAIN}
-IP desta VPS: ${ip}
-
-Para o SSL Let's Encrypt funcionar, o DNS deve apontar:
-  A     ${DOMAIN}      -> ${ip}
-  A     www.${DOMAIN}  -> ${ip}
-  (ou CNAME www -> ${DOMAIN})
-
-Estado atual: se o domínio ainda aponta para parking/CDN,
-o Caddy fica em HTTP até o DNS propagar e emite o certificado
-automaticamente depois.
---------------------------------------------
 EOF
+  systemctl enable --now caddy
+  systemctl reload caddy || systemctl restart caddy
+}
+
+install_app_unit() {
+  log "Instalando unit systemd cobranca-app"
+  install -m 644 "$APP_DIR/deploy/systemd/cobranca-app.service" /etc/systemd/system/cobranca-app.service
+  # App costuma rodar como root ou usuário dedicado; www-data precisa de permissão no diretório.
+  id -u cobranca >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin cobranca
+  chown -R cobranca:cobranca "$APP_DIR" || true
+  sed -i 's/^User=.*/User=cobranca/' /etc/systemd/system/cobranca-app.service
+  sed -i 's/^Group=.*/Group=cobranca/' /etc/systemd/system/cobranca-app.service
+  systemctl daemon-reload
 }
 
 main() {
-  need_root
-  ensure_swap
-  install_docker
-  configure_firewall
-  ensure_env
-  start_stack
-  wait_healthy
-  print_dns_hint
-  log "Bootstrap concluído"
+  apt-get update -y
+  apt-get install -y curl git ufw openssl
+  install_node
+  install_caddy
+  install_postgres_optional
+  configure_caddy
+  install_app_unit
+  log "Bootstrap concluído. Configure deploy/.env.production e rode: bash deploy/scripts/ci-remote-deploy.sh"
 }
 
 main "$@"
