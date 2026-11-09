@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { deflateRawSync } from "node:zlib";
-import {
-  _limparTodosProcessosTemporariosParaTeste,
-  obterProcessoArquivoTemporario,
-} from "@/lib/importacoes/armazenamento-temporario";
+import { _limparTodosProcessosTemporariosParaTeste } from "@/lib/importacoes/armazenamento-temporario";
 import { LIMITES_ARQUIVO_IMPORTACAO } from "@/lib/importacoes/limites";
 import { RecebimentoArquivoError, receberArquivoImportacao } from "@/lib/importacoes/receber-arquivo";
 
@@ -247,10 +245,9 @@ test("aceita CSV válido, gera processoId único e não persiste o arquivo fora 
   assert.equal(primeiro.formato, "csv");
   assert.ok(primeiro.hashArquivo);
   assert.equal(primeiro.quantidadeRegistros, 1);
-  const processo = obterProcessoArquivoTemporario(primeiro.processoId, 1);
-  assert.ok(processo);
-  assert.ok(processo.caminhoAbsoluto.startsWith(path.join(os.tmpdir(), "lc-importacoes")));
-  assert.ok(!processo.caminhoAbsoluto.includes(`${path.sep}public${path.sep}`));
+  const caminhoTemp = path.join(os.tmpdir(), "lc-importacoes", `${primeiro.processoId}.bin`);
+  assert.equal(existsSync(caminhoTemp), true);
+  assert.equal(caminhoTemp.includes(`${path.sep}public${path.sep}`), false);
 });
 
 test("aceita XLSX mínimo válido", async () => {
