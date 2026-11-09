@@ -16,7 +16,10 @@ if ! flock -n 9; then
 fi
 
 cd "$APP_DIR"
+export HOME="${HOME:-/root}"
 git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+# Garante safe.directory mesmo sem HOME no systemd
+GIT_SAFE=(git -c "safe.directory=${APP_DIR}")
 
 if [[ ! -d .git ]]; then
   logger -t "$LOG_TAG" "sem .git em ${APP_DIR} — abortando"
@@ -31,16 +34,16 @@ if [[ -f "$ENV_FILE" ]]; then
   cp -a "$ENV_FILE" "$ENV_BACKUP"
 fi
 
-git fetch --prune "$REMOTE" "$BRANCH"
-LOCAL=$(git rev-parse HEAD)
-REMOTE_SHA=$(git rev-parse "refs/remotes/${REMOTE}/${BRANCH}")
+"${GIT_SAFE[@]}" fetch --prune "$REMOTE" "$BRANCH"
+LOCAL=$("${GIT_SAFE[@]}" rev-parse HEAD)
+REMOTE_SHA=$("${GIT_SAFE[@]}" rev-parse "refs/remotes/${REMOTE}/${BRANCH}")
 
 if [[ "$LOCAL" == "$REMOTE_SHA" ]]; then
   exit 0
 fi
 
 logger -t "$LOG_TAG" "atualizando ${LOCAL:0:7} → ${REMOTE_SHA:0:7}"
-git reset --hard "refs/remotes/${REMOTE}/${BRANCH}"
+"${GIT_SAFE[@]}" reset --hard "refs/remotes/${REMOTE}/${BRANCH}"
 
 if [[ -n "$ENV_BACKUP" && -f "$ENV_BACKUP" ]]; then
   mkdir -p deploy

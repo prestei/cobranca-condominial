@@ -5,6 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+User=root
+Environment=HOME=/root
 Environment=APP_DIR=/opt/cobranca-condominial
 Environment=DEPLOY_BRANCH=main
 Environment=DEPLOY_REMOTE=origin
