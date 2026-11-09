@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -27,6 +27,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
+import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -145,10 +146,9 @@ type ErrosResponsavel = Partial<
 
 const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Inativa: "error" };
 
-export default function UnidadesPage() {
+function UnidadesPage() {
   const { toast } = useToast();
-  const { pode } = usePermissao();
-  const podeImportar = pode("importacoes", "criar");
+  const { pode, permissoes } = usePermissao();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -525,13 +525,44 @@ export default function UnidadesPage() {
     return <BadgeSituacaoCobranca situacao={situacaoCobrancaUnidade(item)} />;
   }
 
+  function contatoResponsavel(unidadeId: number) {
+    const vinculosDaUnidade = cadastros.vinculos.filter((item) => item.unidadeId === unidadeId);
+    const vinculo = vinculosDaUnidade.find((item) => item.principal) ?? vinculosDaUnidade[0];
+    const responsavel = vinculo && cadastros.responsaveis.find((item) => item.id === vinculo.responsavelId);
+    if (!responsavel) return null;
+    if (podeVerDadosPessoaisResponsavel(permissoes)) {
+      return {
+        nome: responsavel.nome,
+        telefone: responsavel.telefone.trim() ? formatarTelefone(responsavel.telefone) : "",
+        email: responsavel.email.trim(),
+      };
+    }
+    return {
+      nome: responsavel.nome,
+      telefone: mascararTelefone(responsavel.telefone),
+      email: mascararEmail(responsavel.email),
+    };
+  }
+
+  function celulaResponsavel(item: Unidade) {
+    const contato = contatoResponsavel(item.id);
+    if (!contato) return <span className="text-on-surface-variant">—</span>;
+    const detalhe = [contato.telefone, contato.email].filter(Boolean).join(" · ");
+    return (
+      <div className="min-w-0">
+        <p className="text-on-surface">{contato.nome}</p>
+        {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
+      </div>
+    );
+  }
+
   function celulaDebito(item: Unidade) {
     if (!emDebitoOperacional(item)) {
       return <Badge variant="success">Em dia</Badge>;
     }
     const valor = debitosAbertos.get(item.id) ?? 0;
     return (
-      <span className="inline-flex items-center gap-sm">
+      <span className="inline-flex flex-col items-start gap-xs">
         <Badge variant="error">Devendo</Badge>
         <span className="tabular-nums">{formatarMoeda(String(valor))}</span>
       </span>
@@ -566,10 +597,6 @@ export default function UnidadesPage() {
       textoDebitoExport(item),
       valorAbertoExport(item),
     ]);
-  }
-
-  function abrirImportacao() {
-    router.push("/importacoes?modulo=unidades&abrir=1");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -827,10 +854,10 @@ export default function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("condominio")} onSort={() => handleSort("condominio")}>
             Condomínio
           </TableHead>
+          <TableHead>Responsável</TableHead>
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
-          <TableHead>Cobrança</TableHead>
           <TableHead sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
@@ -844,9 +871,9 @@ export default function UnidadesPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">
-                <div className="flex items-start gap-sm">
+                <div className="flex items-center gap-sm">
                   <span
-                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
                     aria-hidden="true"
                   >
                     <Icon icon={DoorOpen} size="sm" />
@@ -862,10 +889,10 @@ export default function UnidadesPage() {
                   <span>{nomeCondominio(item.condominioId)}</span>
                 </div>
               </TableCell>
+              <TableCell>{celulaResponsavel(item)}</TableCell>
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell>{celulaCobranca(item)}</TableCell>
               <TableCell>{celulaDebito(item)}</TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableRow>
@@ -908,7 +935,11 @@ export default function UnidadesPage() {
                 <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
               </TableMobileCardHeader>
               <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-                <div className="flex items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Responsável</p>
+                  {celulaResponsavel(item)}
+                </div>
+                <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
                   <div className="min-w-0">
                     <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
                     <p className="text-body-md font-semibold tabular-nums text-on-surface">
@@ -1049,8 +1080,6 @@ export default function UnidadesPage() {
           desktop={desktopTable}
           mobile={mobileTable}
           onExport={aoExportar}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
           mobileDataBarClassName={unidadesMobileDataBarClassName}
         />
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
@@ -1397,5 +1426,13 @@ export default function UnidadesPage() {
         onConfirm={confirmDelete}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function UnidadesPageRoute() {
+  return (
+    <Suspense fallback={<SkeletonListPage metrics={4} label="Carregando" />}>
+      <UnidadesPage />
+    </Suspense>
   );
 }

@@ -135,7 +135,7 @@ export function ImportacaoAprovacao({
             />
             <span>
               Estou ciente de que parte dos registros do arquivo não será gravada nesta importação (
-              {resumo.exclusoesPorProblema} ficarão de fora por erro ou decisão de conferência).
+              {resumo.registrosErro + resumo.seraoIgnorados} ficarão de fora).
             </span>
           </label>
         ) : null}

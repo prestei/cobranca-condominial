@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Copy, FileWarning, Shield, Sparkles } from "lucide-react";
+import { CheckCircle2, Copy, FileWarning, Sparkles } from "lucide-react";
 import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { CardMetric } from "@/components/card-metric";
@@ -9,7 +9,7 @@ import { Icon } from "@/components/icon";
 import type { ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
   badgeVariantSituacaoImportacao,
-  normalizarSituacaoImportacao,
+  importacaoConcluidaOuParcial,
   rotuloSituacaoImportacao,
 } from "@/lib/importacao-centro/situacao-importacao";
 import { ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
@@ -20,55 +20,35 @@ type Props = {
   exibirManualProtegido?: boolean;
 };
 
-const faixaCard = {
-  primary: "border-l-[3px] border-l-primary-container",
-  brass: "border-l-[3px] border-l-brass",
-  mist: "border-l-[3px] border-l-outline-variant",
-  critical: "border-l-[3px] border-l-status-critical",
-  tertiary: "border-l-[3px] border-l-tertiary-container",
-} as const;
-
 export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProtegido }: Props) {
-  const situacao = normalizarSituacaoImportacao(resultado.importacao.status);
-  const falhou = situacao === "Falhou" || situacao === "Rejeitada";
-  const parcial = situacao === "Concluida parcialmente";
-  const sucesso = situacao === "Concluida" || situacao === "Aprovada";
+  const status = resultado.importacao.status;
+  const situacaoRotulo = rotuloSituacaoImportacao(status);
+  const parcial = situacaoRotulo.toLowerCase().includes("parcial");
+  const sucesso = importacaoConcluidaOuParcial(status) && !parcial;
   const moduloRotulo = ROTULO_MODULO_IMPORTACAO[moduloDestino] ?? moduloDestino;
 
   return (
     <div className="flex flex-col gap-md">
       <Alert
-        variant={falhou ? "error" : sucesso ? "success" : parcial ? "warning" : "info"}
-        title={
-          falhou
-            ? "Importação não concluída"
-            : sucesso
-              ? "Importação concluída com sucesso"
-              : parcial
-                ? "Importação concluída parcialmente"
-                : "Importação finalizada"
-        }
+        variant={sucesso ? "success" : parcial ? "warning" : "info"}
+        title={sucesso ? "Importação concluída" : parcial ? "Importação concluída parcialmente" : "Importação finalizada"}
       >
-        {falhou
-          ? "Nenhum registro válido foi gravado. Revise o arquivo e tente novamente."
-          : sucesso
-            ? "Todos os registros previstos foram gravados."
-            : parcial
-              ? "Parte dos registros foi gravada. Revise duplicados e erros na listagem de importações."
-              : "Confira o resumo abaixo e o histórico para mais detalhes."}
+        {sucesso
+          ? "Os registros válidos foram gravados. Você pode fechar este assistente e conferir o histórico."
+          : parcial
+            ? "Parte dos registros foi gravada. Revise duplicados e erros na listagem de importações."
+            : "Confira o resumo abaixo e o histórico para mais detalhes."}
       </Alert>
 
       <section className="rounded-lg border border-border-subtle bg-surface-card p-md shadow-card">
         <div className="mb-md flex flex-wrap items-center gap-sm">
           <h3 className="text-headline-sm text-on-surface">Relatório da importação</h3>
-          <Badge variant={badgeVariantSituacaoImportacao(situacao)}>
-            {rotuloSituacaoImportacao(situacao)}
-          </Badge>
+          <Badge variant={badgeVariantSituacaoImportacao(status)}>{situacaoRotulo}</Badge>
         </div>
         <dl className="grid gap-sm text-body-sm min-[480px]:grid-cols-2">
           <div className="min-w-0 min-[480px]:col-span-2">
             <dt className="text-on-surface-variant">Arquivo</dt>
-            <dd className="font-medium text-on-surface break-words">{resultado.importacao.arquivo}</dd>
+            <dd className="font-medium text-on-surface">{resultado.importacao.arquivo}</dd>
           </div>
           <div>
             <dt className="text-on-surface-variant">Módulo</dt>
@@ -83,45 +63,45 @@ export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProt
 
       <CardMetricRow aria-label="Resultado da gravação" desktopCols={4}>
         <CardMetric
-          className={faixaCard.primary}
+          accent="primary"
           rotulo="Novos"
           valor={String(resultado.novos)}
           detalhe="Registros inseridos"
           icon={<Icon icon={Sparkles} size="md" className="text-primary-container" />}
-          iconClassName="bg-primary-fixed/40 text-primary-container"
+          iconClassName="bg-primary-container/15"
         />
         <CardMetric
-          className={faixaCard.brass}
-          rotulo="Atualizado"
+          accent="brass"
+          rotulo="Atualizados"
           valor={String(resultado.atualizados)}
           detalhe="Registros alterados"
           icon={<Icon icon={CheckCircle2} size="md" className="text-brass" />}
-          iconClassName="bg-gold-subtle text-brass"
+          iconClassName="bg-brass/15"
         />
         <CardMetric
-          className={faixaCard.mist}
-          rotulo="Duplicados"
+          accent="tertiary"
+          rotulo="Duplicados/ignorados"
           valor={String(resultado.duplicados)}
           detalhe="Não gravados"
           icon={<Icon icon={Copy} size="md" className="text-on-surface-variant" />}
-          iconClassName="bg-surface-dim text-on-surface-variant"
+          iconClassName="bg-surface-muted"
         />
         <CardMetric
-          className={faixaCard.critical}
+          accent="critical"
           rotulo="Erros na leitura"
           valor={String(resultado.erros)}
           detalhe="Linhas com falha"
           icon={<Icon icon={FileWarning} size="md" className="text-status-critical" />}
-          iconClassName="bg-error-container text-status-critical"
+          iconClassName="bg-status-critical/15"
         />
         {exibirManualProtegido ? (
           <CardMetric
-            className={faixaCard.tertiary}
+            accent="tertiary"
             rotulo="Manuais protegidos"
             valor={String(resultado.manualProtegido)}
             detalhe="Não sobrescritos"
-            icon={<Icon icon={Shield} size="md" className="text-on-surface-variant" />}
-            iconClassName="bg-surface-dim text-on-surface-variant"
+            icon={<Icon icon={FileWarning} size="md" className="text-on-surface-variant" />}
+            iconClassName="bg-surface-muted"
           />
         ) : null}
       </CardMetricRow>

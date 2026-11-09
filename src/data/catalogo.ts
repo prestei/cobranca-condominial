@@ -59,6 +59,8 @@ export type Usuario = {
   telefone: string;
   email: string;
   senha: string;
+  /** Data URL do avatar (JPEG/PNG/WebP ≤ 400 bytes); opcional. */
+  avatar?: string | null;
   /** Colaborador inativo não autentica; o RE permanece reservado. */
   ativo?: boolean;
 };
@@ -356,7 +358,10 @@ export const statusImportacao = [
 ] as const;
 export const acoesAuditoria = ["INSERT", "UPDATE", "DELETE"] as const;
 
-const condominiosIniciais: Condominio[] = condominiosBaseTeste;
+/** Em produção o catálogo sobe vazio (sem seed de demonstração). Dev/test mantêm a base fictícia. */
+const USAR_SEED_DEMO = process.env.NODE_ENV !== "production";
+
+const condominiosIniciais: Condominio[] = USAR_SEED_DEMO ? condominiosBaseTeste : [];
 
 const cargosIniciais: Cargo[] = [
   {
@@ -383,7 +388,7 @@ const cargosIniciais: Cargo[] = [
 const SENHA_INICIAL_HASH = "$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie";
 const SENHA_TESTE_HASH = SENHA_INICIAL_HASH;
 
-const usuariosIniciais: Usuario[] = [
+const usuariosSeedDemo: Usuario[] = [
   {
     id: 1,
     codigo: "MILENA",
@@ -452,35 +457,57 @@ const usuariosIniciais: Usuario[] = [
   },
 ];
 
-const atribuicoesIniciais: AtribuicaoCobranca[] = atribuicoesBaseTeste;
+/** bcrypt de `prestei2026*` — admin de produção. */
+const SENHA_PRESTEI_HASH = "$2b$12$/UhciRXh66gjGveqckiPl.aqXSXcC/2hwJNaAGwvHDEgX0SPt7Vvq";
 
-const unidadesIniciais: Unidade[] = unidadesBaseTeste;
-
-const responsaveisIniciais: Responsavel[] = responsaveisBaseTeste;
-
-const vinculosIniciais: Vinculo[] = vinculosBaseTeste;
-
-const debitosIniciais: Debito[] = debitosBaseTeste;
-
-const atendimentosIniciais: Atendimento[] = [
+/** Produção: cargos padrão + administrador Prestei. */
+const usuariosProducao: Usuario[] = [
   {
-    id: "demo-retorno-102",
-    unidadeId: "2",
-    responsavelId: "2",
-    usuarioId: 2,
-    dataHora: "2026-10-20T14:00:00.000Z",
-    canal: "Telefone",
-    respondeu: "Não",
-    motivo: "",
-    assunto: "Cobrança cota set/2026",
-    descricao: "Sem contato — agendar retorno.",
-    status: "Pendente",
-    dataProximaAcao: "2026-10-27T15:00:00",
-    proximaAcao: "Nova tentativa de contato",
-    retornoConcluidoEm: "",
-    retornoConcluidoPorId: null,
+    id: 1,
+    codigo: "PRESTEI",
+    codigoRe: "RE-10000",
+    cargoId: 1,
+    nome: "Prestei",
+    telefone: "",
+    email: "prestei@danieljorgeadv.com",
+    senha: SENHA_PRESTEI_HASH,
+    ativo: true,
   },
 ];
+
+const usuariosIniciais: Usuario[] = USAR_SEED_DEMO ? usuariosSeedDemo : usuariosProducao;
+
+const atribuicoesIniciais: AtribuicaoCobranca[] = USAR_SEED_DEMO ? atribuicoesBaseTeste : [];
+
+const unidadesIniciais: Unidade[] = USAR_SEED_DEMO ? unidadesBaseTeste : [];
+
+const responsaveisIniciais: Responsavel[] = USAR_SEED_DEMO ? responsaveisBaseTeste : [];
+
+const vinculosIniciais: Vinculo[] = USAR_SEED_DEMO ? vinculosBaseTeste : [];
+
+const debitosIniciais: Debito[] = USAR_SEED_DEMO ? debitosBaseTeste : [];
+
+const atendimentosIniciais: Atendimento[] = USAR_SEED_DEMO
+  ? [
+      {
+        id: "demo-retorno-102",
+        unidadeId: "2",
+        responsavelId: "2",
+        usuarioId: 2,
+        dataHora: "2026-10-20T14:00:00.000Z",
+        canal: "Telefone",
+        respondeu: "Não",
+        motivo: "",
+        assunto: "Cobrança cota set/2026",
+        descricao: "Sem contato — agendar retorno.",
+        status: "Pendente",
+        dataProximaAcao: "2026-10-27T15:00:00",
+        proximaAcao: "Nova tentativa de contato",
+        retornoConcluidoEm: "",
+        retornoConcluidoPorId: null,
+      },
+    ]
+  : [];
 
 const propostasNegociacaoIniciais: PropostaNegociacao[] = [];
 
@@ -925,17 +952,18 @@ export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Con
 
 export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }, userId?: number) {
   if (userId == null) {
-    return { name: "", initials: "…", menuSubtitle: "" };
+    return { name: "", initials: "…", menuSubtitle: "", avatarUrl: null as string | null };
   }
   const usuario = cadastros.usuarios.find((item) => item.id === userId);
   if (!usuario) {
-    return { name: "—", initials: "—", menuSubtitle: "" };
+    return { name: "—", initials: "—", menuSubtitle: "", avatarUrl: null as string | null };
   }
   const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
   return {
     name: usuario.nome,
     initials: iniciaisNome(usuario.nome),
     menuSubtitle: cargo?.nome ?? "",
+    avatarUrl: usuario.avatar?.trim() ? usuario.avatar : null,
   };
 }
 

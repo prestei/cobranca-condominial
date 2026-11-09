@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.freebuff
+deploy/secrets
+**/*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+README.md
+TICKETS_CURSOR_DANIEL_JORGE.md
+docs/testes
+**/*.test.ts
+**/*.test.mjs
+**/*.test.tsx
+src/test

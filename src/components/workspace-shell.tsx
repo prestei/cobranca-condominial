@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bell,
@@ -114,6 +114,13 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
       { href: "/auditoria", label: "Auditoria", icon: ScrollText, modulo: "auditoria" },
     ],
   },
+  {
+    title: "Conta",
+    links: [
+      { href: "/conta", label: "Minha conta", icon: UserRound, modulo: "dashboard" },
+      { href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" },
+    ],
+  },
 ];
 
 function navLinkAtivo(pathname: string, retornoNaUrl: string | null, link: NavLink) {
@@ -128,7 +135,7 @@ function navLinkAtivo(pathname: string, retornoNaUrl: string | null, link: NavLi
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-export function WorkspaceShell({ children }: { children: ReactNode }) {
+function WorkspaceShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -220,5 +227,13 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     >
       <AppShellMain>{children}</AppShellMain>
     </AppShell>
+  );
+}
+
+export function WorkspaceShell({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <WorkspaceShellInner>{children}</WorkspaceShellInner>
+    </Suspense>
   );
 }

@@ -1,9 +1,45 @@
+import type { SituacaoLinhaImportacao } from "@/lib/importacao-centro/types";
+import type { CategoriaValidacaoImportacao, RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
 import type {
   ContagensPreVisualizacaoImportacao,
+  CorrecaoPreviaSerializada,
   IndicadorPreVisualizacaoImportacao,
-  LinhaPreVisualizacaoSerializada,
 } from "@/lib/importacao-centro/pre-visualizacao";
-import type { CategoriaValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
+
+export type ColunaPreVisualizacaoImportacao = {
+  id: string;
+  rotulo: string;
+  /** Chave em `resumo` ou função customizada. */
+  valor: (linha: LinhaPreVisualizacaoImportacaoUi) => string;
+  alinhamento?: "left" | "right";
+  editavel?: boolean;
+  campoNormalizado?: string;
+  className?: string;
+};
+
+export type LinhaPreVisualizacaoImportacaoUi = {
+  linha: number;
+  situacao: SituacaoLinhaImportacao;
+  mensagem?: string;
+  resumo?: Record<string, string>;
+  validacao?: RegistroValidadoImportacao;
+  indicador: IndicadorPreVisualizacaoImportacao;
+  ignoradoPeloUsuario: boolean;
+  valoresEditados?: Record<string, string>;
+  correcoes?: CorrecaoPreviaSerializada[];
+};
+
+export type DadosCabecalhoPreVisualizacao = {
+  nomeArquivo: string;
+  moduloDestino: string;
+  moduloRotulo: string;
+  usuarioResponsavel: string;
+  dataHoraImportacao: string;
+  origem: string;
+  quantidadeRegistros: number;
+  contagens: ContagensPreVisualizacaoImportacao;
+  arquivoJaImportado?: boolean;
+};
 
 export type FiltroSituacaoPreVisualizacao =
   | "todos"
@@ -14,29 +50,3 @@ export type FiltroSituacaoPreVisualizacao =
   | "ignorado";
 
 export type FiltroInconsistenciaPreVisualizacao = "todos" | CategoriaValidacaoImportacao;
-
-export type DadosCabecalhoPreVisualizacao = {
-  nomeArquivo: string;
-  moduloDestino: string;
-  moduloRotulo?: string;
-  usuarioResponsavel: string;
-  dataHoraImportacao: string;
-  origem: string;
-  quantidadeRegistros: number | string;
-  contagens: ContagensPreVisualizacaoImportacao;
-  arquivoJaImportado?: boolean;
-};
-
-export type LinhaPreVisualizacaoImportacaoUi = LinhaPreVisualizacaoSerializada & {
-  indicador: IndicadorPreVisualizacaoImportacao;
-  ignoradoPeloUsuario: boolean;
-  valoresEditados?: Record<string, string>;
-};
-
-export type ColunaPreVisualizacao = {
-  id: string;
-  rotulo: string;
-  className?: string;
-  alinhamento?: "left" | "right";
-  valor: (item: LinhaPreVisualizacaoImportacaoUi) => string;
-};

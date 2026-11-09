@@ -28,6 +28,7 @@ type AppShellUser = {
   name: string;
   initials: string;
   menuSubtitle?: string;
+  avatarUrl?: string | null;
 };
 
 type AppShellContextValue = {
@@ -214,6 +215,17 @@ export function AppShellBrand({ className }: AppShellBrandProps) {
   );
 }
 
+export function AppShellCarteiraBadge({ className }: { className?: string }) {
+  return (
+    <div
+      className={`mx-[14px] mt-md flex items-center gap-sm rounded-[10px] bg-primary-hover px-md py-sm text-body-sm text-[#C3CFDF] ${className ?? ""}`}
+    >
+      <span className="size-2 shrink-0 rounded-full bg-[#4FC38A]" aria-hidden="true" />
+      Carteira ativa
+    </div>
+  );
+}
+
 type AppShellNavSectionProps = HTMLAttributes<HTMLDivElement> & {
   title: string;
   children: ReactNode;
@@ -359,12 +371,22 @@ function AppShellHeader({
 
         {user ? (
           <div className="flex min-w-0 items-center gap-sm px-xs">
-            <span
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-container text-label-md font-bold text-on-primary"
-              aria-hidden="true"
-            >
-              {user.initials}
-            </span>
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- data URL / avatar local
+              <img
+                src={user.avatarUrl}
+                alt=""
+                className="size-10 shrink-0 rounded-full object-cover"
+                aria-hidden="true"
+              />
+            ) : (
+              <span
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-container text-label-md font-bold text-on-primary"
+                aria-hidden="true"
+              >
+                {user.initials}
+              </span>
+            )}
             <span className="truncate text-[15px] font-semibold text-[#1B2A41]">{user.name}</span>
           </div>
         ) : headerPage ? (
@@ -470,9 +492,8 @@ function AppShellHeader({
                     <p className="mt-[2px] text-body-sm text-[#52607A]">{user.menuSubtitle}</p>
                   ) : null}
                 </div>
-                <AppShellMenuLink href="#">Meu perfil</AppShellMenuLink>
-                <AppShellMenuLink href="#">Preferências</AppShellMenuLink>
-                <AppShellMenuLink href="#">Ajuda e suporte</AppShellMenuLink>
+                <AppShellMenuLink href="/conta">Meu perfil</AppShellMenuLink>
+                <AppShellMenuLink href="/ajuda">Ajuda e suporte</AppShellMenuLink>
                 <button
                   type="button"
                   role="menuitem"

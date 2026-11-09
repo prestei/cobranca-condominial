@@ -1,0 +1,106 @@
+# Stack de produção — VPS principal
+# Uso: docker compose --env-file .env.production up -d --build
+name: cobranca
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-danieljorgeadv.com}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@danieljorgeadv.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - edge
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=384}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+    expose:
+      - "3000"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cobranca_condominial}
+      POSTGRES_USER: ${POSTGRES_USER:-cobranca}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      # Usuário de replicação (standby / contingência)
+      REPLICATION_USER: ${REPLICATION_USER:-replicator}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?defina REPLICATION_PASSWORD}
+      REPLICA_CIDR: ${REPLICA_CIDR:-0.0.0.0/0}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/primary/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - max_connections=50
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby=on
+      - -c
+      - wal_keep_size=256MB
+      - -c
+      - listen_addresses=*
+    ports:
+      # Exposto para o standby de contingência (restrinja com UFW/REPLICA_CIDR)
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - internal
+      - replication
+
+networks:
+  edge:
+  internal:
+  replication:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -33,13 +33,9 @@ import {
   contarPreVisualizacao,
   indicadorLinhaPreVisualizacao,
   linhaSeraGravada,
-  serializarDecisoesLinha,
   situacaoPermiteIgnorarNaPrevia,
   valoresEditadosDaLinha,
 } from "@/lib/importacao-centro/pre-visualizacao";
-import type { AcaoConflitoImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
-import type { DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
-import { ROTULO_ACAO_CONFLITO } from "@/components/importacao-pre-visualizacao/rotulos-acao-conflito";
 import type { PreviewImportacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import type { PreviewImportacaoDebitos, ResultadoCorrecaoPreviewDebitos } from "@/lib/importacoes/debitos-service";
 import { useToast } from "@/components/toast";
@@ -114,12 +110,8 @@ export type ImportacaoPreVisualizacaoProps = {
   onCancelar: () => void;
   /** Linhas que o usuário marcou para ignorar (somente conferência até suporte na confirmação). */
   onLinhasIgnoradasChange?: (linhas: number[]) => void;
-  /** Decisões explícitas em conflitos de duplicidade (Ticket 06). */
-  decisoesLinha?: DecisaoLinhaImportacao[];
-  onDecisoesLinhaChange?: (decisoes: DecisaoLinhaImportacao[]) => void;
   /** Sem `importacoes.editar` o usuário só consulta a prévia. */
   permissaoCorrigir?: boolean;
-  permissaoDecidirConflito?: boolean;
   gravacaoPrevista?: number;
   podeContinuarAprovacao?: boolean;
   motivoBloqueioContinuar?: string;
@@ -136,12 +128,12 @@ export function ImportacaoPreVisualizacao({
   onVoltarArquivo,
   onCancelar,
   onLinhasIgnoradasChange,
-  decisoesLinha,
-  onDecisoesLinhaChange,
   permissaoCorrigir = true,
-  permissaoDecidirConflito = true,
+  gravacaoPrevista,
   podeContinuarAprovacao = true,
   motivoBloqueioContinuar,
+  processandoContinuar = false,
+  wizardFormId,
 }: ImportacaoPreVisualizacaoProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -153,13 +145,6 @@ export function ImportacaoPreVisualizacao({
     useState<FiltroInconsistenciaPreVisualizacao>("todos");
   const [page, setPage] = useState(1);
   const [ignoradas, setIgnoradas] = useState<Set<number>>(() => new Set());
-  const mapaDecisoes = useMemo(() => {
-    const map = new Map<number, AcaoConflitoImportacao>();
-    for (const item of decisoesLinha ?? []) {
-      map.set(item.linha, item.acao);
-    }
-    return map;
-  }, [decisoesLinha]);
   const [detalheLinha, setDetalheLinha] = useState<LinhaPreVisualizacaoImportacaoUi | null>(null);
   const [detalheOpen, setDetalheOpen] = useState(false);
   const [salvandoCorrecao, setSalvandoCorrecao] = useState(false);
@@ -180,7 +165,7 @@ export function ImportacaoPreVisualizacao({
       if (appliedSituacao === "valido" && item.indicador !== "valido") return false;
       if (appliedSituacao === "atencao" && item.indicador !== "atencao") return false;
       if (appliedSituacao === "erro" && item.indicador !== "erro") return false;
-      if (appliedSituacao === "gravacao" && !linhaSeraGravada(item, ignoradas, mapaDecisoes)) return false;
+      if (appliedSituacao === "gravacao" && !linhaSeraGravada(item, ignoradas)) return false;
       if (appliedSituacao === "ignorado" && !item.ignoradoPeloUsuario) return false;
 
       if (appliedInconsistencia !== "todos") {
@@ -200,7 +185,7 @@ export function ImportacaoPreVisualizacao({
         .toLocaleLowerCase("pt-BR");
       return haystack.includes(query);
     });
-  }, [linhasUi, appliedSituacao, appliedInconsistencia, query, ignoradas, mapaDecisoes]);
+  }, [linhasUi, appliedSituacao, appliedInconsistencia, query, ignoradas]);
 
   const agruparPorUnidade = cabecalho.moduloDestino === "debitos";
 
@@ -231,17 +216,7 @@ export function ImportacaoPreVisualizacao({
     return chaveUnidadeGrupo(filtradasOrdenadas[indiceGlobal]!);
   }
 
-  const gravacaoCount = linhasUi.filter((item) => linhaSeraGravada(item, ignoradas, mapaDecisoes)).length;
-
-  function registrarDecisao(linhaNumero: number, acao: AcaoConflitoImportacao) {
-    if (!permissaoDecidirConflito) return;
-    const proximo = new Map(mapaDecisoes);
-    proximo.set(linhaNumero, acao);
-    onDecisoesLinhaChange?.(serializarDecisoesLinha(proximo));
-    setDetalheLinha((atual) =>
-      atual?.linha === linhaNumero ? { ...atual } : atual,
-    );
-  }
+  const gravacaoCount = linhasUi.filter((item) => linhaSeraGravada(item, ignoradas)).length;
 
   function handleApplyFilters() {
     setAppliedSearch(search);
@@ -392,7 +367,7 @@ export function ImportacaoPreVisualizacao({
 
       <CardMetricRow desktopCols={4}>
         <CardMetric
-          className="border-l-[3px] border-l-primary-container"
+          accent="primary"
           rotulo="Válidos"
           valor={String(contagensDinamicas.validos).padStart(2, "0")}
           detalhe="Prontos para gravação"
@@ -400,7 +375,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-success-subtle text-status-success"
         />
         <CardMetric
-          className="border-l-[3px] border-l-brass"
+          accent="brass"
           rotulo="Atenção"
           valor={String(contagensDinamicas.atencao).padStart(2, "0")}
           detalhe="Exigem conferência"
@@ -408,7 +383,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-gold-subtle text-brass"
         />
         <CardMetric
-          className="border-l-[3px] border-l-status-critical"
+          accent="critical"
           rotulo="Erros"
           valor={String(contagensDinamicas.erros).padStart(2, "0")}
           detalhe="Não serão gravados"
@@ -416,7 +391,7 @@ export function ImportacaoPreVisualizacao({
           iconClassName="bg-error-container text-status-critical"
         />
         <CardMetric
-          className="border-l-[3px] border-l-outline-variant"
+          accent="tertiary"
           rotulo="Duplicidades"
           valor={String(contagensDinamicas.duplicidades).padStart(2, "0")}
           detalhe="Possível repetição no arquivo ou base"
@@ -430,10 +405,10 @@ export function ImportacaoPreVisualizacao({
         <KpiMobileCard rotulo="Total lidos" valor={String(cabecalho.quantidadeRegistros)} icon={AlertTriangle} />
       </div>
 
-      <section className="flex min-w-0 flex-col gap-md">
-        <div className="flex flex-col gap-xs min-[768px]:flex-row min-[768px]:items-baseline min-[768px]:justify-between">
+      <section className="flex flex-col gap-md">
+        <div className="flex flex-wrap items-center justify-between gap-sm">
           <h3 className="text-headline-sm text-on-surface">Tabela de conferência</h3>
-          <p className="text-body-sm text-on-surface-variant min-[768px]:text-right">
+          <p className="text-body-sm text-on-surface-variant">
             {gravacaoCount} registro(s) representam o que seguirá para gravação após aprovação.
           </p>
         </div>
@@ -441,11 +416,10 @@ export function ImportacaoPreVisualizacao({
         <FilterBar
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Buscar por linha, unidade, condomínio"
+          searchPlaceholder="Buscar por linha, unidade, condomínio, mensagem..."
           onApply={handleApplyFilters}
           onClear={handleClearFilters}
           defaultMobile="grid"
-          desktopCols={3}
           useFormElement={false}
           fields={[
             {
@@ -465,11 +439,12 @@ export function ImportacaoPreVisualizacao({
           ]}
         />
 
-        <Table showExport={false} className="text-body-sm">
-            <TableHeader className="bg-surface-card">
+        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card">
+          <Table className="min-w-[72rem] text-body-sm">
+            <TableHeader className="sticky top-0 z-[1] bg-surface-card">
               <TableRow className="border-b border-border-subtle">
-                <TableHead className="w-10" />
-                <TableHead className="w-14">Linha</TableHead>
+                <TableHead className="sticky left-0 z-[2] w-10 bg-surface-card" />
+                <TableHead className="sticky left-10 z-[2] w-14 bg-surface-card">Linha</TableHead>
                 {colunas.map((coluna) => (
                   <TableHead
                     key={coluna.id}
@@ -531,14 +506,14 @@ export function ImportacaoPreVisualizacao({
                           .filter(Boolean)
                           .join(" ")}
                       >
-                        <TableCell>
+                        <TableCell className="sticky left-0 z-[1] bg-inherit">
                           <span
                             className={`inline-block size-2.5 rounded-full shadow-sm ${indicadorDotClass[item.indicador]}`}
                             title={item.indicador}
                             aria-hidden
                           />
                         </TableCell>
-                        <TableCell className="tabular-nums font-medium">
+                        <TableCell className="sticky left-10 z-[1] bg-inherit tabular-nums font-medium">
                           {item.linha}
                         </TableCell>
                         {colunas.map((coluna) => (
@@ -548,12 +523,13 @@ export function ImportacaoPreVisualizacao({
                               coluna.className,
                               coluna.alinhamento === "right" ? "text-right tabular-nums" : undefined,
                               "max-w-[12rem] truncate",
+                              agruparPorUnidade && coluna.id === "unidade" ? "text-on-surface-variant" : undefined,
                             ]
                               .filter(Boolean)
                               .join(" ")}
                             title={typeof coluna.valor(item) === "string" ? coluna.valor(item) : undefined}
                           >
-                            {coluna.valor(item)}
+                            {agruparPorUnidade && coluna.id === "unidade" ? "—" : coluna.valor(item)}
                           </TableCell>
                         ))}
                         <TableCell>
@@ -580,18 +556,6 @@ export function ImportacaoPreVisualizacao({
                                 {item.ignoradoPeloUsuario ? "Restaurar" : "Ignorar"}
                               </Button>
                             ) : null}
-                            {item.conflito && item.conflito.acoesPermitidas.length > 1 ? (
-                              <span
-                                className="text-label-sm text-on-surface-variant"
-                                title={
-                                  mapaDecisoes.has(item.linha)
-                                    ? ROTULO_ACAO_CONFLITO[mapaDecisoes.get(item.linha)!]
-                                    : undefined
-                                }
-                              >
-                                {mapaDecisoes.has(item.linha) ? "Decisão definida" : "Conflito — ver detalhes"}
-                              </span>
-                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -600,7 +564,8 @@ export function ImportacaoPreVisualizacao({
                 })
               )}
             </TableBody>
-        </Table>
+          </Table>
+        </div>
         {filtradas.length > 0 ? (
           <Pagination page={currentPage} total={filtradas.length} onPageChange={setPage} />
         ) : null}
@@ -615,20 +580,28 @@ export function ImportacaoPreVisualizacao({
       <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
         <div className="flex flex-wrap items-center justify-between gap-sm">
           <div className="flex flex-wrap gap-sm">
-            <Button type="button" variant="secondary" onClick={onVoltarArquivo}>
+            <Button type="button" variant="secondary" size="sm" onClick={onVoltarArquivo}>
               Voltar e substituir arquivo
             </Button>
-            <Button type="button" variant="outline" onClick={onCancelar}>
+            <Button type="button" variant="outline" size="sm" onClick={onCancelar}>
               Cancelar importação
             </Button>
           </div>
-          <div className="flex flex-wrap gap-sm">
+          <div className="flex flex-wrap items-center gap-sm">
             {ignoradas.size > 0 ? (
               <Badge variant="secondary">{ignoradas.size} ignorado(s) só na conferência</Badge>
             ) : null}
-            {mapaDecisoes.size > 0 ? (
-              <Badge variant="secondary">{mapaDecisoes.size} decisão(ões) de conflito</Badge>
-            ) : null}
+            <span className="text-body-sm text-on-surface-variant">
+              {gravacaoPrevista ?? gravacaoCount} registro(s) previsto(s) para gravação
+            </span>
+            <Button
+              type="submit"
+              form={wizardFormId}
+              size="sm"
+              disabled={!podeContinuarAprovacao || processandoContinuar || !wizardFormId}
+            >
+              {processandoContinuar ? "Processando…" : "Continuar para aprovação"}
+            </Button>
           </div>
         </div>
       </div>
@@ -641,11 +614,9 @@ export function ImportacaoPreVisualizacao({
         origem={cabecalho.origem}
         nomeArquivo={cabecalho.nomeArquivo}
         onSalvarEdicoes={(numeroLinha, valores) => void salvarEdicoes(numeroLinha, valores)}
+        onAlternarIgnorar={alternarIgnorar}
         salvando={salvandoCorrecao}
         permissaoCorrigir={permissaoCorrigir}
-        decisaoConflito={detalheLinha ? mapaDecisoes.get(detalheLinha.linha) : undefined}
-        onDecisaoConflitoChange={registrarDecisao}
-        permissaoDecidirConflito={permissaoDecidirConflito}
       />
     </div>
   );

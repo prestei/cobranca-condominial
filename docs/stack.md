@@ -74,6 +74,10 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 | `AUTH_SECRET` | Produção | Segredo com pelo menos 32 caracteres para assinar a sessão. Em desenvolvimento, há fallback local documentado em `.env.example`. |
 | `DATABASE_URL` | Quando usar PostgreSQL | URL `postgresql://…` do banco do projeto. Copie `.env.example` → `.env`. |
 
+## Produção (VPS)
+
+Deploy idempotente (Docker + Caddy/HTTPS + Postgres com replicação pronta para contingência): ver [`deploy/README.md`](../deploy/README.md). Comando do seu PC: `./deploy/scripts/push.sh`.
+
 ## PostgreSQL (desenvolvimento)
 
 Use um PostgreSQL local. Configure `DATABASE_URL` no `.env` (veja `.env.example`).
@@ -94,8 +98,6 @@ Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`.
 | `npm test` | Unitários (`node --test` em `src/lib/**/*.test.mjs`) + integração T21 (`tsx` + `src/test/fluxos-permissoes.integracao.test.ts`) |
 | `npm run test:unit` | Somente unitários |
 | `npm run test:integracao` | Fluxos e permissões (catálogo em memória, sem HTTP) |
-
-Importações (Ticket 03): arquivos temporários em `os.tmpdir()/lc-importacoes/` (não publicados via HTTP; `{uuid}.bin`, permissão `0600`, retenção 1 h com limpeza de órfãos). Nenhuma variável de ambiente extra. `pdftotext` é opcional no servidor para PDF de inadimplência; se ausente, usa extração FlateDecode. ZIP64 e macros em XLSX são recusados.
 
 Detalhes e roteiro manual: [`README.md`](../README.md) e [`testes/roteiro-qa-t21.md`](testes/roteiro-qa-t21.md).
 

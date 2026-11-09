@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { SkeletonListPage } from "@/components/skeleton";
+
+import { useEffect, useId, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import {
@@ -69,7 +71,7 @@ const formularioVazio = {
   proximaAcao: "",
 };
 
-export default function AtendimentosPage() {
+function AtendimentosPage() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -441,5 +443,13 @@ export default function AtendimentosPage() {
         onConfirm={confirmLeave}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function AtendimentosPageRoute() {
+  return (
+    <Suspense fallback={<SkeletonListPage metrics={4} label="Carregando" />}>
+      <AtendimentosPage />
+    </Suspense>
   );
 }

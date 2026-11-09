@@ -3,3 +3,11 @@ node_modules/
 .env
 .env.local
 .env.*.local
+deploy/.env.production
+deploy/.env.standby
+deploy/secrets/vps.env
+deploy/secrets/*
+!deploy/secrets/*.example
+*.tsbuildinfo
+__pycache__/
+*.pyc
