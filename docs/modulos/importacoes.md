@@ -182,10 +182,10 @@ Cada inconsistência tem categoria, severidade (`erro` \| `atencao`), código es
 | Estrutural | `estrutural.campo_obrigatorio_ausente`, `coluna_desconhecida` (atenção), `coluna_duplicada`, `formato_incompativel`, `tipo_dado_incorreto` |
 | Cadastral | `cadastral.nome_ausente`, `codigo_invalido`, `email_invalido`, `documento_invalido` (quando informado), `registro_existente` (atenção) |
 | Relacional | `relacional.condominio_inexistente` (unidade sem condomínio), `unidade_inexistente` (débito sem unidade), `registro_inexistente` (responsável sem cadastro), `vinculo_incompativel` |
-| Financeira | `financeira.valor_invalido`, `valor_negativo`, `soma_divergente` (atenção), `vencimento_invalido`, `referencia_inconsistente` (atenção), `registro_duplicado` (atenção) |
+| Financeira | `financeira.valor_invalido`, `valor_negativo`, `soma_divergente` (atenção), `vencimento_invalido`, `referencia_inconsistente` (atenção: pagamento sem valor ou data inválida; competência MM/AAAA **não** precisa coincidir com o vencimento em inadimplência), `registro_duplicado` (atenção) |
 | Negócio | `negocio.regra_modulo`, `permissao`, `restricao_existente`, `estado_incompativel` (ex.: unidade inativa) |
 
-Permissões de importação continuam no servidor (`permissoes.ts`); o motor trata o contexto já recortado por escopo e estados/restrições do cadastro. Formato/tipo incompatível na normalização (Ticket 04) entram como `normalizacao.interpretacao_rejeitada` / `campo_ambiguo` **antes** das regras de módulo.
+Permissões de importação continuam no servidor (`permissoes.ts`); o motor trata o contexto já recortado por escopo e estados/restrições do cadastro. Formato/tipo incompatível na normalização (Ticket 04) entram como `normalizacao.interpretacao_rejeitada` / `campo_ambiguo` **antes** das regras de módulo. Datas em `DD/MM/AAAA` (barra) não geram `campo_ambiguo`; ambiguidade dia/mês só em separador `-`.
 
 Cada registro validado expõe: `identificador`, `linha` (e `pagina` quando houver), `dadosOriginais`, `dadosNormalizados`, `resultado`, lista de `inconsistencias` e `regrasAplicadas`. Novos módulos registram um validador em `motor-validacao/modulos/` e `registrarValidadorModuloImportacao`.
 

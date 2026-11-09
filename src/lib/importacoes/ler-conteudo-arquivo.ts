@@ -44,9 +44,12 @@ function contarRegistros(matriz: string[][]): number {
   return total;
 }
 
-export function lerConteudoPlanilha(buffer: Buffer, formato: FormatoArquivoImportacao): ConteudoPlanilhaLido {
+export async function lerConteudoPlanilha(
+  buffer: Buffer,
+  formato: FormatoArquivoImportacao,
+): Promise<ConteudoPlanilhaLido> {
   if (formato === "pdf") {
-    const relatorio = interpretarPdfInadimplencia(buffer);
+    const relatorio = await interpretarPdfInadimplencia(buffer);
     if (relatorio?.matriz.length) {
       return {
         formato,

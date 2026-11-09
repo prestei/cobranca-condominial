@@ -5,10 +5,10 @@ import {
   type ResultadoInterpretacaoRelatorioInadimplencia,
 } from "@/lib/importacoes/inadimplencia/interpretar-relatorio-gestao-condominial";
 
-export function interpretarPdfInadimplencia(
+export async function interpretarPdfInadimplencia(
   buffer: Buffer,
-): ResultadoInterpretacaoRelatorioInadimplencia | null {
-  const { texto } = extrairTextoLegivelPdf(buffer);
+): Promise<ResultadoInterpretacaoRelatorioInadimplencia | null> {
+  const { texto } = await extrairTextoLegivelPdf(buffer);
   if (!textoPareceRelatorioInadimplenciaGestao(texto)) {
     return null;
   }

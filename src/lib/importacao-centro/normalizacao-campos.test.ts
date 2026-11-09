@@ -27,8 +27,14 @@ test("normalizarDataImportacao converte DD/MM/AAAA para ISO", () => {
   assert.equal(r.erro, undefined);
 });
 
-test("normalizarDataImportacao sinaliza ambiguidade quando dia e mês <= 12", () => {
+test("normalizarDataImportacao não marca DD/MM/AAAA com barra como ambíguo", () => {
   const r = normalizarDataImportacao("05/06/2026");
+  assert.equal(r.normalizado, "2026-06-05");
+  assert.equal(r.ambiguo, undefined);
+});
+
+test("normalizarDataImportacao sinaliza ambiguidade em data com traço quando dia e mês <= 12", () => {
+  const r = normalizarDataImportacao("05-06-2026");
   assert.equal(r.normalizado, "2026-06-05");
   assert.equal(r.ambiguo, true);
 });
@@ -182,7 +188,7 @@ test("aplicarNormalizacaoRegistro diferencia original e normalizado por tipo", (
 
 test("inconsistenciasDeNormalizacao sinaliza ambíguo e não interpretado", () => {
   const campos = aplicarNormalizacaoRegistro({
-    vencimento: { tipo: "data", raw: "05/06/2026" },
+    vencimento: { tipo: "data", raw: "05-06-2026" },
     valor: { tipo: "monetario", raw: "abc" },
   });
   const itens = inconsistenciasDeNormalizacao(campos);

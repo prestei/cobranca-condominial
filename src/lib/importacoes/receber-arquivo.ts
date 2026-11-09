@@ -172,7 +172,7 @@ export async function receberArquivoImportacao(input: {
 
   let leitura;
   try {
-    leitura = lerConteudoPlanilha(input.buffer, assinatura.formato);
+    leitura = await lerConteudoPlanilha(input.buffer, assinatura.formato);
   } catch (error) {
     if (error instanceof LeituraArquivoImportacaoError) {
       rejeitar(error.codigo, error.message, 400, contextoErro);

@@ -107,7 +107,7 @@ test("motor sinaliza data ambígua da normalização sem descartar o original", 
       },
       camposNormalizados: {
         dataVencimento: {
-          original: "05/06/2026",
+          original: "05-06-2026",
           normalizado: "2026-06-05",
           vazio: false,
           ambiguo: true,
@@ -118,13 +118,13 @@ test("motor sinaliza data ambígua da normalização sem descartar o original", 
 
   const { linhas } = aplicarMotorValidacaoImportacao(parseadas, {
     modulo: "debitos",
-    matriz: [["Unidade", "Condomínio", "Referência", "Vencimento", "Valor"], ["101", "Alpha", "09/2026", "05/06/2026", "100,00"]],
+    matriz: [["Unidade", "Condomínio", "Referência", "Vencimento", "Valor"], ["101", "Alpha", "09/2026", "05-06-2026", "100,00"]],
     contexto,
   });
 
   assert.equal(linhas[0].validacao?.resultado, "atencao");
   assert.ok(linhas[0].validacao?.inconsistencias.some((item) => item.codigo === "normalizacao.campo_ambiguo"));
-  assert.equal(linhas[0].validacao?.camposNormalizados?.dataVencimento.original, "05/06/2026");
+  assert.equal(linhas[0].validacao?.camposNormalizados?.dataVencimento.original, "05-06-2026");
   assert.equal(linhas[0].validacao?.camposNormalizados?.dataVencimento.normalizado, "2026-06-05");
   assert.ok(linhas[0].payload);
 });

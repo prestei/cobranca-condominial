@@ -125,7 +125,9 @@ export function normalizarDataImportacao(
     return resultadoRejeitado(original, opcoes?.mensagemInvalida ?? "Data inválida.");
   }
 
-  const ambiguoDiaMes = p3.length === 4 && dia <= 12 && mes <= 12 && dia !== mes;
+  // DD/MM/AAAA com "/" é convenção fixa pt-BR; ambiguidade dia/mês só em separador "-"
+  const ambiguoDiaMes =
+    separador === "-" && p3.length === 4 && dia <= 12 && mes <= 12 && dia !== mes;
   const ambiguo = ambiguoDiaMes || anoDoisDigitos || tinhaHora;
 
   const normalizado = `${String(ano).padStart(4, "0")}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
