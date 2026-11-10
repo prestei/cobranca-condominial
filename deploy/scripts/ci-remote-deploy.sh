@@ -30,9 +30,10 @@ npm ci
 
 echo "==> Prisma generate + migrate deploy"
 npx prisma generate
-npx prisma migrate deploy
-# Ambientes antigos: marca baseline como já aplicada se a tabela _prisma_migrations ainda não existir com o registro.
+# Produção já tem schema (docs/migrations/*.sql): marca baseline antes do deploy
+# para evitar P3005 em banco não vazio sem _prisma_migrations.
 npx prisma migrate resolve --applied 20261110120000_baseline >/dev/null 2>&1 || true
+npx prisma migrate deploy
 
 if [[ -f catalogo-operacional.import.json ]]; then
   echo "==> Importando catálogo operacional para o PostgreSQL"
