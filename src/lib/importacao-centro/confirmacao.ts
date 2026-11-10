@@ -1,4 +1,6 @@
 import { agoraIso, executarTransacaoCatalogo } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import { validarAprovacao } from "@/lib/importacao-centro/aprovacao";
 import {
   anexarAcaoConfirmacao,
@@ -43,7 +45,7 @@ function resultadoIdempotente(
 
 /**
  * Confirmação transacional (Ticket 10): revalida arquivo e base, reaplica duplicidades, grava em bloco único
- * (catálogo em memória / futuro `prisma.$transaction`) e registra histórico + auditoria somente após sucesso.
+ * (escopo AsyncLocalStorage → `saveOperationalState` / Prisma) e registra histórico + auditoria após sucesso.
  */
 export type OverridesConfirmacaoPrevia<TPayload, TContexto> = {
   linhasConferidas?: LinhaConferencia<TPayload>[];
@@ -65,7 +67,10 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
   const arquivo = arquivoPadrao(entrada.arquivo, `importacao-${adapter.modulo}.csv`);
   const chaveBloqueio = `${adapter.tipoImportacao}:${hashArquivo}`;
 
+  const catalogoInicial = await loadFullOperationalCadastros();
+
   return comBloqueioConfirmacaoImportacao(chaveBloqueio, async () => {
+    return runWithCatalogAsync(catalogoInicial, async () => {
     const processado = processarArquivoImportacao(adapter, {
       modo: "confirmacao",
       userId,
@@ -157,14 +162,15 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
       return { importacao, contadores, idempotente: false } satisfies ResultadoConfirmacaoCentral;
     });
 
-    // Persistência definitiva no PostgreSQL (fonte operacional da importação).
+    // Persistência definitiva no PostgreSQL (tabelas normalizadas).
     const { getCadastros } = await import("@/data/catalogo");
-    const { salvarOperacionalNoPostgres } = await import("@/lib/db/operacional-pg");
-    const gravou = await salvarOperacionalNoPostgres(getCadastros());
+    const { saveOperationalState } = await import("@/lib/db/repositories/catalog-persist");
+    const gravou = await saveOperationalState(getCadastros());
     if (!gravou) {
       console.error("[importacao] confirmação gravou no catálogo, mas falhou ao persistir no PostgreSQL.");
     }
 
     return resultado;
+    });
   });
 }

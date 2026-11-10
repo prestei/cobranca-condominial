@@ -1,14 +1,6 @@
 import {
-  agoraIso,
   debitoEmAberto,
-  escopoCondominios,
   formatarData,
-  getCadastros,
-  proximoNumero,
-  registrarAuditoria,
-  setResponsaveis,
-  setUnidades,
-  setVinculos,
   SITUACAO_COBRANCA_PADRAO,
   situacaoCobrancaUnidade,
   situacoesUnidade,
@@ -19,6 +11,33 @@ import {
   type Unidade,
   type Vinculo,
 } from "@/data/catalogo";
+import { invalidateServiceContextCache, scopeCondominiumIds } from "@/lib/db/service-context";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
+import { listDebtsByUnit } from "@/lib/db/repositories/debt-repository";
+import {
+  createResponsibleParty,
+  findResponsiblePartyByTaxId,
+  findResponsiblePartyById,
+  nextResponsiblePartyId,
+} from "@/lib/db/repositories/responsible-party-repository";
+import { listServiceTickets } from "@/lib/db/repositories/service-ticket-repository";
+import {
+  clearPrimaryLinksForUnit,
+  createUnit,
+  createUnitLink,
+  deleteUnit,
+  deleteUnitLink,
+  findUnitById,
+  findUnitLinkById,
+  listUnitLinks,
+  listUnitLinksByUnit,
+  listUnits,
+  nextUnitId,
+  nextUnitLinkId,
+  unitIdentificationExists,
+  updateUnit,
+} from "@/lib/db/repositories/unit-repository";
 import { responsavelParaResposta } from "@/lib/privacidade/dados-pessoais";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -40,20 +59,15 @@ export class UnidadeServiceError extends Error {
   }
 }
 
-function idsCondominioNoEscopo(userId: number): Set<number> {
-  const cadastros = getCadastros();
-  return new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
-}
-
-function assertCondominioNoEscopo(userId: number, condominioId: number) {
-  const ids = idsCondominioNoEscopo(userId);
+async function assertCondominioNoEscopo(userId: number, condominioId: number) {
+  const ids = await scopeCondominiumIds(userId);
   if (!ids.has(condominioId)) {
     throw new UnidadeServiceError("Condomínio fora do seu escopo de acesso.", 403);
   }
 }
 
-function assertCondominioValido(condominioId: number) {
-  const condominio = getCadastros().condominios.find((item) => item.id === condominioId);
+async function assertCondominioValido(condominioId: number) {
+  const condominio = await findCondominiumById(condominioId);
   if (!condominio) {
     throw new UnidadeServiceError("Condomínio inválido.", 400);
   }
@@ -64,7 +78,7 @@ function normalizarIdentificacao(identificacao: string) {
   return identificacao.trim();
 }
 
-function validarEntrada(input: UnidadeInput, editingId: number | null) {
+async function validarEntrada(input: UnidadeInput, editingId: number | null) {
   const identificacao = normalizarIdentificacao(input.identificacao);
   if (!input.condominioId) {
     throw new UnidadeServiceError("Selecione o condomínio.", 400);
@@ -83,12 +97,7 @@ function validarEntrada(input: UnidadeInput, editingId: number | null) {
     throw new UnidadeServiceError("Situação de cobrança inválida.", 400);
   }
 
-  const duplicada = getCadastros().unidades.some(
-    (item) =>
-      item.id !== editingId &&
-      item.condominioId === input.condominioId &&
-      item.identificacao.localeCompare(identificacao, "pt-BR", { sensitivity: "base" }) === 0,
-  );
+  const duplicada = await unitIdentificationExists(input.condominioId, identificacao, editingId);
   if (duplicada) {
     throw new UnidadeServiceError("Já existe esta identificação neste condomínio.", 409);
   }
@@ -103,36 +112,39 @@ function validarEntrada(input: UnidadeInput, editingId: number | null) {
   };
 }
 
-function unidadeNoEscopo(userId: number, unidade: Unidade) {
-  assertCondominioNoEscopo(userId, unidade.condominioId);
+async function unidadeNoEscopo(userId: number, unidade: Unidade) {
+  await assertCondominioNoEscopo(userId, unidade.condominioId);
 }
 
-export function listarUnidades(userId: number): Unidade[] {
-  const ids = idsCondominioNoEscopo(userId);
-  return getCadastros().unidades.filter((item) => ids.has(item.condominioId));
+export async function listarUnidades(userId: number): Promise<Unidade[]> {
+  const ids = await scopeCondominiumIds(userId);
+  const todas = await listUnits();
+  return todas.filter((item) => ids.has(item.condominioId));
 }
 
-export function obterUnidadeDetalhe(userId: number, unidadeId: number) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+export async function obterUnidadeDetalhe(userId: number, unidadeId: number) {
+  const unidade = await findUnitById(unidadeId);
   if (!unidade) {
     throw new UnidadeServiceError("Unidade não encontrada.", 404);
   }
-  unidadeNoEscopo(userId, unidade);
+  await unidadeNoEscopo(userId, unidade);
 
   const perm = permissoesDoUsuarioId(userId);
-  const cadastros = getCadastros();
-  const vinculos = cadastros.vinculos
-    .filter((item) => item.unidadeId === unidadeId)
-    .map((vinculo) => {
-      const responsavel = cadastros.responsaveis.find((item) => item.id === vinculo.responsavelId);
+  const vinculosRaw = await listUnitLinksByUnit(unidadeId);
+  const vinculos = await Promise.all(
+    vinculosRaw.map(async (vinculo) => {
+      const responsavel = await findResponsiblePartyById(vinculo.responsavelId);
       return {
         ...vinculo,
         responsavel: responsavel ? responsavelParaResposta(responsavel, perm) : null,
       };
-    });
+    }),
+  );
 
-  const debitos = cadastros.debitos.filter((item) => item.unidadeId === unidadeId);
-  const atendimentos = cadastros.atendimentos.filter((item) => String(item.unidadeId) === String(unidadeId));
+  const debitos = await listDebtsByUnit(unidadeId);
+  const atendimentos = (await listServiceTickets()).filter(
+    (item) => String(item.unidadeId) === String(unidadeId),
+  );
   const debitosAbertos = debitos.filter(debitoEmAberto);
   const valorAberto = debitosAbertos.reduce((sum, item) => sum + Number(item.valorAtualizado || 0), 0);
 
@@ -172,96 +184,100 @@ export function obterUnidadeDetalhe(userId: number, unidadeId: number) {
   };
 }
 
-export function criarUnidade(
+export async function criarUnidade(
   userId: number,
   input: UnidadeInput,
   meta?: { ip?: string; userAgent?: string },
   opcoes?: { ignorarEscopo?: boolean },
 ) {
-  assertCondominioValido(input.condominioId);
+  await assertCondominioValido(input.condominioId);
   if (!opcoes?.ignorarEscopo) {
-    assertCondominioNoEscopo(userId, input.condominioId);
+    await assertCondominioNoEscopo(userId, input.condominioId);
   }
-  const dados = validarEntrada(input, null);
-  const nextId = proximoNumero(getCadastros().unidades.map((item) => item.id));
+  const dados = await validarEntrada(input, null);
+  const nextId = await nextUnitId();
   const unidade: Unidade = { id: nextId, ...dados };
-  setUnidades((current) => [...current, unidade]);
-  registrarAuditoria(
-    {
-      entidade: "unit",
-      registroId: String(nextId),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify(unidade),
-      camposAlterados: "condominio_id, identificacao, bloco, tipo, status, situacao",
-    },
+  const criada = await createUnit(unidade);
+  invalidateServiceContextCache();
+  await writeAuditLog({
+    entity: "unit",
+    recordId: String(nextId),
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify(criada),
+    changedFields: "condominio_id, identificacao, bloco, tipo, status, situacao",
     userId,
-    meta,
-  );
-  return unidade;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criada;
 }
 
-export function atualizarUnidade(
+export async function atualizarUnidade(
   userId: number,
   unidadeId: number,
   input: UnidadeInput,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const atual = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const atual = await findUnitById(unidadeId);
   if (!atual) {
     throw new UnidadeServiceError("Unidade não encontrada.", 404);
   }
-  unidadeNoEscopo(userId, atual);
-  assertCondominioValido(input.condominioId);
-  assertCondominioNoEscopo(userId, input.condominioId);
-  const dados = validarEntrada(input, unidadeId);
+  await unidadeNoEscopo(userId, atual);
+  await assertCondominioValido(input.condominioId);
+  await assertCondominioNoEscopo(userId, input.condominioId);
+  const dados = await validarEntrada(input, unidadeId);
   const atualizada: Unidade = { id: unidadeId, ...dados };
-  setUnidades((current) => current.map((item) => (item.id === unidadeId ? atualizada : item)));
-  registrarAuditoria(
-    {
-      entidade: "unit",
-      registroId: String(unidadeId),
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify(atual),
-      dadosNovos: JSON.stringify(atualizada),
-      camposAlterados: "condominio_id, identificacao, bloco, tipo, status, situacao",
-    },
+  const salva = await updateUnit(atualizada);
+  invalidateServiceContextCache();
+  await writeAuditLog({
+    entity: "unit",
+    recordId: String(unidadeId),
+    action: "UPDATE",
+    previousData: JSON.stringify(atual),
+    newData: JSON.stringify(salva),
+    changedFields: "condominio_id, identificacao, bloco, tipo, status, situacao",
     userId,
-    meta,
-  );
-  return atualizada;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salva;
 }
 
-export function excluirUnidade(userId: number, unidadeId: number, meta?: { ip?: string; userAgent?: string }) {
-  const alvo = getCadastros().unidades.find((item) => item.id === unidadeId);
+export async function excluirUnidade(userId: number, unidadeId: number, meta?: { ip?: string; userAgent?: string }) {
+  const alvo = await findUnitById(unidadeId);
   if (!alvo) {
     throw new UnidadeServiceError("Unidade não encontrada.", 404);
   }
-  unidadeNoEscopo(userId, alvo);
-  const cadastros = getCadastros();
+  await unidadeNoEscopo(userId, alvo);
+  const [vinculos, debitos, tickets] = await Promise.all([
+    listUnitLinksByUnit(unidadeId),
+    listDebtsByUnit(unidadeId),
+    listServiceTickets(),
+  ]);
   const emUso =
-    cadastros.vinculos.some((item) => item.unidadeId === unidadeId) ||
-    cadastros.debitos.some((item) => item.unidadeId === unidadeId) ||
-    cadastros.atendimentos.some((item) => item.unidadeId === String(unidadeId));
+    vinculos.length > 0 ||
+    debitos.length > 0 ||
+    tickets.some((item) => item.unidadeId === String(unidadeId));
   if (emUso) {
     throw new UnidadeServiceError(
       "Unidade com vínculos ou histórico. Inative a unidade em vez de excluir.",
       409,
     );
   }
-  setUnidades((current) => current.filter((item) => item.id !== unidadeId));
-  registrarAuditoria(
-    {
-      entidade: "unit",
-      registroId: String(unidadeId),
-      acao: "DELETE",
-      dadosAnteriores: JSON.stringify(alvo),
-      dadosNovos: "",
-      camposAlterados: "identificacao",
-    },
+  await deleteUnit(unidadeId);
+  invalidateServiceContextCache();
+  await writeAuditLog({
+    entity: "unit",
+    recordId: String(unidadeId),
+    action: "DELETE",
+    previousData: JSON.stringify(alvo),
+    newData: "",
+    changedFields: "identificacao",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
 export type VinculoInput = {
@@ -276,12 +292,17 @@ function normalizarCpfCnpj(valor: string) {
   return valor.replace(/\D/g, "");
 }
 
-export function vincularResponsavel(userId: number, unidadeId: number, input: VinculoInput, meta?: { ip?: string; userAgent?: string }) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+export async function vincularResponsavel(
+  userId: number,
+  unidadeId: number,
+  input: VinculoInput,
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const unidade = await findUnitById(unidadeId);
   if (!unidade) {
     throw new UnidadeServiceError("Unidade não encontrada.", 404);
   }
-  unidadeNoEscopo(userId, unidade);
+  await unidadeNoEscopo(userId, unidade);
 
   if (!tiposVinculo.includes(input.tipoVinculo as (typeof tiposVinculo)[number])) {
     throw new UnidadeServiceError("Tipo de vínculo inválido.", 400);
@@ -293,26 +314,25 @@ export function vincularResponsavel(userId: number, unidadeId: number, input: Vi
     if (!input.responsavel.nome.trim() || !cpf) {
       throw new UnidadeServiceError("Informe nome e CPF/CNPJ do responsável.", 400);
     }
-    const existente = getCadastros().responsaveis.find((item) => normalizarCpfCnpj(item.cpfCnpj) === cpf);
+    const existente = await findResponsiblePartyByTaxId(cpf);
     if (existente) {
       responsavelId = existente.id;
     } else {
-      const nextId = proximoNumero(getCadastros().responsaveis.map((item) => item.id));
+      const nextId = await nextResponsiblePartyId();
       const novo: Responsavel = { id: nextId, ...input.responsavel, cpfCnpj: input.responsavel.cpfCnpj.trim() };
-      setResponsaveis((current) => [...current, novo]);
+      await createResponsibleParty(novo);
       responsavelId = nextId;
-      registrarAuditoria(
-        {
-          entidade: "responsible_party",
-          registroId: String(nextId),
-          acao: "INSERT",
-          dadosAnteriores: "",
-          dadosNovos: JSON.stringify({ id: nextId, nome: novo.nome }),
-          camposAlterados: "nome, cpf_cnpj, tipo_pessoa",
-        },
+      await writeAuditLog({
+        entity: "responsible_party",
+        recordId: String(nextId),
+        action: "INSERT",
+        previousData: "",
+        newData: JSON.stringify({ id: nextId, nome: novo.nome }),
+        changedFields: "nome, cpf_cnpj, tipo_pessoa",
         userId,
-        meta,
-      );
+        ip: meta?.ip,
+        userAgent: meta?.userAgent,
+      });
     }
   }
 
@@ -320,26 +340,25 @@ export function vincularResponsavel(userId: number, unidadeId: number, input: Vi
     throw new UnidadeServiceError("Selecione ou cadastre um responsável.", 400);
   }
 
-  const responsavel = getCadastros().responsaveis.find((item) => item.id === responsavelId);
+  const responsavel = await findResponsiblePartyById(responsavelId);
   if (!responsavel) {
     throw new UnidadeServiceError("Responsável inválido.", 400);
   }
 
   const principal = input.principal ?? false;
   if (principal) {
-    setVinculos((current) =>
-      current.map((item) => (item.unidadeId === unidadeId ? { ...item, principal: false } : item)),
-    );
+    await clearPrimaryLinksForUnit(unidadeId);
   }
 
-  const duplicado = getCadastros().vinculos.some(
-    (item) => item.unidadeId === unidadeId && item.responsavelId === responsavelId && item.tipoVinculo === input.tipoVinculo,
+  const vinculosUnidade = await listUnitLinksByUnit(unidadeId);
+  const duplicado = vinculosUnidade.some(
+    (item) => item.responsavelId === responsavelId && item.tipoVinculo === input.tipoVinculo,
   );
   if (duplicado) {
     throw new UnidadeServiceError("Este vínculo já existe para a unidade.", 409);
   }
 
-  const vinculoId = proximoNumero(getCadastros().vinculos.map((item) => item.id));
+  const vinculoId = await nextUnitLinkId();
   const vinculo: Vinculo = {
     id: vinculoId,
     unidadeId,
@@ -348,45 +367,53 @@ export function vincularResponsavel(userId: number, unidadeId: number, input: Vi
     principal,
     observacoes: (input.observacoes ?? "").trim(),
   };
-  setVinculos((current) => [...current, vinculo]);
-  registrarAuditoria(
-    {
-      entidade: "unit_responsible_party",
-      registroId: String(vinculoId),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify(vinculo),
-      camposAlterados: "unidade_id, responsavel_id, tipo_vinculo, principal",
-    },
+  const criado = await createUnitLink(vinculo);
+  await writeAuditLog({
+    entity: "unit_responsible_party",
+    recordId: String(vinculoId),
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify(criado),
+    changedFields: "unidade_id, responsavel_id, tipo_vinculo, principal",
     userId,
-    meta,
-  );
-  return vinculo;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
-export function removerVinculo(userId: number, unidadeId: number, vinculoId: number, meta?: { ip?: string; userAgent?: string }) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+export async function removerVinculo(
+  userId: number,
+  unidadeId: number,
+  vinculoId: number,
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const unidade = await findUnitById(unidadeId);
   if (!unidade) {
     throw new UnidadeServiceError("Unidade não encontrada.", 404);
   }
-  unidadeNoEscopo(userId, unidade);
-  const vinculo = getCadastros().vinculos.find((item) => item.id === vinculoId && item.unidadeId === unidadeId);
-  if (!vinculo) {
+  await unidadeNoEscopo(userId, unidade);
+  const vinculo = await findUnitLinkById(vinculoId);
+  if (!vinculo || vinculo.unidadeId !== unidadeId) {
     throw new UnidadeServiceError("Vínculo não encontrado.", 404);
   }
-  setVinculos((current) => current.filter((item) => item.id !== vinculoId));
-  registrarAuditoria(
-    {
-      entidade: "unit_responsible_party",
-      registroId: String(vinculoId),
-      acao: "DELETE",
-      dadosAnteriores: JSON.stringify(vinculo),
-      dadosNovos: "",
-      camposAlterados: "tipo_vinculo, responsavel_id",
-    },
+  await deleteUnitLink(vinculoId);
+  await writeAuditLog({
+    entity: "unit_responsible_party",
+    recordId: String(vinculoId),
+    action: "DELETE",
+    previousData: JSON.stringify(vinculo),
+    newData: "",
+    changedFields: "tipo_vinculo, responsavel_id",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+}
+
+/** Lista vínculos (escopo administrativo). */
+export async function listarVinculosUnidades(): Promise<Vinculo[]> {
+  return listUnitLinks();
 }
 
 export function requestMeta(request: Request) {

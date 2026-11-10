@@ -1,18 +1,23 @@
 import {
   agoraIso,
   debitoEmAberto,
-  escopoCondominios,
-  escopoUnidades,
-  getCadastros,
   origensDebito,
-  proximoNumero,
-  registrarAuditoria,
-  setDebitos,
-  setUnidades,
   statusDebito,
   type Debito,
   type FonteValoresDebito,
 } from "@/data/catalogo";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import {
+  createDebt,
+  deleteDebt,
+  findDebtById,
+  listDebts,
+  listDebtsByUnit,
+  nextDebtId,
+  updateDebt,
+} from "@/lib/db/repositories/debt-repository";
+import { findUnitById, updateUnit } from "@/lib/db/repositories/unit-repository";
+import { invalidateServiceContextCache, scopeCondominiumIds, scopeUnitIds } from "@/lib/db/service-context";
 import {
   calcularIndicadoresInadimplencia,
   type DebitoIndicadores,
@@ -62,25 +67,19 @@ export type DebitoFiltros = {
 
 const DINHEIRO = /^\d+([.,]\d{1,2})?$/;
 
-function idsCondominioNoEscopo(userId: number): Set<number> {
-  return new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-}
-
-function idsUnidadeNoEscopo(userId: number): Set<number> {
-  return new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
-}
-
-function assertDebitoNoEscopo(userId: number, debito: Pick<Debito, "condominioId" | "unidadeId">) {
-  if (!idsCondominioNoEscopo(userId).has(debito.condominioId)) {
+async function assertDebitoNoEscopo(userId: number, debito: Pick<Debito, "condominioId" | "unidadeId">) {
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(debito.condominioId)) {
     throw new DebitoServiceError("Condomínio fora do seu escopo de acesso.", 403);
   }
-  if (!idsUnidadeNoEscopo(userId).has(debito.unidadeId)) {
+  const idsUnidade = await scopeUnitIds(userId);
+  if (!idsUnidade.has(debito.unidadeId)) {
     throw new DebitoServiceError("Unidade fora do seu escopo de acesso.", 403);
   }
 }
 
-function assertUnidadeDoCondominio(condominioId: number, unidadeId: number) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+async function assertUnidadeDoCondominio(condominioId: number, unidadeId: number) {
+  const unidade = await findUnitById(unidadeId);
   if (!unidade) {
     throw new DebitoServiceError("Unidade não encontrada.", 404);
   }
@@ -103,7 +102,7 @@ function validarMoedaOpcional(campo: string, valor: string | undefined, erros: R
   }
 }
 
-function validarEntrada(input: DebitoInput): Omit<Debito, "id" | "atualizadoEm" | "fonteValores"> {
+async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "atualizadoEm" | "fonteValores">> {
   const referencia = input.referencia.trim();
   const erros: Record<string, string> = {};
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
@@ -112,7 +111,7 @@ function validarEntrada(input: DebitoInput): Omit<Debito, "id" | "atualizadoEm" 
   if (!Number.isFinite(input.unidadeId) || input.unidadeId <= 0) {
     throw new DebitoServiceError("Selecione a unidade.", 400);
   }
-  assertUnidadeDoCondominio(input.condominioId, input.unidadeId);
+  await assertUnidadeDoCondominio(input.condominioId, input.unidadeId);
   if (!referencia) {
     throw new DebitoServiceError("Informe a referência. Ex.: 09/2026.", 400);
   }
@@ -171,9 +170,9 @@ function serializarDebitoAuditoria(debito: Debito) {
   });
 }
 
-export function listarDebitos(userId: number, filtros?: DebitoFiltros): Debito[] {
-  const idsCondominio = idsCondominioNoEscopo(userId);
-  let lista = getCadastros().debitos.filter((item) => idsCondominio.has(item.condominioId));
+export async function listarDebitos(userId: number, filtros?: DebitoFiltros): Promise<Debito[]> {
+  const idsCondominio = await scopeCondominiumIds(userId);
+  let lista = (await listDebts()).filter((item) => idsCondominio.has(item.condominioId));
 
   if (filtros?.condominioId) {
     lista = lista.filter((item) => item.condominioId === filtros.condominioId);
@@ -206,20 +205,20 @@ export function listarDebitos(userId: number, filtros?: DebitoFiltros): Debito[]
   return [...lista].sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id);
 }
 
-export function obterDebito(userId: number, debitoId: number): Debito {
-  const debito = getCadastros().debitos.find((item) => item.id === debitoId);
+export async function obterDebito(userId: number, debitoId: number): Promise<Debito> {
+  const debito = await findDebtById(debitoId);
   if (!debito) {
     throw new DebitoServiceError("Débito não encontrado.", 404);
   }
-  assertDebitoNoEscopo(userId, debito);
+  await assertDebitoNoEscopo(userId, debito);
   return debito;
 }
 
-export function obterIndicadoresDebitos(
+export async function obterIndicadoresDebitos(
   userId: number,
   input: Omit<DebitoIndicadoresInput, "debitos"> & { filtros?: DebitoFiltros },
-): DebitoIndicadores {
-  const debitos = listarDebitos(userId, input.filtros);
+): Promise<DebitoIndicadores> {
+  const debitos = await listarDebitos(userId, input.filtros);
   return calcularIndicadoresInadimplencia({
     debitos,
     dataBase: input.dataBase,
@@ -228,20 +227,20 @@ export function obterIndicadoresDebitos(
   });
 }
 
-export function criarDebito(
+export async function criarDebito(
   userId: number,
   input: DebitoInput,
   meta?: { ip?: string; userAgent?: string },
-): Debito {
+): Promise<Debito> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "criar")) {
     throw new DebitoServiceError("Sem permissão para cadastrar débitos.", 403);
   }
 
-  const dados = validarEntrada(input);
-  assertDebitoNoEscopo(userId, dados);
+  const dados = await validarEntrada(input);
+  await assertDebitoNoEscopo(userId, dados);
 
-  const id = proximoNumero(getCadastros().debitos.map((item) => item.id));
+  const id = await nextDebtId();
   const fonteValores: FonteValoresDebito = "manual";
   const registro: Debito = {
     id,
@@ -250,41 +249,40 @@ export function criarDebito(
     atualizadoEm: agoraIso(),
   };
 
-  setDebitos((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "debt",
-      registroId: String(id),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: serializarDebitoAuditoria(registro),
-      camposAlterados: "referencia, status, valor_atualizado, origem, fonte_valores",
-    },
+  const criado = await createDebt(registro);
+  await writeAuditLog({
+    entity: "debt",
+    recordId: String(id),
+    action: "INSERT",
+    previousData: "",
+    newData: serializarDebitoAuditoria(criado),
+    changedFields: "referencia, status, valor_atualizado, origem, fonte_valores",
     userId,
-    meta,
-  );
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
-export function atualizarDebito(
+export async function atualizarDebito(
   userId: number,
   id: number,
   input: DebitoInput,
   meta?: { ip?: string; userAgent?: string },
-): Debito {
+): Promise<Debito> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "editar")) {
     throw new DebitoServiceError("Sem permissão para editar débitos.", 403);
   }
 
-  const anterior = getCadastros().debitos.find((item) => item.id === id);
+  const anterior = await findDebtById(id);
   if (!anterior) {
     throw new DebitoServiceError("Débito não encontrado.", 404);
   }
-  assertDebitoNoEscopo(userId, anterior);
+  await assertDebitoNoEscopo(userId, anterior);
 
-  const dados = validarEntrada(input);
-  assertDebitoNoEscopo(userId, dados);
+  const dados = await validarEntrada(input);
+  await assertDebitoNoEscopo(userId, dados);
 
   const fonteValores: FonteValoresDebito = "manual";
 
@@ -296,51 +294,48 @@ export function atualizarDebito(
     atualizadoEm: agoraIso(),
   };
 
-  setDebitos((current) => current.map((item) => (item.id === id ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "debt",
-      registroId: String(id),
-      acao: "UPDATE",
-      dadosAnteriores: serializarDebitoAuditoria(anterior),
-      dadosNovos: serializarDebitoAuditoria(atualizado),
-      camposAlterados: "referencia, status, valores, origem, fonte_valores, atualizado_em",
-    },
+  const salvo = await updateDebt(atualizado);
+  await writeAuditLog({
+    entity: "debt",
+    recordId: String(id),
+    action: "UPDATE",
+    previousData: serializarDebitoAuditoria(anterior),
+    newData: serializarDebitoAuditoria(salvo),
+    changedFields: "referencia, status, valores, origem, fonte_valores, atualizado_em",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
-export function excluirDebito(userId: number, id: number, meta?: { ip?: string; userAgent?: string }) {
+export async function excluirDebito(userId: number, id: number, meta?: { ip?: string; userAgent?: string }) {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "excluir")) {
     throw new DebitoServiceError("Sem permissão para excluir débitos.", 403);
   }
 
-  const alvo = getCadastros().debitos.find((item) => item.id === id);
+  const alvo = await findDebtById(id);
   if (!alvo) {
     throw new DebitoServiceError("Débito não encontrado.", 404);
   }
-  assertDebitoNoEscopo(userId, alvo);
+  await assertDebitoNoEscopo(userId, alvo);
 
-  setDebitos((current) => current.filter((item) => item.id !== id));
-  registrarAuditoria(
-    {
-      entidade: "debt",
-      registroId: String(id),
-      acao: "DELETE",
-      dadosAnteriores: serializarDebitoAuditoria(alvo),
-      dadosNovos: "",
-      camposAlterados: "registro",
-    },
+  await deleteDebt(id);
+  await writeAuditLog({
+    entity: "debt",
+    recordId: String(id),
+    action: "DELETE",
+    previousData: serializarDebitoAuditoria(alvo),
+    newData: "",
+    changedFields: "registro",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
-/** Marca a unidade como quitada (fora da cobrança ativa). Atendimentos e débitos históricos permanecem. */
-export function confirmarQuitacaoUnidade(
+export async function confirmarQuitacaoUnidade(
   userId: number,
   unidadeId: number,
   opcoes?: { forcar?: boolean },
@@ -351,15 +346,16 @@ export function confirmarQuitacaoUnidade(
     throw new DebitoServiceError("Sem permissão para confirmar quitação.", 403);
   }
 
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const unidade = await findUnitById(unidadeId);
   if (!unidade) {
     throw new DebitoServiceError("Unidade não encontrada.", 404);
   }
-  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
+  const idsUnidade = await scopeUnitIds(userId);
+  if (!idsUnidade.has(unidadeId)) {
     throw new DebitoServiceError("Unidade fora do seu escopo de acesso.", 403);
   }
 
-  const abertos = getCadastros().debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
+  const abertos = (await listDebtsByUnit(unidadeId)).filter((item) => debitoEmAberto(item));
   if (abertos.length > 0 && !opcoes?.forcar) {
     throw new DebitoServiceError(
       "Ainda há débitos em aberto nesta unidade. Confirme a quitação mesmo assim ou regularize os débitos antes.",
@@ -369,22 +365,22 @@ export function confirmarQuitacaoUnidade(
 
   const anterior = { ...unidade };
   const atualizada = { ...unidade, situacao: "Quitada" as const };
-  setUnidades((current) => current.map((item) => (item.id === unidadeId ? atualizada : item)));
+  const salva = await updateUnit(atualizada);
+  invalidateServiceContextCache();
 
-  registrarAuditoria(
-    {
-      entidade: "unit",
-      registroId: String(unidadeId),
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ situacao: anterior.situacao }),
-      dadosNovos: JSON.stringify({ situacao: atualizada.situacao, debitosAbertos: abertos.length }),
-      camposAlterados: "situacao",
-    },
+  await writeAuditLog({
+    entity: "unit",
+    recordId: String(unidadeId),
+    action: "UPDATE",
+    previousData: JSON.stringify({ situacao: anterior.situacao }),
+    newData: JSON.stringify({ situacao: salva.situacao, debitosAbertos: abertos.length }),
+    changedFields: "situacao",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 
-  return { unidade: atualizada, debitosAbertos: abertos.length };
+  return { unidade: salva, debitosAbertos: abertos.length };
 }
 
 export function requestMeta(request: Request) {

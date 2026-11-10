@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   try {
-    const resultado = executarDistribuicaoAutomatica(session.userId, requestMeta(request));
+    const resultado = await executarDistribuicaoAutomatica(session.userId, requestMeta(request));
     const atribuicoesCobranca: AtribuicaoCobranca[] = resultado.atribuicoes;
     return Response.json({
       atribuidas: resultado.atribuidas,

@@ -2,17 +2,25 @@ import {
   advogadoPrincipalCondominio,
   agoraIso,
   debitoEmAberto,
-  escopoCondominios,
   formatarMoeda,
-  getCadastros,
   opcoesAdvogadosResponsaveis,
-  registrarAuditoria,
-  setDocumentosJuridicos,
-  setEncaminhamentosJuridicos,
   statusEncaminhamentoJuridico,
   type DocumentoJuridico,
   type EncaminhamentoJuridico,
 } from "@/data/catalogo";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
+import { listDebts } from "@/lib/db/repositories/debt-repository";
+import {
+  createLegalDocument,
+  createLegalReferral,
+  findLegalReferralById,
+  listLegalDocumentsByReferral,
+  listLegalReferrals,
+  updateLegalReferral,
+} from "@/lib/db/repositories/legal-repository";
+import { requireUnitInScope, scopeCondominiumIds } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -78,37 +86,38 @@ const TRANSICOES_STATUS: Record<string, Set<string>> = {
   Arquivado: new Set(),
 };
 
-function idsCondominioNoEscopo(userId: number): Set<number> {
-  return new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-}
-
-function assertPermissaoJuridico(userId: number, acao: "ler" | "criar" | "editar") {
+async function assertPermissaoJuridico(userId: number, acao: "ler" | "criar" | "editar") {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "juridico", acao)) {
     throw new JuridicoServiceError(`Sem permissão para ${acao === "ler" ? "consultar" : acao} encaminhamentos jurídicos.`, 403);
   }
 }
 
-function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
-  if (!unidade) {
-    throw new JuridicoServiceError("Unidade não encontrada.", 404);
+async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
+  try {
+    return await requireUnitInScope(userId, unidadeId, condominioId);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "UNIT_NOT_FOUND") {
+      throw new JuridicoServiceError("Unidade não encontrada.", 404);
+    }
+    if (code === "UNIT_CONDO_MISMATCH") {
+      throw new JuridicoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
+    }
+    if (code === "CONDO_OUT_OF_SCOPE") {
+      throw new JuridicoServiceError("Condomínio fora do seu escopo de acesso.", 403);
+    }
+    throw error;
   }
-  if (unidade.condominioId !== condominioId) {
-    throw new JuridicoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
-  }
-  if (!idsCondominioNoEscopo(userId).has(condominioId)) {
-    throw new JuridicoServiceError("Condomínio fora do seu escopo de acesso.", 403);
-  }
-  return unidade;
 }
 
-function validarAdvogadoResponsavel(condominioId: number, nome: string) {
-  const condominio = getCadastros().condominios.find((item) => item.id === condominioId);
+async function validarAdvogadoResponsavel(condominioId: number, nome: string) {
+  const condominio = await findCondominiumById(condominioId);
   if (!condominio) {
     throw new JuridicoServiceError("Condomínio não encontrado.", 404);
   }
-  const permitidos = new Set(opcoesAdvogadosResponsaveis(getCadastros()));
+  const cadastros = await loadCadastrosForScope();
+  const permitidos = new Set(opcoesAdvogadosResponsaveis(cadastros));
   const advogado = nome.trim();
   if (!advogado) {
     throw new JuridicoServiceError("Informe o advogado responsável.", 400);
@@ -122,12 +131,12 @@ function validarAdvogadoResponsavel(condominioId: number, nome: string) {
   return advogado;
 }
 
-function validarDebitos(unidadeId: number, debitoIds: number[] | undefined) {
+async function validarDebitos(unidadeId: number, debitoIds: number[] | undefined) {
   if (!debitoIds || debitoIds.length === 0) return [] as number[];
   const idsUnicos = [...new Set(debitoIds.filter((id) => Number.isFinite(id) && id > 0))];
-  const cadastros = getCadastros();
+  const debitos = await listDebts();
   for (const id of idsUnicos) {
-    const debito = cadastros.debitos.find((item) => item.id === id);
+    const debito = debitos.find((item) => item.id === id);
     if (!debito) {
       throw new JuridicoServiceError(`Débito ${id} não encontrado.`, 400);
     }
@@ -146,26 +155,25 @@ function validarTransicaoStatus(anterior: string, proximo: string) {
   }
 }
 
-function encaminhamentoNoEscopo(userId: number, item: EncaminhamentoJuridico) {
-  return idsCondominioNoEscopo(userId).has(item.condominioId);
-}
-
-function incluirDocumentos(userId: number, encaminhamento: EncaminhamentoJuridico): EncaminhamentoJuridicoDetalhe {
+async function incluirDocumentos(userId: number, encaminhamento: EncaminhamentoJuridico): Promise<EncaminhamentoJuridicoDetalhe> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "juridico", "ler")) {
     return encaminhamento;
   }
-  const documentos = getCadastros().documentosJuridicos.filter((item) => item.encaminhamentoId === encaminhamento.id);
-  return { ...encaminhamento, documentos: [...documentos].sort((a, b) => b.registradoEm.localeCompare(a.registradoEm)) };
+  const documentos = await listLegalDocumentsByReferral(encaminhamento.id);
+  return {
+    ...encaminhamento,
+    documentos: [...documentos].sort((a, b) => b.registradoEm.localeCompare(a.registradoEm)),
+  };
 }
 
-export function listarEncaminhamentosJuridicos(
+export async function listarEncaminhamentosJuridicos(
   userId: number,
   filtros?: EncaminhamentoJuridicoFiltros,
-): EncaminhamentoJuridicoDetalhe[] {
-  assertPermissaoJuridico(userId, "ler");
-  const idsCondominio = idsCondominioNoEscopo(userId);
-  let lista = getCadastros().encaminhamentosJuridicos.filter((item) => idsCondominio.has(item.condominioId));
+): Promise<EncaminhamentoJuridicoDetalhe[]> {
+  await assertPermissaoJuridico(userId, "ler");
+  const idsCondominio = await scopeCondominiumIds(userId);
+  let lista = (await listLegalReferrals()).filter((item) => idsCondominio.has(item.condominioId));
 
   if (filtros?.unidadeId) {
     lista = lista.filter((item) => item.unidadeId === filtros.unidadeId);
@@ -180,56 +188,56 @@ export function listarEncaminhamentosJuridicos(
     lista = lista.filter((item) => item.advogadoResponsavel === filtros.advogado);
   }
 
-  return [...lista]
-    .sort((a, b) => b.encaminhadoEm.localeCompare(a.encaminhadoEm))
-    .map((item) => incluirDocumentos(userId, item));
+  const ordenados = [...lista].sort((a, b) => b.encaminhadoEm.localeCompare(a.encaminhadoEm));
+  return Promise.all(ordenados.map((item) => incluirDocumentos(userId, item)));
 }
 
-export function obterEncaminhamentoJuridico(userId: number, id: string): EncaminhamentoJuridicoDetalhe {
-  assertPermissaoJuridico(userId, "ler");
-  const encaminhamento = getCadastros().encaminhamentosJuridicos.find((item) => item.id === id);
+export async function obterEncaminhamentoJuridico(userId: number, id: string): Promise<EncaminhamentoJuridicoDetalhe> {
+  await assertPermissaoJuridico(userId, "ler");
+  const encaminhamento = await findLegalReferralById(id);
   if (!encaminhamento) {
     throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
   }
-  if (!encaminhamentoNoEscopo(userId, encaminhamento)) {
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(encaminhamento.condominioId)) {
     throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
   }
   return incluirDocumentos(userId, encaminhamento);
 }
 
-function montarResumoContexto(unidadeId: number, debitoIds: number[], textoExtra: string) {
-  const cadastros = getCadastros();
-  const debitos =
+async function montarResumoContexto(unidadeId: number, debitoIds: number[], textoExtra: string) {
+  const debitos = await listDebts();
+  const selecionados =
     debitoIds.length > 0
-      ? cadastros.debitos.filter((item) => debitoIds.includes(item.id))
-      : cadastros.debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
-  const valor = debitos.reduce((sum, item) => sum + Number(item.valorAtualizado || 0), 0);
+      ? debitos.filter((item) => debitoIds.includes(item.id))
+      : debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
+  const valor = selecionados.reduce((sum, item) => sum + Number(item.valorAtualizado || 0), 0);
   const partes = [
-    `${debitos.length} débito(s) em aberto`,
+    `${selecionados.length} débito(s) em aberto`,
     valor > 0 ? `Total atualizado: ${formatarMoeda(String(valor))}` : "",
     textoExtra.trim(),
   ].filter(Boolean);
   return partes.join(" · ");
 }
 
-export function criarEncaminhamentoJuridico(
+export async function criarEncaminhamentoJuridico(
   userId: number,
   input: EncaminhamentoJuridicoInput,
   meta?: { ip?: string; userAgent?: string },
-): EncaminhamentoJuridico {
-  assertPermissaoJuridico(userId, "criar");
+): Promise<EncaminhamentoJuridico> {
+  await assertPermissaoJuridico(userId, "criar");
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
     throw new JuridicoServiceError("Selecione o condomínio.", 400);
   }
   if (!Number.isFinite(input.unidadeId) || input.unidadeId <= 0) {
     throw new JuridicoServiceError("Selecione a unidade.", 400);
   }
-  assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+  await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
 
-  const debitoIds = validarDebitos(input.unidadeId, input.debitoIds);
-  const condominio = getCadastros().condominios.find((item) => item.id === input.condominioId);
+  const debitoIds = await validarDebitos(input.unidadeId, input.debitoIds);
+  const condominio = await findCondominiumById(input.condominioId);
   const advogadoDefault = condominio ? advogadoPrincipalCondominio(condominio) : "";
-  const advogadoResponsavel = validarAdvogadoResponsavel(
+  const advogadoResponsavel = await validarAdvogadoResponsavel(
     input.condominioId,
     (input.advogadoResponsavel ?? advogadoDefault).trim(),
   );
@@ -245,44 +253,44 @@ export function criarEncaminhamentoJuridico(
     advogadoResponsavel,
     observacoes: (input.observacoes ?? "").trim(),
     debitoIds,
-    resumoContexto: montarResumoContexto(input.unidadeId, debitoIds, input.resumoContexto ?? ""),
+    resumoContexto: await montarResumoContexto(input.unidadeId, debitoIds, input.resumoContexto ?? ""),
     atualizadoEm: agora,
     atualizadoPorId: userId,
   };
 
-  setEncaminhamentosJuridicos((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "legal_case_referral",
-      registroId: registro.id,
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify({
-        unidadeId: registro.unidadeId,
-        status: registro.status,
-        advogadoResponsavel: registro.advogadoResponsavel,
-        debitoIds: registro.debitoIds,
-      }),
-      camposAlterados: "unidade_id, status, advogado_responsavel, debito_ids",
-    },
+  const criado = await createLegalReferral(registro);
+  await writeAuditLog({
+    entity: "legal_case_referral",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      unidadeId: criado.unidadeId,
+      status: criado.status,
+      advogadoResponsavel: criado.advogadoResponsavel,
+      debitoIds: criado.debitoIds,
+    }),
+    changedFields: "unidade_id, status, advogado_responsavel, debito_ids",
     userId,
-    meta,
-  );
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
-export function atualizarEncaminhamentoJuridico(
+export async function atualizarEncaminhamentoJuridico(
   userId: number,
   id: string,
   input: EncaminhamentoJuridicoAtualizacaoInput,
   meta?: { ip?: string; userAgent?: string },
-): EncaminhamentoJuridico {
-  assertPermissaoJuridico(userId, "editar");
-  const anterior = getCadastros().encaminhamentosJuridicos.find((item) => item.id === id);
+): Promise<EncaminhamentoJuridico> {
+  await assertPermissaoJuridico(userId, "editar");
+  const anterior = await findLegalReferralById(id);
   if (!anterior) {
     throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
   }
-  if (!encaminhamentoNoEscopo(userId, anterior)) {
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(anterior.condominioId)) {
     throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
   }
 
@@ -300,7 +308,7 @@ export function atualizarEncaminhamentoJuridico(
   }
 
   if (input.advogadoResponsavel !== undefined) {
-    advogadoResponsavel = validarAdvogadoResponsavel(anterior.condominioId, input.advogadoResponsavel);
+    advogadoResponsavel = await validarAdvogadoResponsavel(anterior.condominioId, input.advogadoResponsavel);
   }
 
   if (input.observacoes !== undefined) {
@@ -317,7 +325,7 @@ export function atualizarEncaminhamentoJuridico(
     atualizadoPorId: userId,
   };
 
-  setEncaminhamentosJuridicos((current) => current.map((item) => (item.id === id ? atualizado : item)));
+  const salvo = await updateLegalReferral(atualizado);
 
   const campos: string[] = [];
   if (status !== anterior.status) campos.push("status");
@@ -325,43 +333,43 @@ export function atualizarEncaminhamentoJuridico(
   if (observacoes !== anterior.observacoes) campos.push("observacoes");
 
   if (campos.length > 0) {
-    registrarAuditoria(
-      {
-        entidade: "legal_case_referral",
-        registroId: id,
-        acao: "UPDATE",
-        dadosAnteriores: JSON.stringify({
-          status: anterior.status,
-          advogadoResponsavel: anterior.advogadoResponsavel,
-          observacoes: anterior.observacoes,
-        }),
-        dadosNovos: JSON.stringify({
-          status: atualizado.status,
-          advogadoResponsavel: atualizado.advogadoResponsavel,
-          observacoes: atualizado.observacoes,
-        }),
-        camposAlterados: campos.join(", "),
-      },
+    await writeAuditLog({
+      entity: "legal_case_referral",
+      recordId: id,
+      action: "UPDATE",
+      previousData: JSON.stringify({
+        status: anterior.status,
+        advogadoResponsavel: anterior.advogadoResponsavel,
+        observacoes: anterior.observacoes,
+      }),
+      newData: JSON.stringify({
+        status: salvo.status,
+        advogadoResponsavel: salvo.advogadoResponsavel,
+        observacoes: salvo.observacoes,
+      }),
+      changedFields: campos.join(", "),
       userId,
-      meta,
-    );
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+    });
   }
 
-  return atualizado;
+  return salvo;
 }
 
-export function registrarDocumentoJuridico(
+export async function registrarDocumentoJuridico(
   userId: number,
   encaminhamentoId: string,
   input: DocumentoJuridicoInput,
   meta?: { ip?: string; userAgent?: string },
-): DocumentoJuridico {
-  assertPermissaoJuridico(userId, "editar");
-  const encaminhamento = getCadastros().encaminhamentosJuridicos.find((item) => item.id === encaminhamentoId);
+): Promise<DocumentoJuridico> {
+  await assertPermissaoJuridico(userId, "editar");
+  const encaminhamento = await findLegalReferralById(encaminhamentoId);
   if (!encaminhamento) {
     throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
   }
-  if (!encaminhamentoNoEscopo(userId, encaminhamento)) {
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(encaminhamento.condominioId)) {
     throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
   }
 
@@ -380,24 +388,23 @@ export function registrarDocumentoJuridico(
     registradoPorId: userId,
   };
 
-  setDocumentosJuridicos((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "legal_document",
-      registroId: registro.id,
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify({
-        encaminhamentoId,
-        titulo: registro.titulo,
-        referenciaArquivo: registro.referenciaArquivo,
-      }),
-      camposAlterados: "encaminhamento_id, titulo, referencia_arquivo",
-    },
+  const criado = await createLegalDocument(registro);
+  await writeAuditLog({
+    entity: "legal_document",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      encaminhamentoId,
+      titulo: criado.titulo,
+      referenciaArquivo: criado.referenciaArquivo,
+    }),
+    changedFields: "encaminhamento_id, titulo, referencia_arquivo",
     userId,
-    meta,
-  );
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
 export function requestMeta(request: Request) {

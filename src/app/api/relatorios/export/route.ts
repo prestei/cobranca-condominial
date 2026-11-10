@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const filtros = parseRelatorioFiltros(searchParams, tipo);
   try {
     assertCondominioNoEscopo(session.userId, filtros.condominioId);
-    const payload = montarExportRelatorio(session.userId, tipo, filtros);
+    const payload = await montarExportRelatorio(session.userId, tipo, filtros);
     const formato = searchParams.get("formato")?.trim().toLowerCase() ?? "csv";
 
     if (formato === "xls" || formato === "excel") {

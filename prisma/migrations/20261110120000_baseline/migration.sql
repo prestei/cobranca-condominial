@@ -1,0 +1,2 @@
+-- Baseline: schema already applied via docs/migrations/*.sql on existing environments.
+-- This migration is marked as applied with `prisma migrate resolve` and must not recreate tables.

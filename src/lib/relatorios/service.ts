@@ -6,8 +6,8 @@ import {
   escopoCondominios,
   escopoUnidades,
   formatarData,
-  getCadastros,
   grupoDebito,
+  type Cadastros,
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
   nomeUnidade,
@@ -19,6 +19,8 @@ import {
   type Debito,
 } from "@/data/catalogo";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
+import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { scopedUnits, scopeCondominiumIds } from "@/lib/db/service-context";
 import { codigoReDoUsuario, listarAtendentesComRe, nomeColaboradorPorCodigoRe } from "@/lib/colaboradores/re";
 import { listarDebitos } from "@/lib/debitos/service";
 import { temPermissao } from "@/lib/permissions/check";
@@ -91,18 +93,18 @@ function somar(itens: Array<{ valorAtualizado: string }>) {
   return itens.reduce((total, item) => total + (Number(item.valorAtualizado) || 0), 0);
 }
 
-function nomeColaboradorDoUsuario(usuarioId: number): string {
-  const usuario = getCadastros().usuarios.find((item) => item.id === usuarioId);
+function nomeColaboradorDoUsuario(cadastros: Cadastros, usuarioId: number): string {
+  const usuario = cadastros.usuarios.find((item) => item.id === usuarioId);
   if (!usuario) return "—";
   const nome = usuario.nome.trim();
   if (nome) return nome;
   return codigoReDoUsuario(usuario) ?? "—";
 }
 
-function idsUsuarioPorRe(codigoRe: string): number[] {
+function idsUsuarioPorRe(cadastros: Cadastros, codigoRe: string): number[] {
   const alvo = codigoRe.trim().toUpperCase();
-  return getCadastros()
-    .usuarios.filter((item) => codigoReDoUsuario(item)?.toUpperCase() === alvo)
+  return cadastros.usuarios
+    .filter((item) => codigoReDoUsuario(item)?.toUpperCase() === alvo)
     .map((item) => item.id);
 }
 
@@ -163,12 +165,12 @@ export function assertRelatorioTipo(valor: string | null): RelatorioTipo {
   throw new RelatorioServiceError("Informe um tipo de relatório válido.", 400);
 }
 
-export function obterOpcoesFiltrosRelatorio(userId: number): RelatorioOpcoesFiltro {
+export async function obterOpcoesFiltrosRelatorio(userId: number): Promise<RelatorioOpcoesFiltro> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "relatorios", "ler")) {
     throw new RelatorioServiceError("Sem permissão para consultar relatórios.", 403);
   }
-  const cadastros = getCadastros();
+  const cadastros = await loadCadastrosForScope();
   const condominios = escopoCondominios(cadastros, userId).map((item) => ({ id: item.id, nome: item.nome }));
   const advogadosEscopo = [...new Set(condominios.flatMap((c) => cadastros.condominios.find((x) => x.id === c.id)?.advogados ?? []))].sort(
     (a, b) => a.localeCompare(b, "pt-BR"),
@@ -190,20 +192,28 @@ function combinaCarteira(condominio: Condominio | undefined, filtros: RelatorioF
   return true;
 }
 
-function condominioDaUnidade(unidadeId: string | number) {
-  const unidade = getCadastros().unidades.find((item) => String(item.id) === String(unidadeId));
+function condominioDaUnidade(cadastros: Cadastros, unidadeId: string | number) {
+  const unidade = cadastros.unidades.find((item) => String(item.id) === String(unidadeId));
   if (!unidade) return undefined;
-  return getCadastros().condominios.find((item) => item.id === unidade.condominioId);
+  return cadastros.condominios.find((item) => item.id === unidade.condominioId);
 }
 
-function filtrarAtendimentos(userId: number, filtros: RelatorioFiltros, exigirPeriodo: boolean): Atendimento[] {
+async function filtrarAtendimentos(
+  cadastros: Cadastros,
+  userId: number,
+  filtros: RelatorioFiltros,
+  exigirPeriodo: boolean,
+): Promise<Atendimento[]> {
   const busca = filtros.busca.trim().toLocaleLowerCase("pt-BR");
   const idsRe =
-    filtros.codigoRe !== "todos" && filtros.codigoRe.trim() ? new Set(idsUsuarioPorRe(filtros.codigoRe)) : null;
+    filtros.codigoRe !== "todos" && filtros.codigoRe.trim()
+      ? new Set(idsUsuarioPorRe(cadastros, filtros.codigoRe))
+      : null;
 
-  return listarAtendimentos(userId).filter((item) => {
+  const todos = await listarAtendimentos(userId);
+  return todos.filter((item) => {
     if (exigirPeriodo && !dentro(item.dataHora, filtros.de, filtros.ate)) return false;
-    const condominio = condominioDaUnidade(item.unidadeId);
+    const condominio = condominioDaUnidade(cadastros, item.unidadeId);
     if (!combinaCarteira(condominio, filtros)) return false;
     if (idsRe && !idsRe.has(item.usuarioId)) return false;
     if (filtros.respondeu !== "todos" && item.respondeu !== filtros.respondeu) return false;
@@ -216,11 +226,12 @@ function filtrarAtendimentos(userId: number, filtros: RelatorioFiltros, exigirPe
   });
 }
 
-function filtrarDebitos(userId: number, filtros: RelatorioFiltros): Debito[] {
+async function filtrarDebitos(cadastros: Cadastros, userId: number, filtros: RelatorioFiltros): Promise<Debito[]> {
   const busca = filtros.busca.trim().toLocaleLowerCase("pt-BR");
   const dataBase = filtros.dataBase || hojeIso();
-  return listarDebitos(userId).filter((item) => {
-    const condominio = getCadastros().condominios.find((atual) => atual.id === item.condominioId);
+  const todos = await listarDebitos(userId);
+  return todos.filter((item) => {
+    const condominio = cadastros.condominios.find((atual) => atual.id === item.condominioId);
     if (!combinaCarteira(condominio, filtros)) return false;
     if (!debitoAbertoNaData(item, dataBase)) return false;
     const texto = `${item.descricao} ${item.referencia} ${nomeUnidade(item.unidadeId)} ${condominio?.nome ?? ""}`.toLocaleLowerCase(
@@ -230,8 +241,7 @@ function filtrarDebitos(userId: number, filtros: RelatorioFiltros): Debito[] {
   });
 }
 
-export function rotulosFiltrosAplicados(filtros: RelatorioFiltros, tipo: RelatorioTipo): string[] {
-  const cadastros = getCadastros();
+export function rotulosFiltrosAplicados(cadastros: Cadastros, filtros: RelatorioFiltros, tipo: RelatorioTipo): string[] {
   const linhas: string[] = [];
   if (tipo === "carteira") {
     linhas.push(`Data-base: ${formatarData(filtros.dataBase)}`);
@@ -264,7 +274,12 @@ export type RelatorioExportPayload = {
   secoes: RelatorioExportSecao[];
 };
 
-export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtros: RelatorioFiltros): RelatorioExportPayload {
+export async function montarExportRelatorio(
+  userId: number,
+  tipo: RelatorioTipo,
+  filtros: RelatorioFiltros,
+): Promise<RelatorioExportPayload> {
+  const cadastros = await loadFullOperationalCadastros();
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "relatorios", "exportar")) {
     throw new RelatorioServiceError("Sem permissão para exportar relatórios.", 403);
@@ -273,14 +288,14 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
     throw new RelatorioServiceError("Sem permissão para consultar relatórios.", 403);
   }
 
-  assertCondominioNoEscopo(userId, filtros.condominioId);
+  await assertCondominioNoEscopo(userId, filtros.condominioId);
 
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const metaFiltros = rotulosFiltrosAplicados(filtros, tipo);
+  const metaFiltros = rotulosFiltrosAplicados(cadastros, filtros, tipo);
   const dataBase = filtros.dataBase || hojeIso();
 
   if (tipo === "retornos") {
-    const resultado = listarRetornosAgenda(
+    const resultado = await listarRetornosAgenda(
       userId,
       {
         estado: "pendente",
@@ -295,7 +310,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
     let itens = resultado.itens;
     if (filtros.advogado !== "todos") {
       itens = itens.filter((item) => {
-        const condo = getCadastros().condominios.find((c) => c.id === item.condominioId);
+        const condo = cadastros.condominios.find((c) => c.id === item.condominioId);
         return condo?.advogados.includes(filtros.advogado);
       });
     }
@@ -329,18 +344,19 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
   }
 
   if (tipo === "efetividade") {
-    const atendimentos = filtrarAtendimentos(userId, filtros, true);
+    const atendimentos = await filtrarAtendimentos(cadastros, userId, filtros, true);
+    const debitosUsuario = await listarDebitos(userId);
     const cruzamento = [...new Set(atendimentos.map((item) => item.unidadeId))].map((unidadeId) => {
       const contatos = atendimentos.filter((item) => item.unidadeId === unidadeId);
       const meses = new Set(contatos.map((item) => mesSeguinte(item.dataHora)));
-      const pagamento = listarDebitos(userId).find(
+      const pagamento = debitosUsuario.find(
         (debito) =>
           String(debito.unidadeId) === String(unidadeId) &&
           debito.status === "Pago" &&
           debito.dataPagamento &&
           meses.has(debito.dataPagamento.slice(0, 7)),
       );
-      const acordo = listarDebitos(userId).find(
+      const acordo = debitosUsuario.find(
         (debito) =>
           String(debito.unidadeId) === String(unidadeId) &&
           grupoDebito(debito.descricao) === "Acordo" &&
@@ -348,7 +364,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
       );
       return {
         unidade: nomeUnidade(unidadeId),
-        condominio: condominioDaUnidade(unidadeId)?.nome ?? "—",
+        condominio: condominioDaUnidade(cadastros, unidadeId)?.nome ?? "—",
         contatos: contatos.length,
         resultado: pagamento ? "Pagou no mês seguinte" : acordo ? "Acordo no mês seguinte" : "Sem resultado no mês seguinte",
       };
@@ -368,7 +384,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
   }
 
   if (tipo === "produtividade") {
-    const painel = montarPainelProdutividadePorRe(userId, filtros);
+    const painel = await montarPainelProdutividadePorRe(userId, filtros);
     const linhasResumo = painel.linhas.map((linha) => [
       nomeColaboradorPorCodigoRe(linha.codigoRe),
       String(linha.atendimentosRegistrados),
@@ -425,7 +441,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
   }
 
   if (tipo === "equipe") {
-    const atendimentos = filtrarAtendimentos(userId, filtros, true);
+    const atendimentos = await filtrarAtendimentos(cadastros, userId, filtros, true);
     const lista = [...atendimentos].sort((a, b) => b.dataHora.localeCompare(a.dataHora));
     return {
       titulo: "Produtividade da equipe",
@@ -436,12 +452,12 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
           titulo: "Atendimentos do período",
           colunas: ["Data", "Condomínio", "Unidade", "Colaborador", "Advogado", "Meio", "Respondeu", "Motivo", "Assunto", "Retorno", "Próxima ação", "Situação"],
           linhas: lista.map((item) => {
-            const condominio = condominioDaUnidade(item.unidadeId);
+            const condominio = condominioDaUnidade(cadastros, item.unidadeId);
             return [
               formatarData(item.dataHora),
               condominio?.nome ?? "—",
               nomeUnidade(item.unidadeId),
-              nomeColaboradorDoUsuario(item.usuarioId),
+              nomeColaboradorDoUsuario(cadastros, item.usuarioId),
               condominio?.advogados[0] ?? "—",
               item.canal,
               item.respondeu || "—",
@@ -457,10 +473,10 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
     };
   }
 
-  const debitos = filtrarDebitos(userId, filtros);
+  const debitos = await filtrarDebitos(cadastros, userId, filtros);
   const listaDebitos = [...debitos].sort((a, b) => Number(b.valorAtualizado) - Number(a.valorAtualizado));
   const idsUnidadeRecorte = new Set(debitos.map((item) => String(item.unidadeId)));
-  const atendimentosCarteira = filtrarAtendimentos(userId, { ...filtros, de: "", ate: "" }, false);
+  const atendimentosCarteira = await filtrarAtendimentos(cadastros, userId, { ...filtros, de: "", ate: "" }, false);
   for (const item of atendimentosCarteira) idsUnidadeRecorte.add(String(item.unidadeId));
 
   const statsPorUnidade = [...idsUnidadeRecorte]
@@ -474,7 +490,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
       const ultimo = [...contatos].sort((a, b) => b.dataHora.localeCompare(a.dataHora))[0];
       return {
         nome: nomeUnidade(unidadeId),
-        condominio: condominioDaUnidade(unidadeId)?.nome ?? "—",
+        condominio: condominioDaUnidade(cadastros, unidadeId)?.nome ?? "—",
         contatos: contatos.length,
         resposta: contatos.length ? (respostas / contatos.length) * 100 : 0,
         valorAberto,
@@ -494,7 +510,7 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
         titulo: "Débitos em aberto",
         colunas: ["Condomínio", "Advogado", "Unidade", "Referência", "Descrição", "Grupo", "Vencimento", "Dias", "Original", "Atualizado", "Situação"],
         linhas: listaDebitos.map((item) => {
-          const condominio = getCadastros().condominios.find((atual) => atual.id === item.condominioId);
+          const condominio = cadastros.condominios.find((atual) => atual.id === item.condominioId);
           const dias = diasDeAtraso(item.dataVencimento, dataBase);
           return [
             condominio?.nome ?? "—",
@@ -530,16 +546,17 @@ export function montarExportRelatorio(userId: number, tipo: RelatorioTipo, filtr
 }
 
 /** Valida se o condomínio pedido está no escopo (ex.: exportação por advogado). */
-export function assertCondominioNoEscopo(userId: number, condominioId: number | null) {
+export async function assertCondominioNoEscopo(userId: number, condominioId: number | null) {
   if (condominioId == null) return;
-  const ids = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+  const ids = await scopeCondominiumIds(userId);
   if (!ids.has(condominioId)) {
     throw new RelatorioServiceError("Condomínio fora do seu escopo de acesso.", 403);
   }
 }
 
-export function unidadesCarteiraEscopo(userId: number) {
-  return escopoUnidades(getCadastros(), userId).length;
+export async function unidadesCarteiraEscopo(userId: number) {
+  const unidades = await scopedUnits(userId);
+  return unidades.length;
 }
 
 export { LIMITE_AMIGAVEL_DIAS, acimaDoLimite, diasDeAtraso, debitoAbertoNaData };

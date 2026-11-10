@@ -4,7 +4,7 @@ import {
   distribuirUnidades,
   podeGerenciarDistribuicao,
 } from "@/lib/distribuicao/service";
-import { getCadastros } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { requestMeta } from "@/lib/unidades/service";
 
 function parseBody(body: unknown): { unidadeIds: number[]; codigoRe: string; motivo?: string } | null {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const resultado = distribuirUnidades(session.userId, input, requestMeta(request));
     return Response.json({
       ...resultado,
-      atribuicoesCobranca: getCadastros().atribuicoesCobranca,
+      atribuicoesCobranca: (await loadFullOperationalCadastros()).atribuicoesCobranca,
     });
   } catch (error) {
     if (error instanceof DistribuicaoServiceError) {

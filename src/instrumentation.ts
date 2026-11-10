@@ -12,84 +12,11 @@ export async function register() {
     return;
   }
 
-  const [
-    {
-      substituirEstadoCatalogo,
-      exportarEstadoCatalogoParaPersistencia,
-      registrarAgendadorPersistenciaCatalogo,
-    },
-    { postgresOperacionalDisponivel },
-    { carregarIdentidadeDoPostgres },
-    {
-      carregarCatalogoSnapshotDoPostgres,
-      salvarCatalogoSnapshotNoPostgres,
-      agendarPersistenciaCatalogoNoPostgres,
-    },
-  ] = await Promise.all([
-    import("@/data/catalogo"),
-    import("@/lib/db/operacional-pg"),
-    import("@/lib/db/identity-pg"),
-    import("@/lib/db/catalogo-snapshot-pg"),
-  ]);
+  const { ensureIdentitySeed } = await import("@/lib/db/repositories/identity-repository");
+  await ensureIdentitySeed();
 
-  registrarAgendadorPersistenciaCatalogo(agendarPersistenciaCatalogoNoPostgres);
-
-  if (!(await postgresOperacionalDisponivel())) {
-    throw new Error("[pg] Tabelas indisponíveis. Rode: npm run db:migrate");
-  }
-
-  const identidade = await carregarIdentidadeDoPostgres();
-  const snapshot = await carregarCatalogoSnapshotDoPostgres();
-
-  if (snapshot) {
-    // Identidade (role/"user") vem só do PostgreSQL — nunca do snapshot/seed em memória.
-    substituirEstadoCatalogo({
-      ...snapshot,
-      ...(identidade
-        ? {
-            cargos: identidade.cargos,
-            usuarios: identidade.usuarios,
-          }
-        : {}),
-    });
-    console.info("[pg] Catálogo hidratado do PostgreSQL (catalogo_snapshot + identidade).");
-    const { agendarDistribuicaoAutomaticaPeriodica } = await import("@/lib/distribuicao/job-periodico");
-    agendarDistribuicaoAutomaticaPeriodica();
-    return;
-  }
-
-  // Primeira subida: identidade do banco; operacional vazio (sem seed de demonstração).
-  if (!identidade) {
-    throw new Error("[pg] Identidade indisponível no PostgreSQL na primeira subida.");
-  }
-  const atual = exportarEstadoCatalogoParaPersistencia();
-  const inicial = {
-    ...atual,
-    condominios: [],
-    unidades: [],
-    responsaveis: [],
-    vinculos: [],
-    debitos: [],
-    atendimentos: [],
-    propostasNegociacao: [],
-    encaminhamentosJuridicos: [],
-    documentosJuridicos: [],
-    parcelasAcordo: [],
-    pagamentosAcordo: [],
-    atribuicoesCobranca: [],
-    importacoes: [],
-    auditoria: [],
-    notificacoesInternas: [],
-    notificacaoFalhas: [],
-    cargos: identidade.cargos,
-    usuarios: identidade.usuarios,
-  };
-  substituirEstadoCatalogo(inicial);
-  const gravou = await salvarCatalogoSnapshotNoPostgres(exportarEstadoCatalogoParaPersistencia());
-  if (!gravou) {
-    throw new Error("[pg] Não foi possível gravar o snapshot inicial no PostgreSQL.");
-  }
-  console.info("[pg] Snapshot inicial do catálogo gravado no PostgreSQL.");
+  const { hidratarConfigDistribuicaoDoPostgres } = await import("@/lib/distribuicao/service");
+  await hidratarConfigDistribuicaoDoPostgres();
 
   const { agendarDistribuicaoAutomaticaPeriodica } = await import("@/lib/distribuicao/job-periodico");
   agendarDistribuicaoAutomaticaPeriodica();

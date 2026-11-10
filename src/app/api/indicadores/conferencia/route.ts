@@ -40,8 +40,8 @@ export async function GET(request: Request) {
   const filtros = parseRelatorioFiltros(searchParams, "produtividade");
 
   try {
-    assertCondominioNoEscopo(session.userId, filtros.condominioId);
-    const consulta = consultarReferenciaIndicador(session.userId, indicadorRaw as IndicadorProdutividadeId, filtros);
+    await assertCondominioNoEscopo(session.userId, filtros.condominioId);
+    const consulta = await consultarReferenciaIndicador(session.userId, indicadorRaw as IndicadorProdutividadeId, filtros);
     return Response.json({ consulta });
   } catch (error) {
     if (error instanceof ConferenciaIndicadoresError) {

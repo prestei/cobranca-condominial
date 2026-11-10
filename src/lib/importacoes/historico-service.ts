@@ -1,11 +1,5 @@
+import { setImportacoes, type Importacao } from "@/data/catalogo";
 import {
-  getCadastros,
-  registrarAuditoria,
-  setImportacoes,
-  type Importacao,
-} from "@/data/catalogo";
-import {
-  obterImportacaoPorId,
   sanitizarImportacaoParaConsulta,
   type ImportacaoConsulta,
 } from "@/lib/importacao-centro/historico-auditoria";
@@ -15,6 +9,8 @@ import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
 import { obterProcessoArquivoTemporario, removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import type { ModuloImportacaoArquivo } from "@/lib/importacoes/limites";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import { deleteImport, findImportById, listImports } from "@/lib/db/repositories/import-repository";
 import { temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
@@ -48,7 +44,8 @@ export async function listarImportacoesHistorico(
     opcoes?.exporDetalhesInternos ??
     (temPermissao(perm, "auditoria", "ler") || temPermissao(perm, "importacoes", "editar"));
 
-  return [...getCadastros().importacoes]
+  const importacoes = await listImports();
+  return [...importacoes]
     .sort((a, b) => (b.aprovadoEm ?? b.dataImportacao).localeCompare(a.aprovadoEm ?? a.dataImportacao))
     .map((item) => sanitizarImportacaoParaConsulta(item, { exporDetalhesInternos }));
 }
@@ -59,7 +56,7 @@ export async function obterImportacaoHistorico(
   opcoes?: { exporDetalhesInternos?: boolean },
 ): Promise<ImportacaoConsulta | null> {
   await assertPermissaoAcaoImportacao(userId, "consultarHistorico");
-  const item = obterImportacaoPorId(id);
+  const item = await findImportById(id);
   if (!item) return null;
   const perm = await resolverPermissoesUsuario(userId);
   const exporDetalhesInternos =
@@ -129,7 +126,7 @@ export async function excluirImportacaoHistorico(
   if (!temPermissao(perm, "importacoes", "excluir")) {
     throw new HistoricoImportacaoError("Sem permissão para excluir registros de importação.", 403);
   }
-  const item = obterImportacaoPorId(id);
+  const item = await findImportById(id);
   if (!item) {
     throw new HistoricoImportacaoError("Importação não encontrada.", 404);
   }
@@ -140,23 +137,24 @@ export async function excluirImportacaoHistorico(
     await removerProcessoArquivoTemporario(processoId);
   }
 
+  await deleteImport(id);
+  // Mantém espelho em memória alinhado até remoção total do catálogo em RAM.
   setImportacoes((current) => current.filter((registro) => registro.id !== id));
 
-  registrarAuditoria(
-    {
-      entidade: "import",
-      registroId: String(id),
-      acao: "DELETE",
-      dadosAnteriores: JSON.stringify({
-        arquivo: item.arquivo,
-        tipo: item.tipo,
-        status: item.status,
-        processoId: item.processoId,
-      }),
-      dadosNovos: "",
-      camposAlterados: "historico_importacao",
-    },
+  await writeAuditLog({
+    entity: "import",
+    recordId: String(id),
+    action: "DELETE",
+    previousData: JSON.stringify({
+      arquivo: item.arquivo,
+      tipo: item.tipo,
+      status: item.status,
+      processoId: item.processoId,
+    }),
+    newData: "",
+    changedFields: "historico_importacao",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }

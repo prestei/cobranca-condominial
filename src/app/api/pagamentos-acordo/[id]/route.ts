@@ -7,7 +7,7 @@ import {
   requestMeta,
   type PagamentoAcordoCorrecaoInput,
 } from "@/lib/acordos/service";
-import { getCadastros } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -54,10 +54,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const pagamento = corrigirPagamentoAcordo(session.userId, id, input, requestMeta(request));
-    const anterior = getCadastros().pagamentosAcordo.find((item) => item.id === id);
+    const pagamento = await corrigirPagamentoAcordo(session.userId, id, input, requestMeta(request));
+    const anterior = (await loadFullOperationalCadastros()).pagamentosAcordo.find((item) => item.id === id);
     const propostaId = anterior?.propostaId ?? pagamento.propostaId;
-    const resumo = obterResumoAcordo(session.userId, propostaId);
+    const resumo = await obterResumoAcordo(session.userId, propostaId);
     return Response.json({ pagamento, resumo });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {

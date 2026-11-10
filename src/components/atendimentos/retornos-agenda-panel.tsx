@@ -38,7 +38,6 @@ import { escopoCondominios, formatarData, type Atendimento } from "@/data/catalo
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
 import {
   colunasRetornosExport,
@@ -89,6 +88,7 @@ export function RetornosAgendaPanel() {
   const { toast } = useToast();
   const { user } = useAuth();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const visaoGeral = pode("usuarios", "criar");
 
@@ -218,7 +218,7 @@ export function RetornosAgendaPanel() {
         return;
       }
       const linhas = linhasRetornosExport(payload.itens ?? [], formatarData, rotuloSituacao);
-      const base = `retornos-${new Date().toISOString().slice(0, 10)}`;
+      const base = `retornos-${new Date..toISOString().slice(0, 10)}`;
       exportarListagem(toast, formato, "Agenda de retornos", base, colunasRetornosExport, linhas);
       if ((payload.total ?? 0) > linhas.length) {
         toast({
@@ -263,7 +263,7 @@ export function RetornosAgendaPanel() {
         toast({ title: "Não foi possível concluir", description: payload.error ?? "Tente novamente.", variant: "error" });
         return;
       }
-      if (payload.atendimento) aplicarAtendimentoSalvo(payload.atendimento, "UPDATE");
+      if (payload.atendimento) void refetch()
       toast({ title: "Retorno marcado como realizado", variant: "success" });
       setConcluirAlvo(null);
       await recarregar();

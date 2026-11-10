@@ -1,5 +1,6 @@
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios, } from "@/data/catalogo";
 import { parseCorpoPreviewConfirmarImportacao } from "@/lib/importacoes/api-corpo-importacao";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { ImportacaoUnidadesError, confirmarImportacaoUnidades } from "@/lib/importacoes/unidades-service";
@@ -25,8 +26,8 @@ export async function POST(request: Request) {
 
   try {
     const resultado = await confirmarImportacaoUnidades(session.userId, input, requestMeta(request));
-    const scopeIds = new Set(escopoCondominios(getCadastros(), session.userId).map((item) => item.id));
-    const unidades = getCadastros().unidades.filter((item) => scopeIds.has(item.condominioId));
+    const scopeIds = new Set(escopoCondominios((await loadFullOperationalCadastros()), session.userId).map((item) => item.id));
+    const unidades = (await loadFullOperationalCadastros()).unidades.filter((item) => scopeIds.has(item.condominioId));
     return Response.json({ resultado, unidades });
   } catch (error) {
     if (error instanceof ImportacaoUnidadesError) {

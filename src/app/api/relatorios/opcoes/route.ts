@@ -9,7 +9,7 @@ export async function GET() {
   if (denied) return denied;
 
   try {
-    const opcoes = obterOpcoesFiltrosRelatorio(session.userId);
+    const opcoes = await obterOpcoesFiltrosRelatorio(session.userId);
     return Response.json({ opcoes });
   } catch (error) {
     if (error instanceof RelatorioServiceError) {

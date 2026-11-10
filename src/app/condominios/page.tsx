@@ -80,18 +80,13 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   condominioAtendeAdvogado,
   escopoCondominios,
-  getCadastros,
   opcoesAdvogadosResponsaveis,
   rotuloAdvogadosCondominio,
   statusCondominio,
   type Condominio,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
-import {
-  aplicarCondominioExcluido,
-  aplicarCondominioSalvo,
-  garantirCondominiosPersistidosNoServidor,
-} from "@/lib/condominios/sync-cliente";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -166,6 +161,7 @@ export default function CondominiosPage() {
   const formId = useId();
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const userIdEscopo = user?.userId;
   const opcoesAdvogados = opcoesAdvogadosResponsaveis(cadastros);
   const condominios = useMemo(
@@ -477,7 +473,7 @@ export default function CondominiosPage() {
       });
       return;
     }
-    aplicarCondominioSalvo(body.condominio, "UPDATE");
+    void refetch()
     if (editingId === statusTarget.id) {
       setForm((current) => ({ ...current, status: proximoStatus }));
     }
@@ -516,7 +512,7 @@ export default function CondominiosPage() {
       setDeleteTarget(null);
       return;
     }
-    aplicarCondominioExcluido(deleteTarget.id);
+    void refetch()
     if (editingId === deleteTarget.id) {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
@@ -650,7 +646,7 @@ export default function CondominiosPage() {
         }
         return;
       }
-      aplicarCondominioSalvo(body.condominio, editingId === null ? "INSERT" : "UPDATE");
+      void refetch()
       toast({
         variant: "success",
         title: editingId === null ? "Condomínio cadastrado" : "Condomínio atualizado",
@@ -716,7 +712,7 @@ export default function CondominiosPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `condominios-${new Date().toISOString().slice(0, 10)}`;
+    const arquivoBase = `condominios-${new Date..toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });

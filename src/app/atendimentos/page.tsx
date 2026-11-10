@@ -50,13 +50,11 @@ import {
   debitoEmAberto,
   diasDeAtraso,
   formatarMoeda,
-  getCadastros,
   motivosPendencia,
   statusAtendimento,
   type Atendimento,
 } from "@/data/catalogo";
-import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 const etapas = ["Registro", "Retorno"] as const;
@@ -80,6 +78,7 @@ function AtendimentosPage() {
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const podeDistribuir = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -94,7 +93,7 @@ function AtendimentosPage() {
 
   useEffect(() => {
     if (!searchParams || searchParams.get("novo") !== "1") return;
-    const cadastrosAtuais = getCadastros();
+    const cadastrosAtuais = cadastros;
     const unidadeQuery = searchParams.get("unidade");
     const canalQuery = searchParams.get("canal")?.trim() ?? "";
     const canal =
@@ -222,7 +221,7 @@ function AtendimentosPage() {
         throw new Error(payload.error ?? "Não foi possível salvar o atendimento.");
       }
       if (payload.atendimento) {
-        aplicarAtendimentoSalvo(payload.atendimento, "INSERT");
+        void refetch()
       }
       toast({ variant: "success", title: "Atendimento registrado" });
       setForm(formularioVazio);

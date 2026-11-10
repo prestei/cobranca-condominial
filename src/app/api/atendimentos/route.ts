@@ -76,7 +76,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   try {
-    const atendimentos = listarAtendimentos(session.userId, parseFiltros(searchParams));
+    const atendimentos = await listarAtendimentos(session.userId, parseFiltros(searchParams));
     return Response.json({ atendimentos });
   } catch (error) {
     if (error instanceof AtendimentoServiceError) {
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const atendimento = criarAtendimento(session.userId, input, requestMeta(request));
+    const atendimento = await criarAtendimento(session.userId, input, requestMeta(request));
     return Response.json({ atendimento }, { status: 201 });
   } catch (error) {
     if (error instanceof AtendimentoServiceError) {

@@ -1,13 +1,7 @@
-import {
-  escopoCondominios,
-  getCadastros,
-  nomeCondominio,
-  nomeUnidade,
-  situacaoRetorno,
-  type Atendimento,
-  type AtribuicaoCobranca,
-} from "@/data/catalogo";
-import { codigoReDoUsuario, identificadorColaboradorPorId } from "@/lib/colaboradores/re";
+import type { Atendimento, AtribuicaoCobranca, Cadastros } from "@/data/catalogo";
+import { escopoCondominios, situacaoRetorno } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -62,29 +56,47 @@ export type RetornoAgendaResultado = {
   };
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+function usuarioVeCarteiraGeral(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
+function atribuicaoVigente(cadastros: Cadastros, unidadeId: number): AtribuicaoCobranca | undefined {
+  return cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
 }
 
-function unidadeIdsNaCarteira(userId: number): Set<number> | null {
-  if (usuarioVeCarteiraGeral(userId)) return null;
+function unidadeIdsNaCarteira(cadastros: Cadastros, userId: number): Set<number> | null {
+  if (usuarioVeCarteiraGeral(userId, cadastros)) return null;
   const ids = new Set<number>();
-  for (const item of getCadastros().atribuicoesCobranca) {
+  for (const item of cadastros.atribuicoesCobranca) {
     if (!item.encerradoEm && item.atendenteId === userId) ids.add(item.unidadeId);
   }
   return ids;
 }
 
-function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
+function identificadorColaborador(cadastros: Cadastros, userId: number): string {
+  const usuario = cadastros.usuarios.find((item) => item.id === userId);
+  if (!usuario) return "—";
+  const re = codigoReDoUsuario(usuario);
+  if (re) return re;
+  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId)?.nome ?? "—";
+  if (cargo === "Advogado") return usuario.nome.trim() || "Advogado";
+  if (cargo === "Administrador") return usuario.nome.trim() || "Administradora";
+  return usuario.nome.trim() || "—";
+}
+
+function labelUnidade(cadastros: Cadastros, unidadeId: number) {
+  const unidade = cadastros.unidades.find((item) => item.id === unidadeId);
+  if (!unidade) return "—";
+  const condo = cadastros.condominios.find((c) => c.id === unidade.condominioId)?.nome ?? "—";
+  return `${condo} · ${unidade.identificacao}`;
+}
+
+function montarItem(cadastros: Cadastros, atendimento: Atendimento): RetornoAgendaItem | null {
   if (!atendimento.dataProximaAcao.trim()) return null;
 
   const unidadeId = Number(atendimento.unidadeId);
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const unidade = cadastros.unidades.find((item) => item.id === unidadeId);
   if (!unidade) return null;
 
   const concluido = Boolean(atendimento.retornoConcluidoEm?.trim());
@@ -92,9 +104,9 @@ function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
     ? ("concluido" as const)
     : (situacaoRetorno(atendimento.dataProximaAcao) || "agendado");
 
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = atribuicaoVigente(cadastros, unidadeId);
   const atendenteCarteira = vigente
-    ? getCadastros().usuarios.find((item) => item.id === vigente.atendenteId)
+    ? cadastros.usuarios.find((item) => item.id === vigente.atendenteId)
     : undefined;
 
   const concluidoPorId = atendimento.retornoConcluidoPorId;
@@ -102,20 +114,21 @@ function montarItem(atendimento: Atendimento): RetornoAgendaItem | null {
     atendimentoId: atendimento.id,
     unidadeId,
     condominioId: unidade.condominioId,
-    condominioNome: nomeCondominio(unidade.condominioId),
-    unidadeLabel: nomeUnidade(unidadeId),
+    condominioNome: cadastros.condominios.find((c) => c.id === unidade.condominioId)?.nome ?? "—",
+    unidadeLabel: labelUnidade(cadastros, unidadeId),
     codigoRe: atendenteCarteira ? codigoReDoUsuario(atendenteCarteira) : null,
     atendenteCarteiraId: vigente?.atendenteId ?? null,
     dataPrevista: atendimento.dataProximaAcao,
     situacaoAgenda,
     dataHoraAtendimento: atendimento.dataHora,
     atendimentoAutorId: atendimento.usuarioId,
-    atendimentoAutorNome: identificadorColaboradorPorId(atendimento.usuarioId),
+    atendimentoAutorNome: identificadorColaborador(cadastros, atendimento.usuarioId),
     proximaAcao: atendimento.proximaAcao,
     observacao: atendimento.descricao,
     retornoConcluidoEm: concluido ? atendimento.retornoConcluidoEm : null,
     retornoConcluidoPorId: concluidoPorId,
-    retornoConcluidoPorNome: concluidoPorId != null ? identificadorColaboradorPorId(concluidoPorId) : null,
+    retornoConcluidoPorNome:
+      concluidoPorId != null ? identificadorColaborador(cadastros, concluidoPorId) : null,
   };
 }
 
@@ -125,25 +138,27 @@ function dentroPeriodo(data: string, de?: string, ate?: string) {
   return true;
 }
 
-export function listarRetornosAgenda(
+export async function listarRetornosAgenda(
   userId: number,
   filtros?: RetornoAgendaFiltros,
   paginacao?: { page: number; pageSize: number },
-): RetornoAgendaResultado {
-  const idsCondominio = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  const carteiraIds = unidadeIdsNaCarteira(userId);
+): Promise<RetornoAgendaResultado> {
+  const cadastros = await loadFullOperationalCadastros();
 
-  const listaEscopo = getCadastros()
-    .atendimentos.filter((item) => item.dataProximaAcao.trim())
+  const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  const carteiraIds = unidadeIdsNaCarteira(cadastros, userId);
+
+  const listaEscopo = cadastros.atendimentos
+    .filter((item) => item.dataProximaAcao.trim())
     .filter((item) => {
-      const unidade = getCadastros().unidades.find((u) => u.id === Number(item.unidadeId));
+      const unidade = cadastros.unidades.find((u) => u.id === Number(item.unidadeId));
       if (!unidade || !idsCondominio.has(unidade.condominioId)) return false;
       if (carteiraIds && !carteiraIds.has(unidade.id)) return false;
       return true;
     });
 
   const todosNoEscopo = listaEscopo
-    .map(montarItem)
+    .map((item) => montarItem(cadastros, item))
     .filter((item): item is RetornoAgendaItem => item !== null);
 
   const resumo = {
@@ -163,17 +178,15 @@ export function listarRetornosAgenda(
     lista = lista.filter((item) => Boolean(item.retornoConcluidoEm?.trim()));
   }
 
-  const itensBrutos = lista.map(montarItem).filter((item): item is RetornoAgendaItem => item !== null);
-
-  let itens = itensBrutos;
+  let itens = lista.map((item) => montarItem(cadastros, item)).filter((item): item is RetornoAgendaItem => item !== null);
 
   if (filtros?.condominioId) {
     itens = itens.filter((item) => item.condominioId === filtros.condominioId);
   }
-  if (usuarioVeCarteiraGeral(userId) && filtros?.atendenteId) {
+  if (usuarioVeCarteiraGeral(userId, cadastros) && filtros?.atendenteId) {
     itens = itens.filter((item) => item.atendenteCarteiraId === filtros.atendenteId);
   }
-  if (usuarioVeCarteiraGeral(userId) && filtros?.codigoRe?.trim()) {
+  if (usuarioVeCarteiraGeral(userId, cadastros) && filtros?.codigoRe?.trim()) {
     const alvo = filtros.codigoRe.trim().toUpperCase();
     itens = itens.filter((item) => item.codigoRe?.toUpperCase() === alvo);
   }

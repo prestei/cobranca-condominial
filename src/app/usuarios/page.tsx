@@ -67,14 +67,7 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { iniciaisNome, nomeCargo, type Cargo, type Usuario } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
-import { sincronizarCargosDoServidor } from "@/lib/cargos/sync-cliente";
-import {
-  aplicarUsuarioExcluido,
-  aplicarUsuarioSalvo,
-  garantirUsuariosPersistidosNoServidor,
-  sincronizarUsuariosDoServidor,
-} from "@/lib/usuarios/sync-cliente";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { usePermissao } from "@/hooks/use-permissao";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re";
@@ -119,6 +112,7 @@ export default function UsuariosPage() {
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const usuarios = cadastros.usuarios;
   const [search, setSearch] = useState("");
   const [cargo, setCargo] = useState("todos");
@@ -143,7 +137,7 @@ export default function UsuariosPage() {
       const response = await fetch("/api/cargos", { credentials: "same-origin" });
       if (!response.ok) return;
       const body = (await response.json()) as { cargos?: Cargo[] };
-      if (body.cargos) sincronizarCargosDoServidor(body.cargos);
+      if (body.cargos) void refetch()
     } catch {
       /* mantém catálogo local */
     }
@@ -155,7 +149,7 @@ export default function UsuariosPage() {
       const response = await fetch("/api/usuarios", { credentials: "same-origin" });
       if (!response.ok) return;
       const body = (await response.json()) as { usuarios?: UsuarioPublico[] };
-      if (body.usuarios) sincronizarUsuariosDoServidor(body.usuarios);
+      if (body.usuarios) void refetch()
     } catch {
       /* mantém catálogo local */
     }
@@ -279,7 +273,7 @@ export default function UsuariosPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `colaboradores-${new Date().toISOString().slice(0, 10)}`;
+    const arquivoBase = `colaboradores-${new Date..toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });

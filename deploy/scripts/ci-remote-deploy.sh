@@ -28,8 +28,11 @@ fi
 echo "==> Dependências"
 npm ci
 
-echo "==> Migrations PostgreSQL"
-npm run db:migrate
+echo "==> Prisma generate + migrate deploy"
+npx prisma generate
+npx prisma migrate deploy
+# Ambientes antigos: marca baseline como já aplicada se a tabela _prisma_migrations ainda não existir com o registro.
+npx prisma migrate resolve --applied 20261110120000_baseline >/dev/null 2>&1 || true
 
 if [[ -f catalogo-operacional.import.json ]]; then
   echo "==> Importando catálogo operacional para o PostgreSQL"
@@ -42,6 +45,15 @@ npm run build
 echo "==> Permissões do usuário do serviço"
 id -u cobranca >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin cobranca
 chown -R cobranca:cobranca "$APP_DIR"
+
+echo "==> Atualiza unit systemd (TimeoutStopSec / flush no SIGTERM)"
+if [[ -f "$APP_DIR/deploy/systemd/cobranca-app.service" ]]; then
+  install -m 644 "$APP_DIR/deploy/systemd/cobranca-app.service" /etc/systemd/system/cobranca-app.service
+  if id -u cobranca >/dev/null 2>&1; then
+    sed -i 's/^User=.*/User=cobranca/' /etc/systemd/system/cobranca-app.service
+    sed -i 's/^Group=.*/Group=cobranca/' /etc/systemd/system/cobranca-app.service
+  fi
+fi
 
 echo "==> Reinicia serviço"
 systemctl daemon-reload || true

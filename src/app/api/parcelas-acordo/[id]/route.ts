@@ -7,7 +7,7 @@ import {
   requestMeta,
   type ParcelaAcordoCorrecaoInput,
 } from "@/lib/acordos/service";
-import { getCadastros } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -45,9 +45,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const parcela = corrigirParcelaAcordo(session.userId, id, input, requestMeta(request));
-    const propostaId = getCadastros().parcelasAcordo.find((item) => item.id === id)?.propostaId ?? parcela.propostaId;
-    const resumo = obterResumoAcordo(session.userId, propostaId);
+    const parcela = await corrigirParcelaAcordo(session.userId, id, input, requestMeta(request));
+    const propostaId = (await loadFullOperationalCadastros()).parcelasAcordo.find((item) => item.id === id)?.propostaId ?? parcela.propostaId;
+    const resumo = await obterResumoAcordo(session.userId, propostaId);
     return Response.json({ parcela, resumo });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {

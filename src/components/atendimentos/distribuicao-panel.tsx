@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Share2, Users } from "lucide-react";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
@@ -45,7 +46,6 @@ import {
 import { useToast } from "@/components/toast";
 import { formatarData, nomeCondominio, type AtribuicaoCobranca } from "@/data/catalogo";
 import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
-import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { CarteiraReResumo, HistoricoAtribuicaoItem } from "@/lib/distribuicao/service";
 import {
   colunasFilaExport,
@@ -59,6 +59,7 @@ const PAGE_FILA = 50;
 const colunasHistoricoDistrib = ["Quando", "Condomínio · Unidade", "RE anterior", "RE novo", "Autor", "Motivo"];
 
 export function DistribuicaoPanel() {
+  const { refetch } = useCadastrosStatus();
   const { toast } = useToast();
   const atendentesKey = snapshotAtendentesComRe();
   const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
@@ -172,7 +173,7 @@ export function DistribuicaoPanel() {
       }
 
       if (payload.atribuicoesCobranca) {
-        aplicarSnapshotAtribuicoes(payload.atribuicoesCobranca);
+        void refetch()
       }
 
       const atribuidas = payload.atribuidas ?? 0;
@@ -229,7 +230,7 @@ export function DistribuicaoPanel() {
         toast,
         formato,
         "Unidades para distribuição",
-        `distribuicao-fila-${new Date().toISOString().slice(0, 10)}`,
+        `distribuicao-fila-${new Date..toISOString().slice(0, 10)}`,
         colunasFilaExport,
         linhas,
       );
@@ -251,7 +252,7 @@ export function DistribuicaoPanel() {
       toast,
       formato,
       "Histórico de atribuições",
-      `distribuicao-historico-${new Date().toISOString().slice(0, 10)}`,
+      `distribuicao-historico-${new Date..toISOString().slice(0, 10)}`,
       colunasHistoricoDistrib,
       linhas,
     );

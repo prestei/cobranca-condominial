@@ -1,10 +1,4 @@
-import {
-  getCadastros,
-  proximoNumero,
-  registrarAuditoria,
-  setUsuarios,
-  type Usuario,
-} from "@/data/catalogo";
+import type { Usuario } from "@/data/catalogo";
 import {
   codigoReEmUso,
   codigoReValido,
@@ -13,40 +7,18 @@ import {
 } from "@/lib/colaboradores/re-sequencia";
 import { codigoUsuarioValido, normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { hashPassword, isPasswordHash } from "@/lib/auth/password";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
-  excluirUsuarioPg,
-  identityPgDisponivel,
-  listarUsuariosPg,
-  upsertUsuarioPg,
-} from "@/lib/db/identity-pg";
+  deleteUser,
+  findUserById,
+  listRoles,
+  listUsers,
+  nextUserId,
+  upsertUser,
+  userIsReferenced,
+} from "@/lib/db/repositories/identity-repository";
 import { sincronizarCondominiosAdvogado } from "@/lib/usuarios/advogado-condominios";
 import { usuarioParaResposta, type UsuarioPublico } from "@/lib/usuarios/apresentacao";
-
-async function persistirUsuarioNoPostgres(usuario: Usuario) {
-  if (!identityPgDisponivel()) {
-    if (process.env.NODE_ENV === "production") {
-      throw new UsuarioServiceError("PostgreSQL indisponível para gravar colaborador.", 503);
-    }
-    return;
-  }
-  const ok = await upsertUsuarioPg(usuario);
-  if (!ok) {
-    throw new UsuarioServiceError("Falha ao gravar colaborador no PostgreSQL.", 500);
-  }
-}
-
-async function removerUsuarioDoPostgres(usuarioId: number) {
-  if (!identityPgDisponivel()) {
-    if (process.env.NODE_ENV === "production") {
-      throw new UsuarioServiceError("PostgreSQL indisponível para excluir colaborador.", 503);
-    }
-    return;
-  }
-  const ok = await excluirUsuarioPg(usuarioId);
-  if (!ok) {
-    throw new UsuarioServiceError("Falha ao excluir colaborador no PostgreSQL.", 500);
-  }
-}
 
 export type UsuarioInput = {
   codigo: string;
@@ -74,31 +46,22 @@ function emailValido(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function codigoDuplicado(codigo: string, editingId: number | null) {
+function codigoDuplicado(codigo: string, editingId: number | null, usuarios: Usuario[]) {
   const chave = normalizarCodigoUsuario(codigo);
-  return getCadastros().usuarios.some(
+  return usuarios.some(
     (item) => item.id !== editingId && normalizarCodigoUsuario(item.codigo) === chave,
   );
 }
 
-function emailDuplicado(email: string, editingId: number | null) {
-  return getCadastros().usuarios.some(
+function emailDuplicado(email: string, editingId: number | null, usuarios: Usuario[]) {
+  return usuarios.some(
     (item) =>
       item.id !== editingId && item.email.localeCompare(email, "pt-BR", { sensitivity: "base" }) === 0,
   );
 }
 
-function cargoExiste(cargoId: number) {
-  return getCadastros().cargos.some((item) => item.id === cargoId);
-}
-
-function usuarioEmUso(usuarioId: number) {
-  const cadastros = getCadastros();
-  return (
-    cadastros.atendimentos.some((item) => item.usuarioId === usuarioId) ||
-    cadastros.importacoes.some((item) => item.usuarioId === usuarioId) ||
-    cadastros.auditoria.some((item) => item.usuarioId === String(usuarioId))
-  );
+function cargoExiste(cargoId: number, cargos: { id: number }[]) {
+  return cargos.some((item) => item.id === cargoId);
 }
 
 function resolverCodigoRePersistente(
@@ -121,6 +84,8 @@ async function validarEntrada(
   input: UsuarioInput,
   editingId: number | null,
 ): Promise<Omit<Usuario, "id" | "codigoRe">> {
+  const [usuarios, cargos] = await Promise.all([listUsers(), listRoles()]);
+
   const nome = input.nome.trim();
   if (!nome) {
     throw new UsuarioServiceError("Informe o nome.", 400);
@@ -141,7 +106,7 @@ async function validarEntrada(
       400,
     );
   }
-  if (codigoDuplicado(codigo, editingId)) {
+  if (codigoDuplicado(codigo, editingId, usuarios)) {
     throw new UsuarioServiceError("Já existe um colaborador com este código de acesso.", 409);
   }
 
@@ -149,7 +114,7 @@ async function validarEntrada(
   if (!Number.isFinite(cargoId) || cargoId <= 0) {
     throw new UsuarioServiceError("Selecione o cargo.", 400);
   }
-  if (!cargoExiste(cargoId)) {
+  if (!cargoExiste(cargoId, cargos)) {
     throw new UsuarioServiceError("Cargo inválido.", 400);
   }
 
@@ -159,12 +124,12 @@ async function validarEntrada(
   if (!emailValido(email)) {
     throw new UsuarioServiceError("Informe um e-mail válido.", 400);
   }
-  if (emailDuplicado(email, editingId)) {
+  if (emailDuplicado(email, editingId, usuarios)) {
     throw new UsuarioServiceError("Já existe um colaborador com este e-mail.", 409);
   }
 
   const senhaPlain = input.senha?.trim() ?? "";
-  const anterior = editingId !== null ? getCadastros().usuarios.find((item) => item.id === editingId) : undefined;
+  const anterior = editingId !== null ? usuarios.find((item) => item.id === editingId) : undefined;
 
   let senha = anterior?.senha ?? "";
   if (editingId === null) {
@@ -202,14 +167,8 @@ function montarUsuarioComRe(
 }
 
 export async function listarUsuarios(): Promise<UsuarioPublico[]> {
-  if (identityPgDisponivel()) {
-    const doPg = await listarUsuariosPg();
-    if (doPg) {
-      setUsuarios(doPg);
-      return doPg.map(usuarioParaResposta);
-    }
-  }
-  return getCadastros().usuarios.map(usuarioParaResposta);
+  const usuarios = await listUsers();
+  return usuarios.map(usuarioParaResposta);
 }
 
 export type PerfilMinhaConta = {
@@ -221,12 +180,12 @@ export type PerfilMinhaConta = {
 };
 
 /** Perfil do colaborador autenticado (somente leitura, sem permissão administrativa). */
-export function obterPerfilMinhaConta(usuarioId: number): PerfilMinhaConta | null {
-  const cadastros = getCadastros();
-  const usuario = cadastros.usuarios.find((item) => item.id === usuarioId);
+export async function obterPerfilMinhaConta(usuarioId: number): Promise<PerfilMinhaConta | null> {
+  const usuario = await findUserById(usuarioId);
   if (!usuario) return null;
   const publico = usuarioParaResposta(usuario);
-  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
+  const cargos = await listRoles();
+  const cargo = cargos.find((item) => item.id === usuario.cargoId);
   return {
     nome: publico.nome,
     email: publico.email,
@@ -243,39 +202,36 @@ export async function criarUsuario(
   meta?: { ip?: string; userAgent?: string },
 ): Promise<UsuarioPublico> {
   const base = await validarEntrada(input, null);
+  const usuariosAtuais = await listUsers();
 
   let nextId = options?.id;
   if (nextId !== undefined) {
     if (!Number.isFinite(nextId) || nextId <= 0) {
       throw new UsuarioServiceError("Identificador do colaborador inválido.", 400);
     }
-    if (getCadastros().usuarios.some((item) => item.id === nextId)) {
+    if (usuariosAtuais.some((item) => item.id === nextId)) {
       throw new UsuarioServiceError("Já existe um colaborador com este identificador interno.", 409);
     }
   } else {
-    nextId = proximoNumero(getCadastros().usuarios.map((item) => item.id));
+    nextId = await nextUserId();
   }
 
-  const usuariosAtuais = getCadastros().usuarios;
   const reExistente = resolverCodigoRePersistente(undefined, usuariosAtuais);
 
   let usuario: Usuario;
 
   if (!reExistente) {
-    usuario = await reservarCodigoRe(usuariosAtuais, (codigoRe) => {
+    usuario = await reservarCodigoRe(usuariosAtuais, async (codigoRe) => {
       const criado = montarUsuarioComRe(base, nextId!, codigoRe);
-      setUsuarios((current) => [...current, criado]);
-      return criado;
+      return upsertUser(criado);
     });
   } else {
-    usuario = montarUsuarioComRe(base, nextId, reExistente);
-    setUsuarios((current) => [...current, usuario]);
+    const criado = montarUsuarioComRe(base, nextId, reExistente);
+    usuario = await upsertUser(criado);
   }
 
-  await persistirUsuarioNoPostgres(usuario);
-
   if (input.condominioIds) {
-    sincronizarCondominiosAdvogado(
+    await sincronizarCondominiosAdvogado(
       actorUserId,
       usuario.id,
       usuario.cargoId,
@@ -285,18 +241,17 @@ export async function criarUsuario(
     );
   }
 
-  registrarAuditoria(
-    {
-      entidade: "user",
-      registroId: String(nextId),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: usuario.codigoRe ? `${usuario.codigoRe} · ${usuario.nome}` : usuario.nome,
-      camposAlterados: usuario.codigoRe ? "codigo, nome, cargo_id, email, codigo_re" : "codigo, nome, cargo_id, email",
-    },
-    actorUserId,
-    meta,
-  );
+  await writeAuditLog({
+    entity: "user",
+    recordId: String(nextId),
+    action: "INSERT",
+    previousData: "",
+    newData: usuario.codigoRe ? `${usuario.codigoRe} · ${usuario.nome}` : usuario.nome,
+    changedFields: usuario.codigoRe ? "codigo, nome, cargo_id, email, codigo_re" : "codigo, nome, cargo_id, email",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
   return usuarioParaResposta(usuario);
 }
 
@@ -306,32 +261,30 @@ export async function atualizarUsuario(
   input: UsuarioInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<UsuarioPublico> {
-  const atual = getCadastros().usuarios.find((item) => item.id === usuarioId);
+  const atual = await findUserById(usuarioId);
   if (!atual) {
     throw new UsuarioServiceError("Colaborador não encontrado.", 404);
   }
 
   const base = await validarEntrada(input, usuarioId);
-  const usuariosAtuais = getCadastros().usuarios.filter((item) => item.id !== usuarioId);
-  const codigoRe = resolverCodigoRePersistente(atual, usuariosAtuais);
+  const usuarios = await listUsers();
+  const usuariosSemAtual = usuarios.filter((item) => item.id !== usuarioId);
+  const codigoRe = resolverCodigoRePersistente(atual, usuariosSemAtual);
 
   let atualizado: Usuario;
 
   if (!codigoRe) {
-    atualizado = await reservarCodigoRe(getCadastros().usuarios, (novoRe) => {
+    atualizado = await reservarCodigoRe(usuarios, async (novoRe) => {
       const next = montarUsuarioComRe(base, usuarioId, novoRe);
-      setUsuarios((current) => current.map((item) => (item.id === usuarioId ? next : item)));
-      return next;
+      return upsertUser(next);
     });
   } else {
-    atualizado = montarUsuarioComRe(base, usuarioId, codigoRe);
-    setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
+    const next = montarUsuarioComRe(base, usuarioId, codigoRe);
+    atualizado = await upsertUser(next);
   }
 
-  await persistirUsuarioNoPostgres(atualizado);
-
   if (input.condominioIds) {
-    sincronizarCondominiosAdvogado(
+    await sincronizarCondominiosAdvogado(
       actorUserId,
       usuarioId,
       atualizado.cargoId,
@@ -341,20 +294,19 @@ export async function atualizarUsuario(
     );
   }
 
-  registrarAuditoria(
-    {
-      entidade: "user",
-      registroId: String(usuarioId),
-      acao: "UPDATE",
-      dadosAnteriores: atual.codigoRe ?? atual.nome,
-      dadosNovos: atualizado.codigoRe ?? atualizado.nome,
-      camposAlterados: input.senha?.trim()
-        ? "codigo, nome, cargo_id, email, credencial_acesso, ativo"
-        : "codigo, nome, cargo_id, email, ativo",
-    },
-    actorUserId,
-    meta,
-  );
+  await writeAuditLog({
+    entity: "user",
+    recordId: String(usuarioId),
+    action: "UPDATE",
+    previousData: atual.codigoRe ?? atual.nome,
+    newData: atualizado.codigoRe ?? atualizado.nome,
+    changedFields: input.senha?.trim()
+      ? "codigo, nome, cargo_id, email, credencial_acesso, ativo"
+      : "codigo, nome, cargo_id, email, ativo",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
   return usuarioParaResposta(atualizado);
 }
 
@@ -364,7 +316,7 @@ export async function alterarSituacaoUsuario(
   ativo: boolean,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<UsuarioPublico> {
-  const atual = getCadastros().usuarios.find((item) => item.id === usuarioId);
+  const atual = await findUserById(usuarioId);
   if (!atual) {
     throw new UsuarioServiceError("Colaborador não encontrado.", 404);
   }
@@ -373,22 +325,20 @@ export async function alterarSituacaoUsuario(
   }
 
   const atualizado: Usuario = { ...atual, ativo };
-  setUsuarios((current) => current.map((item) => (item.id === usuarioId ? atualizado : item)));
-  await persistirUsuarioNoPostgres(atualizado);
+  const gravado = await upsertUser(atualizado);
 
-  registrarAuditoria(
-    {
-      entidade: "user",
-      registroId: String(usuarioId),
-      acao: "UPDATE",
-      dadosAnteriores: atual.ativo === false ? "Inativo" : "Ativo",
-      dadosNovos: ativo ? "Ativo" : "Inativo",
-      camposAlterados: "ativo",
-    },
-    actorUserId,
-    meta,
-  );
-  return usuarioParaResposta(atualizado);
+  await writeAuditLog({
+    entity: "user",
+    recordId: String(usuarioId),
+    action: "UPDATE",
+    previousData: atual.ativo === false ? "Inativo" : "Ativo",
+    newData: ativo ? "Ativo" : "Inativo",
+    changedFields: "ativo",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return usuarioParaResposta(gravado);
 }
 
 export async function excluirUsuario(
@@ -396,31 +346,29 @@ export async function excluirUsuario(
   usuarioId: number,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const atual = getCadastros().usuarios.find((item) => item.id === usuarioId);
+  const atual = await findUserById(usuarioId);
   if (!atual) {
     throw new UsuarioServiceError("Colaborador não encontrado.", 404);
   }
-  if (usuarioEmUso(usuarioId)) {
+  if (await userIsReferenced(usuarioId)) {
     throw new UsuarioServiceError(
       "Existem atendimentos, importações ou auditoria ligados a esta pessoa.",
       409,
     );
   }
 
-  await removerUsuarioDoPostgres(usuarioId);
-  setUsuarios((current) => current.filter((item) => item.id !== usuarioId));
-  registrarAuditoria(
-    {
-      entidade: "user",
-      registroId: String(usuarioId),
-      acao: "DELETE",
-      dadosAnteriores: atual.nome,
-      dadosNovos: "",
-      camposAlterados: "nome",
-    },
-    actorUserId,
-    meta,
-  );
+  await deleteUser(usuarioId);
+  await writeAuditLog({
+    entity: "user",
+    recordId: String(usuarioId),
+    action: "DELETE",
+    previousData: atual.nome,
+    newData: "",
+    changedFields: "nome",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
 export function requestMeta(request: Request) {

@@ -1,14 +1,22 @@
 import {
   agoraIso,
   confirmacaoPagamentoAcordo,
-  getCadastros,
-  registrarAuditoria,
-  setPagamentosAcordo,
-  setParcelasAcordo,
   type PagamentoAcordo,
   type ParcelaAcordo,
   type PropostaNegociacao,
 } from "@/data/catalogo";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import {
+  createAgreementInstallment,
+  createAgreementPayment,
+  findAgreementInstallmentById,
+  findAgreementPaymentById,
+  listAgreementInstallmentsByProposal,
+  listAgreementPayments,
+  updateAgreementInstallment,
+  updateAgreementPayment,
+} from "@/lib/db/repositories/negotiation-repository";
+import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { obterPropostaNegociacao, PropostaNegociacaoServiceError } from "@/lib/negociacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -55,13 +63,9 @@ function usuarioVeCarteiraGeral(userId: number) {
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function atribuicaoVigente(unidadeId: number) {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
-}
-
-function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
+async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
   if (usuarioVeCarteiraGeral(userId)) return;
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new AcordoServiceError(
       "Esta cobrança não está na sua carteira. Peça redistribuição à administradora.",
@@ -111,52 +115,52 @@ function normalizarDataPagamento(raw: string): string {
   return new Date(parsed).toISOString();
 }
 
-function parcelasDaProposta(propostaId: string) {
-  return getCadastros().parcelasAcordo.filter((item) => item.propostaId === propostaId);
+async function pagamentosDaProposta(propostaId: string) {
+  const todos = await listAgreementPayments();
+  return todos.filter((item) => item.propostaId === propostaId);
 }
 
-function pagamentosDaProposta(propostaId: string) {
-  return getCadastros().pagamentosAcordo.filter((item) => item.propostaId === propostaId);
-}
-
-export function listarParcelasAcordo(userId: number, propostaId: string): ParcelaAcordo[] {
-  const proposta = obterPropostaNegociacao(userId, propostaId);
+export async function listarParcelasAcordo(userId: number, propostaId: string): Promise<ParcelaAcordo[]> {
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
   assertPropostaAcordo(proposta);
-  return parcelasDaProposta(propostaId).sort((a, b) => a.numero - b.numero);
+  return listAgreementInstallmentsByProposal(propostaId);
 }
 
-export function listarPagamentosAcordo(userId: number, propostaId: string): PagamentoAcordo[] {
-  const proposta = obterPropostaNegociacao(userId, propostaId);
+export async function listarPagamentosAcordo(userId: number, propostaId: string): Promise<PagamentoAcordo[]> {
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
   assertPropostaAcordo(proposta);
-  return pagamentosDaProposta(propostaId).sort((a, b) => b.dataPagamento.localeCompare(a.dataPagamento));
+  const lista = await pagamentosDaProposta(propostaId);
+  return lista.sort((a, b) => b.dataPagamento.localeCompare(a.dataPagamento));
 }
 
-export function obterResumoAcordo(userId: number, propostaId: string): ResumoAcordo {
-  const proposta = obterPropostaNegociacao(userId, propostaId);
+export async function obterResumoAcordo(userId: number, propostaId: string): Promise<ResumoAcordo> {
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
   assertPropostaAcordo(proposta);
-  return calcularResumoAcordo(proposta, parcelasDaProposta(propostaId), pagamentosDaProposta(propostaId));
+  const parcelas = await listAgreementInstallmentsByProposal(propostaId);
+  const pagamentos = await pagamentosDaProposta(propostaId);
+  return calcularResumoAcordo(proposta, parcelas, pagamentos);
 }
 
-export function registrarParcelasAcordo(
+export async function registrarParcelasAcordo(
   userId: number,
   propostaId: string,
   parcelasInput: ParcelaAcordoInput[],
   meta?: { ip?: string; userAgent?: string },
-): ParcelaAcordo[] {
+): Promise<ParcelaAcordo[]> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "criar")) {
     throw new AcordoServiceError("Sem permissão para registrar parcelas.", 403);
   }
 
-  const proposta = obterPropostaNegociacao(userId, propostaId);
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
   assertPropostaAcordo(proposta);
-  assertCarteiraParaRegistrar(userId, proposta.unidadeId);
+  await assertCarteiraParaRegistrar(userId, proposta.unidadeId);
 
   if (!Array.isArray(parcelasInput) || parcelasInput.length === 0) {
     throw new AcordoServiceError("Informe ao menos uma parcela.", 400);
   }
 
-  const existentes = parcelasDaProposta(propostaId);
+  const existentes = await listAgreementInstallmentsByProposal(propostaId);
   const numerosUsados = new Set(existentes.map((item) => item.numero));
   const novas: ParcelaAcordo[] = [];
 
@@ -182,45 +186,44 @@ export function registrarParcelasAcordo(
     });
   }
 
-  setParcelasAcordo((current) => [...current, ...novas]);
   for (const parcela of novas) {
-    registrarAuditoria(
-      {
-        entidade: "agreement_installment",
-        registroId: parcela.id,
-        acao: "INSERT",
-        dadosAnteriores: "",
-        dadosNovos: JSON.stringify({
-          propostaId,
-          numero: parcela.numero,
-          valorPrevisto: parcela.valorPrevisto,
-          vencimentoEm: parcela.vencimentoEm,
-        }),
-        camposAlterados: "proposta_id, numero, valor_previsto, vencimento_em",
-      },
+    await createAgreementInstallment(parcela);
+    await writeAuditLog({
+      entity: "agreement_installment",
+      recordId: parcela.id,
+      action: "INSERT",
+      previousData: "",
+      newData: JSON.stringify({
+        propostaId,
+        numero: parcela.numero,
+        valorPrevisto: parcela.valorPrevisto,
+        vencimentoEm: parcela.vencimentoEm,
+      }),
+      changedFields: "proposta_id, numero, valor_previsto, vencimento_em",
       userId,
-      meta,
-    );
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+    });
   }
   return [...existentes, ...novas].sort((a, b) => a.numero - b.numero);
 }
 
-export function corrigirParcelaAcordo(
+export async function corrigirParcelaAcordo(
   userId: number,
   parcelaId: string,
   input: ParcelaAcordoCorrecaoInput,
   meta?: { ip?: string; userAgent?: string },
-): ParcelaAcordo {
+): Promise<ParcelaAcordo> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AcordoServiceError("Sem permissão para corrigir parcelas.", 403);
   }
 
-  const anterior = getCadastros().parcelasAcordo.find((item) => item.id === parcelaId);
+  const anterior = await findAgreementInstallmentById(parcelaId);
   if (!anterior) {
     throw new AcordoServiceError("Parcela não encontrada.", 404);
   }
-  obterPropostaNegociacao(userId, anterior.propostaId);
+  await obterPropostaNegociacao(userId, anterior.propostaId);
 
   const valorPrevisto =
     input.valorPrevisto !== undefined
@@ -234,41 +237,40 @@ export function corrigirParcelaAcordo(
   }
 
   const atualizado: ParcelaAcordo = { ...anterior, valorPrevisto, vencimentoEm };
-  setParcelasAcordo((current) => current.map((item) => (item.id === parcelaId ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "agreement_installment",
-      registroId: parcelaId,
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({
-        valorPrevisto: anterior.valorPrevisto,
-        vencimentoEm: anterior.vencimentoEm,
-      }),
-      dadosNovos: JSON.stringify({ valorPrevisto, vencimentoEm }),
-      camposAlterados: "valor_previsto, vencimento_em",
-    },
+  const salvo = await updateAgreementInstallment(atualizado);
+  await writeAuditLog({
+    entity: "agreement_installment",
+    recordId: parcelaId,
+    action: "UPDATE",
+    previousData: JSON.stringify({
+      valorPrevisto: anterior.valorPrevisto,
+      vencimentoEm: anterior.vencimentoEm,
+    }),
+    newData: JSON.stringify({ valorPrevisto, vencimentoEm }),
+    changedFields: "valor_previsto, vencimento_em",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
-export function registrarPagamentoAcordo(
+export async function registrarPagamentoAcordo(
   userId: number,
   propostaId: string,
   input: PagamentoAcordoInput,
   meta?: { ip?: string; userAgent?: string },
-): PagamentoAcordo {
+): Promise<PagamentoAcordo> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "criar")) {
     throw new AcordoServiceError("Sem permissão para registrar pagamentos.", 403);
   }
 
-  const proposta = obterPropostaNegociacao(userId, propostaId);
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
   assertPropostaAcordo(proposta);
-  assertCarteiraParaRegistrar(userId, proposta.unidadeId);
+  await assertCarteiraParaRegistrar(userId, proposta.unidadeId);
 
-  const parcela = getCadastros().parcelasAcordo.find((item) => item.id === input.parcelaId);
+  const parcela = await findAgreementInstallmentById(input.parcelaId);
   if (!parcela || parcela.propostaId !== propostaId) {
     throw new AcordoServiceError("Parcela inválida para este acordo.", 400);
   }
@@ -291,44 +293,43 @@ export function registrarPagamentoAcordo(
     registradoPorId: userId,
   };
 
-  setPagamentosAcordo((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "agreement_payment",
-      registroId: registro.id,
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify({
-        propostaId,
-        parcelaId: registro.parcelaId,
-        valor: registro.valor,
-        confirmacao: registro.confirmacao,
-        dataPagamento: registro.dataPagamento,
-      }),
-      camposAlterados: "proposta_id, parcela_id, valor, confirmacao, data_pagamento",
-    },
+  const criado = await createAgreementPayment(registro);
+  await writeAuditLog({
+    entity: "agreement_payment",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      propostaId,
+      parcelaId: criado.parcelaId,
+      valor: criado.valor,
+      confirmacao: criado.confirmacao,
+      dataPagamento: criado.dataPagamento,
+    }),
+    changedFields: "proposta_id, parcela_id, valor, confirmacao, data_pagamento",
     userId,
-    meta,
-  );
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
-export function corrigirPagamentoAcordo(
+export async function corrigirPagamentoAcordo(
   userId: number,
   pagamentoId: string,
   input: PagamentoAcordoCorrecaoInput,
   meta?: { ip?: string; userAgent?: string },
-): PagamentoAcordo {
+): Promise<PagamentoAcordo> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AcordoServiceError("Sem permissão para corrigir pagamentos.", 403);
   }
 
-  const anterior = getCadastros().pagamentosAcordo.find((item) => item.id === pagamentoId);
+  const anterior = await findAgreementPaymentById(pagamentoId);
   if (!anterior) {
     throw new AcordoServiceError("Pagamento não encontrado.", 404);
   }
-  obterPropostaNegociacao(userId, anterior.propostaId);
+  await obterPropostaNegociacao(userId, anterior.propostaId);
 
   const valor = input.valor !== undefined ? normalizarValorMonetario(input.valor, "valor pago") : anterior.valor;
   const dataPagamento =
@@ -351,30 +352,29 @@ export function corrigirPagamentoAcordo(
     confirmacao,
   };
 
-  setPagamentosAcordo((current) => current.map((item) => (item.id === pagamentoId ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "agreement_payment",
-      registroId: pagamentoId,
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({
-        valor: anterior.valor,
-        dataPagamento: anterior.dataPagamento,
-        referenciaComprovante: anterior.referenciaComprovante,
-        confirmacao: anterior.confirmacao,
-      }),
-      dadosNovos: JSON.stringify({
-        valor,
-        dataPagamento,
-        referenciaComprovante,
-        confirmacao,
-      }),
-      camposAlterados: "valor, data_pagamento, referencia_comprovante, confirmacao",
-    },
+  const salvo = await updateAgreementPayment(atualizado);
+  await writeAuditLog({
+    entity: "agreement_payment",
+    recordId: pagamentoId,
+    action: "UPDATE",
+    previousData: JSON.stringify({
+      valor: anterior.valor,
+      dataPagamento: anterior.dataPagamento,
+      referenciaComprovante: anterior.referenciaComprovante,
+      confirmacao: anterior.confirmacao,
+    }),
+    newData: JSON.stringify({
+      valor,
+      dataPagamento,
+      referenciaComprovante,
+      confirmacao,
+    }),
+    changedFields: "valor, data_pagamento, referencia_comprovante, confirmacao",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
 export function requestMeta(request: Request) {

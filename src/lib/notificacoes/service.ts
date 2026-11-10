@@ -3,17 +3,27 @@ import {
   escopoCondominios,
   escopoUnidades,
   formatarData,
-  getCadastros,
-  nomeUnidade,
-  proximoNumero,
-  setNotificacaoFalhas,
-  setNotificacoesInternas,
   situacaoRetorno,
   type Atendimento,
   type AtribuicaoCobranca,
+  type Cadastros,
   type NotificacaoFalha,
   type NotificacaoInterna,
 } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
+import {
+  createInternalNotification,
+  findInternalNotificationById,
+  findInternalNotificationByIdempotencyKey,
+  listInternalNotificationsByRecipient,
+  nextInternalNotificationId,
+  nextNotificationFailureId,
+  prependNotificationFailure,
+  updateInternalNotification,
+} from "@/lib/db/repositories/notification-repository";
+import { findUnitById } from "@/lib/db/repositories/unit-repository";
+import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import { dataHoraPartesEmFuso, hojeEmFuso, minutosDesdeMeiaNoite, FUSO_NOTIFICACOES } from "@/lib/notificacoes/timezone";
@@ -87,37 +97,40 @@ function destinatarioPodeReceber(userId: number) {
   return temPermissao(perm, "atendimentos", "ler");
 }
 
-function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
-}
-
-function destinatarioRetornoAgendado(atendimento: Atendimento): number | null {
+async function destinatarioRetornoAgendado(atendimento: Atendimento): Promise<number | null> {
   const unidadeId = Number(atendimento.unidadeId);
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = await openAssignmentForUnit(unidadeId);
   if (vigente?.atendenteId) return vigente.atendenteId;
   return atendimento.usuarioId;
 }
 
-function registrarFalha(entry: Omit<NotificacaoFalha, "id" | "ocorridoEm">) {
-  const falhas = getCadastros().notificacaoFalhas;
+async function registrarFalha(entry: Omit<NotificacaoFalha, "id" | "ocorridoEm">) {
   const registro: NotificacaoFalha = {
-    id: proximoNumero(falhas.map((item) => item.id)),
+    id: await nextNotificationFailureId(),
     ocorridoEm: agoraIso(),
     ...entry,
   };
-  setNotificacaoFalhas([registro, ...falhas]);
+  await prependNotificationFailure(registro);
 }
 
-function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "lidaEm">): NotificacaoInterna | null {
+async function rotuloUnidade(unidadeId: number): Promise<string> {
+  const unidade = await findUnitById(unidadeId);
+  if (!unidade) return "—";
+  const condominio = await findCondominiumById(unidade.condominioId);
+  const nomeCondo = condominio?.nome ?? "—";
+  return `${nomeCondo} · ${unidade.identificacao}`;
+}
+
+async function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "lidaEm">): Promise<NotificacaoInterna | null> {
   if (!destinatarioPodeReceber(input.destinatarioId)) {
     return null;
   }
 
-  const existente = getCadastros().notificacoesInternas.find((item) => item.chaveIdempotencia === input.chaveIdempotencia);
+  const existente = await findInternalNotificationByIdempotencyKey(input.chaveIdempotencia);
   if (existente) return existente;
 
   if (simularFalhaPersistencia) {
-    registrarFalha({
+    await registrarFalha({
       chaveIdempotencia: input.chaveIdempotencia,
       evento: input.evento,
       destinatarioId: input.destinatarioId,
@@ -127,17 +140,15 @@ function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "l
   }
 
   try {
-    const lista = getCadastros().notificacoesInternas;
     const registro: NotificacaoInterna = {
-      id: proximoNumero(lista.map((item) => item.id)),
+      id: await nextInternalNotificationId(),
       criadoEm: agoraIso(),
       lidaEm: null,
       ...input,
     };
-    setNotificacoesInternas([registro, ...lista]);
-    return registro;
+    return await createInternalNotification(registro);
   } catch (error) {
-    registrarFalha({
+    await registrarFalha({
       chaveIdempotencia: input.chaveIdempotencia,
       evento: input.evento,
       destinatarioId: input.destinatarioId,
@@ -147,55 +158,57 @@ function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "l
   }
 }
 
-export function emitirNotificacaoRetornoAgendado(atendimento: Atendimento): NotificacaoInterna | null {
+export async function emitirNotificacaoRetornoAgendado(atendimento: Atendimento): Promise<NotificacaoInterna | null> {
   if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim()) return null;
-  const destinatarioId = destinatarioRetornoAgendado(atendimento);
+  const destinatarioId = await destinatarioRetornoAgendado(atendimento);
   if (!destinatarioId) return null;
 
   const unidadeId = Number(atendimento.unidadeId);
   const dataRef = atendimento.dataProximaAcao.slice(0, 10);
   const chaveIdempotencia = `retorno_agendado:${atendimento.id}:${destinatarioId}:${dataRef}`;
+  const unidade = await findUnitById(unidadeId);
 
   return criarNotificacao({
     chaveIdempotencia,
     evento: "retorno_agendado",
     destinatarioId,
     titulo: "Retorno agendado",
-    descricao: `${nomeUnidade(unidadeId)} · previsto para ${formatarData(atendimento.dataProximaAcao)}`,
+    descricao: `${await rotuloUnidade(unidadeId)} · previsto para ${formatarData(atendimento.dataProximaAcao)}`,
     entidadeTipo: "service_ticket",
     registroId: atendimento.id,
     unidadeId,
-    condominioId: getCadastros().unidades.find((u) => u.id === unidadeId)?.condominioId ?? null,
+    condominioId: unidade?.condominioId ?? null,
   });
 }
 
-export function emitirNotificacaoCobrancaAtribuida(atribuicao: AtribuicaoCobranca): NotificacaoInterna | null {
+export async function emitirNotificacaoCobrancaAtribuida(atribuicao: AtribuicaoCobranca): Promise<NotificacaoInterna | null> {
   const destinatarioId = atribuicao.atendenteId;
   const chaveIdempotencia = `cobranca_atribuida:${atribuicao.id}:${destinatarioId}`;
+  const unidade = await findUnitById(atribuicao.unidadeId);
 
   return criarNotificacao({
     chaveIdempotencia,
     evento: "cobranca_atribuida",
     destinatarioId,
     titulo: "Cobrança atribuída à sua carteira",
-    descricao: `${nomeUnidade(atribuicao.unidadeId)} · ${atribuicao.motivo || "Nova atribuição"}`,
+    descricao: `${await rotuloUnidade(atribuicao.unidadeId)} · ${atribuicao.motivo || "Nova atribuição"}`,
     entidadeTipo: "collection_assignment",
     registroId: String(atribuicao.id),
     unidadeId: atribuicao.unidadeId,
-    condominioId: getCadastros().unidades.find((u) => u.id === atribuicao.unidadeId)?.condominioId ?? null,
+    condominioId: unidade?.condominioId ?? null,
   });
 }
 
 /** Reprocessa lembrete diário de retornos para hoje (idempotente por dia). */
-export function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
+export async function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
   const hoje = hojeEmFuso();
-  const cadastros = getCadastros();
+  const cadastros = await loadFullOperationalCadastros();
 
   for (const atendimento of cadastros.atendimentos) {
     if (!atendimento.dataProximaAcao.trim() || atendimento.retornoConcluidoEm?.trim()) continue;
     if (situacaoRetorno(atendimento.dataProximaAcao, hoje) !== "hoje") continue;
 
-    const destinatarioId = destinatarioRetornoAgendado(atendimento);
+    const destinatarioId = await destinatarioRetornoAgendado(atendimento);
     if (!destinatarioId) continue;
 
     const prefs = obterPreferenciasNotificacao(destinatarioId);
@@ -207,18 +220,19 @@ export function processarLembretesRetornoHoje(referenciaIso = agoraIso()) {
     if (minutosDesdeMeiaNoite(partes.hora) < limite) continue;
 
     const unidadeId = Number(atendimento.unidadeId);
+    const unidade = cadastros.unidades.find((u) => u.id === unidadeId);
     const chaveIdempotencia = `retorno_lembrete_hoje:${atendimento.id}:${destinatarioId}:${hoje}`;
 
-    criarNotificacao({
+    await criarNotificacao({
       chaveIdempotencia,
       evento: "retorno_lembrete_hoje",
       destinatarioId,
       titulo: "Retorno previsto para hoje",
-      descricao: `${nomeUnidade(unidadeId)} · ${atendimento.proximaAcao || "Retorno pendente"}`,
+      descricao: `${await rotuloUnidade(unidadeId)} · ${atendimento.proximaAcao || "Retorno pendente"}`,
       entidadeTipo: "service_ticket",
       registroId: atendimento.id,
       unidadeId,
-      condominioId: cadastros.unidades.find((u) => u.id === unidadeId)?.condominioId ?? null,
+      condominioId: unidade?.condominioId ?? null,
     });
   }
 }
@@ -250,8 +264,7 @@ export function resolverUrlRegistroNotificacao(item: NotificacaoInterna): string
   return null;
 }
 
-function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna): boolean {
-  const cadastros = getCadastros();
+async function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna, cadastros: Cadastros): Promise<boolean> {
   const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((c) => c.id));
   const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
   if (!unidade || !idsCondominio.has(unidade.condominioId)) return false;
@@ -266,13 +279,13 @@ function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna): boolea
   if (item.entidadeTipo === "service_ticket") {
     const atendimento = cadastros.atendimentos.find((a) => a.id === item.registroId);
     if (!atendimento) return false;
-    const vigente = atribuicaoVigente(item.unidadeId);
+    const vigente = await openAssignmentForUnit(item.unidadeId);
     if (vigente && vigente.atendenteId === userId) return true;
     return atendimento.usuarioId === userId;
   }
 
   if (item.entidadeTipo === "collection_assignment") {
-    const vigente = atribuicaoVigente(item.unidadeId);
+    const vigente = await openAssignmentForUnit(item.unidadeId);
     return vigente?.atendenteId === userId;
   }
 
@@ -287,15 +300,15 @@ function montarApresentacao(item: NotificacaoInterna): NotificacaoApresentacao {
   };
 }
 
-export function listarNotificacoes(
+export async function listarNotificacoes(
   userId: number,
   opcoes?: { limit?: number; apenasNaoLidas?: boolean },
-): NotificacaoApresentacao[] {
+): Promise<NotificacaoApresentacao[]> {
   assertPodeConsultarNotificacoes(userId);
-  processarLembretesRetornoHoje();
+  await processarLembretesRetornoHoje();
 
   const limit = Math.min(100, Math.max(1, opcoes?.limit ?? 20));
-  let lista = getCadastros().notificacoesInternas.filter((item) => item.destinatarioId === userId);
+  let lista = await listInternalNotificationsByRecipient(userId);
   if (opcoes?.apenasNaoLidas) {
     lista = lista.filter((item) => !item.lidaEm);
   }
@@ -305,51 +318,55 @@ export function listarNotificacoes(
     .map(montarApresentacao);
 }
 
-export function contarNotificacoesNaoLidas(userId: number) {
+export async function contarNotificacoesNaoLidas(userId: number) {
   assertPodeConsultarNotificacoes(userId);
-  processarLembretesRetornoHoje();
-  return getCadastros().notificacoesInternas.filter((item) => item.destinatarioId === userId && !item.lidaEm).length;
+  await processarLembretesRetornoHoje();
+  const lista = await listInternalNotificationsByRecipient(userId);
+  return lista.filter((item) => !item.lidaEm).length;
 }
 
-export function marcarNotificacaoLida(userId: number, id: number): NotificacaoApresentacao {
+export async function marcarNotificacaoLida(userId: number, id: number): Promise<NotificacaoApresentacao> {
   assertPodeConsultarNotificacoes(userId);
-  const alvo = getCadastros().notificacoesInternas.find((item) => item.id === id);
+  const alvo = await findInternalNotificationById(id);
   if (!alvo || alvo.destinatarioId !== userId) {
     throw new NotificacaoServiceError("Notificação não encontrada.", 404);
   }
   if (alvo.lidaEm) return montarApresentacao(alvo);
 
   const atualizado: NotificacaoInterna = { ...alvo, lidaEm: agoraIso() };
-  setNotificacoesInternas((current) => current.map((item) => (item.id === id ? atualizado : item)));
-  return montarApresentacao(atualizado);
+  const salvo = await updateInternalNotification(atualizado);
+  return montarApresentacao(salvo);
 }
 
-export function marcarTodasNotificacoesLidas(userId: number) {
+export async function marcarTodasNotificacoesLidas(userId: number) {
   assertPodeConsultarNotificacoes(userId);
   const agora = agoraIso();
-  setNotificacoesInternas((current) =>
-    current.map((item) =>
-      item.destinatarioId === userId && !item.lidaEm ? { ...item, lidaEm: agora } : item,
-    ),
-  );
+  const lista = await listInternalNotificationsByRecipient(userId);
+  for (const item of lista) {
+    if (!item.lidaEm) {
+      await updateInternalNotification({ ...item, lidaEm: agora });
+    }
+  }
   return contarNotificacoesNaoLidas(userId);
 }
 
-export function obterNotificacaoParaAbrir(userId: number, id: number): NotificacaoApresentacao {
+export async function obterNotificacaoParaAbrir(userId: number, id: number): Promise<NotificacaoApresentacao> {
   assertPodeConsultarNotificacoes(userId);
-  const alvo = getCadastros().notificacoesInternas.find((item) => item.id === id);
+  const alvo = await findInternalNotificationById(id);
   if (!alvo || alvo.destinatarioId !== userId) {
     throw new NotificacaoServiceError("Notificação não encontrada.", 404);
   }
-  if (!usuarioAcessaRegistro(userId, alvo)) {
+  const cadastros = await loadFullOperationalCadastros();
+  if (!(await usuarioAcessaRegistro(userId, alvo, cadastros))) {
     throw new NotificacaoServiceError("Registro relacionado fora do seu escopo.", 403);
   }
   return montarApresentacao(alvo);
 }
 
 /** Reprocessa evento (testes de idempotência). */
-export function reprocessarEventoRetornoAgendado(atendimentoId: string): NotificacaoInterna | null {
-  const atendimento = getCadastros().atendimentos.find((item) => item.id === atendimentoId);
+export async function reprocessarEventoRetornoAgendado(atendimentoId: string): Promise<NotificacaoInterna | null> {
+  const cadastros = await loadFullOperationalCadastros();
+  const atendimento = cadastros.atendimentos.find((item) => item.id === atendimentoId);
   if (!atendimento) return null;
   return emitirNotificacaoRetornoAgendado(atendimento);
 }

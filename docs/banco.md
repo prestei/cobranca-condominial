@@ -2,7 +2,9 @@
 
 Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os tipos abaixo valem para o motor que for escolhido. Campo JSON vira `JSONB` no PostgreSQL.
 
-**Persistência:** `npm run db:migrate` aplica `docs/migrations/*.sql`. Identidade e importação ficam em tabelas normalizadas; o estado completo do sistema também é gravado em `catalogo_snapshot` (JSONB) a cada mutação — reinício não perde dados. Sem Docker e sem arquivo `.data` como fonte da verdade.
+**Persistência:** **Prisma** é a fonte da verdade do schema (`prisma/schema.prisma`). `npm run db:migrate` aplica `prisma/migrations/*.sql` (`prisma migrate deploy`). Tabelas normalizadas cobrem identidade (`role`/`user`), operacional, atendimentos, negociações, jurídico, distribuição, notificações e `app_setting`. A UI lê via `GET /api/catalog` e repositórios Prisma; gravação em lote usa `saveCatalogBulkToPostgres` (`src/lib/db/repositories/catalog-bulk-persist.ts`). O catálogo em memória existe **apenas** no escopo do pipeline de importação (AsyncLocalStorage), não como cache durável da aplicação. A tabela `catalogo_snapshot` foi removida (migration `20261110130000_drop_catalogo_snapshot`). Não há módulos raw `catalogo-pg` / `operacional-pg` / `pool` no `src/`. Sem Docker e sem arquivo `.data` como fonte da verdade.
+
+**Proteção anti-perda:** `saveCatalogBulkToPostgres` recusa sobrescrever linhas operacionais existentes por um estado operacional vazio; cadeia de persistência serializada e flush no `SIGTERM` (restart/deploy).
 
 | Tabela | Papel |
 | --- | --- |

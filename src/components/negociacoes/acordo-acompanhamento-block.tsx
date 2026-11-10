@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Calendar, Flag } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -13,7 +14,6 @@ import {
   formatarMoeda,
   type PagamentoAcordo,
 } from "@/data/catalogo";
-import { aplicarPagamentoSalvo, aplicarParcelasSalvas } from "@/lib/acordos/sync-cliente";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
 
 type Props = {
@@ -30,6 +30,7 @@ const badgeParcela: Record<string, "success" | "secondary" | "error"> = {
 };
 
 export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorrigir, onChanged }: Props) {
+  const { refetch } = useCadastrosStatus();
   const formId = useId();
   const { toast } = useToast();
   const [resumo, setResumo] = useState<ResumoAcordo | null>(null);
@@ -88,7 +89,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
         toast({ variant: "error", title: "Parcela", description: payload.error });
         return;
       }
-      if (payload.parcelas) aplicarParcelasSalvas(propostaId, payload.parcelas);
+      if (payload.parcelas) void refetch()
       setResumo(payload.resumo);
       setNovaValor("");
       setNovaVencimento("");
@@ -124,7 +125,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
         toast({ variant: "error", title: "Pagamento", description: payload.error });
         return;
       }
-      if (payload.pagamento) aplicarPagamentoSalvo(payload.pagamento, "INSERT");
+      if (payload.pagamento) void refetch()
       setResumo(payload.resumo);
       setValorPagamento("");
       setReferenciaPagamento("");

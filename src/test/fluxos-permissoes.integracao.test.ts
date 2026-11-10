@@ -194,8 +194,8 @@ describe("T21 — quitação fora da fila ativa", () => {
 });
 
 describe("T21 — escopo advogado", () => {
-  test("advogado acessa condomínio permitido e é bloqueado em outro", () => {
-    sincronizarCondominiosAdvogado(ADMIN_ID, ADVOGADO_ID, 3, "Dra. Adryelle", [1]);
+  test("advogado acessa condomínio permitido e é bloqueado em outro", async () => {
+    await sincronizarCondominiosAdvogado(ADMIN_ID, ADVOGADO_ID, 3, "Dra. Adryelle", [1]);
     const permitidos = listarCondominios(ADVOGADO_ID);
     assert.ok(permitidos.some((c) => c.id === 1));
     assert.ok(!permitidos.some((c) => c.id === 2));
@@ -369,8 +369,8 @@ describe("T21 — correção com auditoria", () => {
 });
 
 describe("T21 — filtros e exportação no escopo", () => {
-  test("advogado não exporta atendimentos de condomínio fora da carteira", () => {
-    sincronizarCondominiosAdvogado(ADMIN_ID, ADVOGADO_ID, 3, "Dra. Adryelle", [1]);
+  test("advogado não exporta atendimentos de condomínio fora da carteira", async () => {
+    await sincronizarCondominiosAdvogado(ADMIN_ID, ADVOGADO_ID, 3, "Dra. Adryelle", [1]);
     criarAtendimento(ATENDENTE_TASSIA_ID, {
       condominioId: 2,
       unidadeId: 3,

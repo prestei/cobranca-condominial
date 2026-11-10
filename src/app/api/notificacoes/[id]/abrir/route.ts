@@ -16,8 +16,8 @@ export async function GET(_request: Request, context: Params) {
   }
 
   try {
-    obterNotificacaoParaAbrir(session.userId, id);
-    const notificacao = marcarNotificacaoLida(session.userId, id);
+    await obterNotificacaoParaAbrir(session.userId, id);
+    const notificacao = await marcarNotificacaoLida(session.userId, id);
     return Response.json({ notificacao });
   } catch (error) {
     if (error instanceof NotificacaoServiceError) {

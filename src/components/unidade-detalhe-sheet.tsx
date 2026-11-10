@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
@@ -52,7 +53,6 @@ import {
 import { usePermissao } from "@/hooks/use-permissao";
 import { HistoricoLinhaTempo } from "@/components/unidades/historico-linha-tempo";
 import type { EventoHistoricoUnidade, HistoricoUnidadeReferencia } from "@/lib/historico-unidade/service";
-import { aplicarVinculoRemovido, aplicarVinculoSalvo } from "@/lib/unidades/sync-cliente";
 import { podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import type { ResponsavelResposta } from "@/lib/privacidade/dados-pessoais";
 
@@ -109,6 +109,7 @@ type Props = {
 };
 
 export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponiveis, onMutacao, onEditar }: Props) {
+  const { refetch } = useCadastrosStatus();
   const formId = useId();
   const router = useRouter();
   const { toast } = useToast();
@@ -199,7 +200,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
       setRemoverVinculo(null);
       return;
     }
-    aplicarVinculoRemovido(removerVinculo.id);
+    void refetch()
     setRemoverVinculo(null);
     toast({ variant: "success", title: "Vínculo removido" });
     onMutacao();
@@ -245,7 +246,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
       return;
     }
     if (payload.vinculo) {
-      aplicarVinculoSalvo(unidadeId, payload.vinculo);
+      void refetch()
     }
     if (modoNovoResponsavel) {
       void fetch(`/api/unidades/${unidadeId}`, { credentials: "same-origin" })

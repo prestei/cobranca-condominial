@@ -67,7 +67,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const atendimento = atualizarAtendimento(session.userId, id, input, requestMeta(request));
+    const atendimento = await atualizarAtendimento(session.userId, id, input, requestMeta(request));
     return Response.json({ atendimento });
   } catch (error) {
     if (error instanceof AtendimentoServiceError) {
@@ -89,7 +89,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   }
 
   try {
-    excluirAtendimento(session.userId, id, requestMeta(request));
+    await excluirAtendimento(session.userId, id, requestMeta(request));
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof AtendimentoServiceError) {

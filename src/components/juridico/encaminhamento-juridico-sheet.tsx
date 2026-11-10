@@ -92,7 +92,7 @@ export function EncaminhamentoJuridicoSheet({
 
   const condominio = useMemo(() => {
     if (condominioId === null) return undefined;
-    return getCadastros().condominios.find((item) => item.id === condominioId);
+    return getCadastroscadastros.condominios.find((item) => item.id === condominioId);
   }, [condominioId, lista.length]);
 
   const advogadosOpcoes = condominio?.advogados ?? [];

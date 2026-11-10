@@ -1,6 +1,7 @@
-import { getCadastros, nomeUsuario, type Auditoria } from "@/data/catalogo";
+import { nomeUsuario, type Auditoria } from "@/data/catalogo";
 import { rotuloAutorAuditoria, usuarioCorrespondeFiltroAutor } from "@/lib/auditoria/autor";
 import { registroDentroDoPeriodo } from "@/lib/auditoria/periodo";
+import { listAuditLogs } from "@/lib/db/repositories/audit-repository";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -46,7 +47,7 @@ function matchesBusca(registro: Auditoria, query: string) {
   return haystack.includes(query);
 }
 
-export function listarAuditoria(userId: number, filtros: AuditoriaFiltros = {}): Auditoria[] {
+export async function listarAuditoria(userId: number, filtros: AuditoriaFiltros = {}): Promise<Auditoria[]> {
   assertPodeConsultar(userId);
 
   const entidade = filtros.entidade?.trim();
@@ -58,12 +59,15 @@ export function listarAuditoria(userId: number, filtros: AuditoriaFiltros = {}):
     filtros.usuarioId !== undefined && Number.isFinite(filtros.usuarioId) ? filtros.usuarioId : undefined;
   const autorBusca = filtros.autor?.trim();
 
-  return getCadastros()
-    .auditoria.filter((item) => {
-      if (entidade && entidade !== "todas" && item.entidade !== entidade) return false;
-      if (acao && acao !== "todas" && item.acao !== acao) return false;
+  const lista = await listAuditLogs({
+    entidade,
+    acao,
+    userId: usuarioId,
+  });
+
+  return lista
+    .filter((item) => {
       if (!registroDentroDoPeriodo(item.dataHora, dataDe, dataAte)) return false;
-      if (usuarioId !== undefined && Number(item.usuarioId) !== usuarioId) return false;
       if (
         autorBusca &&
         !usuarioCorrespondeFiltroAutor(item.usuarioId, { reOuNome: autorBusca, usuarioId: undefined })

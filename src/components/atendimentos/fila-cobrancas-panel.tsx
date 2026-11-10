@@ -93,10 +93,8 @@ import {
   exportarListagem,
   linhasFilaExport,
 } from "@/lib/atendimentos/exportar-listagem";
-import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 import { formatarProximoRetorno } from "@/lib/fila/formatar-proximo-retorno";
 import type { FilaCobrancaItem, FilaCobrancaResumo, FilaOrdenacaoCampo } from "@/lib/fila/service";
-import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 
 const filaMobileDataBarClassName =
   "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
@@ -142,6 +140,7 @@ export function FilaCobrancasPanel() {
   const { toast } = useToast();
   const { user } = useAuth();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const visaoGeral = pode("usuarios", "criar");
   const podeImportar = pode("importacoes", "criar");
@@ -266,7 +265,7 @@ export function FilaCobrancasPanel() {
       if (visaoGeral && appliedFiltroRe === "sem") {
         params.set("semResponsavel", "1");
       } else if (visaoGeral && appliedFiltroRe !== "todos") {
-        const atendente = listarAtendentesComRe().find((item) => item.codigoRe === appliedFiltroRe);
+        const atendente = listarAtendentesComRecadastros.find((item) => item.codigoRe === appliedFiltroRe);
         if (atendente) params.set("atendente", String(atendente.id));
       }
       if (sortKey) {
@@ -471,7 +470,7 @@ export function FilaCobrancasPanel() {
       const payload = (await response.json()) as { error?: string; atendimento?: { id: string } };
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível concluir o retorno.");
       if (payload.atendimento) {
-        aplicarAtendimentoSalvo(payload.atendimento as Atendimento, "UPDATE");
+        void refetch()
       }
       toast({ variant: "success", title: "Retorno concluído" });
       setConcluirAtendimentoId(null);
@@ -513,7 +512,7 @@ export function FilaCobrancasPanel() {
         const detalhe = payload.detalhes?.length ? ` ${payload.detalhes.join(" ")}` : "";
         throw new Error((payload.error ?? "Falha na atribuição.") + detalhe);
       }
-      if (payload.atribuicoesCobranca) aplicarSnapshotAtribuicoes(payload.atribuicoesCobranca);
+      if (payload.atribuicoesCobranca) void refetch()
       toast({ variant: "success", title: `${payload.atribuidas ?? 0} cobrança(s) atribuída(s)` });
       setSheetAtribuirOpen(false);
       setSelecionadas(new Set());
@@ -541,7 +540,7 @@ export function FilaCobrancasPanel() {
     if (visaoGeral && appliedFiltroRe === "sem") {
       params.set("semResponsavel", "1");
     } else if (visaoGeral && appliedFiltroRe !== "todos") {
-      const atendente = listarAtendentesComRe().find((item) => item.codigoRe === appliedFiltroRe);
+      const atendente = listarAtendentesComRecadastros.find((item) => item.codigoRe === appliedFiltroRe);
       if (atendente) params.set("atendente", String(atendente.id));
     }
     if (sortKey) {
@@ -560,7 +559,7 @@ export function FilaCobrancasPanel() {
         return;
       }
       const linhas = linhasFilaExport(payload.itens ?? [], nomeCondominio, formatarData);
-      const base = `fila-cobrancas-${new Date().toISOString().slice(0, 10)}`;
+      const base = `fila-cobrancas-${new Date..toISOString().slice(0, 10)}`;
       exportarListagem(toast, formato, "Fila de cobranças", base, colunasFilaExport, linhas);
     } catch {
       toast({ variant: "error", title: "Erro ao exportar", description: "Tente novamente." });

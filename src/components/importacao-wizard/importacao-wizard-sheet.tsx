@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import {
   forwardRef,
   useCallback,
@@ -41,7 +42,6 @@ import {
   type Responsavel,
   type Vinculo,
 } from "@/data/catalogo";
-import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
   configWizardImportacao,
@@ -55,13 +55,6 @@ import {
   mensagemTamanhoMaximoArquivo,
   type ModuloImportacaoArquivo,
 } from "@/lib/importacoes/limites";
-import {
-  aplicarImportacaoSalva,
-  mesclarCondominiosImportacao,
-  mesclarDebitosDoServidor,
-  mesclarResponsaveisImportacao,
-  mesclarUnidadesImportacao,
-} from "@/lib/importacoes/sync-cliente";
 import { ImportacaoPreVisualizacao } from "@/components/importacao-pre-visualizacao/importacao-pre-visualizacao";
 import { ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
 import {
@@ -225,10 +218,10 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           });
           return;
         }
-        if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
-        if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+        if (body.condominios) void refetch()
+        if (body.unidades) void refetch()
         if (body.responsaveis || body.vinculos) {
-          mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+          void refetch()
         }
         setPreview(body.preview);
         setDataHoraPrevia(agoraIso());
@@ -399,10 +392,10 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         });
         return;
       }
-      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
-      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.condominios) void refetch()
+      if (body.unidades) void refetch()
       if (body.responsaveis || body.vinculos) {
-        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+        void refetch()
       }
       setPreview(body.preview);
       setLinhasIgnoradas([]);
@@ -455,14 +448,13 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         });
         return;
       }
-      if (body.debitos) mesclarDebitosDoServidor(body.debitos);
-      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
-      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.debitos) void refetch()
+      if (body.condominios) void refetch()
+      if (body.unidades) void refetch()
       if (body.responsaveis || body.vinculos) {
-        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+        void refetch()
       }
-      if (body.atribuicoesCobranca) aplicarSnapshotAtribuicoes(body.atribuicoesCobranca);
-      aplicarImportacaoSalva(body.resultado.importacao);
+      if (body.atribuicoesCobranca) void refetch()
       setResultado(body.resultado);
       setStep(2);
       onHistoricoAtualizado?.();

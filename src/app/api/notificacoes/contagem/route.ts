@@ -8,7 +8,7 @@ export async function GET() {
   if (denied) return denied;
 
   try {
-    const total = contarNotificacoesNaoLidas(session.userId);
+    const total = await contarNotificacoesNaoLidas(session.userId);
     return Response.json({ total });
   } catch (error) {
     if (error instanceof NotificacaoServiceError) {

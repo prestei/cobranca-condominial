@@ -6,6 +6,7 @@ import {
 import { geradoEmBr } from "@/lib/indicadores/meta";
 import { contagemPorRe, listarEventosProdutividade } from "@/lib/indicadores/produtividade-eventos";
 import { montarPainelProdutividadePorRe, type ProdutividadePorReLinha } from "@/lib/relatorios/produtividade";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import {
   RelatorioServiceError,
   assertCondominioNoEscopo,
@@ -61,7 +62,7 @@ function valorPainelParaIndicador(linha: ProdutividadePorReLinha | undefined, in
   }
 }
 
-function totalPainelIndicador(painel: ReturnType<typeof montarPainelProdutividadePorRe>, indicador: IndicadorProdutividadeId) {
+function totalPainelIndicador(painel: Awaited<ReturnType<typeof montarPainelProdutividadePorRe>>, indicador: IndicadorProdutividadeId) {
   const linha = painel.totais;
   const fake: ProdutividadePorReLinha = {
     codigoRe: "—",
@@ -83,11 +84,11 @@ export function obterCatalogoIndicadoresOficiais() {
   return CATALOGO_INDICADORES_OFICIAIS;
 }
 
-export function consultarReferenciaIndicador(
+export async function consultarReferenciaIndicador(
   userId: number,
   indicador: IndicadorProdutividadeId,
   filtros: RelatorioFiltros,
-): ConsultaReferenciaIndicador {
+): Promise<ConsultaReferenciaIndicador> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "relatorios", "ler")) {
     throw new ConferenciaIndicadoresError("Sem permissão para consultar indicadores.", 403);
@@ -105,7 +106,7 @@ export function consultarReferenciaIndicador(
     throw new ConferenciaIndicadoresError("Indicador não catalogado.", 400);
   }
 
-  assertCondominioNoEscopo(userId, filtros.condominioId);
+  await assertCondominioNoEscopo(userId, filtros.condominioId);
 
   const linhas = listarEventosProdutividade(userId, filtros, indicador);
   const mapa = contagemPorRe(linhas);
@@ -116,7 +117,7 @@ export function consultarReferenciaIndicador(
   let valorPainel: number | null = null;
   let coincide: boolean | null = null;
   try {
-    const painel = montarPainelProdutividadePorRe(userId, filtros);
+    const painel = await montarPainelProdutividadePorRe(userId, filtros);
     valorPainel = totalPainelIndicador(painel, indicador);
     coincide = valorPainel === linhas.length;
   } catch (error) {
@@ -124,6 +125,7 @@ export function consultarReferenciaIndicador(
     throw error;
   }
 
+  const cadastros = await loadCadastrosForScope();
   return {
     indicador,
     definicao,
@@ -132,7 +134,7 @@ export function consultarReferenciaIndicador(
     linhas,
     meta: {
       geradoEm: geradoEmBr(),
-      filtros: rotulosFiltrosAplicados(filtros, "produtividade"),
+      filtros: rotulosFiltrosAplicados(cadastros, filtros, "produtividade"),
     },
     conciliacaoPainel: { valorPainel, coincide },
   };

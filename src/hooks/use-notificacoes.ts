@@ -1,12 +1,9 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import type { NotificacaoInterna } from "@/data/catalogo";
-import {
-  aplicarNotificacaoAtualizada,
-  sincronizarNotificacoesDoServidor,
-} from "@/lib/notificacoes/sync-cliente";
 
 export type NotificacaoUi = NotificacaoInterna & {
   urlRegistro: string | null;
@@ -14,6 +11,7 @@ export type NotificacaoUi = NotificacaoInterna & {
 };
 
 export function useNotificacoes() {
+  const { refetch } = useCadastrosStatus();
   const { user } = useAuth();
   const [itens, setItens] = useState<NotificacaoUi[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
@@ -35,7 +33,7 @@ export function useNotificacoes() {
         const payload = (await listaRes.json()) as { notificacoes?: NotificacaoUi[] };
         const lista = payload.notificacoes ?? [];
         setItens(lista);
-        sincronizarNotificacoesDoServidor(lista, user.userId);
+        void refetch();
       }
       if (contagemRes.ok) {
         const payload = (await contagemRes.json()) as { total?: number };
@@ -44,7 +42,7 @@ export function useNotificacoes() {
     } finally {
       setCarregando(false);
     }
-  }, [user?.userId]);
+  }, [refetch, user?.userId]);
 
   useEffect(() => {
     void recarregar();
@@ -70,13 +68,13 @@ export function useNotificacoes() {
       if (!response.ok) return false;
       const payload = (await response.json()) as { notificacao?: NotificacaoUi };
       if (payload.notificacao) {
-        aplicarNotificacaoAtualizada(payload.notificacao);
         setItens((current) => current.map((item) => (item.id === id ? payload.notificacao! : item)));
         setNaoLidas((n) => Math.max(0, n - 1));
+        void refetch();
       }
       return true;
     },
-    [],
+    [refetch],
   );
 
   const abrirNotificacao = useCallback(
@@ -87,13 +85,13 @@ export function useNotificacoes() {
         return { ok: false as const, error: payload.error ?? "Não foi possível abrir." };
       }
       if (payload.notificacao) {
-        aplicarNotificacaoAtualizada(payload.notificacao);
         setItens((current) => current.map((item) => (item.id === id ? payload.notificacao! : item)));
         setNaoLidas((n) => Math.max(0, n - (payload.notificacao?.lidaEm ? 1 : 0)));
+        void refetch();
       }
       return { ok: true as const, notificacao: payload.notificacao };
     },
-    [],
+    [refetch],
   );
 
   return {

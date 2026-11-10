@@ -1,10 +1,5 @@
-import {
-  escopoCondominios,
-  formatarData,
-  getCadastros,
-  hojeIso,
-  type Condominio,
-} from "@/data/catalogo";
+import { escopoCondominios, formatarData, hojeIso, type Condominio, type Cadastros } from "@/data/catalogo";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
 import type { IndicadorProdutividadeId } from "@/lib/indicadores/catalogo-oficial";
 import { geradoEmBr } from "@/lib/indicadores/meta";
@@ -83,10 +78,10 @@ function contarEventos(userId: number, filtros: RelatorioFiltros, indicador: Ind
   return listarEventosProdutividade(userId, filtros, indicador).length;
 }
 
-function usuarioIdsPorRe(codigoRe: string): number[] {
+function usuarioIdsPorRe(cadastros: Cadastros, codigoRe: string): number[] {
   const alvo = codigoRe.trim().toUpperCase();
-  return getCadastros()
-    .usuarios.filter((item) => codigoReDoUsuario(item)?.toUpperCase() === alvo)
+  return cadastros.usuarios
+    .filter((item) => codigoReDoUsuario(item)?.toUpperCase() === alvo)
     .map((item) => item.id);
 }
 
@@ -127,7 +122,11 @@ function linhaFromContagens(codigoRe: string, contagens: Record<IndicadorProduti
   };
 }
 
-export function montarPainelProdutividadePorRe(userId: number, filtros: RelatorioFiltros): PainelProdutividadePorRe {
+export async function montarPainelProdutividadePorRe(
+  userId: number,
+  filtros: RelatorioFiltros,
+): Promise<PainelProdutividadePorRe> {
+  const cadastros = await loadCadastrosForScope();
   if (!podeAcessarPainelProdutividadeGlobal(userId)) {
     throw new RelatorioServiceError("Sem permissão para consultar o painel de produtividade da equipe.", 403);
   }
@@ -147,7 +146,7 @@ export function montarPainelProdutividadePorRe(userId: number, filtros: Relatori
   if (filtros.codigoRe !== "todos" && filtros.codigoRe.trim()) {
     const alvo = filtros.codigoRe.trim().toUpperCase();
     resRe = resRe.filter((re) => re.toUpperCase() === alvo);
-    if (resRe.length === 0 && usuarioIdsPorRe(alvo).length > 0) {
+    if (resRe.length === 0 && usuarioIdsPorRe(cadastros, alvo).length > 0) {
       resRe = [filtros.codigoRe.trim()];
     }
   }
@@ -208,7 +207,7 @@ export function montarPainelProdutividadePorRe(userId: number, filtros: Relatori
     definicoes: DEFINICOES_INDICADORES_PRODUTIVIDADE,
     meta: {
       geradoEm: geradoEmBr(),
-      filtros: rotulosFiltrosAplicados(filtros, "produtividade"),
+      filtros: rotulosFiltrosAplicados(cadastros, filtros, "produtividade"),
     },
     linhas,
     totais: { ...totais, porMeio: porMeioTotais },

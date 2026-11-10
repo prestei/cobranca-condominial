@@ -1,0 +1,32 @@
+---
+description: Identifiers/files/components in English; comments, skills, and user content in Portuguese
+alwaysApply: true
+---
+
+# Idioma no código
+
+## Em inglês
+
+- Nomes de **tabela** e **coluna** no banco
+- **Variáveis**, **funções**, **tipos**, **interfaces**, **props**
+- Nomes de **arquivos** e **pastas** (`src/`, `scripts/`, `deploy/scripts/`)
+- **Componentes** React e hooks
+
+Preferir inglês alinhado às tabelas PG (`condominium`, `unit`, `debt`, `service_ticket`, `collection_assignment`, …).
+
+## Em português
+
+- **Comentários** no código (incluindo JSDoc)
+- **Skills** do agente (`.agents/skills/**`, inclusive `SKILL.md` e docs compartilhadas em `_shared/`)
+- Texto visível ao usuário: labels, botões, toasts, e-mails, PDF, mensagens de validação
+- Prosa de produto em `docs/` (regras de negócio, módulos); trechos de schema/código na doc usam identificadores em inglês
+
+## Não fazer
+
+- Criar identificadores novos em português (`salvarX`, `carregarY`, `catalogo-pg.ts`, `setDebitos`)
+- Misturar idiomas no mesmo símbolo (`saveDebitos`, `CatalogoService`)
+- Escrever skills ou comentários novos em inglês
+
+## Legado
+
+Módulos antigos ainda podem ter nomes em português (`catalogo.ts`, `condominios`, `debitos`). Ao alterar essas áreas, renomear para inglês na mesma entrega quando for viável; nunca adicionar mais identificadores em português.

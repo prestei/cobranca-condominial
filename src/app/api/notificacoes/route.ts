@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const apenasNaoLidas = searchParams.get("naoLidas") === "1";
 
   try {
-    const notificacoes = listarNotificacoes(session.userId, {
+    const notificacoes = await listarNotificacoes(session.userId, {
       limit: Number.isFinite(limit) && limit > 0 ? limit : 20,
       apenasNaoLidas,
     });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { FileText, Handshake, Wallet } from "lucide-react";
@@ -28,12 +29,11 @@ import {
   debitoEmAberto,
   formatarData,
   formatarMoeda,
-  getCadastros,
   type PropostaNegociacao,
 } from "@/data/catalogo";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
-import { aplicarPropostaSalva } from "@/lib/negociacoes/sync-cliente";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 type Props = {
@@ -60,6 +60,8 @@ export function PropostaNegociacaoSheet({
   onClose,
   onSalvo,
 }: Props) {
+  const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const formId = useId();
   const { toast } = useToast();
   const { pode } = usePermissao();
@@ -78,10 +80,10 @@ export function PropostaNegociacaoSheet({
 
   const debitosUnidade = useMemo(() => {
     if (unidadeId === null) return [];
-    return getCadastros()
-      .debitos.filter((item) => item.unidadeId === unidadeId)
+    return cadastros.debitos
+      .filter((item) => item.unidadeId === unidadeId)
       .sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento));
-  }, [unidadeId, propostas.length]);
+  }, [cadastros.debitos, unidadeId, propostas.length]);
 
   const debitosSelecionaveis = debitosUnidade.filter(debitoEmAberto);
 
@@ -145,7 +147,7 @@ export function PropostaNegociacaoSheet({
         toast({ variant: "error", title: "Não foi possível salvar", description: payload.error });
         return;
       }
-      aplicarPropostaSalva(payload.proposta, "INSERT");
+      void refetch()
       toast({ variant: "success", title: "Proposta registrada" });
       setValorProposto("");
       setObservacoes("");
@@ -188,7 +190,7 @@ export function PropostaNegociacaoSheet({
         toast({ variant: "error", title: "Alteração não realizada", description: payload.error });
         return;
       }
-      aplicarPropostaSalva(payload.proposta, "UPDATE");
+      void refetch()
       toast({ variant: "success", title: `Status: ${status}` });
       await carregar();
       onSalvo?.();

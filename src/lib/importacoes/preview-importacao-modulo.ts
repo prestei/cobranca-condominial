@@ -1,4 +1,6 @@
 import type { Importacao } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import {
   confirmarImportacaoPorModulo,
   previewImportacaoPorModulo,
@@ -112,7 +114,10 @@ export function mapearPreviewImportacaoModulo(
 export function criarServicoImportacaoModulo(modulo: string) {
   return {
     async preview(userId: number, input: EntradaPreviewImportacaoModulo): Promise<PreviewImportacaoModulo> {
-      const { preview, sessaoPreviaId } = await previewImportacaoPorModulo(modulo, userId, input);
+      const catalogoInicial = await loadFullOperationalCadastros();
+      const { preview, sessaoPreviaId } = await runWithCatalogAsync(catalogoInicial, () =>
+        previewImportacaoPorModulo(modulo, userId, input),
+      );
       return mapearPreviewImportacaoModulo(preview, modulo, {
         sessaoPreviaId,
         userId,
@@ -125,11 +130,14 @@ export function criarServicoImportacaoModulo(modulo: string) {
       input: EntradaConfirmarImportacaoModulo,
       meta?: MetaExecucaoImportacao,
     ): Promise<ResultadoConfirmacaoModulo> {
-      const resultado = await confirmarImportacaoPorModulo(
-        modulo,
-        userId,
-        { ...input, confirmacaoExplicita: input.confirmacaoExplicita ?? true },
-        meta,
+      const catalogoInicial = await loadFullOperationalCadastros();
+      const resultado = await runWithCatalogAsync(catalogoInicial, () =>
+        confirmarImportacaoPorModulo(
+          modulo,
+          userId,
+          { ...input, confirmacaoExplicita: input.confirmacaoExplicita ?? true },
+          meta,
+        ),
       );
       if (!resultado.importacao) {
         throw new ImportacaoCentroError("Não foi possível concluir a importação.", 500);

@@ -90,12 +90,12 @@ import {
 } from "@/components/unidades/unidades-por-condominio-lista";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import {
   escopoCondominios,
   escopoUnidades,
   formatarMoeda,
-  getCadastros,
   nomeCondominio,
   SITUACAO_COBRANCA_PADRAO,
   situacaoCobrancaUnidade,
@@ -110,18 +110,10 @@ import {
   type Unidade,
   type Vinculo,
 } from "@/data/catalogo";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import { sincronizarDebitosDoServidor } from "@/lib/debitos/sync-cliente";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
-import { mesclarResponsaveisImportacao } from "@/lib/importacoes/sync-cliente";
-import {
-  aplicarUnidadeExcluida,
-  aplicarUnidadeSalva,
-  aplicarVinculoSalvo,
-  sincronizarUnidadesDoServidor,
-} from "@/lib/unidades/sync-cliente";
-import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
 type VisaoListagem = "geral" | "condominio";
@@ -173,6 +165,7 @@ function UnidadesPage() {
   const formId = useId();
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const userIdEscopo = user?.userId;
   const condominiosVisiveis = useMemo(
     () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
@@ -219,9 +212,9 @@ function UnidadesPage() {
       vinculos?: Vinculo[];
       responsaveis?: Responsavel[];
     };
-    if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, user?.userId);
+    if (payload.unidades) void refetch()
     if (payload.responsaveis || payload.vinculos) {
-      mesclarResponsaveisImportacao(payload.responsaveis ?? [], payload.vinculos ?? []);
+      void refetch()
     }
   }
 
@@ -229,7 +222,7 @@ function UnidadesPage() {
     const response = await fetch("/api/debitos", { credentials: "same-origin" });
     if (!response.ok) return;
     const payload = (await response.json()) as { debitos?: import("@/data/catalogo").Debito[] };
-    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, user?.userId);
+    if (payload.debitos) void refetch()
   }
 
   async function prepararCondominiosParaSalvar(): Promise<boolean> {
@@ -263,7 +256,7 @@ function UnidadesPage() {
   useEffect(() => {
     const condominioQuery = searchParams?.get("condominio");
     if (!condominioQuery) return;
-    const existe = escopoCondominios(getCadastros(), user?.userId).some((item) => String(item.id) === condominioQuery);
+    const existe = escopoCondominios(cadastros, user?.userId).some((item) => String(item.id) === condominioQuery);
     if (!existe) return;
     setCondominio(condominioQuery);
     setAppliedCondominio(condominioQuery);
@@ -406,7 +399,7 @@ function UnidadesPage() {
   }
 
   function openEdit(item: Unidade) {
-    const atual = getCadastros().unidades.find((u) => u.id === item.id) ?? item;
+    const atual = cadastros.unidades.find((u) => u.id === item.id) ?? item;
     const preenchido = {
       condominioId: String(atual.condominioId),
       identificacao: atual.identificacao,
@@ -655,7 +648,7 @@ function UnidadesPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `unidades-${new Date().toISOString().slice(0, 10)}`;
+    const arquivoBase = `unidades-${new Date..toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });
@@ -752,7 +745,7 @@ function UnidadesPage() {
           return;
         }
 
-        aplicarUnidadeSalva(body.unidade, "INSERT");
+        void refetch()
         await recarregarUnidadesDoServidor();
 
         if (!pular) {
@@ -774,7 +767,7 @@ function UnidadesPage() {
             });
           } else if (vinculoBody.vinculo) {
             const respId = vinculoBody.vinculo.responsavelId;
-            let responsavel = getCadastros().responsaveis.find((item) => item.id === respId);
+            let responsavel = cadastros.responsaveis.find((item) => item.id === respId);
             if (!responsavel && responsavelForm.modo === "novo") {
               responsavel = {
                 id: respId,
@@ -788,7 +781,7 @@ function UnidadesPage() {
                 observacoes: "",
               };
             }
-            aplicarVinculoSalvo(body.unidade.id, vinculoBody.vinculo, responsavel);
+            void refetch()
           }
         }
 
@@ -849,7 +842,7 @@ function UnidadesPage() {
         return;
       }
 
-      aplicarUnidadeSalva(body.unidade, "UPDATE");
+      void refetch()
       await recarregarUnidadesDoServidor();
       const salvo = {
         condominioId: String(body.unidade.condominioId),

@@ -73,6 +73,7 @@ import {
   debitoAbertoNaData,
   diasDeAtraso,
   escopoCondominios,
+  escopoUnidades,
   faixasAtraso,
   formatarData,
   opcoesAdvogadosResponsaveis,
@@ -89,9 +90,7 @@ import {
   type Debito,
 } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { listarAtendimentos } from "@/lib/atendimentos/service";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
-import { listarDebitos } from "@/lib/debitos/service";
 
 const filtroInicial = {
   busca: "",
@@ -579,7 +578,14 @@ function RelatoriosPage() {
     return busca.length === 0 || texto.includes(busca);
   }
 
-  const atendimentosBase = userId ? listarAtendimentos(userId) : [];
+  const atendimentosBase = useMemo(() => {
+    if (!userId) return [];
+    const idsUnidade = new Set(escopoUnidades(cadastros, userId).map((item) => item.id));
+    const geral = pode("usuarios", "criar");
+    let lista = cadastros.atendimentos.filter((item) => idsUnidade.has(Number(item.unidadeId)));
+    if (!geral) lista = lista.filter((item) => item.usuarioId === userId);
+    return lista;
+  }, [userId, cadastros, pode]);
   const atendimentos = atendimentosBase.filter((item) => combinaAtendimento(item, true));
     const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
   const unidadesContatadas = new Set(atendimentos.map((item) => item.unidadeId)).size;
@@ -652,7 +658,14 @@ function RelatoriosPage() {
   const retornosAtrasados = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "atrasado").length;
   const retornosHoje = retornos.filter((item) => situacaoRetorno(item.dataProximaAcao) === "hoje").length;
 
-  const debitosEscopoLista = userId ? listarDebitos(userId) : [];
+  const debitosEscopoLista = useMemo(() => {
+    if (!userId) return [];
+    const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+    const idsUnidade = new Set(escopoUnidades(cadastros, userId).map((item) => item.id));
+    return cadastros.debitos.filter(
+      (item) => idsCondominio.has(item.condominioId) && idsUnidade.has(item.unidadeId),
+    );
+  }, [userId, cadastros]);
   let cruzamento = [...new Set(atendimentos.map((item) => item.unidadeId))].map((unidadeId) => {
     const contatos = atendimentos.filter((item) => item.unidadeId === unidadeId);
     const meses = new Set(contatos.map((item) => mesSeguinte(item.dataHora)));
@@ -671,7 +684,7 @@ function RelatoriosPage() {
   });
   let comResultado = cruzamento.filter((linha) => linha.resultado !== "Sem resultado no mês seguinte").length;
 
-  const debitos = (userId ? listarDebitos(userId) : []).filter((item) => {
+  const debitos = debitosEscopoLista.filter((item) => {
     const condominio = cadastros.condominios.find((atualItem) => atualItem.id === item.condominioId);
     if (!combinaCarteira(condominio)) return false;
     if (!debitoAbertoNaData(item, dataBase)) return false;

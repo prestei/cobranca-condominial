@@ -1,33 +1,16 @@
+import type { Cargo } from "@/data/catalogo";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
-  getCadastros,
-  proximoNumero,
-  registrarAuditoria,
-  setCargos,
-  type Cargo,
-} from "@/data/catalogo";
-import {
-  excluirCargoPg,
-  identityPgDisponivel,
-  listarCargosPg,
-  upsertCargoPg,
-} from "@/lib/db/identity-pg";
+  deleteRole,
+  listRoles,
+  nextRoleId,
+  permissionsForUserId,
+  roleIsAssigned,
+  upsertRole,
+} from "@/lib/db/repositories/identity-repository";
 import { temPermissao } from "@/lib/permissions/check";
 import { cargoTemAlgumaPermissao, parsePermissoesJson, serializarPermissoes } from "@/lib/permissions/parse";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
-
-async function persistirCargoNoPostgres(cargo: Cargo) {
-  if (!identityPgDisponivel()) {
-    if (process.env.NODE_ENV === "production") {
-      throw new CargoServiceError("PostgreSQL indisponível para gravar cargo.", 503);
-    }
-    return;
-  }
-  const ok = await upsertCargoPg(cargo);
-  if (!ok) {
-    throw new CargoServiceError("Falha ao gravar cargo no PostgreSQL.", 500);
-  }
-}
 
 export class CargoServiceError extends Error {
   constructor(
@@ -56,8 +39,8 @@ export function parseCargoInputFromRecord(record: Record<string, unknown>): Carg
   return { nome, descricao, permissoes, ativo };
 }
 
-function assertPermissao(userId: number, acao: "ler" | "criar" | "editar" | "excluir") {
-  const perm = permissoesDoUsuarioId(userId);
+async function assertPermissao(userId: number, acao: "ler" | "criar" | "editar" | "excluir") {
+  const perm = await permissionsForUserId(userId);
   if (!temPermissao(perm, "cargos", acao)) {
     throw new CargoServiceError(`Sem permissão para ${acao} cargos.`, 403);
   }
@@ -77,13 +60,14 @@ function resumoPermissoesCargo(permissaoJson: string): string {
   return partes.length > 0 ? partes.join(" · ") : "sem permissões";
 }
 
-function validarEntrada(input: CargoInput, cargoId?: number): CargoInput {
+async function validarEntrada(input: CargoInput, cargoId?: number): Promise<CargoInput> {
   const nome = input.nome.trim();
   if (!nome) {
     throw new CargoServiceError("Informe o nome do cargo.", 400);
   }
 
-  const duplicado = getCadastros().cargos.some(
+  const cargos = await listRoles();
+  const duplicado = cargos.some(
     (item) =>
       item.id !== cargoId && item.nome.localeCompare(nome, "pt-BR", { sensitivity: "base" }) === 0,
   );
@@ -99,19 +83,14 @@ function validarEntrada(input: CargoInput, cargoId?: number): CargoInput {
     nome,
     descricao: input.descricao.trim(),
     permissoes: input.permissoes,
+    ativo: input.ativo,
   };
 }
 
 export async function listarCargos(userId: number): Promise<Cargo[]> {
-  assertPermissao(userId, "ler");
-  if (identityPgDisponivel()) {
-    const doPg = await listarCargosPg();
-    if (doPg) {
-      setCargos(doPg);
-      return [...doPg].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    }
-  }
-  return [...getCadastros().cargos].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  await assertPermissao(userId, "ler");
+  const cargos = await listRoles();
+  return [...cargos].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
 export async function criarCargo(
@@ -119,9 +98,9 @@ export async function criarCargo(
   input: CargoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Cargo> {
-  assertPermissao(actorUserId, "criar");
-  const dados = validarEntrada(input);
-  const id = proximoNumero(getCadastros().cargos.map((item) => item.id));
+  await assertPermissao(actorUserId, "criar");
+  const dados = await validarEntrada(input);
+  const id = await nextRoleId();
   const permissaoJson = serializarPermissoes(dados.permissoes);
   const cargo: Cargo = {
     id,
@@ -131,21 +110,19 @@ export async function criarCargo(
     ativo: dados.ativo !== false,
   };
 
-  await persistirCargoNoPostgres(cargo);
-  setCargos((current) => [...current, cargo]);
-  registrarAuditoria(
-    {
-      entidade: "role",
-      registroId: String(id),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify({ nome: cargo.nome, permissoes: resumoPermissoesCargo(permissaoJson) }),
-      camposAlterados: "nome, descricao, permissao_json",
-    },
-    actorUserId,
-    meta,
-  );
-  return cargo;
+  const gravado = await upsertRole(cargo);
+  await writeAuditLog({
+    entity: "role",
+    recordId: String(id),
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({ nome: cargo.nome, permissoes: resumoPermissoesCargo(permissaoJson) }),
+    changedFields: "nome, descricao, permissao_json",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return gravado;
 }
 
 export async function atualizarCargo(
@@ -154,13 +131,14 @@ export async function atualizarCargo(
   input: CargoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Cargo> {
-  assertPermissao(actorUserId, "editar");
-  const anterior = getCadastros().cargos.find((item) => item.id === cargoId);
+  await assertPermissao(actorUserId, "editar");
+  const cargos = await listRoles();
+  const anterior = cargos.find((item) => item.id === cargoId);
   if (!anterior) {
     throw new CargoServiceError("Cargo não encontrado.", 404);
   }
 
-  const dados = validarEntrada(input, cargoId);
+  const dados = await validarEntrada(input, cargoId);
   const permissaoJson = serializarPermissoes(dados.permissoes);
   const atualizado: Cargo = {
     id: cargoId,
@@ -170,27 +148,25 @@ export async function atualizarCargo(
     ativo: dados.ativo !== false,
   };
 
-  await persistirCargoNoPostgres(atualizado);
-  setCargos((current) => current.map((item) => (item.id === cargoId ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "role",
-      registroId: String(cargoId),
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({
-        nome: anterior.nome,
-        permissoes: resumoPermissoesCargo(anterior.permissaoJson),
-      }),
-      dadosNovos: JSON.stringify({
-        nome: atualizado.nome,
-        permissoes: resumoPermissoesCargo(permissaoJson),
-      }),
-      camposAlterados: "nome, descricao, permissao_json",
-    },
-    actorUserId,
-    meta,
-  );
-  return atualizado;
+  const gravado = await upsertRole(atualizado);
+  await writeAuditLog({
+    entity: "role",
+    recordId: String(cargoId),
+    action: "UPDATE",
+    previousData: JSON.stringify({
+      nome: anterior.nome,
+      permissoes: resumoPermissoesCargo(anterior.permissaoJson),
+    }),
+    newData: JSON.stringify({
+      nome: atualizado.nome,
+      permissoes: resumoPermissoesCargo(permissaoJson),
+    }),
+    changedFields: "nome, descricao, permissao_json",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return gravado;
 }
 
 export async function excluirCargo(
@@ -198,40 +174,31 @@ export async function excluirCargo(
   cargoId: number,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  assertPermissao(actorUserId, "excluir");
-  const alvo = getCadastros().cargos.find((item) => item.id === cargoId);
+  await assertPermissao(actorUserId, "excluir");
+  const cargos = await listRoles();
+  const alvo = cargos.find((item) => item.id === cargoId);
   if (!alvo) {
     throw new CargoServiceError("Cargo não encontrado.", 404);
   }
-  if (getCadastros().usuarios.some((item) => item.cargoId === cargoId)) {
+  if (await roleIsAssigned(cargoId)) {
     throw new CargoServiceError("Existem colaboradores com este cargo.", 409);
   }
 
-  if (identityPgDisponivel()) {
-    const ok = await excluirCargoPg(cargoId);
-    if (!ok) {
-      throw new CargoServiceError("Falha ao excluir cargo no PostgreSQL.", 500);
-    }
-  } else if (process.env.NODE_ENV === "production") {
-    throw new CargoServiceError("PostgreSQL indisponível para excluir cargo.", 503);
-  }
-
-  setCargos((current) => current.filter((item) => item.id !== cargoId));
-  registrarAuditoria(
-    {
-      entidade: "role",
-      registroId: String(cargoId),
-      acao: "DELETE",
-      dadosAnteriores: JSON.stringify({
-        nome: alvo.nome,
-        permissoes: resumoPermissoesCargo(alvo.permissaoJson),
-      }),
-      dadosNovos: "",
-      camposAlterados: "nome, permissao_json",
-    },
-    actorUserId,
-    meta,
-  );
+  await deleteRole(cargoId);
+  await writeAuditLog({
+    entity: "role",
+    recordId: String(cargoId),
+    action: "DELETE",
+    previousData: JSON.stringify({
+      nome: alvo.nome,
+      permissoes: resumoPermissoesCargo(alvo.permissaoJson),
+    }),
+    newData: "",
+    changedFields: "nome, permissao_json",
+    userId: actorUserId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
 export function requestMeta(request: Request) {

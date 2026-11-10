@@ -36,8 +36,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const pagamentos = listarPagamentosAcordo(session.userId, id);
-    const resumo = obterResumoAcordo(session.userId, id);
+    const pagamentos = await listarPagamentosAcordo(session.userId, id);
+    const resumo = await obterResumoAcordo(session.userId, id);
     return Response.json({ pagamentos, resumo });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {
@@ -71,8 +71,8 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const pagamento = registrarPagamentoAcordo(session.userId, id, input, requestMeta(request));
-    const resumo = obterResumoAcordo(session.userId, id);
+    const pagamento = await registrarPagamentoAcordo(session.userId, id, input, requestMeta(request));
+    const resumo = await obterResumoAcordo(session.userId, id);
     return Response.json({ pagamento, resumo }, { status: 201 });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {

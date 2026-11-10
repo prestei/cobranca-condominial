@@ -31,7 +31,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const encaminhamento = obterEncaminhamentoJuridico(session.userId, id);
+    const encaminhamento = await obterEncaminhamentoJuridico(session.userId, id);
     return Response.json({ documentos: encaminhamento.documentos ?? [] });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {
@@ -65,7 +65,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const documento = registrarDocumentoJuridico(session.userId, id, input, requestMeta(request));
+    const documento = await registrarDocumentoJuridico(session.userId, id, input, requestMeta(request));
     return Response.json({ documento }, { status: 201 });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {

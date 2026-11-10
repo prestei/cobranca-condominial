@@ -19,7 +19,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const atendimento = concluirRetornoAgendado(session.userId, id, requestMeta(request));
+    const atendimento = await concluirRetornoAgendado(session.userId, id, requestMeta(request));
     return Response.json({ atendimento });
   } catch (error) {
     if (error instanceof AtendimentoServiceError) {

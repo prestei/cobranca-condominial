@@ -23,7 +23,7 @@ type Props = {
 export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProtegido }: Props) {
   const status = resultado.importacao.status;
   const situacaoRotulo = rotuloSituacaoImportacao(status);
-  const parcial = situacaoRotulo.toLowerCase().includes("parcial");
+  const parcial = situacaoRotulo.toLowerCasecadastros.includes("parcial");
   const sucesso = importacaoConcluidaOuParcial(status) && !parcial;
   const moduloRotulo = ROTULO_MODULO_IMPORTACAO[moduloDestino] ?? moduloDestino;
 

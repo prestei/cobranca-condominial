@@ -1,0 +1,406 @@
+// Schema alinhado às tabelas já existentes no PostgreSQL da VPS.
+// Campos Prisma em inglês; colunas físicas via @map.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id              Int      @id @default(autoincrement())
+  name            String?  @map("nome") @db.VarChar(255)
+  description     String?  @map("descricao") @db.VarChar(255)
+  permissionJson  String?  @map("permissao_json") @db.Text
+  active          Boolean  @default(true) @map("ativo")
+  users           User[]
+
+  @@map("role")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  code      String   @map("codigo") @db.VarChar(32)
+  roleId    Int?     @map("cargo_id")
+  name      String?  @map("nome") @db.VarChar(255)
+  cpf       String?  @db.VarChar(255)
+  birthDate String?  @map("data_nascimento") @db.VarChar(255)
+  phone     String?  @map("telefone") @db.VarChar(255)
+  email     String?  @db.VarChar(255)
+  password  String?  @map("senha") @db.VarChar(255)
+  reCode    String?  @map("codigo_re") @db.VarChar(16)
+  active    Boolean  @default(true) @map("ativo")
+  avatar    String?  @db.Text
+
+  role Role? @relation(fields: [roleId], references: [id])
+
+  importsStarted              Import[]                 @relation("ImportStartedBy")
+  importsApproved             Import[]                 @relation("ImportApprovedBy")
+  auditLogs                   AuditLog[]
+  assignmentsAsAttendant      CollectionAssignment[]   @relation("AssignmentAttendant")
+  assignmentsAssignedBy       CollectionAssignment[]   @relation("AssignmentAssignedBy")
+  assignmentsPrevious         CollectionAssignment[]   @relation("AssignmentPreviousAttendant")
+  serviceTickets              ServiceTicket[]          @relation("ServiceTicketUser")
+  serviceTicketsReturnBy      ServiceTicket[]          @relation("ServiceTicketReturnBy")
+  negotiationProposals        NegotiationProposal[]    @relation("ProposalUser")
+  negotiationAgreements       NegotiationProposal[]    @relation("ProposalAgreementBy")
+  agreementInstallments       AgreementInstallment[]   @relation("InstallmentCreatedBy")
+  agreementPayments           AgreementPayment[]       @relation("PaymentRegisteredBy")
+  legalReferrals              LegalCaseReferral[]      @relation("LegalReferralUser")
+  legalReferralsUpdatedBy     LegalCaseReferral[]      @relation("LegalReferralUpdatedBy")
+  legalDocuments              LegalDocument[]          @relation("LegalDocumentRegisteredBy")
+  internalNotifications       InternalNotification[]
+  notificationFailures        NotificationFailure[]
+
+  @@map("user")
+}
+
+model Condominium {
+  id                 Int      @id @default(autoincrement())
+  name               String?  @map("nome") @db.VarChar(255)
+  externalId         String?  @map("identificador_externo") @db.VarChar(255)
+  status             String   @default("Ativo") @db.VarChar(32)
+  lawyersJson        String?  @map("advogados_json") @db.Text
+  administrator      String?  @map("administradora") @db.VarChar(255)
+  state              String?  @map("estado") @db.VarChar(255)
+  city               String?  @map("cidade") @db.VarChar(255)
+  zipCode            String?  @map("cep") @db.VarChar(255)
+  street             String?  @map("logradouro") @db.VarChar(255)
+  number             String?  @map("numero") @db.Text
+  complement         String?  @map("complemento") @db.VarChar(255)
+  notes              String?  @map("observacao") @db.Text
+
+  units                 Unit[]
+  debts                 Debt[]
+  negotiationProposals  NegotiationProposal[]
+  agreementInstallments AgreementInstallment[]
+  legalReferrals        LegalCaseReferral[]
+
+  @@map("condominium")
+}
+
+model Unit {
+  id             Int     @id @default(autoincrement())
+  condominiumId  Int     @map("condominio_id")
+  identification String  @map("identificacao") @db.VarChar(64)
+  block          String? @map("bloco") @db.VarChar(64)
+  type           String  @map("tipo") @db.VarChar(64)
+  status         String  @default("Ativa") @db.VarChar(32)
+  collectionStatus String @default("Sem cobrança") @map("situacao") @db.VarChar(64)
+
+  condominium           Condominium            @relation(fields: [condominiumId], references: [id])
+  responsibleLinks      UnitResponsibleParty[]
+  debts                 Debt[]
+  assignments           CollectionAssignment[]
+  serviceTickets        ServiceTicket[]
+  negotiationProposals  NegotiationProposal[]
+  agreementInstallments AgreementInstallment[]
+  agreementPayments     AgreementPayment[]
+  legalReferrals        LegalCaseReferral[]
+
+  @@map("unit")
+}
+
+model ResponsibleParty {
+  id          Int     @id @default(autoincrement())
+  name        String  @map("nome") @db.VarChar(255)
+  taxId       String  @map("cpf_cnpj") @db.VarChar(64)
+  personType  String  @map("tipo_pessoa") @db.VarChar(32)
+  phone       String? @map("telefone") @db.VarChar(64)
+  whatsapp    String? @db.VarChar(64)
+  email       String? @db.VarChar(255)
+  address     String? @map("endereco") @db.Text
+  notes       String? @map("observacoes") @db.Text
+
+  unitLinks      UnitResponsibleParty[]
+  serviceTickets ServiceTicket[]
+
+  @@map("responsible_party")
+}
+
+model UnitResponsibleParty {
+  id                 Int      @id @default(autoincrement())
+  unitId             Int      @map("unidade_id")
+  responsiblePartyId Int      @map("responsavel_id")
+  linkType           String   @map("tipo_vinculo") @db.VarChar(64)
+  primary            Boolean? @default(true) @map("principal")
+  notes              String?  @map("observacoes") @db.Text
+
+  unit             Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  responsibleParty ResponsibleParty @relation(fields: [responsiblePartyId], references: [id], onDelete: Cascade)
+
+  @@map("unit_responsible_party")
+}
+
+model Debt {
+  id               Int       @id @default(autoincrement())
+  condominiumId    Int       @map("condominio_id")
+  unitId           Int       @map("unidade_id")
+  reference        String    @map("referencia") @db.VarChar(64)
+  description      String?   @map("descricao") @db.VarChar(255)
+  dueDate          DateTime  @map("data_vencimento") @db.Date
+  amount           Decimal?  @map("valor") @db.Decimal(12, 2)
+  originalAmount   Decimal?  @map("valor_original") @db.Decimal(12, 2)
+  fine             Decimal?  @map("multa") @db.Decimal(12, 2)
+  interest         Decimal?  @map("juros") @db.Decimal(12, 2)
+  correction       Decimal?  @map("correcao") @db.Decimal(12, 2)
+  updatedAmount    Decimal?  @map("valor_atualizado") @db.Decimal(12, 2)
+  status           String    @db.VarChar(32)
+  paymentDate      DateTime? @map("data_pagamento") @db.Date
+  paidAmount       Decimal?  @map("valor_pago") @db.Decimal(12, 2)
+  origin           String?   @map("origem") @db.VarChar(64)
+  externalId       String?   @map("identificador_externo") @db.VarChar(255)
+  updatedAt        DateTime? @map("atualizado_em")
+  valueSource      String?   @map("fonte_valores") @db.VarChar(32)
+
+  condominium Condominium              @relation(fields: [condominiumId], references: [id])
+  unit        Unit                     @relation(fields: [unitId], references: [id])
+  proposals   NegotiationProposalDebt[]
+
+  @@map("debt")
+}
+
+model Import {
+  id                 Int       @id @default(autoincrement())
+  processId          String?   @map("processo_id") @db.VarChar(64)
+  origin             String?   @map("origem") @db.VarChar(64)
+  type               String    @map("tipo") @db.VarChar(64)
+  fileName           String?   @map("arquivo") @db.VarChar(512)
+  status             String    @db.VarChar(64)
+  recordCount        Int?      @map("quantidade_registros")
+  importedCount      Int?      @map("quantidade_importados")
+  updatedCount       Int?      @map("quantidade_atualizados")
+  ignoredCount       Int?      @map("quantidade_ignorados")
+  errorCount         Int?      @map("quantidade_erros")
+  internalNotes      String?   @map("observacao_interna") @db.Text
+  userId             Int       @map("usuario_id")
+  startedAt          DateTime? @map("iniciado_em")
+  approvalUserId     Int?      @map("usuario_aprovacao_id")
+  approvedAt         DateTime? @map("aprovado_em")
+  importedAt         DateTime  @default(now()) @map("data_importacao")
+
+  startedBy  User  @relation("ImportStartedBy", fields: [userId], references: [id])
+  approvedBy User? @relation("ImportApprovedBy", fields: [approvalUserId], references: [id])
+
+  @@map("import")
+}
+
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  userId        Int?     @map("usuario_id")
+  entity        String   @map("entidade") @db.VarChar(64)
+  recordId      String?  @map("registro_id") @db.VarChar(64)
+  action        String   @map("acao") @db.VarChar(32)
+  previousData  String?  @map("dados_anteriores") @db.Text
+  newData       String?  @map("dados_novos") @db.Text
+  changedFields String?  @map("campos_alterados") @db.Text
+  ip            String?  @db.VarChar(64)
+  userAgent     String?  @map("user_agent") @db.Text
+  occurredAt    DateTime @default(now()) @map("data_hora")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_log")
+}
+
+model CollectionAssignment {
+  id                   Int       @id @default(autoincrement())
+  unitId               Int       @map("unidade_id")
+  attendantId          Int       @map("atendente_id")
+  assignedById         Int       @map("atribuido_por_id")
+  assignedAt           DateTime  @map("atribuido_em")
+  closedAt             DateTime? @map("encerrado_em")
+  reason               String?   @map("motivo") @db.Text
+  previousAttendantId  Int?      @map("anterior_atendente_id")
+
+  unit              Unit  @relation(fields: [unitId], references: [id])
+  attendant         User  @relation("AssignmentAttendant", fields: [attendantId], references: [id])
+  assignedBy        User  @relation("AssignmentAssignedBy", fields: [assignedById], references: [id])
+  previousAttendant User? @relation("AssignmentPreviousAttendant", fields: [previousAttendantId], references: [id])
+
+  @@map("collection_assignment")
+}
+
+model ServiceTicket {
+  id                 String    @id @db.VarChar(64)
+  unitId             Int       @map("unidade_id")
+  responsiblePartyId Int?      @map("responsavel_id")
+  userId             Int       @map("usuario_id")
+  occurredAt         DateTime  @map("data_hora")
+  channel            String?   @map("canal") @db.VarChar(64)
+  answered           String?   @map("respondeu") @db.VarChar(16)
+  reason             String?   @map("motivo") @db.VarChar(255)
+  subject            String?   @map("assunto") @db.VarChar(255)
+  description        String?   @map("descricao") @db.Text
+  status             String    @db.VarChar(32)
+  nextActionAt       DateTime? @map("data_proxima_acao")
+  nextAction         String?   @map("proxima_acao") @db.VarChar(255)
+  returnCompletedAt  DateTime? @map("retorno_concluido_em")
+  returnCompletedById Int?     @map("retorno_concluido_por_id")
+
+  unit             Unit              @relation(fields: [unitId], references: [id])
+  responsibleParty ResponsibleParty? @relation(fields: [responsiblePartyId], references: [id])
+  user             User              @relation("ServiceTicketUser", fields: [userId], references: [id])
+  returnCompletedBy User?            @relation("ServiceTicketReturnBy", fields: [returnCompletedById], references: [id])
+
+  @@map("service_ticket")
+}
+
+model NegotiationProposal {
+  id                  String    @id @db.VarChar(64)
+  condominiumId       Int       @map("condominio_id")
+  unitId              Int       @map("unidade_id")
+  userId              Int       @map("usuario_id")
+  createdAt           DateTime  @map("criado_em")
+  status              String    @db.VarChar(32)
+  proposedAmount      Decimal   @map("valor_proposto") @db.Decimal(12, 2)
+  notes               String?   @map("observacoes") @db.Text
+  debtIdsJson         String?   @map("debito_ids_json") @db.Text
+  agreementConfirmedAt DateTime? @map("acordo_confirmado_em")
+  agreementConfirmedById Int?   @map("acordo_confirmado_por_id")
+  approvedTerms       String?   @map("termos_aprovados") @db.Text
+
+  condominium      Condominium              @relation(fields: [condominiumId], references: [id])
+  unit             Unit                     @relation(fields: [unitId], references: [id])
+  user             User                     @relation("ProposalUser", fields: [userId], references: [id])
+  agreementBy      User?                    @relation("ProposalAgreementBy", fields: [agreementConfirmedById], references: [id])
+  debts            NegotiationProposalDebt[]
+  installments     AgreementInstallment[]
+  payments         AgreementPayment[]
+
+  @@map("negotiation_proposal")
+}
+
+model NegotiationProposalDebt {
+  id         Int    @id @default(autoincrement())
+  proposalId String @map("proposta_id") @db.VarChar(64)
+  debtId     Int    @map("debito_id")
+
+  proposal NegotiationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  debt     Debt                @relation(fields: [debtId], references: [id])
+
+  @@unique([proposalId, debtId], map: "negotiation_proposal_debt_proposta_id_debito_id_key")
+  @@map("negotiation_proposal_debt")
+}
+
+model AgreementInstallment {
+  id           String   @id @db.VarChar(64)
+  proposalId   String   @map("proposta_id") @db.VarChar(64)
+  condominiumId Int     @map("condominio_id")
+  unitId       Int      @map("unidade_id")
+  number       Int      @map("numero")
+  plannedAmount Decimal @map("valor_previsto") @db.Decimal(12, 2)
+  dueDate      DateTime @map("vencimento_em") @db.Date
+  createdAt    DateTime @map("criado_em")
+  createdById  Int      @map("criado_por_id")
+
+  proposal    NegotiationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  condominium Condominium         @relation(fields: [condominiumId], references: [id])
+  unit        Unit                @relation(fields: [unitId], references: [id])
+  createdBy   User                @relation("InstallmentCreatedBy", fields: [createdById], references: [id])
+  payments    AgreementPayment[]
+
+  @@unique([proposalId, number], map: "agreement_installment_proposta_id_numero_key")
+  @@map("agreement_installment")
+}
+
+model AgreementPayment {
+  id                    String   @id @db.VarChar(64)
+  proposalId            String   @map("proposta_id") @db.VarChar(64)
+  installmentId         String   @map("parcela_id") @db.VarChar(64)
+  unitId                Int      @map("unidade_id")
+  amount                Decimal  @map("valor") @db.Decimal(12, 2)
+  paidAt                DateTime @map("data_pagamento")
+  proofReference        String?  @map("referencia_comprovante") @db.VarChar(255)
+  confirmation          String   @map("confirmacao") @db.VarChar(32)
+  createdAt             DateTime @map("criado_em")
+  registeredById        Int      @map("registrado_por_id")
+
+  proposal     NegotiationProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  installment  AgreementInstallment @relation(fields: [installmentId], references: [id])
+  unit         Unit                 @relation(fields: [unitId], references: [id])
+  registeredBy User                 @relation("PaymentRegisteredBy", fields: [registeredById], references: [id])
+
+  @@map("agreement_payment")
+}
+
+model LegalCaseReferral {
+  id               String   @id @db.VarChar(64)
+  condominiumId    Int      @map("condominio_id")
+  unitId           Int      @map("unidade_id")
+  userId           Int      @map("usuario_id")
+  referredAt       DateTime @map("encaminhado_em")
+  status           String   @db.VarChar(64)
+  lawyerName       String   @map("advogado_responsavel") @db.VarChar(255)
+  notes            String?  @map("observacoes") @db.Text
+  debtIdsJson      String?  @map("debito_ids_json") @db.Text
+  contextSummary   String?  @map("resumo_contexto") @db.Text
+  updatedAt        DateTime @map("atualizado_em")
+  updatedById      Int      @map("atualizado_por_id")
+
+  condominium Condominium     @relation(fields: [condominiumId], references: [id])
+  unit        Unit            @relation(fields: [unitId], references: [id])
+  user        User            @relation("LegalReferralUser", fields: [userId], references: [id])
+  updatedBy   User            @relation("LegalReferralUpdatedBy", fields: [updatedById], references: [id])
+  documents   LegalDocument[]
+
+  @@map("legal_case_referral")
+}
+
+model LegalDocument {
+  id             String   @id @db.VarChar(64)
+  referralId     String   @map("encaminhamento_id") @db.VarChar(64)
+  title          String   @map("titulo") @db.VarChar(255)
+  description    String?  @map("descricao") @db.Text
+  fileReference  String?  @map("referencia_arquivo") @db.VarChar(512)
+  registeredAt   DateTime @map("registrado_em")
+  registeredById Int      @map("registrado_por_id")
+
+  referral     LegalCaseReferral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  registeredBy User              @relation("LegalDocumentRegisteredBy", fields: [registeredById], references: [id])
+
+  @@map("legal_document")
+}
+
+model InternalNotification {
+  id               Int       @id @default(autoincrement())
+  idempotencyKey   String    @unique @map("chave_idempotencia") @db.VarChar(255)
+  event            String    @map("evento") @db.VarChar(64)
+  recipientId      Int       @map("destinatario_id")
+  title            String    @map("titulo") @db.VarChar(255)
+  description      String?   @map("descricao") @db.Text
+  entityType       String    @map("entidade_tipo") @db.VarChar(64)
+  recordId         String    @map("registro_id") @db.VarChar(64)
+  unitId           Int?      @map("unidade_id")
+  condominiumId    Int?      @map("condominio_id")
+  createdAt        DateTime  @map("criado_em")
+  readAt           DateTime? @map("lida_em")
+
+  recipient User @relation(fields: [recipientId], references: [id])
+
+  @@map("internal_notification")
+}
+
+model NotificationFailure {
+  id             Int      @id @default(autoincrement())
+  idempotencyKey String   @map("chave_idempotencia") @db.VarChar(255)
+  event          String   @map("evento") @db.VarChar(64)
+  recipientId    Int      @map("destinatario_id")
+  error          String   @map("erro") @db.Text
+  occurredAt     DateTime @map("ocorrido_em")
+
+  recipient User @relation(fields: [recipientId], references: [id])
+
+  @@map("notification_failure")
+}
+
+model AppSetting {
+  key       String   @id @map("chave") @db.VarChar(128)
+  value     Json     @map("valor")
+  updatedAt DateTime @default(now()) @map("atualizado_em") @db.Timestamptz(6)
+
+  @@map("app_setting")
+}

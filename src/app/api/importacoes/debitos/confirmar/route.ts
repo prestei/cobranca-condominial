@@ -1,6 +1,7 @@
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import type { AcaoConflitoImportacao, DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades";
 import { ImportacaoDebitosError, confirmarImportacaoDebitos } from "@/lib/importacoes/debitos-service";
 import { requestMeta } from "@/lib/unidades/service";
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
 
   try {
     const resultado = await confirmarImportacaoDebitos(session.userId, input, requestMeta(request));
-    const cadastros = getCadastros();
+    const cadastros = await loadFullOperationalCadastros();
     const condominiosEscopo = escopoCondominios(cadastros, session.userId);
     const scopeIds = new Set(condominiosEscopo.map((item) => item.id));
     // Inclui condomínios/unidades da carteira após a distribuição automática pós-importação.

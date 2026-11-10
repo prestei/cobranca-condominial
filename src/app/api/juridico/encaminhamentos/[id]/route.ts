@@ -34,7 +34,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const encaminhamento = obterEncaminhamentoJuridico(session.userId, id);
+    const encaminhamento = await obterEncaminhamentoJuridico(session.userId, id);
     return Response.json({ encaminhamento });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {
@@ -68,7 +68,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const encaminhamento = atualizarEncaminhamentoJuridico(session.userId, id, input, requestMeta(request));
+    const encaminhamento = await atualizarEncaminhamentoJuridico(session.userId, id, input, requestMeta(request));
     return Response.json({ encaminhamento });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {

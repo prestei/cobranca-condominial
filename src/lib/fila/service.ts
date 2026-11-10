@@ -1,18 +1,17 @@
+import type { AtribuicaoCobranca, Cadastros, Unidade } from "@/data/catalogo";
 import {
   debitoEmAberto,
   diasDeAtraso,
   escopoCondominios,
   escopoUnidades,
   formatarMoeda,
-  getCadastros,
   hojeIso,
   retornoPendente,
   situacaoCobrancaUnidade,
   situacaoRetorno,
   unidadeNaFilaCobrancaAtiva,
-  type AtribuicaoCobranca,
-  type Unidade,
 } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -75,8 +74,8 @@ function usuarioVeCarteiraGeral(userId: number) {
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
+function atribuicaoVigente(cadastros: Cadastros, unidadeId: number): AtribuicaoCobranca | undefined {
+  return cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
 }
 
 function unidadeElegivelFila(unidade: Unidade) {
@@ -84,9 +83,9 @@ function unidadeElegivelFila(unidade: Unidade) {
   return unidadeNaFilaCobrancaAtiva(unidade);
 }
 
-function resumoInadimplenciaUnidade(unidadeId: number) {
+function resumoInadimplenciaUnidade(cadastros: Cadastros, unidadeId: number) {
   const hoje = hojeIso();
-  const debitos = getCadastros().debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
+  const debitos = cadastros.debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
   if (debitos.length === 0) return { valor: null as string | null, diasMax: 0 };
   let total = 0;
   let diasMax = 0;
@@ -98,9 +97,9 @@ function resumoInadimplenciaUnidade(unidadeId: number) {
   return { valor: formatarMoeda(total.toFixed(2)), diasMax };
 }
 
-function resumoAtendimentosUnidade(unidadeId: number) {
-  const lista = getCadastros()
-    .atendimentos.filter((item) => Number(item.unidadeId) === unidadeId)
+function resumoAtendimentosUnidade(cadastros: Cadastros, unidadeId: number) {
+  const lista = cadastros.atendimentos
+    .filter((item) => Number(item.unidadeId) === unidadeId)
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   const ultimo = lista[0]?.dataHora ?? null;
   const pendentesRetorno = lista.filter(retornoPendente).sort((a, b) => {
@@ -118,11 +117,11 @@ function resumoAtendimentosUnidade(unidadeId: number) {
   };
 }
 
-function montarItem(unidade: Unidade): FilaCobrancaItem {
-  const vigente = atribuicaoVigente(unidade.id);
-  const atendente = vigente ? getCadastros().usuarios.find((item) => item.id === vigente.atendenteId) : undefined;
-  const inad = resumoInadimplenciaUnidade(unidade.id);
-  const atend = resumoAtendimentosUnidade(unidade.id);
+function montarItem(cadastros: Cadastros, unidade: Unidade): FilaCobrancaItem {
+  const vigente = atribuicaoVigente(cadastros, unidade.id);
+  const atendente = vigente ? cadastros.usuarios.find((item) => item.id === vigente.atendenteId) : undefined;
+  const inad = resumoInadimplenciaUnidade(cadastros, unidade.id);
+  const atend = resumoAtendimentosUnidade(cadastros, unidade.id);
   return {
     unidadeId: unidade.id,
     condominioId: unidade.condominioId,
@@ -141,8 +140,8 @@ function montarItem(unidade: Unidade): FilaCobrancaItem {
   };
 }
 
-export function resumoFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): FilaCobrancaResumo {
-  const lista = listarFilaCobranca(userId, filtros);
+export async function resumoFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): Promise<FilaCobrancaResumo> {
+  const lista = await listarFilaCobranca(userId, filtros);
   return {
     emCobranca: lista.length,
     semResponsavel: lista.filter((item) => !item.codigoRe).length,
@@ -150,14 +149,19 @@ export function resumoFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros
   };
 }
 
-function unidadesBase(userId: number) {
-  const ids = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
-  return escopoUnidades(getCadastros(), userId).filter(
+function unidadesBase(cadastros: Cadastros, userId: number) {
+  const ids = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  return escopoUnidades(cadastros, userId).filter(
     (item) => ids.has(item.condominioId) && unidadeElegivelFila(item),
   );
 }
 
-function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros | undefined, userId: number) {
+function aplicarFiltros(
+  cadastros: Cadastros,
+  itens: FilaCobrancaItem[],
+  filtros: FilaCobrancaFiltros | undefined,
+  userId: number,
+) {
   let lista = itens;
   const geral = usuarioVeCarteiraGeral(userId);
   if (!geral) {
@@ -182,7 +186,6 @@ function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros 
   }
   const termo = filtros?.busca?.trim().toLocaleLowerCase("pt-BR");
   if (termo) {
-    const cadastros = getCadastros();
     lista = lista.filter((item) => {
       const condominio = cadastros.condominios.find((c) => c.id === item.condominioId)?.nome ?? "";
       const texto = `${condominio} ${item.identificacao} ${item.bloco} ${item.nomeAtendente ?? ""} ${item.codigoRe ?? ""}`.toLocaleLowerCase(
@@ -194,15 +197,21 @@ function aplicarFiltros(itens: FilaCobrancaItem[], filtros: FilaCobrancaFiltros 
   return lista;
 }
 
-function nomeCondominioItem(item: FilaCobrancaItem) {
-  return getCadastros().condominios.find((c) => c.id === item.condominioId)?.nome ?? "";
+function nomeCondominioItem(cadastros: Cadastros, item: FilaCobrancaItem) {
+  return cadastros.condominios.find((c) => c.id === item.condominioId)?.nome ?? "";
 }
 
-function compararFila(a: FilaCobrancaItem, b: FilaCobrancaItem, sort: FilaOrdenacaoCampo, factor: number) {
+function compararFila(
+  cadastros: Cadastros,
+  a: FilaCobrancaItem,
+  b: FilaCobrancaItem,
+  sort: FilaOrdenacaoCampo,
+  factor: number,
+) {
   switch (sort) {
     case "condominio": {
-      const left = nomeCondominioItem(a);
-      const right = nomeCondominioItem(b);
+      const left = nomeCondominioItem(cadastros, a);
+      const right = nomeCondominioItem(cadastros, b);
       return left.localeCompare(right, "pt-BR") * factor;
     }
     case "unidade": {
@@ -234,12 +243,12 @@ function compararFila(a: FilaCobrancaItem, b: FilaCobrancaItem, sort: FilaOrdena
   }
 }
 
-function ordenarFila(lista: FilaCobrancaItem[], filtros?: FilaCobrancaFiltros) {
+function ordenarFila(cadastros: Cadastros, lista: FilaCobrancaItem[], filtros?: FilaCobrancaFiltros) {
   const sort = filtros?.sort;
   const factor = filtros?.order === "desc" ? -1 : 1;
   return [...lista].sort((a, b) => {
     if (sort) {
-      const cmp = compararFila(a, b, sort, factor);
+      const cmp = compararFila(cadastros, a, b, sort, factor);
       if (cmp !== 0) return cmp;
     }
     const cond = a.condominioId - b.condominioId;
@@ -248,18 +257,19 @@ function ordenarFila(lista: FilaCobrancaItem[], filtros?: FilaCobrancaFiltros) {
   });
 }
 
-export function listarFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): FilaCobrancaItem[] {
-  const base = unidadesBase(userId).map(montarItem);
-  return ordenarFila(aplicarFiltros(base, filtros, userId), filtros);
+export async function listarFilaCobranca(userId: number, filtros?: FilaCobrancaFiltros): Promise<FilaCobrancaItem[]> {
+  const cadastros = await loadFullOperationalCadastros();
+  const base = unidadesBase(cadastros, userId).map((u) => montarItem(cadastros, u));
+  return ordenarFila(cadastros, aplicarFiltros(cadastros, base, filtros, userId), filtros);
 }
 
-export function listarFilaCobrancaPaginada(
+export async function listarFilaCobrancaPaginada(
   userId: number,
   filtros: FilaCobrancaFiltros | undefined,
   page: number,
   pageSize: number,
 ) {
-  const todos = listarFilaCobranca(userId, filtros);
+  const todos = await listarFilaCobranca(userId, filtros);
   const safePage = Math.max(1, page);
   const safeSize = Math.min(10_000, Math.max(1, pageSize));
   const start = (safePage - 1) * safeSize;

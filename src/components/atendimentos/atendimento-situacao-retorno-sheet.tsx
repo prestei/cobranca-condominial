@@ -1,5 +1,6 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { Calendar, CalendarClock, FileText, Flag } from "lucide-react";
 import { Button } from "@/components/button";
@@ -19,8 +20,7 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { getCadastros, statusAtendimento, type Atendimento } from "@/data/catalogo";
-import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
+import { statusAtendimento, type Atendimento } from "@/data/catalogo";
 
 type Props = {
   atendimentoId: string | null;
@@ -37,6 +37,7 @@ export function AtendimentoSituacaoRetornoSheet({
   onClose,
   onSalvo,
 }: Props) {
+  const { refetch } = useCadastrosStatus();
   const formId = useId();
   const { toast } = useToast();
   const [atendimento, setAtendimento] = useState<Atendimento | null>(null);
@@ -50,7 +51,7 @@ export function AtendimentoSituacaoRetornoSheet({
       setAtendimento(null);
       return;
     }
-    const item = getCadastros().atendimentos.find((a) => a.id === atendimentoId) ?? null;
+    const item = cadastros.atendimentos.find((a) => a.id === atendimentoId) ?? null;
     setAtendimento(item);
     if (item) {
       setStatus(item.status);
@@ -66,7 +67,7 @@ export function AtendimentoSituacaoRetornoSheet({
       event.preventDefault();
       if (!atendimento || salvando) return;
       const unidadeId = Number(atendimento.unidadeId);
-      const unidade = getCadastros().unidades.find((u) => u.id === unidadeId);
+      const unidade = cadastros.unidades.find((u) => u.id === unidadeId);
       if (!unidade) {
         toast({ variant: "error", title: "Unidade não encontrada." });
         return;
@@ -95,7 +96,7 @@ export function AtendimentoSituacaoRetornoSheet({
         const payload = (await response.json()) as { error?: string; atendimento?: Atendimento };
         if (!response.ok) throw new Error(payload.error ?? "Não foi possível salvar.");
         if (payload.atendimento) {
-          aplicarAtendimentoSalvo(payload.atendimento, "UPDATE");
+          void refetch()
         }
         toast({ variant: "success", title: modo === "retorno" ? "Retorno atualizado" : "Situação atualizada" });
         onSalvo?.();

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   try {
-    const propostas = listarPropostasNegociacao(session.userId, parseFiltros(searchParams));
+    const propostas = await listarPropostasNegociacao(session.userId, parseFiltros(searchParams));
     return Response.json({ propostas });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const proposta = criarPropostaNegociacao(session.userId, input, requestMeta(request));
+    const proposta = await criarPropostaNegociacao(session.userId, input, requestMeta(request));
     return Response.json({ proposta }, { status: 201 });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {

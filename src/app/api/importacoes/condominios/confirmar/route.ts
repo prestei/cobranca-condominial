@@ -1,5 +1,6 @@
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios, } from "@/data/catalogo";
 import { parseCorpoPreviewConfirmarImportacao } from "@/lib/importacoes/api-corpo-importacao";
 import { ImportacaoCondominiosError, confirmarImportacaoCondominios } from "@/lib/importacoes/condominios-service";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
   try {
     const resultado = await confirmarImportacaoCondominios(session.userId, input, requestMeta(request));
-    const condominios = escopoCondominios(getCadastros(), session.userId);
+    const condominios = escopoCondominios((await loadFullOperationalCadastros()), session.userId);
     return Response.json({ resultado, condominios });
   } catch (error) {
     if (error instanceof ImportacaoCondominiosError) {

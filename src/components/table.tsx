@@ -104,7 +104,7 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
 
     function closeIfHidden() {
       const button = buttonRef.current;
-      if (!button || button.getClientRects().length === 0) setOpen(false);
+      if (!button || button.getClientRectscadastros.length === 0) setOpen(false);
     }
 
     closeIfHidden();

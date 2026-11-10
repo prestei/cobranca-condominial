@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     assertCondominioNoEscopo(session.userId, filtros.condominioId);
-    const painel = montarPainelProdutividadePorRe(session.userId, filtros);
+    const painel = await montarPainelProdutividadePorRe(session.userId, filtros);
     return Response.json({ painel });
   } catch (error) {
     if (error instanceof RelatorioServiceError) {

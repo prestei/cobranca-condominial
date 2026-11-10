@@ -101,7 +101,6 @@ import {
   LIMITE_AMIGAVEL_DIAS,
   escopoCondominios,
   escopoUnidades,
-  getCadastros,
   nomeCondominio,
   nomeUnidade,
   origensDebito,
@@ -109,18 +108,12 @@ import {
   type Debito,
   type Unidade,
 } from "@/data/catalogo";
+import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
-import {
-  aplicarDebitoExcluido,
-  aplicarDebitoSalvo,
-  sincronizarDebitosDoServidor,
-} from "@/lib/debitos/sync-cliente";
-import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
-import { aplicarUnidadeSalva, sincronizarUnidadesDoServidor } from "@/lib/unidades/sync-cliente";
 
 const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
 const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
@@ -216,6 +209,7 @@ function DebitosPage() {
   const formId = useId();
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const debitos = cadastros.debitos;
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState(periodoTodos);
@@ -256,7 +250,7 @@ function DebitosPage() {
     const response = await fetch("/api/unidades", { credentials: "same-origin" });
     if (response.ok) {
       const payload = (await response.json()) as { unidades?: Unidade[] };
-      if (payload.unidades) sincronizarUnidadesDoServidor(payload.unidades, sessao?.userId);
+      if (payload.unidades) void refetch()
     }
   }
 
@@ -264,7 +258,7 @@ function DebitosPage() {
     const response = await fetch("/api/debitos", { credentials: "same-origin" });
     if (!response.ok) return;
     const payload = (await response.json()) as { debitos?: Debito[] };
-    if (payload.debitos) sincronizarDebitosDoServidor(payload.debitos, sessao?.userId);
+    if (payload.debitos) void refetch()
   }
 
   useEffect(() => {
@@ -517,7 +511,7 @@ function DebitosPage() {
       const debito =
         response.ok && body.debito
           ? body.debito
-          : (getCadastros().debitos.find((registro) => registro.id === item.id) ?? item);
+          : (cadastros.debitos.find((registro) => registro.id === item.id) ?? item);
       if (!response.ok && !body.debito) {
         toast({
           variant: "error",
@@ -563,7 +557,6 @@ function DebitosPage() {
       toast({ variant: "error", title: body.error ?? "Não foi possível excluir o débito." });
       return;
     }
-    aplicarDebitoExcluido(deleteTarget.id);
     if (editingId === deleteTarget.id) {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
@@ -596,7 +589,7 @@ function DebitosPage() {
     }
     if (body.unidade) {
       const atual = cadastros.unidades.find((u) => u.id === body.unidade!.id);
-      if (atual) aplicarUnidadeSalva({ ...atual, situacao: body.unidade.situacao }, "UPDATE");
+      if (atual) void refetch()
     }
     toast({ variant: "success", title: "Unidade marcada como quitada" });
     await recarregarDebitosDoServidor();

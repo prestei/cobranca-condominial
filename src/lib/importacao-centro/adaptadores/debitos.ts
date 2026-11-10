@@ -338,10 +338,10 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
 
   antesDeInterpretar(matriz, meta) {
     provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao);
-    // Espelha condomínio/unidade/responsável provisionados no PostgreSQL.
-    void import("@/lib/db/operacional-pg").then(async ({ salvarOperacionalNoPostgres }) => {
+    // Espelha provisionamento no snapshot + tabelas normalizadas (não só operacional).
+    void import("@/lib/db/repositories/catalog-persist").then(async ({ saveOperationalState }) => {
       const { getCadastros } = await import("@/data/catalogo");
-      await salvarOperacionalNoPostgres(getCadastros());
+      await saveOperationalState(getCadastros());
     });
   },
 

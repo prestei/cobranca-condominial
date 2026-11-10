@@ -8,7 +8,7 @@ export async function POST() {
   if (denied) return denied;
 
   try {
-    const total = marcarTodasNotificacoesLidas(session.userId);
+    const total = await marcarTodasNotificacoesLidas(session.userId);
     return Response.json({ total });
   } catch (error) {
     if (error instanceof NotificacaoServiceError) {

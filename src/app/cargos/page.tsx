@@ -55,12 +55,7 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import type { Cargo } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
-import {
-  aplicarCargoExcluido,
-  aplicarCargoSalvo,
-  sincronizarCargosDoServidor,
-} from "@/lib/cargos/sync-cliente";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 import {
@@ -94,6 +89,7 @@ export default function CargosPage() {
   const { pode } = usePermissao();
   const formId = useId();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const cargos = cadastros.cargos;
   const [search, setSearch] = useState("");
   const [descricaoFiltro, setDescricaoFiltro] = useState("todos");
@@ -119,7 +115,7 @@ export default function CargosPage() {
       const response = await fetch("/api/cargos", { credentials: "same-origin" });
       if (!response.ok) return;
       const body = (await response.json()) as { cargos?: Cargo[] };
-      if (body.cargos) sincronizarCargosDoServidor(body.cargos);
+      if (body.cargos) void refetch()
     } catch {
       /* mantém catálogo local */
     }
@@ -217,7 +213,7 @@ export default function CargosPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `cargos-${new Date().toISOString().slice(0, 10)}`;
+    const arquivoBase = `cargos-${new Date..toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });

@@ -1,4 +1,5 @@
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { ImportacaoDebitosError, previewImportacaoDebitos } from "@/lib/importacoes/debitos-service";
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   try {
     const preview = await previewImportacaoDebitos(session.userId, input);
     // Condomínio/unidade/responsável podem ter sido provisionados na prévia — sincroniza o cliente.
-    const cadastros = getCadastros();
+    const cadastros = await loadFullOperationalCadastros();
     const condominios = escopoCondominios(cadastros, session.userId);
     const scopeIds = new Set(condominios.map((item) => item.id));
     const unidades = cadastros.unidades.filter((item) => scopeIds.has(item.condominioId));

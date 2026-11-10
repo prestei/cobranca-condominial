@@ -31,7 +31,6 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 
 type Props = {
   open: boolean;
@@ -46,7 +45,7 @@ type Props = {
 function agoraDatetimeLocal() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
+  return d..toISOString().slice(0, 16);
 }
 
 function dataPreferidaParaInput(valor?: string) {
@@ -68,6 +67,7 @@ export function AgendarAtendimentoSheet({
   const { toast } = useToast();
   const { user } = useAuth();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const podeCriar = pode("atendimentos", "criar");
 
@@ -159,7 +159,7 @@ export function AgendarAtendimentoSheet({
       const payload = (await response.json()) as { error?: string; atendimento?: Atendimento };
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível agendar.");
       if (payload.atendimento) {
-        aplicarAtendimentoSalvo(payload.atendimento, "INSERT");
+        void refetch()
         onSalvo?.(payload.atendimento);
       }
       toast({

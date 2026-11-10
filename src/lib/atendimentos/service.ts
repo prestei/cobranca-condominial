@@ -3,18 +3,32 @@ import {
   canaisAtendimento,
   escopoCondominios,
   escopoUnidades,
-  getCadastros,
+  hojeIso,
   motivosPendencia,
-  registrarAuditoria,
-  setAtendimentos,
   statusAtendimento,
   type Atendimento,
-  type AtribuicaoCobranca,
+  type Cadastros,
 } from "@/data/catalogo";
 import {
-  listarAtendimentosIndicadorOperacional,
+  classificarAtendimentoOperacional,
+  periodoUltimos7Dias,
   type IndicadorOperacionalAtendenteId,
 } from "@/lib/dashboard/indicadores-operacionais-atendente";
+import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import {
+  createServiceTicket,
+  deleteServiceTicket,
+  findServiceTicketById,
+  listServiceTickets,
+  updateServiceTicket,
+} from "@/lib/db/repositories/service-ticket-repository";
+import {
+  openAssignmentForUnit,
+  requireUnitInScope,
+  scopeUnitIds,
+} from "@/lib/db/service-context";
+import { listUnitLinksByUnit } from "@/lib/db/repositories/unit-repository";
 import { emitirNotificacaoRetornoAgendado } from "@/lib/notificacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -75,40 +89,41 @@ function usuarioVeCarteiraGeral(userId: number) {
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function idsCondominioNoEscopo(userId: number): Set<number> {
-  return new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+function atendimentoNaCarteira(cadastros: Cadastros, userId: number, atendimento: Atendimento): boolean {
+  const unidadeId = Number(atendimento.unidadeId);
+  const unidade = cadastros.unidades.find((item) => item.id === unidadeId);
+  if (!unidade) return false;
+  const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  if (!idsCondominio.has(unidade.condominioId)) return false;
+  if (usuarioVeCarteiraGeral(userId)) return true;
+  const vigente = cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
+  return Boolean(vigente && vigente.atendenteId === userId);
 }
 
-function idsUnidadeNoEscopo(userId: number): Set<number> {
-  return new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
+  try {
+    return await requireUnitInScope(userId, unidadeId, condominioId);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "UNIT_NOT_FOUND") {
+      throw new AtendimentoServiceError("Unidade não encontrada.", 404);
+    }
+    if (code === "UNIT_CONDO_MISMATCH") {
+      throw new AtendimentoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
+    }
+    if (code === "UNIT_OUT_OF_SCOPE") {
+      throw new AtendimentoServiceError("Unidade fora do seu escopo de acesso.", 403);
+    }
+    if (code === "CONDO_OUT_OF_SCOPE") {
+      throw new AtendimentoServiceError("Condomínio fora do seu escopo de acesso.", 403);
+    }
+    throw error;
+  }
 }
 
-function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
-}
-
-function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
-  if (!unidade) {
-    throw new AtendimentoServiceError("Unidade não encontrada.", 404);
-  }
-  if (unidade.condominioId !== condominioId) {
-    throw new AtendimentoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
-  }
-  const idsUnidade = idsUnidadeNoEscopo(userId);
-  if (!idsUnidade.has(unidadeId)) {
-    throw new AtendimentoServiceError("Unidade fora do seu escopo de acesso.", 403);
-  }
-  const idsCondominio = idsCondominioNoEscopo(userId);
-  if (!idsCondominio.has(condominioId)) {
-    throw new AtendimentoServiceError("Condomínio fora do seu escopo de acesso.", 403);
-  }
-  return unidade;
-}
-
-function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
+async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
   if (usuarioVeCarteiraGeral(userId)) return;
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new AtendimentoServiceError(
       "Esta cobrança não está na sua carteira. Peça redistribuição à administradora.",
@@ -117,7 +132,7 @@ function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
   }
 }
 
-function validarEntrada(input: AtendimentoInput) {
+async function validarEntrada(input: AtendimentoInput) {
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
     throw new AtendimentoServiceError("Selecione o condomínio.", 400);
   }
@@ -149,9 +164,8 @@ function validarEntrada(input: AtendimentoInput) {
   }
 
   if (input.responsavelId != null && input.responsavelId > 0) {
-    const vinculo = getCadastros().vinculos.some(
-      (item) => item.unidadeId === input.unidadeId && item.responsavelId === input.responsavelId,
-    );
+    const vinculos = await listUnitLinksByUnit(input.unidadeId);
+    const vinculo = vinculos.some((item) => item.responsavelId === input.responsavelId);
     if (!vinculo) {
       throw new AtendimentoServiceError("Responsável não vinculado a esta unidade.", 400);
     }
@@ -175,11 +189,11 @@ function validarEntrada(input: AtendimentoInput) {
 const ultimosRegistros = new Map<string, number>();
 const JANELA_DEDUPE_MS = 4_000;
 
-function chaveDedupe(userId: number, unidadeId: number, dados: ReturnType<typeof validarEntrada>) {
+function chaveDedupe(userId: number, unidadeId: number, dados: Awaited<ReturnType<typeof validarEntrada>>) {
   return `${userId}:${unidadeId}:${dados.canal}:${dados.respondeu}:${dados.motivo}:${dados.status}:${dados.assunto}:${dados.descricao}`;
 }
 
-function assertNaoDuplicadoRecente(userId: number, unidadeId: number, dados: ReturnType<typeof validarEntrada>) {
+function assertNaoDuplicadoRecente(userId: number, unidadeId: number, dados: Awaited<ReturnType<typeof validarEntrada>>) {
   const chave = chaveDedupe(userId, unidadeId, dados);
   const agora = Date.now();
   const anterior = ultimosRegistros.get(chave);
@@ -189,16 +203,21 @@ function assertNaoDuplicadoRecente(userId: number, unidadeId: number, dados: Ret
   ultimosRegistros.set(chave, agora);
 }
 
-export function listarAtendimentos(userId: number, filtros?: AtendimentoFiltros): Atendimento[] {
+export async function listarAtendimentos(userId: number, filtros?: AtendimentoFiltros): Promise<Atendimento[]> {
   if (filtros?.operacional) {
-    const periodo =
-      filtros.de && filtros.ate ? { inicio: filtros.de, fim: filtros.ate } : undefined;
-    return listarAtendimentosIndicadorOperacional(userId, filtros.operacional, periodo);
+    const cadastros = await loadFullOperationalCadastros();
+    const hoje = hojeIso();
+    const intervalo =
+      filtros.de && filtros.ate ? { inicio: filtros.de, fim: filtros.ate } : periodoUltimos7Dias(hoje);
+    return cadastros.atendimentos
+      .filter((item) => atendimentoNaCarteira(cadastros, userId, item))
+      .filter((item) => classificarAtendimentoOperacional(item, intervalo, hoje) === filtros.operacional)
+      .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   }
 
-  const idsUnidade = idsUnidadeNoEscopo(userId);
+  const idsUnidade = await scopeUnitIds(userId);
   const geral = usuarioVeCarteiraGeral(userId);
-  let lista = getCadastros().atendimentos.filter((item) => idsUnidade.has(Number(item.unidadeId)));
+  let lista = (await listServiceTickets()).filter((item) => idsUnidade.has(Number(item.unidadeId)));
   if (!geral) {
     lista = lista.filter((item) => item.usuarioId === userId);
   }
@@ -221,14 +240,14 @@ export function listarAtendimentos(userId: number, filtros?: AtendimentoFiltros)
   return [...lista].sort((a, b) => b.dataHora.localeCompare(a.dataHora));
 }
 
-export function criarAtendimento(
+export async function criarAtendimento(
   userId: number,
   input: AtendimentoInput,
   meta?: { ip?: string; userAgent?: string },
-): Atendimento {
-  const dados = validarEntrada(input);
-  assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
-  assertCarteiraParaRegistrar(userId, input.unidadeId);
+): Promise<Atendimento> {
+  const dados = await validarEntrada(input);
+  await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+  await assertCarteiraParaRegistrar(userId, input.unidadeId);
   assertNaoDuplicadoRecente(userId, input.unidadeId, dados);
 
   const registro: Atendimento = {
@@ -249,41 +268,40 @@ export function criarAtendimento(
     retornoConcluidoPorId: null,
   };
 
-  setAtendimentos((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "service_ticket",
-      registroId: registro.id,
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: serializarAtendimentoAuditoria(registro),
-      camposAlterados: "unidade_id, canal, status, respondeu",
-    },
+  const criado = await createServiceTicket(registro);
+  await writeAuditLog({
+    entity: "service_ticket",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: serializarAtendimentoAuditoria(criado),
+    changedFields: "unidade_id, canal, status, respondeu",
     userId,
-    meta,
-  );
-  emitirNotificacaoRetornoAgendado(registro);
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  await emitirNotificacaoRetornoAgendado(criado);
+  return criado;
 }
 
-export function atualizarAtendimento(
+export async function atualizarAtendimento(
   userId: number,
   id: string,
   input: AtendimentoInput,
   meta?: { ip?: string; userAgent?: string },
-): Atendimento {
+): Promise<Atendimento> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AtendimentoServiceError("Sem permissão para editar atendimentos.", 403);
   }
 
-  const anterior = getCadastros().atendimentos.find((item) => item.id === id);
+  const anterior = await findServiceTicketById(id);
   if (!anterior) {
     throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
   }
 
-  const dados = validarEntrada(input);
-  assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+  const dados = await validarEntrada(input);
+  await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
   if (!usuarioVeCarteiraGeral(userId) && anterior.usuarioId !== userId) {
     throw new AtendimentoServiceError("Só a administradora pode corrigir atendimento de outro colaborador.", 403);
   }
@@ -304,72 +322,69 @@ export function atualizarAtendimento(
     retornoConcluidoPorId: anterior.retornoConcluidoPorId ?? null,
   };
 
-  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "service_ticket",
-      registroId: id,
-      acao: "UPDATE",
-      dadosAnteriores: serializarAtendimentoAuditoria(anterior),
-      dadosNovos: serializarAtendimentoAuditoria(atualizado),
-      camposAlterados: "unidade_id, canal, status, descricao, retorno",
-    },
+  const salvo = await updateServiceTicket(atualizado);
+  await writeAuditLog({
+    entity: "service_ticket",
+    recordId: id,
+    action: "UPDATE",
+    previousData: serializarAtendimentoAuditoria(anterior),
+    newData: serializarAtendimentoAuditoria(salvo),
+    changedFields: "unidade_id, canal, status, descricao, retorno",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
   if (
-    atualizado.dataProximaAcao.trim() &&
-    (anterior.dataProximaAcao !== atualizado.dataProximaAcao || !anterior.dataProximaAcao.trim())
+    salvo.dataProximaAcao.trim() &&
+    (anterior.dataProximaAcao !== salvo.dataProximaAcao || !anterior.dataProximaAcao.trim())
   ) {
-    emitirNotificacaoRetornoAgendado(atualizado);
+    await emitirNotificacaoRetornoAgendado(salvo);
   }
-  return atualizado;
+  return salvo;
 }
 
-export function excluirAtendimento(userId: number, id: string, meta?: { ip?: string; userAgent?: string }) {
+export async function excluirAtendimento(userId: number, id: string, meta?: { ip?: string; userAgent?: string }) {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "excluir")) {
     throw new AtendimentoServiceError("Sem permissão para excluir atendimentos.", 403);
   }
 
-  const alvo = getCadastros().atendimentos.find((item) => item.id === id);
+  const alvo = await findServiceTicketById(id);
   if (!alvo) {
     throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
   }
 
   const unidadeId = Number(alvo.unidadeId);
-  if (idsUnidadeNoEscopo(userId).has(unidadeId)) {
-    /* ok */
-  } else {
+  const idsUnidade = await scopeUnitIds(userId);
+  if (!idsUnidade.has(unidadeId)) {
     throw new AtendimentoServiceError("Atendimento fora do seu escopo de acesso.", 403);
   }
 
-  setAtendimentos((current) => current.filter((item) => item.id !== id));
-  registrarAuditoria(
-    {
-      entidade: "service_ticket",
-      registroId: id,
-      acao: "DELETE",
-      dadosAnteriores: alvo.assunto || alvo.canal,
-      dadosNovos: "",
-      camposAlterados: "registro",
-    },
+  await deleteServiceTicket(id);
+  await writeAuditLog({
+    entity: "service_ticket",
+    recordId: id,
+    action: "DELETE",
+    previousData: alvo.assunto || alvo.canal,
+    newData: "",
+    changedFields: "registro",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
-export function concluirRetornoAgendado(
+export async function concluirRetornoAgendado(
   userId: number,
   id: string,
   meta?: { ip?: string; userAgent?: string },
-): Atendimento {
+): Promise<Atendimento> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AtendimentoServiceError("Sem permissão para concluir retornos.", 403);
   }
 
-  const anterior = getCadastros().atendimentos.find((item) => item.id === id);
+  const anterior = await findServiceTicketById(id);
   if (!anterior) {
     throw new AtendimentoServiceError("Atendimento não encontrado.", 404);
   }
@@ -381,14 +396,16 @@ export function concluirRetornoAgendado(
   }
 
   const unidadeId = Number(anterior.unidadeId);
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const cadastros = await loadCadastrosForScope();
+  const unidade = cadastros.unidades.find((item) => item.id === unidadeId);
   if (!unidade) {
     throw new AtendimentoServiceError("Unidade não encontrada.", 404);
   }
-  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
+  const idsUnidade = await scopeUnitIds(userId);
+  if (!idsUnidade.has(unidadeId)) {
     throw new AtendimentoServiceError("Atendimento fora do seu escopo de acesso.", 403);
   }
-  assertCarteiraParaRegistrar(userId, unidadeId);
+  await assertCarteiraParaRegistrar(userId, unidadeId);
 
   const atualizado: Atendimento = {
     ...anterior,
@@ -396,24 +413,23 @@ export function concluirRetornoAgendado(
     retornoConcluidoPorId: userId,
   };
 
-  setAtendimentos((current) => current.map((item) => (item.id === id ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "service_ticket",
-      registroId: id,
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ retornoConcluidoEm: "" }),
-      dadosNovos: JSON.stringify({
-        retornoConcluidoEm: atualizado.retornoConcluidoEm,
-        retornoConcluidoPorId: atualizado.retornoConcluidoPorId,
-        dataProximaAcao: atualizado.dataProximaAcao,
-      }),
-      camposAlterados: "retorno_concluido_em, retorno_concluido_por_id",
-    },
+  const salvo = await updateServiceTicket(atualizado);
+  await writeAuditLog({
+    entity: "service_ticket",
+    recordId: id,
+    action: "UPDATE",
+    previousData: JSON.stringify({ retornoConcluidoEm: "" }),
+    newData: JSON.stringify({
+      retornoConcluidoEm: salvo.retornoConcluidoEm,
+      retornoConcluidoPorId: salvo.retornoConcluidoPorId,
+      dataProximaAcao: salvo.dataProximaAcao,
+    }),
+    changedFields: "retorno_concluido_em, retorno_concluido_por_id",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
 export function requestMeta(request: Request) {

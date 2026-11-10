@@ -1,12 +1,12 @@
 "use client";
 
+import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Shuffle } from "lucide-react";
 import { Button } from "@/components/button";
 import { FormField, Select, Switch } from "@/components/input";
 import { SheetToggleRow } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { AtribuicaoCobranca } from "@/data/catalogo";
 import {
   descricaoEstrategiaDistribuicaoAutomatica,
@@ -36,6 +36,7 @@ type Options = {
 };
 
 export function useDistribuicaoAutomaticaConfig({ refreshKey, onSalvo, enabled = true }: Options = {}) {
+  const { refetch } = useCadastrosStatus();
   const { toast } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [ativada, setAtivada] = useState(true);
@@ -115,7 +116,7 @@ export function useDistribuicaoAutomaticaConfig({ refreshKey, onSalvo, enabled =
         };
         if (!execResponse.ok) throw new Error(execPayload.error ?? "Falha ao distribuir automaticamente.");
         if (execPayload.atribuicoesCobranca?.length) {
-          aplicarSnapshotAtribuicoes(execPayload.atribuicoesCobranca);
+          void refetch()
         }
         atribuidas = execPayload.atribuidas ?? 0;
         onSalvo?.();

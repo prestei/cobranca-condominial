@@ -10,6 +10,12 @@ import {
 } from "@/lib/permissions/seeds";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import {
+  enableTestCatalog,
+  getRequestCatalog,
+  mutateRequestCatalog,
+  tryGetRequestCatalog,
+} from "@/lib/db/request-catalog";
+import {
   atribuicoesBaseTeste,
   condominiosBaseTeste,
   debitosBaseTeste,
@@ -544,124 +550,31 @@ export type Cadastros = {
   notificacaoFalhas: NotificacaoFalha[];
 };
 
-/** Evita gravar em disco durante testes que resetam o catálogo. */
-let pularPersistenciaCatalogo = false;
+/** Somente testes — seed estático sem PostgreSQL. */
+const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
+  condominios: condominiosIniciais,
+  cargos: cargosIniciais,
+  usuarios: usuariosIniciais,
+  unidades: unidadesIniciais,
+  responsaveis: responsaveisIniciais,
+  vinculos: vinculosIniciais,
+  debitos: debitosIniciais,
+  atendimentos: atendimentosIniciais,
+  propostasNegociacao: propostasNegociacaoIniciais,
+  encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
+  documentosJuridicos: documentosJuridicosIniciais,
+  parcelasAcordo: parcelasAcordoIniciais,
+  pagamentosAcordo: pagamentosAcordoIniciais,
+  atribuicoesCobranca: atribuicoesIniciais,
+  importacoes: importacoesIniciais,
+  auditoria: auditoriaInicial,
+  notificacoesInternas: [],
+  notificacaoFalhas: [],
+});
 
-function estadoCatalogoSeed(): Cadastros {
-  return {
-    condominios: condominiosIniciais,
-    cargos: cargosIniciais,
-    usuarios: usuariosIniciais,
-    unidades: unidadesIniciais,
-    responsaveis: responsaveisIniciais,
-    vinculos: vinculosIniciais,
-    debitos: debitosIniciais,
-    atendimentos: atendimentosIniciais,
-    propostasNegociacao: propostasNegociacaoIniciais,
-    encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
-    documentosJuridicos: documentosJuridicosIniciais,
-    parcelasAcordo: parcelasAcordoIniciais,
-    pagamentosAcordo: pagamentosAcordoIniciais,
-    atribuicoesCobranca: atribuicoesIniciais,
-    importacoes: importacoesIniciais,
-    auditoria: auditoriaInicial,
-    notificacoesInternas: [],
-    notificacaoFalhas: [],
-  };
-}
-
-/**
- * Sobrevive ao hot-reload do Next: o módulo é reavaliado, mas `globalThis` permanece.
- * Sem isso, importações “somem” e o seed volta a sobrescrever a UI até o próximo restart.
- */
-type CatalogoGlobalStore = {
-  __cobrancaCatalogoState?: Cadastros;
-  __cobrancaCatalogoListeners?: Set<() => void>;
-};
-
-const catalogoGlobal = globalThis as typeof globalThis & CatalogoGlobalStore;
-
-function resolverEstadoInicialCatalogo(): Cadastros {
-  if (catalogoGlobal.__cobrancaCatalogoState) {
-    return catalogoGlobal.__cobrancaCatalogoState;
-  }
-  // Estado inicial transitório até `instrumentation.ts` hidratar do PostgreSQL.
-  return estadoCatalogoSeed();
-}
-
-let state: Cadastros = resolverEstadoInicialCatalogo();
-catalogoGlobal.__cobrancaCatalogoState = state;
-
-const listeners = catalogoGlobal.__cobrancaCatalogoListeners ?? new Set<() => void>();
-catalogoGlobal.__cobrancaCatalogoListeners = listeners;
-
-function publicarEstadoCatalogo(next: Cadastros) {
-  state = next;
-  catalogoGlobal.__cobrancaCatalogoState = state;
-}
-
-function emit() {
-  listeners.forEach((listener) => listener());
-}
-
-export function subscribeCadastros(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function normalizarUsuario(item: Usuario): Usuario {
-  return { ...item, ativo: item.ativo ?? true };
-}
-
-function usuariosComSeed() {
-  // Com PostgreSQL, o estado hidratado do banco é a única lista — sem reinjetar seed.
-  if (process.env.DATABASE_URL?.trim()) {
-    return migrarCodigosReUsuarios(
-      [...state.usuarios.map(normalizarUsuario)].sort((a, b) => a.id - b.id),
-    );
-  }
-  const map = new Map(state.usuarios.map((item) => [item.id, normalizarUsuario(item)]));
-  for (const seed of usuariosIniciais) {
-    if (!map.has(seed.id)) {
-      map.set(seed.id, normalizarUsuario(seed));
-    }
-  }
-  const lista = [...map.values()].sort((a, b) => a.id - b.id);
-  return migrarCodigosReUsuarios(lista);
-}
-
-function normalizarUnidade(item: Unidade): Unidade {
-  return {
-    ...item,
-    bloco: item.bloco ?? "",
-    situacao: situacaoCobrancaUnidade(item),
-  };
-}
-
-function montarCadastros(): Cadastros {
-  return {
-    ...state,
-    usuarios: usuariosComSeed(),
-    unidades: state.unidades.map(normalizarUnidade),
-  };
-}
-
-/** Snapshot para SSR/hidratação (`useSyncExternalStore`) — atualizado após hidratação do PostgreSQL. */
-let cadastrosServerSnapshot: Cadastros = montarCadastros();
-let cadastrosClientSnapshot: Cadastros = cadastrosServerSnapshot;
-
-function atualizarCadastrosSnapshot() {
-  const montado = montarCadastros();
-  cadastrosClientSnapshot = montado;
-  cadastrosServerSnapshot = montado;
-}
-
-export function getCadastros() {
-  return cadastrosClientSnapshot;
-}
-
-export function getCadastrosServerSnapshot() {
-  return cadastrosServerSnapshot;
+/** Lê o catálogo do escopo de requisição (importação) ou do modo teste. */
+export function getCadastros(): Cadastros {
+  return getRequestCatalog();
 }
 
 function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
@@ -671,48 +584,23 @@ function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
   return Boolean(re && normalizarCodigoUsuario(re) === chave);
 }
 
-/** Login legado (sem PG): lê do estado em processo. Com DATABASE_URL use identity-pg. */
+/** Login legado (sem PG): lê do escopo de teste. Com DATABASE_URL use repositório de identidade. */
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
   const chave = normalizarCodigoUsuario(codigo);
   if (!chave) return undefined;
-  const noEstado = state.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
+  const cadastros = tryGetRequestCatalog();
+  const noEstado = cadastros?.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
   if (noEstado) return noEstado;
   if (process.env.DATABASE_URL?.trim()) return undefined;
   return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
 }
 
-/** Registrado em `instrumentation.ts` — evita importar `pg` no grafo do client. */
-type AgendadorPersistenciaCatalogo = (obter: () => Cadastros) => void;
-let agendadorPersistenciaCatalogo: AgendadorPersistenciaCatalogo | null = null;
-
-export function registrarAgendadorPersistenciaCatalogo(fn: AgendadorPersistenciaCatalogo) {
-  agendadorPersistenciaCatalogo = fn;
-}
-
-function sinalizarPersistenciaCatalogo() {
-  if (typeof window !== "undefined") return;
-  if (pularPersistenciaCatalogo) return;
-  agendadorPersistenciaCatalogo?.(exportarEstadoCatalogoParaPersistencia);
-}
-
-/** Substitui o estado operacional (ex.: restauração após reinício do servidor). */
-export function substituirEstadoCatalogo(next: Cadastros) {
-  publicarEstadoCatalogo(structuredClone(next));
-  atualizarCadastrosSnapshot();
-  emit();
-}
-
-export function exportarEstadoCatalogoParaPersistencia(): Cadastros {
-  return structuredClone(state);
-}
-
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
-  const value = typeof next === "function" ? next(state[key]) : next;
-  if (value === state[key]) return;
-  publicarEstadoCatalogo({ ...state, [key]: value });
-  atualizarCadastrosSnapshot();
-  emit();
-  sinalizarPersistenciaCatalogo();
+  mutateRequestCatalog((state) => {
+    const value = typeof next === "function" ? (next as (c: Cadastros[K]) => Cadastros[K])(state[key]) : next;
+    if (value === state[key]) return state;
+    return { ...state, [key]: value };
+  });
 }
 
 export function setCondominios(next: Condominio[] | ((current: Condominio[]) => Condominio[])) {
@@ -802,66 +690,29 @@ export function setNotificacaoFalhas(
   atualizar("notificacaoFalhas", next);
 }
 
-const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
-  condominios: condominiosIniciais,
-  cargos: cargosIniciais,
-  usuarios: usuariosIniciais,
-  unidades: unidadesIniciais,
-  responsaveis: responsaveisIniciais,
-  vinculos: vinculosIniciais,
-  debitos: debitosIniciais,
-  atendimentos: atendimentosIniciais,
-  propostasNegociacao: propostasNegociacaoIniciais,
-  encaminhamentosJuridicos: encaminhamentosJuridicosIniciais,
-  documentosJuridicos: documentosJuridicosIniciais,
-  parcelasAcordo: parcelasAcordoIniciais,
-  pagamentosAcordo: pagamentosAcordoIniciais,
-  atribuicoesCobranca: atribuicoesIniciais,
-  importacoes: importacoesIniciais,
-  auditoria: auditoriaInicial,
-  notificacoesInternas: [],
-  notificacaoFalhas: [],
-});
-
-/** Restaura o catálogo em memória ao seed inicial — uso exclusivo em testes automatizados. */
+/** Restaura o catálogo ao seed inicial — uso exclusivo em testes automatizados. */
 export function resetCadastrosParaTestes() {
-  pularPersistenciaCatalogo = true;
-  try {
-    publicarEstadoCatalogo(structuredClone(cadastrosSnapshotParaTestes));
-    atualizarCadastrosSnapshot();
-    emit();
-  } finally {
-    pularPersistenciaCatalogo = false;
-  }
+  enableTestCatalog(structuredClone(cadastrosSnapshotParaTestes));
 }
 
-/**
- * Executa mutações no catálogo em memória de forma atômica (rollback em falha).
- * Contrato espelha `prisma.$transaction` até a persistência PostgreSQL substituir o protótipo.
- */
+/** Mutações atômicas no escopo de catálogo da requisição (importação). */
 export function executarTransacaoCatalogo<T>(fn: () => T): T {
-  const snapshot = structuredClone(state);
+  const snapshot = structuredClone(getRequestCatalog());
   try {
     return fn();
   } catch (error) {
-    publicarEstadoCatalogo(snapshot);
-    atualizarCadastrosSnapshot();
-    emit();
-    sinalizarPersistenciaCatalogo();
+    mutateRequestCatalog(() => snapshot);
     throw error;
   }
 }
 
 /** Variante assíncrona de {@link executarTransacaoCatalogo}. */
 export async function executarTransacaoCatalogoAsync<T>(fn: () => Promise<T>): Promise<T> {
-  const snapshot = structuredClone(state);
+  const snapshot = structuredClone(getRequestCatalog());
   try {
     return await fn();
   } catch (error) {
-    publicarEstadoCatalogo(snapshot);
-    atualizarCadastrosSnapshot();
-    emit();
-    sinalizarPersistenciaCatalogo();
+    mutateRequestCatalog(() => snapshot);
     throw error;
   }
 }
@@ -871,23 +722,22 @@ export function registrarAuditoria(
   usuarioId?: number,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const registro: Auditoria = {
-    id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
-    usuarioId: String(usuarioId ?? getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
-    ip: meta?.ip ?? "",
-    userAgent: meta?.userAgent ?? "",
-    dataHora: agoraIso(),
-    entidade: entry.entidade,
-    registroId: entry.registroId,
-    acao: entry.acao,
-    dadosAnteriores: sanitizarTextoAuditoria(entry.dadosAnteriores),
-    dadosNovos: sanitizarTextoAuditoria(entry.dadosNovos),
-    camposAlterados: sanitizarCamposAlterados(entry.camposAlterados),
-  };
-  state = { ...state, auditoria: [registro, ...state.auditoria] };
-  atualizarCadastrosSnapshot();
-  emit();
-  sinalizarPersistenciaCatalogo();
+  mutateRequestCatalog((state) => {
+    const registro: Auditoria = {
+      id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
+      usuarioId: String(usuarioId ?? getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
+      ip: meta?.ip ?? "",
+      userAgent: meta?.userAgent ?? "",
+      dataHora: agoraIso(),
+      entidade: entry.entidade,
+      registroId: entry.registroId,
+      acao: entry.acao,
+      dadosAnteriores: sanitizarTextoAuditoria(entry.dadosAnteriores),
+      dadosNovos: sanitizarTextoAuditoria(entry.dadosNovos),
+      camposAlterados: sanitizarCamposAlterados(entry.camposAlterados),
+    };
+    return { ...state, auditoria: [registro, ...state.auditoria] };
+  });
 }
 
 export function formatarData(value: string) {
@@ -1155,30 +1005,40 @@ export function proximoNumero(ids: number[]) {
   return ids.reduce((max, id) => Math.max(max, id), 0) + 1;
 }
 
-export function nomeCondominio(id: number) {
-  return state.condominios.find((item) => item.id === id)?.nome ?? "—";
+export function nomeCondominio(id: number, cadastros?: Cadastros) {
+  const c = cadastros ?? tryGetRequestCatalog();
+  if (!c) return "—";
+  return c.condominios.find((item) => item.id === id)?.nome ?? "—";
 }
 
-export function nomeUsuario(id: number | string) {
+export function nomeUsuario(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
   if (!id || Number.isNaN(numeric)) return "—";
-  return state.usuarios.find((item) => item.id === numeric)?.nome ?? "—";
+  const c = cadastros ?? tryGetRequestCatalog();
+  if (!c) return "—";
+  return c.usuarios.find((item) => item.id === numeric)?.nome ?? "—";
 }
 
-export function nomeUnidade(id: number | string) {
+export function nomeUnidade(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
   if (!id || Number.isNaN(numeric)) return "—";
-  const unidade = state.unidades.find((item) => item.id === numeric);
+  const c = cadastros ?? tryGetRequestCatalog();
+  if (!c) return "—";
+  const unidade = c.unidades.find((item) => item.id === numeric);
   if (!unidade) return "—";
-  return `${nomeCondominio(unidade.condominioId)} · ${unidade.identificacao}`;
+  return `${nomeCondominio(unidade.condominioId, c)} · ${unidade.identificacao}`;
 }
 
-export function nomeResponsavel(id: number | string) {
+export function nomeResponsavel(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
   if (!id || Number.isNaN(numeric)) return "—";
-  return state.responsaveis.find((item) => item.id === numeric)?.nome ?? "—";
+  const c = cadastros ?? tryGetRequestCatalog();
+  if (!c) return "—";
+  return c.responsaveis.find((item) => item.id === numeric)?.nome ?? "—";
 }
 
-export function nomeCargo(id: number) {
-  return state.cargos.find((item) => item.id === id)?.nome ?? "—";
+export function nomeCargo(id: number, cadastros?: Cadastros) {
+  const c = cadastros ?? tryGetRequestCatalog();
+  if (!c) return "—";
+  return c.cargos.find((item) => item.id === id)?.nome ?? "—";
 }

@@ -1,14 +1,22 @@
 import {
   escopoCondominios,
-  getCadastros,
   opcoesAdvogadosResponsaveis,
-  proximoNumero,
-  registrarAuditoria,
-  setCondominios,
   statusCondominio,
   type Condominio,
   type StatusCondominio,
 } from "@/data/catalogo";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import {
+  condominiumExternalIdExists,
+  condominiumHasOperationalHistory,
+  createCondominium,
+  deleteCondominium,
+  findCondominiumById,
+  listCondominiums,
+  nextCondominiumId,
+  updateCondominium,
+} from "@/lib/db/repositories/condominium-repository";
 
 export type CondominioInput = Omit<Condominio, "id"> & { id?: number };
 
@@ -21,15 +29,17 @@ export class CondominioServiceError extends Error {
   }
 }
 
-function condominioNoEscopo(userId: number, condominioId: number) {
-  const ids = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+async function condominioNoEscopo(userId: number, condominioId: number) {
+  const cadastros = await loadCadastrosForScope();
+  const ids = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
   if (!ids.has(condominioId)) {
     throw new CondominioServiceError("Condomínio fora do seu escopo de acesso.", 403);
   }
 }
 
-function validarAdvogados(nomes: string[]) {
-  const permitidos = new Set(opcoesAdvogadosResponsaveis(getCadastros()));
+async function validarAdvogados(nomes: string[]) {
+  const cadastros = await loadCadastrosForScope();
+  const permitidos = new Set(opcoesAdvogadosResponsaveis(cadastros));
   if (nomes.length === 0) {
     throw new CondominioServiceError("Selecione ao menos um advogado responsável.", 400);
   }
@@ -40,21 +50,16 @@ function validarAdvogados(nomes: string[]) {
   }
 }
 
-function validarEntrada(input: CondominioInput, editingId: number | null): Omit<Condominio, "id"> {
+async function validarEntrada(input: CondominioInput, editingId: number | null): Promise<Omit<Condominio, "id">> {
   const nome = input.nome.trim();
   if (!nome) {
     throw new CondominioServiceError("Informe o nome do condomínio.", 400);
   }
-  validarAdvogados(input.advogados);
+  await validarAdvogados(input.advogados);
 
   const identificadorExterno = input.identificadorExterno.trim();
   if (identificadorExterno) {
-    const chave = identificadorExterno.toLocaleLowerCase("pt-BR");
-    const duplicado = getCadastros().condominios.some(
-      (item) =>
-        item.id !== editingId &&
-        item.identificadorExterno.trim().toLocaleLowerCase("pt-BR") === chave,
-    );
+    const duplicado = await condominiumExternalIdExists(identificadorExterno, editingId);
     if (duplicado) {
       throw new CondominioServiceError("Já existe um condomínio com este identificador.", 409);
     }
@@ -81,140 +86,141 @@ function validarEntrada(input: CondominioInput, editingId: number | null): Omit<
   };
 }
 
-export function listarCondominios(userId: number): Condominio[] {
-  return escopoCondominios(getCadastros(), userId);
+export async function listarCondominios(userId: number): Promise<Condominio[]> {
+  const cadastros = await loadCadastrosForScope();
+  return escopoCondominios(cadastros, userId);
 }
 
-export function criarCondominio(userId: number, input: CondominioInput, meta?: { ip?: string; userAgent?: string }) {
-  const dados = validarEntrada(input, null);
+export async function criarCondominio(
+  userId: number,
+  input: CondominioInput,
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const dados = await validarEntrada(input, null);
   let nextId = input.id;
   if (nextId !== undefined) {
     if (!Number.isFinite(nextId) || nextId <= 0) {
       throw new CondominioServiceError("Identificador do condomínio inválido.", 400);
     }
-    if (getCadastros().condominios.some((item) => item.id === nextId)) {
+    const existe = await findCondominiumById(nextId);
+    if (existe) {
       throw new CondominioServiceError("Já existe um condomínio com este identificador interno.", 409);
     }
   } else {
-    nextId = proximoNumero(getCadastros().condominios.map((item) => item.id));
+    nextId = await nextCondominiumId();
   }
 
   const condominio: Condominio = { id: nextId, ...dados };
-  setCondominios((current) => [...current, condominio]);
-  registrarAuditoria(
-    {
-      entidade: "condominium",
-      registroId: String(nextId),
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: condominio.nome,
-      camposAlterados: "nome, identificador_externo, advogados, endereco",
-    },
+  const criado = await createCondominium(condominio);
+  await writeAuditLog({
+    entity: "condominium",
+    recordId: String(nextId),
+    action: "INSERT",
+    previousData: "",
+    newData: criado.nome,
+    changedFields: "nome, identificador_externo, advogados, endereco",
     userId,
-    meta,
-  );
-  return condominio;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
 }
 
-export function atualizarCondominio(
+export async function atualizarCondominio(
   userId: number,
   condominioId: number,
   input: CondominioInput,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const atual = getCadastros().condominios.find((item) => item.id === condominioId);
+  const atual = await findCondominiumById(condominioId);
   if (!atual) {
     throw new CondominioServiceError("Condomínio não encontrado.", 404);
   }
-  condominioNoEscopo(userId, condominioId);
-  const dados = validarEntrada(input, condominioId);
+  await condominioNoEscopo(userId, condominioId);
+  const dados = await validarEntrada(input, condominioId);
   const atualizado: Condominio = { id: condominioId, ...dados };
-  setCondominios((current) => current.map((item) => (item.id === condominioId ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "condominium",
-      registroId: String(condominioId),
-      acao: "UPDATE",
-      dadosAnteriores: atual.nome,
-      dadosNovos: atualizado.nome,
-      camposAlterados: "nome, identificador_externo, advogados, endereco, status",
-    },
+  const salvo = await updateCondominium(atualizado);
+  await writeAuditLog({
+    entity: "condominium",
+    recordId: String(condominioId),
+    action: "UPDATE",
+    previousData: atual.nome,
+    newData: salvo.nome,
+    changedFields: "nome, identificador_externo, advogados, endereco, status",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
-export function alterarStatusCondominio(
+export async function alterarStatusCondominio(
   userId: number,
   condominioId: number,
   status: StatusCondominio,
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const atual = getCadastros().condominios.find((item) => item.id === condominioId);
+  const atual = await findCondominiumById(condominioId);
   if (!atual) {
     throw new CondominioServiceError("Condomínio não encontrado.", 404);
   }
-  condominioNoEscopo(userId, condominioId);
+  await condominioNoEscopo(userId, condominioId);
   if (!statusCondominio.includes(status)) {
     throw new CondominioServiceError("Situação do condomínio inválida.", 400);
   }
   if (atual.status === status) return atual;
 
   const atualizado = { ...atual, status };
-  setCondominios((current) => current.map((item) => (item.id === condominioId ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "condominium",
-      registroId: String(condominioId),
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ status: atual.status }),
-      dadosNovos: JSON.stringify({ status }),
-      camposAlterados: "status",
-    },
+  const salvo = await updateCondominium(atualizado);
+  await writeAuditLog({
+    entity: "condominium",
+    recordId: String(condominioId),
+    action: "UPDATE",
+    previousData: JSON.stringify({ status: atual.status }),
+    newData: JSON.stringify({ status }),
+    changedFields: "status",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
-export function excluirCondominio(userId: number, condominioId: number, meta?: { ip?: string; userAgent?: string }) {
-  const atual = getCadastros().condominios.find((item) => item.id === condominioId);
+export async function excluirCondominio(
+  userId: number,
+  condominioId: number,
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const atual = await findCondominiumById(condominioId);
   if (!atual) {
     throw new CondominioServiceError("Condomínio não encontrado.", 404);
   }
-  condominioNoEscopo(userId, condominioId);
+  await condominioNoEscopo(userId, condominioId);
 
-  const cadastros = getCadastros();
-  const unidadeIds = new Set(
-    cadastros.unidades.filter((item) => item.condominioId === condominioId).map((item) => item.id),
-  );
-  const temHistorico =
-    unidadeIds.size > 0 ||
-    cadastros.debitos.some((item) => item.condominioId === condominioId) ||
-    cadastros.atendimentos.some((item) => unidadeIds.has(Number(item.unidadeId))) ||
-    cadastros.atribuicoesCobranca.some((item) => unidadeIds.has(item.unidadeId));
-
-  if (temHistorico) {
+  if (await condominiumHasOperationalHistory(condominioId)) {
     throw new CondominioServiceError(
       "Condomínio com unidades ou histórico de cobrança. Inative o condomínio em vez de excluir.",
       409,
     );
   }
 
-  setCondominios((current) => current.filter((item) => item.id !== condominioId));
-  registrarAuditoria(
-    {
-      entidade: "condominium",
-      registroId: String(condominioId),
-      acao: "DELETE",
-      dadosAnteriores: JSON.stringify(atual),
-      dadosNovos: "",
-      camposAlterados: "nome",
-    },
+  await deleteCondominium(condominioId);
+  await writeAuditLog({
+    entity: "condominium",
+    recordId: String(condominioId),
+    action: "DELETE",
+    previousData: JSON.stringify(atual),
+    newData: "",
+    changedFields: "nome",
     userId,
-    meta,
-  );
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+}
+
+/** Listagem interna sem filtro de escopo (importações / diagnóstico). */
+export async function listarTodosCondominios(): Promise<Condominio[]> {
+  return listCondominiums();
 }
 
 export function requestMeta(request: Request) {

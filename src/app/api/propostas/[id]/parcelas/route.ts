@@ -41,8 +41,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const parcelas = listarParcelasAcordo(session.userId, id);
-    const resumo = obterResumoAcordo(session.userId, id);
+    const parcelas = await listarParcelasAcordo(session.userId, id);
+    const resumo = await obterResumoAcordo(session.userId, id);
     return Response.json({ parcelas, resumo });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {
@@ -76,8 +76,8 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const salvas = registrarParcelasAcordo(session.userId, id, parcelas, requestMeta(request));
-    const resumo = obterResumoAcordo(session.userId, id);
+    const salvas = await registrarParcelasAcordo(session.userId, id, parcelas, requestMeta(request));
+    const resumo = await obterResumoAcordo(session.userId, id);
     return Response.json({ parcelas: salvas, resumo }, { status: 201 });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {

@@ -1,5 +1,6 @@
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios, } from "@/data/catalogo";
 import { DebitoServiceError, obterIndicadoresDebitos, type DebitoFiltros } from "@/lib/debitos/service";
 
 function parseFiltros(searchParams: URLSearchParams): DebitoFiltros {
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   const cidade = searchParams.get("cidade")?.trim();
 
   const filtros = parseFiltros(searchParams);
-  const cadastros = getCadastros();
+  const cadastros = (await loadFullOperationalCadastros());
   const condominiosNoFiltro = escopoCondominios(cadastros, session.userId).filter((item) => {
     const matchesCondominio = !filtros.condominioId || item.id === filtros.condominioId;
     const matchesCidade = !cidade || cidade === "todas" || item.cidade.trim() === cidade;

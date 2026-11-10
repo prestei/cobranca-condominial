@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   try {
-    const encaminhamentos = listarEncaminhamentosJuridicos(session.userId, parseFiltros(searchParams));
+    const encaminhamentos = await listarEncaminhamentosJuridicos(session.userId, parseFiltros(searchParams));
     return Response.json({ encaminhamentos });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const encaminhamento = criarEncaminhamentoJuridico(session.userId, input, requestMeta(request));
+    const encaminhamento = await criarEncaminhamentoJuridico(session.userId, input, requestMeta(request));
     return Response.json({ encaminhamento }, { status: 201 });
   } catch (error) {
     if (error instanceof JuridicoServiceError) {

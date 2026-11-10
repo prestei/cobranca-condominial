@@ -1,5 +1,5 @@
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
-import { getCadastros } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { parseCorpoPreviewConfirmarImportacao } from "@/lib/importacoes/api-corpo-importacao";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { ImportacaoResponsaveisError, confirmarImportacaoResponsaveis } from "@/lib/importacoes/responsaveis-service";
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   try {
     const resultado = await confirmarImportacaoResponsaveis(session.userId, input, requestMeta(request));
-    const { responsaveis, vinculos } = getCadastros();
+    const { responsaveis, vinculos } = (await loadFullOperationalCadastros());
     return Response.json({ resultado, responsaveis, vinculos });
   } catch (error) {
     if (error instanceof ImportacaoResponsaveisError) {

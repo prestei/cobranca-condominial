@@ -66,15 +66,6 @@ import {
   moduloWizardValido,
   type ModuloWizardImportacao,
 } from "@/lib/importacoes/config-wizard-importacao";
-import {
-  aplicarImportacaoExcluida,
-  aplicarImportacaoSalva,
-  mesclarCondominiosImportacao,
-  mesclarDebitosDoServidor,
-  mesclarResponsaveisImportacao,
-  mesclarUnidadesImportacao,
-  sincronizarImportacoesDoServidor,
-} from "@/lib/importacoes/sync-cliente";
 import { ImportacaoPreVisualizacao } from "@/components/importacao-pre-visualizacao/importacao-pre-visualizacao";
 import { ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
 import {
@@ -123,6 +114,7 @@ function ImportacoesPage() {
   const arquivoRef = useRef<HTMLInputElement>(null);
   const wizardFormId = `${formId}-wizard-form`;
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const importacoes = cadastros.importacoes;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
@@ -162,7 +154,7 @@ function ImportacoesPage() {
       const response = await fetch("/api/importacoes", { credentials: "same-origin" });
       if (!response.ok) return;
       const body = (await response.json()) as { importacoes?: Importacao[] };
-      if (body.importacoes) sincronizarImportacoesDoServidor(body.importacoes);
+      if (body.importacoes) void refetch()
     } catch {
       /* mantém catálogo local */
     }
@@ -307,7 +299,6 @@ function ImportacoesPage() {
     if (!response.ok) {
       throw new Error(body.error ?? "Não foi possível excluir.");
     }
-    aplicarImportacaoExcluida(id);
     if (detalheImportacao?.id === id) {
       setDetalheOpen(false);
       setDetalheImportacao(null);
@@ -597,10 +588,10 @@ function ImportacoesPage() {
         });
         return;
       }
-      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
-      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.condominios) void refetch()
+      if (body.unidades) void refetch()
       if (body.responsaveis || body.vinculos) {
-        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+        void refetch()
       }
       setPreview(body.preview);
       setDataHoraPrevia(agoraIso());
@@ -648,13 +639,12 @@ function ImportacoesPage() {
         });
         return;
       }
-      if (body.debitos) mesclarDebitosDoServidor(body.debitos);
-      if (body.condominios) mesclarCondominiosImportacao(body.condominios, sessao?.userId);
-      if (body.unidades) mesclarUnidadesImportacao(body.unidades, sessao?.userId);
+      if (body.debitos) void refetch()
+      if (body.condominios) void refetch()
+      if (body.unidades) void refetch()
       if (body.responsaveis || body.vinculos) {
-        mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
+        void refetch()
       }
-      aplicarImportacaoSalva(body.resultado.importacao);
       setResultado(body.resultado);
       setStep(2);
       await recarregarImportacoes();

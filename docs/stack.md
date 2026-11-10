@@ -78,7 +78,7 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 
 Deploy (Node + systemd + Caddy + PostgreSQL, **sem Docker**): ver [`deploy/README.md`](../deploy/README.md).
 
-VPS limpa (só IP + senha SSH): `npm run vps:subir`. Atualizar: `npm run vps:push`.
+VPS limpa (só IP + senha SSH): `npm run vps:subir`. Atualizar: `npm run vps:push`. Auto-deploy: GitHub Actions em push `main` (secrets `VPS_*`) e/ou timer `cobranca-auto-deploy` na VPS.
 
 ## PostgreSQL (desenvolvimento)
 
@@ -87,17 +87,21 @@ PostgreSQL é **obrigatório** (sem Docker, sem `.data`, sem persistência só e
 ```bash
 cp .env.example .env
 # Ajuste DATABASE_URL (Postgres nativo ou managed)
-npm run db:migrate
-npm run db:sync-operacional   # opcional: força snapshot atual → PG
+npm run db:migrate          # prisma migrate deploy
+# ou, em dev: npm run db:migrate:dev
 ```
 
-**Fonte da verdade = PostgreSQL:**
+**Fonte da verdade = PostgreSQL via Prisma (tabelas normalizadas):**
 
-- Snapshot completo: `catalogo_snapshot` (`src/lib/db/catalogo-snapshot-pg.ts`) — toda mutação agenda gravação no banco.
-- Identidade: `role` / `"user"` (`identity-pg.ts`) — login e CRUD.
-- Operacional normalizado: condomínios, unidades, débitos, import, auditoria (`operacional-pg.ts`).
-- Domínios adicionais: tabelas em `docs/migrations/2026-11-10-catalogo-snapshot-e-dominios.sql`.
+- Schema e migrations: `prisma/schema.prisma` + `prisma/migrations/` (`npm run db:migrate`).
+- Leitura do catálogo para a UI: rotas `GET /api/catalog` e repositórios Prisma em `src/lib/db/repositories/`.
+- Gravação em lote (importação / flush): `saveCatalogBulkToPostgres` em `src/lib/db/repositories/catalog-bulk-persist.ts` (`$transaction` + upsert + remoção de órfãos).
+- Catálogo em memória **somente** no pipeline de importação (AsyncLocalStorage / escopo de request); telas e APIs não dependem de módulos `*-pg` nem de `catalogo_snapshot`.
+- Identidade: tabelas `role` e `user` (CRUD e login via Prisma).
+- Config app: `app_setting` (ex.: `distribuicao_automatica` em `src/lib/distribuicao/service.ts`).
+- Não há mais `catalogo_snapshot`, `pool.ts`, `operacional-pg.ts` nem drivers raw `pg` no `src/`.
 - Deploy: Node + systemd + Caddy — ver [`deploy/README.md`](../deploy/README.md). Sem Docker.
+- Anti-perda: `saveCatalogBulkToPostgres` recusa sobrescrever linhas operacionais existentes por estado operacional vazio; `TimeoutStopSec=30` no systemd para flush no restart.
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 

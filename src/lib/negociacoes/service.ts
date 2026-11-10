@@ -1,13 +1,19 @@
 import {
   agoraIso,
-  escopoCondominios,
   escopoUnidades,
-  getCadastros,
-  registrarAuditoria,
-  setPropostasNegociacao,
   statusPropostaNegociacao,
   type PropostaNegociacao,
 } from "@/data/catalogo";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import { findDebtById } from "@/lib/db/repositories/debt-repository";
+import {
+  createNegotiationProposal,
+  findNegotiationProposalById,
+  listNegotiationProposals,
+  updateNegotiationProposal,
+} from "@/lib/db/repositories/negotiation-repository";
+import { openAssignmentForUnit, requireUnitInScope } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -44,38 +50,35 @@ function usuarioVeCarteiraGeral(userId: number) {
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function idsCondominioNoEscopo(userId: number): Set<number> {
-  return new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+async function idsUnidadeNoEscopo(userId: number): Promise<Set<number>> {
+  const cadastros = await loadCadastrosForScope();
+  return new Set(escopoUnidades(cadastros, userId).map((item) => item.id));
 }
 
-function idsUnidadeNoEscopo(userId: number): Set<number> {
-  return new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
+  try {
+    return await requireUnitInScope(userId, unidadeId, condominioId);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "UNIT_NOT_FOUND") {
+      throw new PropostaNegociacaoServiceError("Unidade não encontrada.", 404);
+    }
+    if (code === "UNIT_CONDO_MISMATCH") {
+      throw new PropostaNegociacaoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
+    }
+    if (code === "UNIT_OUT_OF_SCOPE") {
+      throw new PropostaNegociacaoServiceError("Unidade fora do seu escopo de acesso.", 403);
+    }
+    if (code === "CONDO_OUT_OF_SCOPE") {
+      throw new PropostaNegociacaoServiceError("Condomínio fora do seu escopo de acesso.", 403);
+    }
+    throw error;
+  }
 }
 
-function atribuicaoVigente(unidadeId: number) {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
-}
-
-function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
-  if (!unidade) {
-    throw new PropostaNegociacaoServiceError("Unidade não encontrada.", 404);
-  }
-  if (unidade.condominioId !== condominioId) {
-    throw new PropostaNegociacaoServiceError("A unidade não pertence ao condomínio selecionado.", 400);
-  }
-  if (!idsUnidadeNoEscopo(userId).has(unidadeId)) {
-    throw new PropostaNegociacaoServiceError("Unidade fora do seu escopo de acesso.", 403);
-  }
-  if (!idsCondominioNoEscopo(userId).has(condominioId)) {
-    throw new PropostaNegociacaoServiceError("Condomínio fora do seu escopo de acesso.", 403);
-  }
-  return unidade;
-}
-
-function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
+async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
   if (usuarioVeCarteiraGeral(userId)) return;
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new PropostaNegociacaoServiceError(
       "Esta cobrança não está na sua carteira. Peça redistribuição à administradora.",
@@ -96,7 +99,7 @@ function normalizarValorMonetario(raw: string): string {
   return numero.toFixed(2);
 }
 
-function validarDebitos(unidadeId: number, debitoIds: number[]) {
+async function validarDebitos(unidadeId: number, debitoIds: number[]) {
   if (!Array.isArray(debitoIds) || debitoIds.length === 0) {
     throw new PropostaNegociacaoServiceError("Selecione ao menos um débito vinculado à proposta.", 400);
   }
@@ -104,9 +107,8 @@ function validarDebitos(unidadeId: number, debitoIds: number[]) {
   if (idsUnicos.length === 0) {
     throw new PropostaNegociacaoServiceError("Débitos inválidos.", 400);
   }
-  const cadastros = getCadastros();
   for (const id of idsUnicos) {
-    const debito = cadastros.debitos.find((item) => item.id === id);
+    const debito = await findDebtById(id);
     if (!debito) {
       throw new PropostaNegociacaoServiceError(`Débito ${id} não encontrado.`, 400);
     }
@@ -117,7 +119,7 @@ function validarDebitos(unidadeId: number, debitoIds: number[]) {
   return idsUnicos;
 }
 
-function validarEntrada(input: PropostaNegociacaoInput) {
+async function validarEntrada(input: PropostaNegociacaoInput) {
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
     throw new PropostaNegociacaoServiceError("Selecione o condomínio.", 400);
   }
@@ -125,7 +127,7 @@ function validarEntrada(input: PropostaNegociacaoInput) {
     throw new PropostaNegociacaoServiceError("Selecione a unidade.", 400);
   }
   const valorProposto = normalizarValorMonetario(input.valorProposto);
-  const debitoIds = validarDebitos(input.unidadeId, input.debitoIds);
+  const debitoIds = await validarDebitos(input.unidadeId, input.debitoIds);
   return {
     valorProposto,
     observacoes: (input.observacoes ?? "").trim(),
@@ -151,9 +153,12 @@ function validarTransicaoStatus(anterior: string, proximo: string) {
   }
 }
 
-export function listarPropostasNegociacao(userId: number, filtros?: PropostaNegociacaoFiltros): PropostaNegociacao[] {
-  const idsUnidade = idsUnidadeNoEscopo(userId);
-  let lista = getCadastros().propostasNegociacao.filter((item) => idsUnidade.has(item.unidadeId));
+export async function listarPropostasNegociacao(
+  userId: number,
+  filtros?: PropostaNegociacaoFiltros,
+): Promise<PropostaNegociacao[]> {
+  const idsUnidade = await idsUnidadeNoEscopo(userId);
+  let lista = (await listNegotiationProposals()).filter((item) => idsUnidade.has(item.unidadeId));
   if (!usuarioVeCarteiraGeral(userId)) {
     lista = lista.filter((item) => item.usuarioId === userId);
   }
@@ -166,12 +171,13 @@ export function listarPropostasNegociacao(userId: number, filtros?: PropostaNego
   return [...lista].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
 }
 
-export function obterPropostaNegociacao(userId: number, id: string): PropostaNegociacao {
-  const proposta = getCadastros().propostasNegociacao.find((item) => item.id === id);
+export async function obterPropostaNegociacao(userId: number, id: string): Promise<PropostaNegociacao> {
+  const proposta = await findNegotiationProposalById(id);
   if (!proposta) {
     throw new PropostaNegociacaoServiceError("Proposta não encontrada.", 404);
   }
-  if (!idsUnidadeNoEscopo(userId).has(proposta.unidadeId)) {
+  const idsUnidade = await idsUnidadeNoEscopo(userId);
+  if (!idsUnidade.has(proposta.unidadeId)) {
     throw new PropostaNegociacaoServiceError("Proposta fora do seu escopo de acesso.", 403);
   }
   if (!usuarioVeCarteiraGeral(userId) && proposta.usuarioId !== userId) {
@@ -180,14 +186,14 @@ export function obterPropostaNegociacao(userId: number, id: string): PropostaNeg
   return proposta;
 }
 
-export function criarPropostaNegociacao(
+export async function criarPropostaNegociacao(
   userId: number,
   input: PropostaNegociacaoInput,
   meta?: { ip?: string; userAgent?: string },
-): PropostaNegociacao {
-  const dados = validarEntrada(input);
-  assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
-  assertCarteiraParaRegistrar(userId, input.unidadeId);
+): Promise<PropostaNegociacao> {
+  const dados = await validarEntrada(input);
+  await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+  await assertCarteiraParaRegistrar(userId, input.unidadeId);
 
   const registro: PropostaNegociacao = {
     id: crypto.randomUUID(),
@@ -204,43 +210,42 @@ export function criarPropostaNegociacao(
     termosAprovados: "",
   };
 
-  setPropostasNegociacao((current) => [...current, registro]);
-  registrarAuditoria(
-    {
-      entidade: "negotiation_proposal",
-      registroId: registro.id,
-      acao: "INSERT",
-      dadosAnteriores: "",
-      dadosNovos: JSON.stringify({
-        unidadeId: registro.unidadeId,
-        valorProposto: registro.valorProposto,
-        status: registro.status,
-        debitoIds: registro.debitoIds,
-      }),
-      camposAlterados: "unidade_id, valor_proposto, status, debito_ids",
-    },
+  const criada = await createNegotiationProposal(registro);
+  await writeAuditLog({
+    entity: "negotiation_proposal",
+    recordId: criada.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      unidadeId: criada.unidadeId,
+      valorProposto: criada.valorProposto,
+      status: criada.status,
+      debitoIds: criada.debitoIds,
+    }),
+    changedFields: "unidade_id, valor_proposto, status, debito_ids",
     userId,
-    meta,
-  );
-  return registro;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criada;
 }
 
-export function atualizarStatusPropostaNegociacao(
+export async function atualizarStatusPropostaNegociacao(
   userId: number,
   id: string,
   input: PropostaNegociacaoStatusInput,
   meta?: { ip?: string; userAgent?: string },
-): PropostaNegociacao {
+): Promise<PropostaNegociacao> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new PropostaNegociacaoServiceError("Sem permissão para alterar o status da proposta.", 403);
   }
 
-  const anterior = getCadastros().propostasNegociacao.find((item) => item.id === id);
+  const anterior = await findNegotiationProposalById(id);
   if (!anterior) {
     throw new PropostaNegociacaoServiceError("Proposta não encontrada.", 404);
   }
-  assertUnidadeNoEscopo(userId, anterior.unidadeId, anterior.condominioId);
+  await assertUnidadeNoEscopo(userId, anterior.unidadeId, anterior.condominioId);
 
   const status = input.status.trim();
   if (!statusPropostaNegociacao.includes(status as (typeof statusPropostaNegociacao)[number])) {
@@ -272,24 +277,23 @@ export function atualizarStatusPropostaNegociacao(
     acordoConfirmadoPorId,
   };
 
-  setPropostasNegociacao((current) => current.map((item) => (item.id === id ? atualizado : item)));
-  registrarAuditoria(
-    {
-      entidade: "negotiation_proposal",
-      registroId: id,
-      acao: "UPDATE",
-      dadosAnteriores: JSON.stringify({ status: anterior.status }),
-      dadosNovos: JSON.stringify({
-        status: atualizado.status,
-        termosAprovados: atualizado.termosAprovados,
-        acordoConfirmadoEm: atualizado.acordoConfirmadoEm,
-      }),
-      camposAlterados: "status, termos_aprovados, acordo_confirmado_em",
-    },
+  const salvo = await updateNegotiationProposal(atualizado);
+  await writeAuditLog({
+    entity: "negotiation_proposal",
+    recordId: id,
+    action: "UPDATE",
+    previousData: JSON.stringify({ status: anterior.status }),
+    newData: JSON.stringify({
+      status: salvo.status,
+      termosAprovados: salvo.termosAprovados,
+      acordoConfirmadoEm: salvo.acordoConfirmadoEm,
+    }),
+    changedFields: "status, termos_aprovados, acordo_confirmado_em",
     userId,
-    meta,
-  );
-  return atualizado;
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
 }
 
 export function requestMeta(request: Request) {

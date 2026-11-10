@@ -47,7 +47,6 @@ import {
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
-import { sincronizarUsuariosDoServidor } from "@/lib/usuarios/sync-cliente";
 import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { acoesAuditoria, formatarData, type Auditoria } from "@/data/catalogo";
 import type { PeriodValue } from "@/components/period-input";
@@ -63,7 +62,6 @@ import {
   textoTecnicoFormatado,
 } from "@/lib/auditoria/apresentacao";
 import { rotuloAutorAuditoria } from "@/lib/auditoria/autor";
-import { sincronizarAuditoriaDoServidor } from "@/lib/auditoria/sync-cliente";
 
 type SortKey = "data" | "tipo" | "acao";
 
@@ -107,6 +105,7 @@ export default function AuditoriaPage() {
   const { toast } = useToast();
   const { user: sessao } = useAuth();
   const cadastros = useCadastros();
+  const { refetch } = useCadastrosStatus();
   const [registros, setRegistros] = useState<Auditoria[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState("");
@@ -140,7 +139,7 @@ export default function AuditoriaPage() {
         .then(async (response) => {
           if (!response.ok) return;
           const payload = (await response.json()) as { usuarios?: UsuarioPublico[] };
-          if (payload.usuarios) sincronizarUsuariosDoServidor(payload.usuarios);
+          if (payload.usuarios) void refetch()
         })
         .catch(() => undefined);
 
@@ -162,7 +161,7 @@ export default function AuditoriaPage() {
       }
       const body = (await response.json()) as { auditoria?: Auditoria[] };
       const lista = body.auditoria ?? [];
-      sincronizarAuditoriaDoServidor(lista);
+      void refetch()
       setRegistros(lista);
     } catch {
       setErroCarregamento("Não foi possível carregar o histórico.");
@@ -284,7 +283,7 @@ export default function AuditoriaPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `historico-alteracoes-${new Date().toISOString().slice(0, 10)}`;
+    const arquivoBase = `historico-alteracoes-${new Date..toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });

@@ -3,14 +3,22 @@ import {
   debitoEmAberto,
   escopoCondominios,
   escopoUnidades,
-  getCadastros,
-  proximoNumero,
-  registrarAuditoria,
-  setAtribuicoesCobranca,
   unidadeNaFilaCobrancaAtiva,
   type AtribuicaoCobranca,
+  type Cadastros,
   type Unidade,
 } from "@/data/catalogo";
+import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
+import {
+  listCollectionAssignments,
+  nextCollectionAssignmentId,
+  updateCollectionAssignment,
+  upsertCollectionAssignments,
+  createCollectionAssignment,
+} from "@/lib/db/repositories/collection-repository";
+import { getAppSetting, setAppSetting } from "@/lib/db/repositories/app-setting-repository";
+import { invalidateServiceContextCache } from "@/lib/db/service-context";
 import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re";
 import { emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
@@ -92,6 +100,20 @@ let configDistribuicaoAutomatica: DistribuicaoAutomaticaConfig = {
   estrategia: "carga",
 };
 
+let cadastrosMemoria: Cadastros | null = null;
+
+async function prepararCadastrosDistribuicao(): Promise<Cadastros> {
+  cadastrosMemoria = await loadFullOperationalCadastros();
+  return cadastrosMemoria;
+}
+
+function cadastrosAtual(): Cadastros {
+  if (!cadastrosMemoria) {
+    throw new DistribuicaoServiceError("Catálogo operacional não carregado.", 503);
+  }
+  return cadastrosMemoria;
+}
+
 export function distribuicaoAutomaticaDisponivel(): true {
   return true;
 }
@@ -100,10 +122,10 @@ export function obterConfigDistribuicaoAutomatica(): DistribuicaoAutomaticaConfi
   return { ...configDistribuicaoAutomatica };
 }
 
-export function atualizarConfigDistribuicaoAutomatica(
+export async function atualizarConfigDistribuicaoAutomatica(
   userId: number,
   patch: Partial<DistribuicaoAutomaticaConfig>,
-): DistribuicaoAutomaticaConfig {
+): Promise<DistribuicaoAutomaticaConfig> {
   assertGerenciaDistribuicao(userId);
   configDistribuicaoAutomatica = {
     ...configDistribuicaoAutomatica,
@@ -111,11 +133,30 @@ export function atualizarConfigDistribuicaoAutomatica(
     estrategia: patch.estrategia ?? configDistribuicaoAutomatica.estrategia,
     ativada: patch.ativada ?? configDistribuicaoAutomatica.ativada,
   };
-  return obterConfigDistribuicaoAutomatica();
+  const snapshot = obterConfigDistribuicaoAutomatica();
+  await setAppSetting("distribuicao_automatica", snapshot);
+  return snapshot;
 }
 
-export function contarUnidadesAguardandoAtribuicao(userId: number): number {
-  return listarFilaCobranca(userId).filter((item) => !item.codigoRe).length;
+const ESTRATEGIAS_VALIDAS: DistribuicaoAutomaticaEstrategia[] = ["carga", "rodizio", "condominio", "volume"];
+
+export async function hidratarConfigDistribuicaoDoPostgres(): Promise<void> {
+  const valor = await getAppSetting("distribuicao_automatica");
+  if (!valor || typeof valor !== "object") return;
+  const raw = valor as Record<string, unknown>;
+  const estrategia = raw.estrategia;
+  configDistribuicaoAutomatica = {
+    ativada: raw.ativada !== false,
+    estrategia:
+      typeof estrategia === "string" && ESTRATEGIAS_VALIDAS.includes(estrategia as DistribuicaoAutomaticaEstrategia)
+        ? (estrategia as DistribuicaoAutomaticaEstrategia)
+        : configDistribuicaoAutomatica.estrategia,
+  };
+}
+
+export async function contarUnidadesAguardandoAtribuicao(userId: number): Promise<number> {
+  const fila = await listarFilaCobranca(userId);
+  return fila.filter((item) => !item.codigoRe).length;
 }
 
 function listarAtendentesAtivosComRe(): AtendenteComRe[] {
@@ -151,12 +192,12 @@ function escolherReRodizio(indice: number): { atendente: AtendenteComRe; proximo
 }
 
 function contagemUnidadesPorReNoCondominio(userId: number, condominioId: number): Map<number, number> {
-  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
   const contagem = new Map<number, number>();
-  for (const registro of getCadastros().atribuicoesCobranca) {
+  for (const registro of cadastrosAtual().atribuicoesCobranca) {
     if (registro.encerradoEm) continue;
     if (!idsEscopo.has(registro.unidadeId)) continue;
-    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
     if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
     if (unidade.condominioId !== condominioId) continue;
     contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
@@ -188,7 +229,7 @@ function escolherRePorCondominio(
 
 function valorNumericoInadimplenciaUnidade(unidadeId: number): number {
   let total = 0;
-  for (const debito of getCadastros().debitos) {
+  for (const debito of cadastrosAtual().debitos) {
     if (debito.unidadeId !== unidadeId || !debitoEmAberto(debito)) continue;
     const valor = Number.parseFloat(debito.valorAtualizado || debito.valor || "0");
     if (Number.isFinite(valor)) total += valor;
@@ -197,12 +238,12 @@ function valorNumericoInadimplenciaUnidade(unidadeId: number): number {
 }
 
 function montarVolumeInadimplenciaPorRe(userId: number): Map<number, number> {
-  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
   const volume = new Map<number, number>();
-  for (const registro of getCadastros().atribuicoesCobranca) {
+  for (const registro of cadastrosAtual().atribuicoesCobranca) {
     if (registro.encerradoEm) continue;
     if (!idsEscopo.has(registro.unidadeId)) continue;
-    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
     if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
     volume.set(
       registro.atendenteId,
@@ -264,9 +305,9 @@ function escolherReParaUnidadePendente(
 
 function listarCarteiraGlobalPorRe(): CarteiraReResumo[] {
   const contagem = new Map<number, number>();
-  for (const registro of getCadastros().atribuicoesCobranca) {
+  for (const registro of cadastrosAtual().atribuicoesCobranca) {
     if (registro.encerradoEm) continue;
-    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
     if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
     contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
   }
@@ -279,9 +320,9 @@ function listarCarteiraGlobalPorRe(): CarteiraReResumo[] {
 
 function montarVolumeInadimplenciaGlobalPorRe(): Map<number, number> {
   const volume = new Map<number, number>();
-  for (const registro of getCadastros().atribuicoesCobranca) {
+  for (const registro of cadastrosAtual().atribuicoesCobranca) {
     if (registro.encerradoEm) continue;
-    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
     if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
     volume.set(
       registro.atendenteId,
@@ -294,7 +335,7 @@ function montarVolumeInadimplenciaGlobalPorRe(): Map<number, number> {
 function listarUnidadesPendentesSemRe(unidadeIds?: number[]): Array<{ unidadeId: number; condominioId: number }> {
   const filtro = unidadeIds && unidadeIds.length > 0 ? new Set(unidadeIds) : null;
   const pendentes: Array<{ unidadeId: number; condominioId: number }> = [];
-  for (const unidade of getCadastros().unidades) {
+  for (const unidade of cadastrosAtual().unidades) {
     if (filtro && !filtro.has(unidade.id)) continue;
     if (!unidadeElegivelDistribuicao(unidade)) continue;
     if (atribuicaoVigente(unidade.id)) continue;
@@ -308,7 +349,7 @@ function listarUnidadesPendentesSemRe(unidadeIds?: number[]): Array<{ unidadeId:
  * `escopoGlobal` ignora carteira do usuário — usado após importação de inadimplência.
  * `preferirAtendenteId`: quando o autor da importação é atendente com RE, prioriza a carteira dele.
  */
-function executarDistribuicaoAutomaticaCore(
+async function executarDistribuicaoAutomaticaCore(
   atribuidoPorId: number,
   meta: { ip?: string; userAgent?: string } | undefined,
   opcoes: {
@@ -317,10 +358,10 @@ function executarDistribuicaoAutomaticaCore(
     escopoGlobal?: boolean;
     preferirAtendenteId?: number;
   },
-): ExecutarDistribuicaoAutomaticaResultado {
+): Promise<ExecutarDistribuicaoAutomaticaResultado> {
   const pendentes = opcoes.escopoGlobal
     ? listarUnidadesPendentesSemRe(opcoes.unidadeIds)
-    : listarFilaCobranca(opcoes.escopoUserId ?? atribuidoPorId)
+    : (await listarFilaCobranca(opcoes.escopoUserId ?? atribuidoPorId))
         .filter((item) => !item.codigoRe)
         .filter((item) => !opcoes.unidadeIds?.length || opcoes.unidadeIds.includes(item.unidadeId))
         .map((item) => ({ unidadeId: item.unidadeId, condominioId: item.condominioId }));
@@ -364,7 +405,7 @@ function executarDistribuicaoAutomaticaCore(
     const { atendente, proximoIndiceRodizio } = escolhido;
     indiceRodizio = proximoIndiceRodizio;
 
-    const resultado = distribuirUnidades(
+    const resultado = await distribuirUnidades(
       usuarioDistribuicao,
       {
         unidadeIds: [item.unidadeId],
@@ -397,7 +438,7 @@ function executarDistribuicaoAutomaticaCore(
 }
 
 function resolverUsuarioGestaoDistribuicao(): number {
-  const cadastros = getCadastros();
+  const cadastros = cadastrosAtual();
   const gestor = cadastros.usuarios.find(
     (item) => item.ativo && temPermissao(permissoesDoUsuarioId(item.id), "usuarios", "criar"),
   );
@@ -407,10 +448,11 @@ function resolverUsuarioGestaoDistribuicao(): number {
   return gestor.id;
 }
 
-export function executarDistribuicaoAutomatica(
+export async function executarDistribuicaoAutomatica(
   userId: number,
   meta?: { ip?: string; userAgent?: string },
-): ExecutarDistribuicaoAutomaticaResultado {
+): Promise<ExecutarDistribuicaoAutomaticaResultado> {
+  await prepararCadastrosDistribuicao();
   assertGerenciaDistribuicao(userId);
   if (!configDistribuicaoAutomatica.ativada) {
     throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
@@ -422,12 +464,13 @@ export function executarDistribuicaoAutomatica(
  * Se a distribuição automática estiver ativada, atribui RE às unidades sem responsável
  * (ex.: após confirmação de novas inadimplências). Não exige permissão do autor da importação.
  */
-export function dispararDistribuicaoAutomaticaSeAtivada(
+export async function dispararDistribuicaoAutomaticaSeAtivada(
   autorUserId: number,
   meta?: { ip?: string; userAgent?: string },
   opcoes?: { unidadeIds?: number[] },
-): ExecutarDistribuicaoAutomaticaResultado | null {
+): Promise<ExecutarDistribuicaoAutomaticaResultado | null> {
   if (!configDistribuicaoAutomatica.ativada) return null;
+  await prepararCadastrosDistribuicao();
   const autor = autorUserId > 0 ? autorUserId : resolverUsuarioGestaoDistribuicao();
   const preferirAtendenteId = listarAtendentesComRe().some((item) => item.id === autor) ? autor : undefined;
   return executarDistribuicaoAutomaticaCore(autor, meta, {
@@ -449,7 +492,7 @@ function assertGerenciaDistribuicao(userId: number) {
 }
 
 function idsCondominioNoEscopo(userId: number): Set<number> {
-  return new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+  return new Set(escopoCondominios(cadastrosAtual(), userId).map((item) => item.id));
 }
 
 function unidadeNoEscopo(userId: number, unidade: Unidade) {
@@ -465,7 +508,7 @@ function unidadeElegivelDistribuicao(unidade: Unidade) {
 }
 
 function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
+  return cadastrosAtual().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
 }
 
 function normalizarRe(codigoRe: string) {
@@ -477,7 +520,7 @@ function resolverAtendentePorRe(codigoRe: string) {
   if (!alvo) {
     throw new DistribuicaoServiceError("Informe o RE do atendente.", 400);
   }
-  const usuario = getCadastros().usuarios.find(
+  const usuario = cadastrosAtual().usuarios.find(
     (item) => codigoReDoUsuario(item)?.toUpperCase() === alvo,
   );
   if (!usuario || !usuarioEhAtendente(usuario)) {
@@ -488,12 +531,12 @@ function resolverAtendentePorRe(codigoRe: string) {
 
 function rotuloReUsuarioId(userId: number | null | undefined) {
   if (!userId) return null;
-  const usuario = getCadastros().usuarios.find((item) => item.id === userId);
+  const usuario = cadastrosAtual().usuarios.find((item) => item.id === userId);
   return usuario ? codigoReDoUsuario(usuario) : null;
 }
 
 function montarHistoricoItem(registro: AtribuicaoCobranca): HistoricoAtribuicaoItem {
-  const cadastros = getCadastros();
+  const cadastros = cadastrosAtual();
   const unidade = cadastros.unidades.find((item) => item.id === registro.unidadeId);
   const condominio = unidade ? cadastros.condominios.find((item) => item.id === unidade.condominioId) : undefined;
   return {
@@ -510,15 +553,16 @@ function montarHistoricoItem(registro: AtribuicaoCobranca): HistoricoAtribuicaoI
   };
 }
 
-export function listarCarteiraPorRe(userId: number): CarteiraReResumo[] {
+export async function listarCarteiraPorRe(userId: number): Promise<CarteiraReResumo[]> {
+  await prepararCadastrosDistribuicao();
   assertGerenciaDistribuicao(userId);
-  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
   const contagem = new Map<number, number>();
 
-  for (const registro of getCadastros().atribuicoesCobranca) {
+  for (const registro of cadastrosAtual().atribuicoesCobranca) {
     if (registro.encerradoEm) continue;
     if (!idsEscopo.has(registro.unidadeId)) continue;
-    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
     if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
     contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
   }
@@ -530,15 +574,16 @@ export function listarCarteiraPorRe(userId: number): CarteiraReResumo[] {
   }));
 }
 
-export function listarHistoricoAtribuicoes(
+export async function listarHistoricoAtribuicoes(
   userId: number,
   opcoes?: { unidadeId?: number; limit?: number },
-): HistoricoAtribuicaoItem[] {
+): Promise<HistoricoAtribuicaoItem[]> {
+  await prepararCadastrosDistribuicao();
   assertGerenciaDistribuicao(userId);
-  const idsEscopo = new Set(escopoUnidades(getCadastros(), userId).map((item) => item.id));
+  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
   const limit = Math.min(200, Math.max(1, opcoes?.limit ?? 50));
 
-  let lista = getCadastros().atribuicoesCobranca.filter((item) => idsEscopo.has(item.unidadeId));
+  let lista = cadastrosAtual().atribuicoesCobranca.filter((item) => idsEscopo.has(item.unidadeId));
   if (opcoes?.unidadeId) {
     lista = lista.filter((item) => item.unidadeId === opcoes.unidadeId);
   }
@@ -555,12 +600,13 @@ export type DistribuirUnidadesOpcoes = {
   ignorarEscopo?: boolean;
 };
 
-export function distribuirUnidades(
+export async function distribuirUnidades(
   userId: number,
   input: DistribuirInput,
   meta?: { ip?: string; userAgent?: string },
   opcoes?: DistribuirUnidadesOpcoes,
-): DistribuirResultado {
+): Promise<DistribuirResultado> {
+  await prepararCadastrosDistribuicao();
   assertGerenciaDistribuicao(userId);
 
   const ids = [...new Set(input.unidadeIds.filter((id) => Number.isFinite(id) && id > 0))];
@@ -575,7 +621,7 @@ export function distribuirUnidades(
   const atribuidoPorId = opcoes?.atribuidoPorIdOverride ?? userId;
 
   for (const unidadeId of ids) {
-    const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+    const unidade = cadastrosAtual().unidades.find((item) => item.id === unidadeId);
     if (!unidade) {
       erros.push(`Unidade ${unidadeId} não encontrada.`);
       continue;
@@ -602,8 +648,8 @@ export function distribuirUnidades(
   const agora = agoraIso();
   let ignoradasMesmoResponsavel = 0;
   const novosRegistros: AtribuicaoCobranca[] = [];
-  const cadastros = getCadastros();
-  let nextId = proximoNumero(cadastros.atribuicoesCobranca.map((item) => item.id));
+  const cadastros = cadastrosAtual();
+  let nextId = await nextCollectionAssignmentId();
 
   const atualizados = [...cadastros.atribuicoesCobranca];
 
@@ -634,28 +680,33 @@ export function distribuirUnidades(
     atualizados.push(novo);
     novosRegistros.push(novo);
 
-    registrarAuditoria(
-      {
-        entidade: "collection_assignment",
-        registroId: String(novo.id),
-        acao: item.vigente ? "UPDATE" : "INSERT",
-        dadosAnteriores: item.vigente ? rotuloReUsuarioId(item.vigente.atendenteId) ?? "" : "",
-        dadosNovos: codigoReDoUsuario(atendente) ?? "",
-        camposAlterados: "atendente_id, anterior_atendente_id, motivo",
-      },
-      atribuidoPorId,
-      meta,
-    );
+    if (item.vigente) {
+      const fechado = atualizados.find((reg) => reg.id === item.vigente!.id);
+      if (fechado) await updateCollectionAssignment(fechado);
+    }
+    await createCollectionAssignment(novo);
+    await writeAuditLog({
+      entity: "collection_assignment",
+      recordId: String(novo.id),
+      action: item.vigente ? "UPDATE" : "INSERT",
+      previousData: item.vigente ? rotuloReUsuarioId(item.vigente.atendenteId) ?? "" : "",
+      newData: codigoReDoUsuario(atendente) ?? "",
+      changedFields: "atendente_id, anterior_atendente_id, motivo",
+      userId: atribuidoPorId,
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+    });
   }
 
   if (novosRegistros.length === 0 && ignoradasMesmoResponsavel === ids.length) {
     return { atribuidas: 0, ignoradasMesmoResponsavel, atribuicoes: [] };
   }
 
-  setAtribuicoesCobranca(atualizados);
+  cadastrosMemoria = { ...cadastrosAtual(), atribuicoesCobranca: atualizados };
+  invalidateServiceContextCache();
 
   for (const registro of novosRegistros) {
-    emitirNotificacaoCobrancaAtribuida(registro);
+    await emitirNotificacaoCobrancaAtribuida(registro);
   }
 
   return {

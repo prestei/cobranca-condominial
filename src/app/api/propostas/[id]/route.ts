@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const proposta = obterPropostaNegociacao(session.userId, id);
+    const proposta = await obterPropostaNegociacao(session.userId, id);
     return Response.json({ proposta });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {
@@ -64,7 +64,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const proposta = atualizarStatusPropostaNegociacao(session.userId, id, input, requestMeta(request));
+    const proposta = await atualizarStatusPropostaNegociacao(session.userId, id, input, requestMeta(request));
     return Response.json({ proposta });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {

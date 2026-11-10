@@ -5,7 +5,7 @@ import {
   escopoCondominios,
   escopoUnidades,
   faixasAtraso,
-  getCadastros,
+  type Cadastros,
   grupoDebito,
   gruposDebito,
   hojeIso,
@@ -22,6 +22,7 @@ import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import type { MetaPainelIndicadores } from "@/lib/indicadores/meta";
 import { metaDashboard } from "@/lib/indicadores/meta";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { listarRetornosAgenda, type RetornoAgendaItem } from "@/lib/retornos/service";
 import {
   contarIndicadoresOperacionaisAtendente,
@@ -147,6 +148,15 @@ export type DashboardAdvogado = DashboardComum & {
 
 export type DashboardPayload = DashboardAdministradora | DashboardAtendente | DashboardAdvogado;
 
+let cadastrosDashboard: Cadastros | null = null;
+
+function cadastrosDash(): Cadastros {
+  if (!cadastrosDashboard) {
+    throw new DashboardServiceError("Catálogo não carregado.", 503);
+  }
+  return cadastrosDashboard;
+}
+
 function resolverPerfil(userId: number): DashboardPerfil {
   const perm = permissoesDoUsuarioId(userId);
   if (temPermissao(perm, "usuarios", "criar")) return "administradora";
@@ -155,7 +165,7 @@ function resolverPerfil(userId: number): DashboardPerfil {
 }
 
 function cargoDoUsuario(userId: number) {
-  const cadastros = getCadastros();
+  const cadastros = cadastrosDash();
   const usuario = cadastros.usuarios.find((item) => item.id === userId);
   const cargo = usuario ? cadastros.cargos.find((item) => item.id === usuario.cargoId) : undefined;
   return cargo?.nome ?? "—";
@@ -169,16 +179,16 @@ function periodoUltimos7Dias(hoje: string) {
   return { inicio, fim };
 }
 
-function calcularOperacaoSemana(userId: number, hoje: string): DashboardOperacaoSemana {
+async function calcularOperacaoSemana(userId: number, hoje: string): Promise<DashboardOperacaoSemana> {
   const periodo = periodoUltimos7Dias(hoje);
-  const atendimentos = listarAtendimentos(userId).filter((item) => {
+  const atendimentos = (await listarAtendimentos(userId)).filter((item) => {
     const dia = item.dataHora.slice(0, 10);
     return dia >= periodo.inicio && dia <= periodo.fim;
   });
   const responderam = atendimentos.filter((item) => item.respondeu === "Sim").length;
   const taxaResposta = atendimentos.length ? (responderam / atendimentos.length) * 100 : null;
   const unidadesContatadas = new Set(atendimentos.map((item) => item.unidadeId)).size;
-  const retornosAgenda = listarRetornosAgenda(userId, { estado: "pendente" });
+  const retornosAgenda = await listarRetornosAgenda(userId, { estado: "pendente" });
   const retornosPendentes = retornosAgenda.total;
 
   const serieMapa = new Map<string, { quantidade: number; respostas: number }>();
@@ -228,13 +238,17 @@ function calcularOperacaoSemana(userId: number, hoje: string): DashboardOperacao
   };
 }
 
-function debitosAbertosEscopo(userId: number, dataBase: string): Debito[] {
-  return listarDebitos(userId).filter((item) => debitoAbertoNaData(item, dataBase));
+async function debitosAbertosEscopo(userId: number, dataBase: string): Promise<Debito[]> {
+  return (await listarDebitos(userId)).filter((item) => debitoAbertoNaData(item, dataBase));
 }
 
-function rankingCondominios(userId: number, dataBase: string, limiteDias: number): DashboardRankingCondominio[] {
-  const cadastros = getCadastros();
-  const debitos = debitosAbertosEscopo(userId, dataBase);
+async function rankingCondominios(
+  userId: number,
+  dataBase: string,
+  _limiteDias: number,
+): Promise<DashboardRankingCondominio[]> {
+  const cadastros = cadastrosDash();
+  const debitos = await debitosAbertosEscopo(userId, dataBase);
   const idsCondominio = new Set(debitos.map((item) => item.condominioId));
 
   return [...idsCondominio]
@@ -286,7 +300,7 @@ function distribuicaoAdvogados(
   dataBase: string,
   limiteDias: number,
 ): DashboardAdvogadoBarra[] {
-  const cadastros = getCadastros();
+  const cadastros = cadastrosDash();
   const condominios = escopoCondominios(cadastros, userId);
   const advogados = [...new Set(condominios.flatMap((item) => item.advogados))].sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
@@ -323,8 +337,8 @@ function mapRetornoItens(itens: RetornoAgendaItem[], limite = 12): DashboardReto
   }));
 }
 
-function retornosPendentesDashboard(userId: number) {
-  const resultado = listarRetornosAgenda(userId, { estado: "pendente" }, { page: 1, pageSize: 50 });
+async function retornosPendentesDashboard(userId: number) {
+  const resultado = await listarRetornosAgenda(userId, { estado: "pendente" }, { page: 1, pageSize: 50 });
   const itensOrdenados = [...resultado.itens].sort((a, b) => a.dataPrevista.localeCompare(b.dataPrevista));
   return {
     resumo: resultado.resumo,
@@ -332,18 +346,22 @@ function retornosPendentesDashboard(userId: number) {
   };
 }
 
-function indicadoresEscopo(userId: number, dataBase: string, limiteDias: number): DebitoIndicadores | null {
+async function indicadoresEscopo(
+  userId: number,
+  dataBase: string,
+  limiteDias: number,
+): Promise<DebitoIndicadores | null> {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "debitos", "ler")) return null;
-  const cadastros = getCadastros();
+  const cadastros = cadastrosDash();
   const unidadesCarteira = escopoUnidades(cadastros, userId).length;
   return obterIndicadoresDebitos(userId, { dataBase, limiteDias, unidadesCarteira, filtros: {} });
 }
 
-function resumoJuridico(userId: number) {
+async function resumoJuridico(userId: number) {
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "juridico", "ler")) return null;
-  const lista = listarEncaminhamentosJuridicos(userId);
+  const lista = await listarEncaminhamentosJuridicos(userId);
   const abertos = lista.filter((item) => item.status !== "Arquivado" && item.status !== "Retornado à cobrança amigável");
   const mapa = new Map<string, number>();
   for (const item of lista) {
@@ -355,7 +373,11 @@ function resumoJuridico(userId: number) {
   return { total: lista.length, abertos: abertos.length, porStatus };
 }
 
-export function obterDashboard(userId: number, input?: { dataBase?: string; limiteDias?: number }): DashboardPayload {
+export async function obterDashboard(
+  userId: number,
+  input?: { dataBase?: string; limiteDias?: number },
+): Promise<DashboardPayload> {
+  cadastrosDashboard = await loadFullOperationalCadastros();
   const perm = permissoesDoUsuarioId(userId);
   if (!temPermissao(perm, "dashboard", "ler")) {
     throw new DashboardServiceError("Sem permissão para consultar o dashboard.", 403);
@@ -372,11 +394,11 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
   const comum = { dataBase, limiteDias, cargoNome, meta: metaDashboard(dataBase, limiteDias) };
 
   if (perfil === "administradora") {
-    const indicadores = indicadoresEscopo(userId, dataBase, limiteDias);
+    const indicadores = await indicadoresEscopo(userId, dataBase, limiteDias);
     if (!indicadores) {
       throw new DashboardServiceError("Indicadores de inadimplência indisponíveis para este perfil.", 500);
     }
-    const debitos = debitosAbertosEscopo(userId, dataBase);
+    const debitos = await debitosAbertosEscopo(userId, dataBase);
     const totalAberto = indicadores.totalAtualizado;
     const parteJuridicaPercentual = totalAberto > 0 ? (indicadores.acimaLimite / totalAberto) * 100 : null;
 
@@ -384,10 +406,10 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
       perfil,
       ...comum,
       indicadores,
-      fila: resumoFilaCobranca(userId),
-      operacao: calcularOperacaoSemana(userId, hoje),
-      retornos: retornosPendentesDashboard(userId),
-      rankingCondominio: rankingCondominios(userId, dataBase, limiteDias).slice(0, 12),
+      fila: await resumoFilaCobranca(userId),
+      operacao: await calcularOperacaoSemana(userId, hoje),
+      retornos: await retornosPendentesDashboard(userId),
+      rankingCondominio: (await rankingCondominios(userId, dataBase, limiteDias)).slice(0, 12),
       porGrupo: distribuicaoGrupos(debitos, totalAberto),
       porFaixa: distribuicaoFaixas(debitos, dataBase, totalAberto),
       porAdvogado: distribuicaoAdvogados(userId, debitos, dataBase, limiteDias),
@@ -397,26 +419,28 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
   }
 
   if (perfil === "atendente") {
-    const operacao = calcularOperacaoSemana(userId, hoje);
-    const atendimentosHoje = listarAtendimentos(userId).filter((item) => item.dataHora.slice(0, 10) === hoje).length;
+    const operacao = await calcularOperacaoSemana(userId, hoje);
+    const atendimentosHoje = (await listarAtendimentos(userId)).filter(
+      (item) => item.dataHora.slice(0, 10) === hoje,
+    ).length;
     const indicadoresOperacionais = contarIndicadoresOperacionaisAtendente(userId, operacao.periodo);
     return {
       perfil,
       ...comum,
-      fila: resumoFilaCobranca(userId),
+      fila: await resumoFilaCobranca(userId),
       atendimentosHoje,
       operacao,
       indicadoresOperacionais,
-      retornos: retornosPendentesDashboard(userId),
-      indicadores: indicadoresEscopo(userId, dataBase, limiteDias),
+      retornos: await retornosPendentesDashboard(userId),
+      indicadores: await indicadoresEscopo(userId, dataBase, limiteDias),
       graficos: montarGraficosAtendente(userId, { dataBase, limiteDias }),
     };
   }
 
-  const cadastros = getCadastros();
+  const cadastros = cadastrosDash();
   const condominiosEscopo = escopoCondominios(cadastros, userId);
   const retornos =
-    temPermissao(perm, "atendimentos", "ler") ? retornosPendentesDashboard(userId) : null;
+    temPermissao(perm, "atendimentos", "ler") ? await retornosPendentesDashboard(userId) : null;
 
   return {
     perfil: "advogado",
@@ -425,9 +449,9 @@ export function obterDashboard(userId: number, input?: { dataBase?: string; limi
       total: condominiosEscopo.length,
       itens: condominiosEscopo.map((item) => ({ id: item.id, nome: item.nome, status: item.status })),
     },
-    indicadores: indicadoresEscopo(userId, dataBase, limiteDias),
-    rankingCondominio: rankingCondominios(userId, dataBase, limiteDias).slice(0, 10),
-    juridico: resumoJuridico(userId),
+    indicadores: await indicadoresEscopo(userId, dataBase, limiteDias),
+    rankingCondominio: (await rankingCondominios(userId, dataBase, limiteDias)).slice(0, 10),
+    juridico: await resumoJuridico(userId),
     retornos,
   };
 }

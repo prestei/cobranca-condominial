@@ -1,4 +1,4 @@
-import { getCadastros } from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
 import {
   criarUnidade,
@@ -26,9 +26,9 @@ export async function GET() {
   if (isErrorResponse(session)) return session;
   const denied = await requirePermissao(session, "unidades", "ler");
   if (denied) return denied;
-  const unidades = listarUnidades(session.userId);
+  const unidades = await listarUnidades(session.userId);
   const unidadeIds = new Set(unidades.map((item) => item.id));
-  const cadastros = getCadastros();
+  const cadastros = (await loadFullOperationalCadastros());
   const vinculos = cadastros.vinculos.filter((item) => unidadeIds.has(item.unidadeId));
   const responsavelIds = new Set(vinculos.map((item) => item.responsavelId));
   const responsaveis = cadastros.responsaveis.filter((item) => responsavelIds.has(item.id));

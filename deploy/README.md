@@ -58,6 +58,27 @@ sudo bash deploy/scripts/ci-remote-deploy.sh
 
 ## Auto-deploy
 
+Há **dois** caminhos (podem coexistir):
+
+### 1. GitHub Actions (push em `main`)
+
+Workflow: `.github/workflows/deploy.yml` — rsync + `ci-remote-deploy.sh` na VPS.
+
+Secrets do repositório (Settings → Secrets and variables → Actions):
+
+| Secret | Conteúdo |
+| --- | --- |
+| `VPS_HOST` | IP ou hostname da VPS |
+| `VPS_USER` | Usuário SSH (ex.: `root`) |
+| `VPS_APP_DIR` | Diretório da app (ex.: `/opt/cobranca-condominial`) |
+| `VPS_SSH_PRIVATE_KEY` | Chave privada ed25519 (local: `deploy/secrets/deploy_vps_ed25519`) |
+
+A chave pública correspondente deve estar em `~/.ssh/authorized_keys` na VPS (comentário típico: `github-actions-deploy@cobranca`).
+
+Disparo manual: Actions → **Deploy produção** → Run workflow.
+
+### 2. Timer na VPS (git pull a cada 2 min)
+
 ```bash
 bash /opt/cobranca-condominial/deploy/scripts/install-auto-deploy.sh
 systemctl status cobranca-auto-deploy.timer
@@ -65,9 +86,9 @@ systemctl status cobranca-auto-deploy.timer
 
 ## Dados
 
-- Migrations: `docs/migrations/*.sql` via `npm run db:migrate`
-- Snapshot completo: tabela `catalogo_snapshot`
+- Migrations: **Prisma** (`prisma/migrations`) via `npx prisma migrate deploy` (script `npm run db:migrate`)
+- Schema: `prisma/schema.prisma` + client em `src/lib/db/prisma.ts`
 - Identidade: `role` / `"user"`
-- Importação: `condominium`, `unit`, `debt`, `import`, …
+- Domínios: `condominium`, `unit`, `debt`, `import`, `service_ticket`, `collection_assignment`, …
 
-Reinício do app **não** apaga colaboradores nem débitos: tudo está no PostgreSQL.
+Reinício do app **não** apaga colaboradores nem débitos: tudo está no PostgreSQL (fora de `/opt/cobranca-condominial`).

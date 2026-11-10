@@ -33,8 +33,8 @@ import {
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
 import { UnidadeDetalheSheet } from "@/components/unidade-detalhe-sheet";
 import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
-import { formatarData, getCadastros } from "@/data/catalogo";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { formatarData } from "@/data/catalogo";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
   CATEGORIAS_PENDENCIA,
@@ -65,7 +65,8 @@ export function DashboardCentralPendencias() {
   const router = useRouter();
   const { pode } = usePermissao();
   const { abrir: abrirAgendar } = useAgendarAtendimento();
-  const cadastros = useCadastros();
+  const cadastros = useCadastros()
+  const { refetch } = useCadastrosStatus();
   const syncKey = useMemo(
     () =>
       `${cadastros.atendimentos.length}|${cadastros.atribuicoesCobranca.map((a) => `${a.id}:${a.encerradoEm ?? ""}`).join(",")}`,
@@ -383,7 +384,7 @@ export function DashboardCentralPendencias() {
       <UnidadeDetalheSheet
         unidadeId={detalheUnidadeId}
         onClose={() => setDetalheUnidadeId(null)}
-        responsaveisDisponiveis={getCadastros().responsaveis}
+        responsaveisDisponiveis={cadastros.responsaveis}
         onMutacao={() => void recarregar()}
       />
 

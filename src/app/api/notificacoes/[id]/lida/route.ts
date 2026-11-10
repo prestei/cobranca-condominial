@@ -16,7 +16,7 @@ export async function POST(_request: Request, context: Params) {
   }
 
   try {
-    const notificacao = marcarNotificacaoLida(session.userId, id);
+    const notificacao = await marcarNotificacaoLida(session.userId, id);
     return Response.json({ notificacao });
   } catch (error) {
     if (error instanceof NotificacaoServiceError) {
