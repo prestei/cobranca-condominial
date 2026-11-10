@@ -1,10 +1,4 @@
-import {
-  agoraIso,
-  confirmacaoPagamentoAcordo,
-  type PagamentoAcordo,
-  type ParcelaAcordo,
-  type PropostaNegociacao,
-} from "@/data/catalogo";
+import { agoraIso, confirmacaoPagamentoAcordo, type PagamentoAcordo, type ParcelaAcordo, type PropostaNegociacao } from "@/data/catalogo";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   createAgreementInstallment,

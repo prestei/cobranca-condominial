@@ -1,10 +1,4 @@
-import {
-  escopoCondominios,
-  opcoesAdvogadosResponsaveis,
-  statusCondominio,
-  type Condominio,
-  type StatusCondominio,
-} from "@/data/catalogo";
+import { escopoCondominios, opcoesAdvogadosResponsaveis, statusCondominio, type Condominio, type StatusCondominio } from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {

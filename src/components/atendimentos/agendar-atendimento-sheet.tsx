@@ -20,16 +20,9 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import {
-  canaisAtendimento,
-  condominioAtivo,
-  escopoCondominios,
-  escopoUnidades,
-  nomeCondominio,
-  type Atendimento,
-} from "@/data/catalogo";
+import { canaisAtendimento, condominioAtivo, escopoCondominios, escopoUnidades, nomeCondominio, type Atendimento } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 type Props = {

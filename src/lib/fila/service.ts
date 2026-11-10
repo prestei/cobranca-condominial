@@ -1,18 +1,7 @@
-import type { AtribuicaoCobranca, Cadastros, Unidade } from "@/data/catalogo";
-import {
-  debitoEmAberto,
-  diasDeAtraso,
-  escopoCondominios,
-  escopoUnidades,
-  formatarMoeda,
-  hojeIso,
-  retornoPendente,
-  situacaoCobrancaUnidade,
-  situacaoRetorno,
-  unidadeNaFilaCobrancaAtiva,
-} from "@/data/catalogo";
+import { AtribuicaoCobranca, Cadastros, Unidade } from "@/data/catalogo";
+import { debitoEmAberto, diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, hojeIso, retornoPendente, situacaoCobrancaUnidade, situacaoRetorno, unidadeNaFilaCobrancaAtiva } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 

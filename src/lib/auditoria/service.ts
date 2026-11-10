@@ -1,6 +1,7 @@
-import { nomeUsuario, type Auditoria } from "@/data/catalogo";
+import { nomeUsuario, type Auditoria, type Cadastros } from "@/data/catalogo";
 import { rotuloAutorAuditoria, usuarioCorrespondeFiltroAutor } from "@/lib/auditoria/autor";
 import { registroDentroDoPeriodo } from "@/lib/auditoria/periodo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { listAuditLogs } from "@/lib/db/repositories/audit-repository";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -31,14 +32,14 @@ function assertPodeConsultar(userId: number) {
   }
 }
 
-function matchesBusca(registro: Auditoria, query: string) {
+function matchesBusca(registro: Auditoria, query: string, cadastros: Cadastros) {
   const haystack = [
     registro.registroId,
     registro.camposAlterados,
     registro.dadosAnteriores,
     registro.dadosNovos,
-    nomeUsuario(registro.usuarioId),
-    rotuloAutorAuditoria(registro.usuarioId),
+    nomeUsuario(registro.usuarioId, cadastros),
+    rotuloAutorAuditoria(registro.usuarioId, cadastros),
     registro.entidade,
     registro.acao,
   ]
@@ -58,6 +59,7 @@ export async function listarAuditoria(userId: number, filtros: AuditoriaFiltros 
   const usuarioId =
     filtros.usuarioId !== undefined && Number.isFinite(filtros.usuarioId) ? filtros.usuarioId : undefined;
   const autorBusca = filtros.autor?.trim();
+  const cadastros = await loadFullOperationalCadastros();
 
   const lista = await listAuditLogs({
     entidade,
@@ -70,11 +72,11 @@ export async function listarAuditoria(userId: number, filtros: AuditoriaFiltros 
       if (!registroDentroDoPeriodo(item.dataHora, dataDe, dataAte)) return false;
       if (
         autorBusca &&
-        !usuarioCorrespondeFiltroAutor(item.usuarioId, { reOuNome: autorBusca, usuarioId: undefined })
+        !usuarioCorrespondeFiltroAutor(item.usuarioId, { reOuNome: autorBusca, usuarioId: undefined }, cadastros)
       ) {
         return false;
       }
-      if (busca.length > 0 && !matchesBusca(item, busca)) return false;
+      if (busca.length > 0 && !matchesBusca(item, busca, cadastros)) return false;
       return true;
     })
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));

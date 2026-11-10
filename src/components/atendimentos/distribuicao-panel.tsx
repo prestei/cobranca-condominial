@@ -1,6 +1,6 @@
 "use client";
 
-import { useCadastrosStatus } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Share2, Users } from "lucide-react";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
@@ -59,10 +59,11 @@ const PAGE_FILA = 50;
 const colunasHistoricoDistrib = ["Quando", "Condomínio · Unidade", "RE anterior", "RE novo", "Autor", "Motivo"];
 
 export function DistribuicaoPanel() {
+  const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
   const { toast } = useToast();
-  const atendentesKey = snapshotAtendentesComRe();
-  const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
+  const atendentesKey = snapshotAtendentesComRe(cadastros);
+  const atendentes = useMemo(() => listarAtendentesComRe(cadastros), [atendentesKey, cadastros]);
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");

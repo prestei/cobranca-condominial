@@ -3,7 +3,7 @@
 import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
-import type { NotificacaoInterna } from "@/data/catalogo";
+import { NotificacaoInterna } from "@/data/catalogo";
 
 export type NotificacaoUi = NotificacaoInterna & {
   urlRegistro: string | null;

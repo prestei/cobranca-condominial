@@ -24,12 +24,7 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import {
-  debitoEmAberto,
-  formatarData,
-  formatarMoeda,
-  type PropostaNegociacao,
-} from "@/data/catalogo";
+import { debitoEmAberto, formatarData, formatarMoeda, type PropostaNegociacao } from "@/data/catalogo";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
@@ -250,7 +245,7 @@ export function PropostaNegociacaoSheet({
                       Valor proposto: <strong>{formatarMoeda(item.valorProposto)}</strong>
                     </p>
                     <p className="text-body-sm text-on-surface-variant">
-                      Autor: {identificadorColaboradorPorId(item.usuarioId)} · Débitos {item.debitoIds.join(", ")}
+                      Autor: {identificadorColaboradorPorId(item.usuarioId, cadastros)} · Débitos {item.debitoIds.join(", ")}
                     </p>
                     {item.observacoes ? (
                       <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p>

@@ -51,7 +51,7 @@ import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { acoesAuditoria, formatarData, type Auditoria } from "@/data/catalogo";
 import type { PeriodValue } from "@/components/period-input";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import {
   badgeAcaoVariant,
   listaCamposAlterados,
@@ -178,7 +178,7 @@ export default function AuditoriaPage() {
     new Map(
       cadastros.usuarios.map((usuario) => [
         usuario.id,
-        { value: String(usuario.id), label: rotuloAutorAuditoria(usuario.id) },
+        { value: String(usuario.id), label: rotuloAutorAuditoria(usuario.id, cadastros) },
       ]),
     ).values(),
   ).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
@@ -265,7 +265,7 @@ export default function AuditoriaPage() {
   function linhasExportacao() {
     return visible.map((item) => [
       formatarData(item.dataHora),
-      rotuloAutorAuditoria(item.usuarioId),
+      rotuloAutorAuditoria(item.usuarioId, cadastros),
       rotuloTipoRegistro[item.entidade] ?? "Outro cadastro",
       rotuloAcao(item.acao),
       resumoLinha(item),
@@ -366,7 +366,7 @@ export default function AuditoriaPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{formatarData(item.dataHora)}</TableCell>
-              <TableCell>{rotuloAutorAuditoria(item.usuarioId)}</TableCell>
+              <TableCell>{rotuloAutorAuditoria(item.usuarioId, cadastros)}</TableCell>
               <TableCell>{rotuloTipoRegistro[item.entidade] ?? "Outro cadastro"}</TableCell>
               <TableCell>
                 <Badge variant={badgeAcaoVariant(item.acao)}>{rotuloAcao(item.acao)}</Badge>
@@ -414,7 +414,7 @@ export default function AuditoriaPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-label-sm uppercase text-on-surface-variant">Resumo</p>
                   <p className="text-body-md font-medium text-on-surface">{resumoLinha(item)}</p>
-                  <p className="mt-xs text-body-sm text-on-surface-variant">{rotuloAutorAuditoria(item.usuarioId)}</p>
+                  <p className="mt-xs text-body-sm text-on-surface-variant">{rotuloAutorAuditoria(item.usuarioId, cadastros)}</p>
                 </div>
                 <Badge variant={badgeAcaoVariant(item.acao)} className="shrink-0">
                   {rotuloAcao(item.acao)}
@@ -560,7 +560,7 @@ export default function AuditoriaPage() {
                   <SheetHeaderText>
                     <SheetTitle id={`${sheetId}-titulo`}>{resumoLinha(detalhe)}</SheetTitle>
                     <SheetDescription id={`${sheetId}-desc`}>
-                      {formatarData(detalhe.dataHora)} · feito por {rotuloAutorAuditoria(detalhe.usuarioId)}
+                      {formatarData(detalhe.dataHora)} · feito por {rotuloAutorAuditoria(detalhe.usuarioId, cadastros)}
                     </SheetDescription>
                   </SheetHeaderText>
                 </SheetHeaderLead>
@@ -570,7 +570,7 @@ export default function AuditoriaPage() {
                 <SheetPanel variant="tint">
                   <div className="grid grid-cols-1 gap-md min-[480px]:grid-cols-2">
                     <DetalheCampo label="Quando" value={formatarData(detalhe.dataHora)} />
-                    <DetalheCampo label="Quem fez" value={rotuloAutorAuditoria(detalhe.usuarioId)} />
+                    <DetalheCampo label="Quem fez" value={rotuloAutorAuditoria(detalhe.usuarioId, cadastros)} />
                     <DetalheCampo label="Onde" value={rotuloTipoRegistro[detalhe.entidade] ?? "Outro cadastro"} />
                     <DetalheCampo label="O que aconteceu" value={rotuloAcao(detalhe.acao)} />
                     <DetalheCampo label="Código do item" value={detalhe.registroId ? `#${detalhe.registroId}` : "—"} />

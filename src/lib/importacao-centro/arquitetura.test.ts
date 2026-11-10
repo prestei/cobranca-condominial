@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashConteudoArquivo } from "@/lib/importacoes/hash-arquivo";
-import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo-store";
 import { ImportacaoCentroError } from "@/lib/importacao-centro/types";
 import {
   confirmarImportacaoCentral,

@@ -1,4 +1,5 @@
-import { agoraIso, executarTransacaoCatalogo } from "@/data/catalogo";
+import { agoraIso } from "@/data/catalogo";
+import { executarTransacaoCatalogo } from "@/data/catalogo-store";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import { validarAprovacao } from "@/lib/importacao-centro/aprovacao";
@@ -163,7 +164,7 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
     });
 
     // Persistência definitiva no PostgreSQL (tabelas normalizadas).
-    const { getCadastros } = await import("@/data/catalogo");
+    const { getCadastros } = await import("@/data/catalogo-store");
     const { saveOperationalState } = await import("@/lib/db/repositories/catalog-persist");
     const gravou = await saveOperationalState(getCadastros());
     if (!gravou) {

@@ -36,7 +36,7 @@ import {
 import { useToast } from "@/components/toast";
 import { escopoCondominios, formatarData, type Atendimento } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
 import {
@@ -118,8 +118,8 @@ export function RetornosAgendaPanel() {
   const [concluirAlvo, setConcluirAlvo] = useState<RetornoAgendaItem | null>(null);
   const [concluindo, setConcluindo] = useState(false);
 
-  const atendentesKey = snapshotAtendentesComRe();
-  const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
+  const atendentesKey = snapshotAtendentesComRe(cadastros);
+  const atendentes = useMemo(() => listarAtendentesComRe(cadastros), [atendentesKey, cadastros]);
 
   const condominiosEscopo = useMemo(
     () => escopoCondominios(cadastros, user?.userId).filter((item) => item.status === "Ativo"),

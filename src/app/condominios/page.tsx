@@ -77,18 +77,11 @@ import {
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  condominioAtendeAdvogado,
-  escopoCondominios,
-  opcoesAdvogadosResponsaveis,
-  rotuloAdvogadosCondominio,
-  statusCondominio,
-  type Condominio,
-} from "@/data/catalogo";
+import { condominioAtendeAdvogado, escopoCondominios, opcoesAdvogadosResponsaveis, rotuloAdvogadosCondominio, statusCondominio, type Condominio } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 const etapasCondominio = ["Dados", "Endereço", "Observação"] as const;

@@ -12,23 +12,17 @@ import {
 
 export { ImportacaoCentroError as ImportacaoDebitosError };
 
-export type LinhaPreviewImportacaoDebito = PreviewImportacaoModulo["linhas"][number] & {
-  situacao: "novo" | "atualizacao" | "duplicado" | "erro" | "manual_protegido" | "ignorado" | "revisao";
-};
-
-export type PreviewImportacaoDebitos = PreviewImportacaoModulo & {
-  linhas: LinhaPreviewImportacaoDebito[];
-  amostraValida: LinhaPreviewImportacaoDebito[];
-};
-
-export type ResultadoCorrecaoPreviewDebitos = {
-  preview: PreviewImportacaoDebitos;
-  linha: LinhaPreviewImportacaoDebito;
-  historicoCorrecoes: RegistroHistoricoCorrecaoPrevia[];
-  correcaoAceita: boolean;
-};
-
-export type ResultadoConfirmacaoDebitos = ResultadoConfirmacaoModulo;
+export type {
+  LinhaPreviewImportacaoDebito,
+  PreviewImportacaoDebitos,
+  ResultadoConfirmacaoDebitos,
+  ResultadoCorrecaoPreviewDebitos,
+} from "@/lib/importacoes/debitos-service.types";
+import type {
+  LinhaPreviewImportacaoDebito,
+  PreviewImportacaoDebitos,
+  ResultadoCorrecaoPreviewDebitos,
+} from "@/lib/importacoes/debitos-service.types";
 
 const servico = criarServicoImportacaoModulo("debitos");
 

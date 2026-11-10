@@ -1,8 +1,7 @@
-import { setImportacoes, type Importacao } from "@/data/catalogo";
-import {
-  sanitizarImportacaoParaConsulta,
-  type ImportacaoConsulta,
-} from "@/lib/importacao-centro/historico-auditoria";
+import { type Importacao } from "@/data/catalogo";
+import { setImportacoes } from "@/data/catalogo-store";
+import { sanitizarImportacaoParaConsulta } from "@/lib/importacao-centro/historico-auditoria";
+import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
 import { removerSessaoPreviaImportacao } from "@/lib/importacao-centro/correcao-previa/sessao";
 import { normalizarSituacaoImportacao } from "@/lib/importacao-centro/situacao-importacao";
 import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";

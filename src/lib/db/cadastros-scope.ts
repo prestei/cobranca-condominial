@@ -1,4 +1,4 @@
-import type { Cadastros } from "@/data/catalogo";
+import { Cadastros } from "@/data/catalogo";
 import { listRoles, listUsers } from "@/lib/db/repositories/identity-repository";
 import { listCondominiums } from "@/lib/db/repositories/condominium-repository";
 import { listUnits } from "@/lib/db/repositories/unit-repository";

@@ -1,23 +1,4 @@
-import type {
-  Atendimento,
-  AtribuicaoCobranca,
-  Auditoria,
-  Cargo,
-  Condominio,
-  Debito,
-  DocumentoJuridico,
-  EncaminhamentoJuridico,
-  Importacao,
-  NotificacaoFalha,
-  NotificacaoInterna,
-  PagamentoAcordo,
-  ParcelaAcordo,
-  PropostaNegociacao,
-  Responsavel,
-  Unidade,
-  Usuario,
-  Vinculo,
-} from "@/data/catalogo";
+import { Atendimento, AtribuicaoCobranca, Auditoria, Cargo, Condominio, Debito, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo } from "@/data/catalogo";
 import type {
   AgreementInstallment,
   AgreementPayment,

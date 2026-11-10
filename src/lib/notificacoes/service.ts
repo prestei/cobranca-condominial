@@ -1,15 +1,4 @@
-import {
-  agoraIso,
-  escopoCondominios,
-  escopoUnidades,
-  formatarData,
-  situacaoRetorno,
-  type Atendimento,
-  type AtribuicaoCobranca,
-  type Cadastros,
-  type NotificacaoFalha,
-  type NotificacaoInterna,
-} from "@/data/catalogo";
+import { agoraIso, escopoCondominios, escopoUnidades, formatarData, situacaoRetorno, type Atendimento, type AtribuicaoCobranca, type Cadastros, type NotificacaoFalha, type NotificacaoInterna } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
 import {

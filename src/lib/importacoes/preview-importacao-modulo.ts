@@ -1,4 +1,4 @@
-import type { Importacao } from "@/data/catalogo";
+import { Importacao } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import {
@@ -16,60 +16,23 @@ import {
   type LinhaPreVisualizacaoSerializada,
 } from "@/lib/importacao-centro/pre-visualizacao";
 import type { MetaExecucaoImportacao } from "@/lib/importacao-centro/types";
-import type { DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades";
+import type { DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 
 export { ImportacaoCentroError };
-
-export type LinhaPreviewImportacaoModulo = LinhaPreVisualizacaoSerializada & {
-  situacao: string;
-  resumo?: Record<string, string>;
-  validacao?: RegistroValidadoImportacao<unknown>;
-};
-
-export type PreviewImportacaoModulo = {
-  hashArquivo: string;
-  formato: string;
-  arquivo: string;
-  origem: string;
-  moduloDestino: string;
-  quantidadeRegistros: number;
-  novos: number;
-  atualizacoes: number;
-  duplicados: number;
-  erros: number;
-  manualProtegido: number;
-  revisoes: number;
-  arquivoJaImportado: boolean;
-  contagensPrevia: ContagensPreVisualizacaoImportacao;
-  linhas: LinhaPreviewImportacaoModulo[];
-  amostraValida: LinhaPreviewImportacaoModulo[];
-  resumoAprovacao: ResumoAprovacaoImportacao;
-  sessaoPreviaId?: string;
-};
-
-export type ResultadoConfirmacaoModulo = {
-  importacao: Importacao;
-  novos: number;
-  atualizados: number;
-  duplicados: number;
-  erros: number;
-  manualProtegido: number;
-};
-
-export type EntradaPreviewImportacaoModulo = {
-  origem: string;
-  arquivo?: string;
-  conteudo?: string;
-  processoId?: string;
-  hashArquivo?: string;
-};
-
-export type EntradaConfirmarImportacaoModulo = EntradaPreviewImportacaoModulo & {
-  decisoesLinha?: DecisaoLinhaImportacao[];
-  confirmacaoExplicita?: boolean;
-  cienciaImportacaoParcial?: boolean;
-  linhasIgnoradas?: number[];
-};
+export type {
+  EntradaConfirmarImportacaoModulo,
+  EntradaPreviewImportacaoModulo,
+  LinhaPreviewImportacaoModulo,
+  PreviewImportacaoModulo,
+  ResultadoConfirmacaoModulo,
+} from "@/lib/importacoes/preview-importacao-modulo.types";
+import type {
+  EntradaConfirmarImportacaoModulo,
+  EntradaPreviewImportacaoModulo,
+  LinhaPreviewImportacaoModulo,
+  PreviewImportacaoModulo,
+  ResultadoConfirmacaoModulo,
+} from "@/lib/importacoes/preview-importacao-modulo.types";
 
 export function mapearPreviewImportacaoModulo(
   preview: Awaited<ReturnType<typeof previewImportacaoPorModulo>>["preview"],

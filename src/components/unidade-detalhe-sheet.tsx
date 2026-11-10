@@ -41,15 +41,7 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import {
-  nomeCondominio,
-  setResponsaveis,
-  tiposPessoa,
-  tiposVinculo,
-  type Responsavel,
-  type Unidade,
-  type Vinculo,
-} from "@/data/catalogo";
+import { nomeCondominio, tiposPessoa, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { usePermissao } from "@/hooks/use-permissao";
 import { HistoricoLinhaTempo } from "@/components/unidades/historico-linha-tempo";
 import type { EventoHistoricoUnidade, HistoricoUnidadeReferencia } from "@/lib/historico-unidade/service";
@@ -249,20 +241,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
       void refetch()
     }
     if (modoNovoResponsavel) {
-      void fetch(`/api/unidades/${unidadeId}`, { credentials: "same-origin" })
-        .then((r) => r.json())
-        .then((d: DetalheUnidade) => {
-          if (d.vinculos) {
-            for (const v of d.vinculos) {
-              if (v.responsavel && verPessoais) {
-                setResponsaveis((current) => {
-                  if (current.some((item) => item.id === v.responsavel!.id)) return current;
-                  return [...current, v.responsavel as Responsavel];
-                });
-              }
-            }
-          }
-        });
+      void refetch();
     }
     setVinculoOpen(false);
     setVinculoForm({

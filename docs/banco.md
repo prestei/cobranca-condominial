@@ -27,6 +27,7 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [audit_log](#audit_log) | Auditoria de alteração |
 | [internal_notification](#internal_notification) | Notificação in-app (T34) |
 | [notification_failure](#notification_failure) | Falha ao emitir notificação (T34) |
+| [app_setting](#app_setting) | Configurações de app (chave/valor JSON) |
 
 ## Diagrama
 
@@ -84,6 +85,7 @@ Colaborador que opera o sistema.
 | email | VARCHAR(255) | sim | | |
 | senha | VARCHAR(255) | sim | | Senha |
 | ativo | BOOLEAN | não | padrão `true` | Colaborador inativo não autentica; RE permanece reservado |
+| avatar | TEXT | sim | | Data URL do avatar (JPEG/PNG/WebP); opcional. Migration `20261110140000_avatar_and_app_setting` |
 
 ## condominium
 
@@ -375,6 +377,16 @@ Falhas ao emitir notificação (não bloqueia fluxo principal).
 | destinatario_id | INT | sim | | |
 | erro | TEXT | não | | |
 | ocorrido_em | TIMESTAMP | não | | |
+
+## app_setting
+
+Configurações persistidas do aplicativo (ex.: distribuição automática). Migration `20261110140000_avatar_and_app_setting` (espelho idempotente de `docs/migrations/2026-11-13-avatar-e-app-setting.sql`).
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| chave | VARCHAR(128) | não | PK | Identificador da configuração |
+| valor | JSONB | não | | Payload da configuração |
+| atualizado_em | TIMESTAMPTZ | não | padrão `NOW()` | Última atualização |
 
 ## Relacionamentos
 

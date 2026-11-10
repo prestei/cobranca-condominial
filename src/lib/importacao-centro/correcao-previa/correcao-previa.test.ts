@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resetCadastrosParaTestes } from "@/data/catalogo";
+import { resetCadastrosParaTestes } from "@/data/catalogo-store";
 import { adaptadorImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
 import { aplicarCorrecoesPayloadDebitos } from "@/lib/importacao-centro/correcao-previa/modulos/debitos";
 import {

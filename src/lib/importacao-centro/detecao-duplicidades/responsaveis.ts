@@ -1,4 +1,4 @@
-import type { Responsavel } from "@/data/catalogo";
+import { Responsavel } from "@/data/catalogo";
 import { chaveDocumentoResponsavel, chaveNomeNormalizado } from "@/lib/importacao-centro/detecao-duplicidades/chaves";
 import type { ResultadoDetecaoDuplicidade } from "@/lib/importacao-centro/detecao-duplicidades/types";
 

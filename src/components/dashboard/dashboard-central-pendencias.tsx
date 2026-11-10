@@ -36,15 +36,17 @@ import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import { formatarData } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import type {
+  CentralPendenciaRegistro,
+  CentralPendenciasResultado,
+  PendenciaOrdenacao,
+} from "@/lib/dashboard/central-pendencias-atendente";
 import {
   CATEGORIAS_PENDENCIA,
   ROTULO_TIPO_PENDENCIA,
   type CategoriaPendenciaId,
-  type CentralPendenciaRegistro,
-  type CentralPendenciasResultado,
-  type PendenciaOrdenacao,
   type TipoPendenciaId,
-} from "@/lib/dashboard/central-pendencias-atendente";
+} from "@/lib/dashboard/pendencias-labels";
 
 const TIPOS_FILTRO: { value: string; label: string }[] = [
   { value: "", label: "Todos os tipos" },

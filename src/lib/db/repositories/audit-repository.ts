@@ -1,4 +1,4 @@
-import type { Auditoria } from "@/data/catalogo";
+import { Auditoria } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { mapAuditToAuditoria } from "@/lib/db/mappers";
 

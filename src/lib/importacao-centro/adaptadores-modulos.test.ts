@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { hashConteudoArquivo } from "@/lib/importacoes/hash-arquivo";
 import { confirmarImportacaoPorModulo, previewImportacaoPorModulo } from "@/lib/importacao-centro/servico-central";
-import { getCadastros, opcoesAdvogadosResponsaveis, resetCadastrosParaTestes } from "@/data/catalogo";
+import { opcoesAdvogadosResponsaveis } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo-store";
 
 test("prévia e confirmação de condomínios usam pipeline central com aprovação explícita", async () => {
   resetCadastrosParaTestes();

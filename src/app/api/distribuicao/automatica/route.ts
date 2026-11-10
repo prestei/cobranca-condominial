@@ -17,7 +17,7 @@ export async function GET() {
 
   return Response.json({
     config: obterConfigDistribuicaoAutomatica(),
-    aguardandoAtribuicao: contarUnidadesAguardandoAtribuicao(session.userId),
+    aguardandoAtribuicao: await contarUnidadesAguardandoAtribuicao(session.userId),
   });
 }
 
@@ -41,10 +41,10 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const config = atualizarConfigDistribuicaoAutomatica(session.userId, patch);
+    const config = await atualizarConfigDistribuicaoAutomatica(session.userId, patch);
     return Response.json({
       config,
-      aguardandoAtribuicao: contarUnidadesAguardandoAtribuicao(session.userId),
+      aguardandoAtribuicao: await contarUnidadesAguardandoAtribuicao(session.userId),
     });
   } catch (error) {
     if (error instanceof DistribuicaoServiceError) {

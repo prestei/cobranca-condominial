@@ -1,5 +1,5 @@
-import { getCadastros } from "@/data/catalogo";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { getCadastros } from "@/data/catalogo-store";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 
 /** Atendente com atribuição vigente na unidade no instante informado (ISO). */
 export function atendenteIdNaDataUnidade(unidadeId: number, instanteIso: string): number | null {

@@ -1,4 +1,4 @@
-import type { Atendimento, PropostaNegociacao } from "@/data/catalogo";
+import { Atendimento, PropostaNegociacao } from "@/data/catalogo";
 
 /** Período inclusivo por data civil (AAAA-MM-DD), alinhado a relatórios e produtividade. */
 export function diaDentroDoPeriodo(dataIso: string, de: string, ate: string) {

@@ -5,7 +5,7 @@ import {
   contarUnidadesAguardandoAtribuicao,
   executarDistribuicaoAutomatica,
 } from "@/lib/distribuicao/service";
-import type { AtribuicaoCobranca } from "@/data/catalogo";
+import { AtribuicaoCobranca } from "@/data/catalogo";
 
 export async function POST(request: Request) {
   const session = await requireSession();

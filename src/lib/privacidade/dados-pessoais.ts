@@ -1,6 +1,6 @@
 import { temPermissao } from "@/lib/permissions/check";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
-import type { Responsavel } from "@/data/catalogo";
+import { Responsavel } from "@/data/catalogo";
 
 /** Contato e documento só para quem opera cobrança ou administra cadastros. */
 export function podeVerDadosPessoaisResponsavel(perm: PermissoesCargo): boolean {

@@ -3,7 +3,7 @@
  * Unidades alinhadas às 28 identificações presentes na fixture de inadimplência.
  * Não entra no seed da aplicação (`seed-base-teste`); use somente em testes automatizados ou ao reproduzir homologação.
  */
-import type { Condominio, Unidade } from "@/data/catalogo";
+import { Condominio, Unidade } from "@/data/catalogo";
 
 export const CONDOMINIO_RESIDENCIAL_DO_MAR: Condominio = {
   id: 3,

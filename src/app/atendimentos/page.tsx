@@ -44,16 +44,7 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import {
-  canaisAtendimento,
-  condominioAtivo,
-  debitoEmAberto,
-  diasDeAtraso,
-  formatarMoeda,
-  motivosPendencia,
-  statusAtendimento,
-  type Atendimento,
-} from "@/data/catalogo";
+import { canaisAtendimento, condominioAtivo, debitoEmAberto, diasDeAtraso, formatarMoeda, motivosPendencia, statusAtendimento, type Atendimento } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 

@@ -1,4 +1,4 @@
-import type { Unidade, Vinculo } from "@/data/catalogo";
+import { Unidade, Vinculo } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { mapUnitToUnidade, mapUnitLinkToVinculo } from "@/lib/db/mappers";
 

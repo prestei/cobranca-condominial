@@ -1,14 +1,6 @@
-import {
-  escopoCondominios,
-  getCadastros,
-  hojeIso,
-  nomeCondominio,
-  nomeUnidade,
-  situacaoRetorno,
-  type Atendimento,
-  type Condominio,
-} from "@/data/catalogo";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { escopoCondominios, hojeIso, nomeCondominio, nomeUnidade, situacaoRetorno, type Atendimento, type Condominio } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import type { IndicadorProdutividadeId } from "@/lib/indicadores/catalogo-oficial";
 import { atendenteIdNaDataUnidade, reDoUsuarioId } from "@/lib/indicadores/atribuicao-historica";
 import {

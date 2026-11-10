@@ -1,6 +1,6 @@
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
-import { escopoCondominios, } from "@/data/catalogo";
+import { escopoCondominios } from "@/data/catalogo";
 import { parseCorpoPreviewConfirmarImportacao } from "@/lib/importacoes/api-corpo-importacao";
 import { ImportacaoCondominiosError, confirmarImportacaoCondominios } from "@/lib/importacoes/condominios-service";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";

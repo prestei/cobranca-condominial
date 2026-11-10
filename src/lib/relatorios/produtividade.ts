@@ -1,6 +1,6 @@
 import { escopoCondominios, formatarData, hojeIso, type Condominio, type Cadastros } from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
-import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re-server";
 import type { IndicadorProdutividadeId } from "@/lib/indicadores/catalogo-oficial";
 import { geradoEmBr } from "@/lib/indicadores/meta";
 import { listarEventosProdutividade } from "@/lib/indicadores/produtividade-eventos";

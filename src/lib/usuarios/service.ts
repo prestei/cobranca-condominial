@@ -1,4 +1,4 @@
-import type { Usuario } from "@/data/catalogo";
+import { Usuario } from "@/data/catalogo";
 import {
   codigoReEmUso,
   codigoReValido,

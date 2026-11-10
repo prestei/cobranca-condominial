@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getCadastros, setImportacoes } from "@/data/catalogo";
+import { getCadastros, setImportacoes } from "@/data/catalogo-store";
 import {
   criarImportacaoEmProcessamento,
   obterImportacaoPorId,

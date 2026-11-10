@@ -1,6 +1,6 @@
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
-import { escopoCondominios, } from "@/data/catalogo";
+import { escopoCondominios } from "@/data/catalogo";
 import { DebitoServiceError, obterIndicadoresDebitos, type DebitoFiltros } from "@/lib/debitos/service";
 
 function parseFiltros(searchParams: URLSearchParams): DebitoFiltros {

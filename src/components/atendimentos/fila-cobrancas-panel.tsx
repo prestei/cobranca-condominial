@@ -76,16 +76,9 @@ import {
   type TableSortDirection,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
-import {
-  escopoCondominios,
-  formatarData,
-  nomeCondominio,
-  situacoesUnidade,
-  type Atendimento,
-  type AtribuicaoCobranca,
-} from "@/data/catalogo";
+import { escopoCondominios, formatarData, nomeCondominio, situacoesUnidade, type Atendimento, type AtribuicaoCobranca } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
 import {
@@ -202,8 +195,8 @@ export function FilaCobrancasPanel() {
     }
   }, [visao, visaoGeral]);
 
-  const atendentesKey = snapshotAtendentesComRe();
-  const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
+  const atendentesKey = snapshotAtendentesComRe(cadastros);
+  const atendentes = useMemo(() => listarAtendentesComRe(cadastros), [atendentesKey, cadastros]);
 
   const condominiosEscopo = useMemo(
     () => escopoCondominios(cadastros, user?.userId).filter((item) => item.status === "Ativo"),
@@ -265,7 +258,7 @@ export function FilaCobrancasPanel() {
       if (visaoGeral && appliedFiltroRe === "sem") {
         params.set("semResponsavel", "1");
       } else if (visaoGeral && appliedFiltroRe !== "todos") {
-        const atendente = listarAtendentesComRecadastros.find((item) => item.codigoRe === appliedFiltroRe);
+        const atendente = listarAtendentesComRe.find((item) => item.codigoRe === appliedFiltroRe);
         if (atendente) params.set("atendente", String(atendente.id));
       }
       if (sortKey) {
@@ -540,7 +533,7 @@ export function FilaCobrancasPanel() {
     if (visaoGeral && appliedFiltroRe === "sem") {
       params.set("semResponsavel", "1");
     } else if (visaoGeral && appliedFiltroRe !== "todos") {
-      const atendente = listarAtendentesComRecadastros.find((item) => item.codigoRe === appliedFiltroRe);
+      const atendente = listarAtendentesComRe.find((item) => item.codigoRe === appliedFiltroRe);
       if (atendente) params.set("atendente", String(atendente.id));
     }
     if (sortKey) {

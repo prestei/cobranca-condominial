@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo-store";
 import { criarImportacaoEmProcessamento } from "@/lib/importacao-centro/historico-auditoria";
 import { excluirImportacaoHistorico } from "@/lib/importacoes/historico-service";
 

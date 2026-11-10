@@ -2,14 +2,7 @@
  * Base fictícia para testes manuais (unidades 101–104).
  * Sem dados reais de moradores — CPFs e contatos são placeholders.
  */
-import type {
-  AtribuicaoCobranca,
-  Condominio,
-  Debito,
-  Responsavel,
-  Unidade,
-  Vinculo,
-} from "@/data/catalogo";
+import { AtribuicaoCobranca, Condominio, Debito, Responsavel, Unidade, Vinculo } from "@/data/catalogo";
 const ISO_SEED = "2026-10-01T12:00:00.000Z";
 
 function debitoBase(

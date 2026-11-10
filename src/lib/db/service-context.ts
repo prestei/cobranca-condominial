@@ -1,4 +1,4 @@
-import type { AtribuicaoCobranca, Cadastros } from "@/data/catalogo";
+import { AtribuicaoCobranca, Cadastros } from "@/data/catalogo";
 import { escopoCondominios, escopoUnidades } from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { findOpenAssignmentByUnit } from "@/lib/db/repositories/collection-repository";

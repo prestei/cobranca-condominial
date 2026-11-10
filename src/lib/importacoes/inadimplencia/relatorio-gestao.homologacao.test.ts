@@ -8,14 +8,8 @@ import {
   condominioResidencialDoMarSeed,
   unidadesResidencialDoMar,
 } from "@/data/seed-residencial-do-mar";
-import {
-  escopoCondominios,
-  escopoUnidades,
-  getCadastros,
-  resetCadastrosParaTestes,
-  setCondominios,
-  setUnidades,
-} from "@/data/catalogo";
+import { escopoCondominios, escopoUnidades } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes, setCondominios, setUnidades } from "@/data/catalogo-store";
 import { interpretarPlanilhaDebitos } from "@/lib/importacoes/importar-debitos-planilha";
 import { aplicarMotorValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/motor";
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";

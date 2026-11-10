@@ -1,13 +1,4 @@
-import {
-  advogadoPrincipalCondominio,
-  agoraIso,
-  debitoEmAberto,
-  formatarMoeda,
-  opcoesAdvogadosResponsaveis,
-  statusEncaminhamentoJuridico,
-  type DocumentoJuridico,
-  type EncaminhamentoJuridico,
-} from "@/data/catalogo";
+import { advogadoPrincipalCondominio, agoraIso, debitoEmAberto, formatarMoeda, opcoesAdvogadosResponsaveis, statusEncaminhamentoJuridico, type DocumentoJuridico, type EncaminhamentoJuridico } from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";

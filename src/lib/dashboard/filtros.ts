@@ -3,12 +3,12 @@ import {
   diasDeAtraso,
   escopoCondominios,
   formatarData,
-  getCadastros,
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
   origensDebito,
   type Unidade,
 } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import { listarFilaCobranca, type FilaCobrancaItem } from "@/lib/fila/service";
@@ -16,7 +16,7 @@ import type { DebitoFiltros } from "@/lib/debitos/service";
 import {
   FAIXAS_ATRASO_DASHBOARD_ATENDENTE,
   type FaixaAtrasoDashboardId,
-} from "@/lib/dashboard/graficos-atendente";
+} from "@/lib/dashboard/faixas-atraso";
 import {
   classificarTipoPendenciaUnidade,
   type TipoPendenciaId,

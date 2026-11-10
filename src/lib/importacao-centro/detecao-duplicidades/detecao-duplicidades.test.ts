@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Debito } from "@/data/catalogo";
+import { Debito } from "@/data/catalogo";
 import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
-import type { Unidade } from "@/data/catalogo";
+import { Unidade } from "@/data/catalogo";
 import type { UnidadeInput } from "@/lib/unidades/service";
 import {
   chaveDuplicidadeUnidadeNoArquivo,

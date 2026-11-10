@@ -1,4 +1,4 @@
-import type { Cargo } from "@/data/catalogo";
+import { Cargo } from "@/data/catalogo";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   deleteRole,

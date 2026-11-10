@@ -1,4 +1,4 @@
-import type { Atendimento } from "@/data/catalogo";
+import { Atendimento } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { dateFromIsoDateTime, mapTicketToAtendimento } from "@/lib/db/mappers";
 

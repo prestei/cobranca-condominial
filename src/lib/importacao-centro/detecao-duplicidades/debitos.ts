@@ -1,4 +1,4 @@
-import type { Debito } from "@/data/catalogo";
+import { Debito } from "@/data/catalogo";
 import type { DebitoImportRow } from "@/lib/importacoes/importar-debitos-planilha";
 import { chaveIdentificadorExterno } from "@/lib/importacao-centro/detecao-duplicidades/chaves";
 import type { ResultadoDetecaoDuplicidade } from "@/lib/importacao-centro/detecao-duplicidades/types";

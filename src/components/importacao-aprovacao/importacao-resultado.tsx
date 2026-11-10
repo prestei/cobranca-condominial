@@ -6,7 +6,7 @@ import { Badge } from "@/components/badge";
 import { CardMetric } from "@/components/card-metric";
 import { CardMetricRow } from "@/components/card-metric-row";
 import { Icon } from "@/components/icon";
-import type { ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
+import type { ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo.types";
 import {
   badgeVariantSituacaoImportacao,
   importacaoConcluidaOuParcial,
@@ -23,7 +23,7 @@ type Props = {
 export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProtegido }: Props) {
   const status = resultado.importacao.status;
   const situacaoRotulo = rotuloSituacaoImportacao(status);
-  const parcial = situacaoRotulo.toLowerCasecadastros.includes("parcial");
+  const parcial = situacaoRotulo.toLowerCase().includes("parcial");
   const sucesso = importacaoConcluidaOuParcial(status) && !parcial;
   const moduloRotulo = ROTULO_MODULO_IMPORTACAO[moduloDestino] ?? moduloDestino;
 

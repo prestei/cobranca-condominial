@@ -1,10 +1,4 @@
-import {
-  confirmacaoPagamentoAcordo,
-  statusParcelaAcordo as statusParcelaAcordoCatalogo,
-  type PagamentoAcordo,
-  type ParcelaAcordo,
-  type PropostaNegociacao,
-} from "@/data/catalogo";
+import { confirmacaoPagamentoAcordo, statusParcelaAcordo as statusParcelaAcordoCatalogo, type PagamentoAcordo, type ParcelaAcordo, type PropostaNegociacao } from "@/data/catalogo";
 
 export type StatusParcelaAcordo = (typeof statusParcelaAcordoCatalogo)[number];
 

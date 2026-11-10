@@ -1,9 +1,4 @@
-import {
-  agoraIso,
-  escopoUnidades,
-  statusPropostaNegociacao,
-  type PropostaNegociacao,
-} from "@/data/catalogo";
+import { agoraIso, escopoUnidades, statusPropostaNegociacao, type PropostaNegociacao } from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findDebtById } from "@/lib/db/repositories/debt-repository";

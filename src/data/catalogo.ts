@@ -1,20 +1,11 @@
-import { sanitizarCamposAlterados, sanitizarTextoAuditoria } from "@/lib/auditoria/sanitize";
-import { migrarCodigosReUsuarios } from "@/lib/colaboradores/re-sequencia";
 import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
-import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
 import { temPermissao } from "@/lib/permissions/check";
 import {
   PERMISSAO_JSON_ADMIN,
   PERMISSAO_JSON_ADVOGADO,
   PERMISSAO_JSON_ATENDENTE,
 } from "@/lib/permissions/seeds";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
-import {
-  enableTestCatalog,
-  getRequestCatalog,
-  mutateRequestCatalog,
-  tryGetRequestCatalog,
-} from "@/lib/db/request-catalog";
+import { permissoesDoUsuarioComCadastros } from "@/lib/permissions/permissoes-com-cadastros";
 import {
   atribuicoesBaseTeste,
   condominiosBaseTeste,
@@ -551,7 +542,7 @@ export type Cadastros = {
 };
 
 /** Somente testes — seed estático sem PostgreSQL. */
-const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
+const cadastrosSnapshotParaTestes: Cadastros = {
   condominios: condominiosIniciais,
   cargos: cargosIniciais,
   usuarios: usuariosIniciais,
@@ -570,174 +561,16 @@ const cadastrosSnapshotParaTestes: Cadastros = structuredClone({
   auditoria: auditoriaInicial,
   notificacoesInternas: [],
   notificacaoFalhas: [],
-});
+};
 
-/** Lê o catálogo do escopo de requisição (importação) ou do modo teste. */
-export function getCadastros(): Cadastros {
-  return getRequestCatalog();
+/** Cópia imutável do seed de testes (uso em `catalogo-store`). */
+export function snapshotCadastrosParaTestes(): Cadastros {
+  return structuredClone(cadastrosSnapshotParaTestes);
 }
 
-function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
-  if (item.ativo === false) return false;
-  if (normalizarCodigoUsuario(item.codigo) === chave) return true;
-  const re = item.codigoRe?.trim();
-  return Boolean(re && normalizarCodigoUsuario(re) === chave);
-}
-
-/** Login legado (sem PG): lê do escopo de teste. Com DATABASE_URL use repositório de identidade. */
-export function buscarUsuarioPorCodigoLogin(codigo: string) {
-  const chave = normalizarCodigoUsuario(codigo);
-  if (!chave) return undefined;
-  const cadastros = tryGetRequestCatalog();
-  const noEstado = cadastros?.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
-  if (noEstado) return noEstado;
-  if (process.env.DATABASE_URL?.trim()) return undefined;
-  return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
-}
-
-function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
-  mutateRequestCatalog((state) => {
-    const value = typeof next === "function" ? (next as (c: Cadastros[K]) => Cadastros[K])(state[key]) : next;
-    if (value === state[key]) return state;
-    return { ...state, [key]: value };
-  });
-}
-
-export function setCondominios(next: Condominio[] | ((current: Condominio[]) => Condominio[])) {
-  atualizar("condominios", next);
-}
-
-export function setCargos(next: Cargo[] | ((current: Cargo[]) => Cargo[])) {
-  atualizar("cargos", next);
-}
-
-export function setUsuarios(next: Usuario[] | ((current: Usuario[]) => Usuario[])) {
-  atualizar("usuarios", next);
-}
-
-export function setUnidades(next: Unidade[] | ((current: Unidade[]) => Unidade[])) {
-  atualizar("unidades", next);
-}
-
-export function setResponsaveis(next: Responsavel[] | ((current: Responsavel[]) => Responsavel[])) {
-  atualizar("responsaveis", next);
-}
-
-export function setVinculos(next: Vinculo[] | ((current: Vinculo[]) => Vinculo[])) {
-  atualizar("vinculos", next);
-}
-
-export function setDebitos(next: Debito[] | ((current: Debito[]) => Debito[])) {
-  atualizar("debitos", next);
-}
-
-export function setAtendimentos(next: Atendimento[] | ((current: Atendimento[]) => Atendimento[])) {
-  atualizar("atendimentos", next);
-}
-
-export function setPropostasNegociacao(
-  next: PropostaNegociacao[] | ((current: PropostaNegociacao[]) => PropostaNegociacao[]),
-) {
-  atualizar("propostasNegociacao", next);
-}
-
-export function setEncaminhamentosJuridicos(
-  next: EncaminhamentoJuridico[] | ((current: EncaminhamentoJuridico[]) => EncaminhamentoJuridico[]),
-) {
-  atualizar("encaminhamentosJuridicos", next);
-}
-
-export function setDocumentosJuridicos(
-  next: DocumentoJuridico[] | ((current: DocumentoJuridico[]) => DocumentoJuridico[]),
-) {
-  atualizar("documentosJuridicos", next);
-}
-
-export function setParcelasAcordo(next: ParcelaAcordo[] | ((current: ParcelaAcordo[]) => ParcelaAcordo[])) {
-  atualizar("parcelasAcordo", next);
-}
-
-export function setPagamentosAcordo(
-  next: PagamentoAcordo[] | ((current: PagamentoAcordo[]) => PagamentoAcordo[]),
-) {
-  atualizar("pagamentosAcordo", next);
-}
-
-export function setAtribuicoesCobranca(
-  next: AtribuicaoCobranca[] | ((current: AtribuicaoCobranca[]) => AtribuicaoCobranca[]),
-) {
-  atualizar("atribuicoesCobranca", next);
-}
-
-export function setImportacoes(next: Importacao[] | ((current: Importacao[]) => Importacao[])) {
-  atualizar("importacoes", next);
-}
-
-/** Somente leitura/sincronização na UI — eventos são append-only via `registrarAuditoria` no servidor. */
-export function setAuditoria(next: Auditoria[] | ((current: Auditoria[]) => Auditoria[])) {
-  atualizar("auditoria", next);
-}
-
-export function setNotificacoesInternas(
-  next: NotificacaoInterna[] | ((current: NotificacaoInterna[]) => NotificacaoInterna[]),
-) {
-  atualizar("notificacoesInternas", next);
-}
-
-export function setNotificacaoFalhas(
-  next: NotificacaoFalha[] | ((current: NotificacaoFalha[]) => NotificacaoFalha[]),
-) {
-  atualizar("notificacaoFalhas", next);
-}
-
-/** Restaura o catálogo ao seed inicial — uso exclusivo em testes automatizados. */
-export function resetCadastrosParaTestes() {
-  enableTestCatalog(structuredClone(cadastrosSnapshotParaTestes));
-}
-
-/** Mutações atômicas no escopo de catálogo da requisição (importação). */
-export function executarTransacaoCatalogo<T>(fn: () => T): T {
-  const snapshot = structuredClone(getRequestCatalog());
-  try {
-    return fn();
-  } catch (error) {
-    mutateRequestCatalog(() => snapshot);
-    throw error;
-  }
-}
-
-/** Variante assíncrona de {@link executarTransacaoCatalogo}. */
-export async function executarTransacaoCatalogoAsync<T>(fn: () => Promise<T>): Promise<T> {
-  const snapshot = structuredClone(getRequestCatalog());
-  try {
-    return await fn();
-  } catch (error) {
-    mutateRequestCatalog(() => snapshot);
-    throw error;
-  }
-}
-
-export function registrarAuditoria(
-  entry: Pick<Auditoria, "entidade" | "registroId" | "acao" | "dadosAnteriores" | "dadosNovos" | "camposAlterados">,
-  usuarioId?: number,
-  meta?: { ip?: string; userAgent?: string },
-) {
-  mutateRequestCatalog((state) => {
-    const registro: Auditoria = {
-      id: state.auditoria.reduce((max, item) => Math.max(max, item.id), 0) + 1,
-      usuarioId: String(usuarioId ?? getUsuarioLogadoIdOrNull() ?? ID_USUARIO_SESSAO),
-      ip: meta?.ip ?? "",
-      userAgent: meta?.userAgent ?? "",
-      dataHora: agoraIso(),
-      entidade: entry.entidade,
-      registroId: entry.registroId,
-      acao: entry.acao,
-      dadosAnteriores: sanitizarTextoAuditoria(entry.dadosAnteriores),
-      dadosNovos: sanitizarTextoAuditoria(entry.dadosNovos),
-      camposAlterados: sanitizarCamposAlterados(entry.camposAlterados),
-    };
-    return { ...state, auditoria: [registro, ...state.auditoria] };
-  });
+/** Usuários do seed legado (login sem banco). */
+export function usuariosLoginLegado(): readonly Usuario[] {
+  return usuariosIniciais;
 }
 
 export function formatarData(value: string) {
@@ -843,7 +676,7 @@ export function escopoUnidades(cadastros: Cadastros, usuarioId?: number): Unidad
   const id = idUsuarioEscopo(usuarioId);
   const usuario = cadastros.usuarios.find((item) => item.id === id);
   if (!usuario) return [];
-  const perm = permissoesDoUsuarioId(id, cadastros);
+  const perm = permissoesDoUsuarioComCadastros(id, cadastros);
   if (temPermissao(perm, "usuarios", "criar")) {
     const ids = new Set(escopoCondominios(cadastros, id).map((item) => item.id));
     return cadastros.unidades.filter((item) => ids.has(item.condominioId));
@@ -859,7 +692,7 @@ export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Con
   const id = idUsuarioEscopo(usuarioId);
   const usuario = cadastros.usuarios.find((item) => item.id === id);
   if (!usuario) return [];
-  const perm = permissoesDoUsuarioId(id, cadastros);
+  const perm = permissoesDoUsuarioComCadastros(id, cadastros);
   if (temPermissao(perm, "condominios", "editar") || temPermissao(perm, "condominios", "criar")) {
     return cadastros.condominios;
   }
@@ -1006,39 +839,31 @@ export function proximoNumero(ids: number[]) {
 }
 
 export function nomeCondominio(id: number, cadastros?: Cadastros) {
-  const c = cadastros ?? tryGetRequestCatalog();
-  if (!c) return "—";
-  return c.condominios.find((item) => item.id === id)?.nome ?? "—";
+  if (!cadastros) return "—";
+  return cadastros.condominios.find((item) => item.id === id)?.nome ?? "—";
 }
 
 export function nomeUsuario(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
-  if (!id || Number.isNaN(numeric)) return "—";
-  const c = cadastros ?? tryGetRequestCatalog();
-  if (!c) return "—";
-  return c.usuarios.find((item) => item.id === numeric)?.nome ?? "—";
+  if (!id || Number.isNaN(numeric) || !cadastros) return "—";
+  return cadastros.usuarios.find((item) => item.id === numeric)?.nome ?? "—";
 }
 
 export function nomeUnidade(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
-  if (!id || Number.isNaN(numeric)) return "—";
-  const c = cadastros ?? tryGetRequestCatalog();
-  if (!c) return "—";
-  const unidade = c.unidades.find((item) => item.id === numeric);
+  if (!id || Number.isNaN(numeric) || !cadastros) return "—";
+  const unidade = cadastros.unidades.find((item) => item.id === numeric);
   if (!unidade) return "—";
-  return `${nomeCondominio(unidade.condominioId, c)} · ${unidade.identificacao}`;
+  return `${nomeCondominio(unidade.condominioId, cadastros)} · ${unidade.identificacao}`;
 }
 
 export function nomeResponsavel(id: number | string, cadastros?: Cadastros) {
   const numeric = Number(id);
-  if (!id || Number.isNaN(numeric)) return "—";
-  const c = cadastros ?? tryGetRequestCatalog();
-  if (!c) return "—";
-  return c.responsaveis.find((item) => item.id === numeric)?.nome ?? "—";
+  if (!id || Number.isNaN(numeric) || !cadastros) return "—";
+  return cadastros.responsaveis.find((item) => item.id === numeric)?.nome ?? "—";
 }
 
 export function nomeCargo(id: number, cadastros?: Cadastros) {
-  const c = cadastros ?? tryGetRequestCatalog();
-  if (!c) return "—";
-  return c.cargos.find((item) => item.id === id)?.nome ?? "—";
+  if (!cadastros) return "—";
+  return cadastros.cargos.find((item) => item.id === id)?.nome ?? "—";
 }

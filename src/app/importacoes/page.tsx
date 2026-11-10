@@ -51,16 +51,10 @@ import {
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import {
-  formatarData,
-  nomeUsuario,
-  primeiroNome,
-  tiposImportacao,
-  type Importacao,
-} from "@/data/catalogo";
-import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
+import { formatarData, nomeUsuario, primeiroNome, tiposImportacao, type Importacao } from "@/data/catalogo";
+import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo.types";
 import {
   configWizardImportacao,
   moduloWizardValido,
@@ -77,7 +71,7 @@ import { agoraIso } from "@/data/catalogo";
 import { ImportacaoArquivoCampo } from "@/components/importacao-wizard/importacao-arquivo-campo";
 import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importacao-wizard-loading";
 import { ImportacaoHistoricoDetalheSheet } from "@/components/importacao-historico/importacao-historico-detalhe-sheet";
-import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-auditoria";
+import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
 import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
 import {
   SITUACOES_IMPORTACAO,

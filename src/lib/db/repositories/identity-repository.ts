@@ -1,4 +1,4 @@
-import type { Cargo, Usuario } from "@/data/catalogo";
+import { Cargo, Usuario } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { mapRoleToCargo, mapUserToUsuario } from "@/lib/db/mappers";
 import { normalizarCodigoUsuario } from "@/lib/auth/codigo";

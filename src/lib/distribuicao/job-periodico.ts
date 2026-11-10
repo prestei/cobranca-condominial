@@ -21,7 +21,7 @@ export type ResultadoCicloDistribuicaoAutomatica = {
  * Um ciclo: se a distribuição automática estiver ativada, atribui RE às cobranças sem responsável.
  * Idempotente e seguro para sobreposição (ignora se já houver ciclo em andamento).
  */
-export function executarCicloDistribuicaoAutomatica(): ResultadoCicloDistribuicaoAutomatica {
+export async function executarCicloDistribuicaoAutomatica(): Promise<ResultadoCicloDistribuicaoAutomatica> {
   if (emExecucao) {
     return { executou: false, motivo: "em_andamento" };
   }
@@ -31,7 +31,7 @@ export function executarCicloDistribuicaoAutomatica(): ResultadoCicloDistribuica
 
   emExecucao = true;
   try {
-    const resultado = dispararDistribuicaoAutomaticaSeAtivada(0, {
+    const resultado = await dispararDistribuicaoAutomaticaSeAtivada(0, {
       userAgent: "job-distribuicao-automatica/5m",
     });
     if (!resultado) {
@@ -60,11 +60,11 @@ export function agendarDistribuicaoAutomaticaPeriodica(): void {
 
   // Primeiro ciclo após subida (não bloqueia o boot).
   setTimeout(() => {
-    executarCicloDistribuicaoAutomatica();
+    void executarCicloDistribuicaoAutomatica();
   }, 15_000).unref?.();
 
   setInterval(() => {
-    executarCicloDistribuicaoAutomatica();
+    void executarCicloDistribuicaoAutomatica();
   }, INTERVALO_DISTRIBUICAO_AUTOMATICA_MS).unref?.();
 
   console.info(

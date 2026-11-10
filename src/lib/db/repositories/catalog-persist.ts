@@ -1,4 +1,4 @@
-import type { Cadastros } from "@/data/catalogo";
+import { Cadastros } from "@/data/catalogo";
 import { salvarCatalogoNoPostgres } from "@/lib/db/repositories/catalog-bulk-persist";
 
 /**

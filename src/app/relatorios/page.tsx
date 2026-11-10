@@ -67,28 +67,7 @@ import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarPdf } from "@/lib/exportar";
 import type { RelatorioExportPayload } from "@/lib/relatorios/service";
-import {
-  acimaDoLimite,
-  canaisAtendimento,
-  debitoAbertoNaData,
-  diasDeAtraso,
-  escopoCondominios,
-  escopoUnidades,
-  faixasAtraso,
-  formatarData,
-  opcoesAdvogadosResponsaveis,
-  grupoDebito,
-  gruposDebito,
-  hojeIso,
-  LIMITE_AMIGAVEL_DIAS,
-  motivosPendencia,
-  nomeUnidade,
-  nomeUsuario,
-  situacaoRetorno,
-  type Atendimento,
-  type Condominio,
-  type Debito,
-} from "@/data/catalogo";
+import { acimaDoLimite, canaisAtendimento, debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, faixasAtraso, formatarData, opcoesAdvogadosResponsaveis, grupoDebito, gruposDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, motivosPendencia, nomeUnidade, nomeUsuario, situacaoRetorno, type Atendimento, type Condominio, type Debito } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re";
 
@@ -439,7 +418,7 @@ function RelatoriosPage() {
   const chave = `${relatorio ?? "hub"}|${periodo.inicio}|${periodo.fim}|${aplicado.advogado}|${aplicado.condominio}|${aplicado.codigoRe}|${aplicado.respondeu}|${aplicado.motivo}|${aplicado.canal}|${busca}|${comparativo}`;
 
   const condominiosEscopo = escopoCondominios(cadastros, userId || undefined);
-  const atendentesRe = listarAtendentesComRe();
+  const atendentesRe = listarAtendentesComRe(cadastros);
   const podeFiltrarPorRe = pode("usuarios", "criar");
   const relatoriosHub = RELATORIOS;
 

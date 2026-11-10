@@ -4,7 +4,8 @@ import { beforeEach, describe, test } from "node:test";
 process.env.NODE_ENV ??= "test";
 process.env.AUTH_SECRET ??= "test-auth-secret-min-32-characters!!";
 
-import { agoraIso, getCadastros, resetCadastrosParaTestes, setAtribuicoesCobranca } from "@/data/catalogo";
+import { agoraIso } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes, setAtribuicoesCobranca } from "@/data/catalogo-store";
 import {
   atualizarConfigDistribuicaoAutomatica,
   executarDistribuicaoAutomatica,

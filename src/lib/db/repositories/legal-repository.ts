@@ -1,4 +1,4 @@
-import type { DocumentoJuridico, EncaminhamentoJuridico } from "@/data/catalogo";
+import { DocumentoJuridico, EncaminhamentoJuridico } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { dateFromIsoDateTime, mapLegalDocToDocumento, mapReferralToEncaminhamento } from "@/lib/db/mappers";
 

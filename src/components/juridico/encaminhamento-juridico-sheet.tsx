@@ -25,16 +25,9 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import {
-  debitoEmAberto,
-  formatarData,
-  getCadastros,
-  nomeUsuario,
-  statusEncaminhamentoJuridico,
-  type DocumentoJuridico,
-  type EncaminhamentoJuridico,
-} from "@/data/catalogo";
+import { debitoEmAberto, formatarData, nomeUsuario, statusEncaminhamentoJuridico, type DocumentoJuridico, type EncaminhamentoJuridico } from "@/data/catalogo";
 import type { EncaminhamentoJuridicoDetalhe } from "@/lib/juridico/service";
+import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
 type Props = {
@@ -68,6 +61,7 @@ export function EncaminhamentoJuridicoSheet({
 }: Props) {
   const formId = useId();
   const { toast } = useToast();
+  const cadastros = useCadastros();
   const { pode } = usePermissao();
   const podeCriar = pode("juridico", "criar");
   const podeEditar = pode("juridico", "editar");
@@ -92,17 +86,17 @@ export function EncaminhamentoJuridicoSheet({
 
   const condominio = useMemo(() => {
     if (condominioId === null) return undefined;
-    return getCadastroscadastros.condominios.find((item) => item.id === condominioId);
-  }, [condominioId, lista.length]);
+    return cadastros.condominios.find((item) => item.id === condominioId);
+  }, [cadastros.condominios, condominioId]);
 
   const advogadosOpcoes = condominio?.advogados ?? [];
 
   const debitosUnidade = useMemo(() => {
     if (unidadeId === null) return [];
-    return getCadastros()
-      .debitos.filter((item) => item.unidadeId === unidadeId)
+    return cadastros.debitos
+      .filter((item) => item.unidadeId === unidadeId)
       .sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento));
-  }, [unidadeId, lista.length]);
+  }, [cadastros.debitos, unidadeId]);
 
   const debitosSelecionaveis = debitosUnidade.filter(debitoEmAberto);
 
@@ -279,7 +273,7 @@ export function EncaminhamentoJuridicoSheet({
               <p className="text-label-sm text-on-surface-variant">Ref.: {doc.referenciaArquivo}</p>
             ) : null}
             <p className="text-label-sm text-on-surface-variant">
-              {formatarData(doc.registradoEm)} · {nomeUsuario(doc.registradoPorId)}
+              {formatarData(doc.registradoEm)} · {nomeUsuario(doc.registradoPorId, cadastros)}
             </p>
           </li>
         ))}

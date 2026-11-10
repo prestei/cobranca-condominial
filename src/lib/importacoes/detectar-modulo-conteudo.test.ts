@@ -6,7 +6,7 @@ import {
   mensagemModuloCorrigido,
 } from "@/lib/importacoes/detectar-modulo-conteudo";
 import { receberArquivoImportacao } from "@/lib/importacoes/receber-arquivo";
-import { resetCadastrosParaTestes } from "@/data/catalogo";
+import { resetCadastrosParaTestes } from "@/data/catalogo-store";
 
 test("planilha de inadimplência detectada como debitos mesmo pedindo condominios", () => {
   const matriz = [

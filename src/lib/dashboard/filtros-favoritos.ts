@@ -1,4 +1,4 @@
-import type { DashboardFiltros } from "@/lib/dashboard/filtros";
+import type { DashboardFiltros } from "@/lib/dashboard/filtros-shared";
 
 export type FiltroFavoritoDashboard = {
   id: string;

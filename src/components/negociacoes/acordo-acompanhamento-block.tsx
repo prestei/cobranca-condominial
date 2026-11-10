@@ -8,12 +8,7 @@ import { Button } from "@/components/button";
 import { FormField, Input, Select } from "@/components/input";
 import { SkeletonTable } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
-import {
-  confirmacaoPagamentoAcordo,
-  formatarData,
-  formatarMoeda,
-  type PagamentoAcordo,
-} from "@/data/catalogo";
+import { confirmacaoPagamentoAcordo, formatarData, formatarMoeda, type PagamentoAcordo } from "@/data/catalogo";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
 
 type Props = {

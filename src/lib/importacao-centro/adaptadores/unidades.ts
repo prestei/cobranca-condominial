@@ -1,15 +1,5 @@
-import {
-  agoraIso,
-  escopoCondominios,
-  getCadastros,
-  nomeCondominio,
-  proximoNumero,
-  registrarAuditoria,
-  setUnidades,
-  SITUACAO_COBRANCA_PADRAO,
-  type Importacao,
-  type Unidade,
-} from "@/data/catalogo";
+import { agoraIso, escopoCondominios, nomeCondominio, proximoNumero, SITUACAO_COBRANCA_PADRAO, type Importacao, type Unidade } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setUnidades } from "@/data/catalogo-store";
 import { interpretarPlanilhaUnidades } from "@/lib/unidades/importar-planilha";
 import type { UnidadeInput } from "@/lib/unidades/service";
 import { serializarObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";

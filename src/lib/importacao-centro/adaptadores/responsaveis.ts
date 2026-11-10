@@ -1,17 +1,5 @@
-import {
-  agoraIso,
-  escopoCondominios,
-  escopoUnidades,
-  getCadastros,
-  nomeCondominio,
-  proximoNumero,
-  registrarAuditoria,
-  setResponsaveis,
-  setVinculos,
-  type Importacao,
-  type Responsavel,
-  type Vinculo,
-} from "@/data/catalogo";
+import { agoraIso, escopoCondominios, escopoUnidades, nomeCondominio, proximoNumero, type Importacao, type Responsavel, type Vinculo } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setResponsaveis, setVinculos } from "@/data/catalogo-store";
 import {
   chaveDuplicidadeResponsavelNoArquivo,
   detectarDuplicidadeResponsavel,
@@ -30,16 +18,8 @@ import type {
   MetaExecucaoImportacao,
 } from "@/lib/importacao-centro/types";
 
-export const FORMATO_IMPORTACAO_RESPONSAVEIS_V1 = "planilha-responsaveis-v1";
-
-export type ContextoImportacaoResponsaveis = {
-  condominios: Array<{ id: number; nome: string }>;
-  unidades: Array<{ id: number; condominioId: number; identificacao: string; bloco: string }>;
-  responsaveis: Responsavel[];
-  vinculos: Vinculo[];
-  responsaveisMutaveis: Responsavel[];
-  vinculosMutaveis: Vinculo[];
-};
+export { FORMATO_IMPORTACAO_RESPONSAVEIS_V1, type ContextoImportacaoResponsaveis } from "@/lib/importacao-centro/adaptadores/responsaveis-types";
+import { FORMATO_IMPORTACAO_RESPONSAVEIS_V1, type ContextoImportacaoResponsaveis } from "@/lib/importacao-centro/adaptadores/responsaveis-types";
 
 function normalizarCpfCnpj(valor: string) {
   return valor.replace(/\D/g, "");

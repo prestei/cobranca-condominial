@@ -1,9 +1,4 @@
-import {
-  acimaDoLimite,
-  debitoAbertoNaData,
-  diasDeAtraso,
-  type Debito,
-} from "@/data/catalogo";
+import { acimaDoLimite, debitoAbertoNaData, diasDeAtraso, type Debito } from "@/data/catalogo";
 
 export type DebitoIndicadoresInput = {
   debitos: Debito[];

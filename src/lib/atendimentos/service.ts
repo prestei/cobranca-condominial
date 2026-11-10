@@ -1,14 +1,4 @@
-import {
-  agoraIso,
-  canaisAtendimento,
-  escopoCondominios,
-  escopoUnidades,
-  hojeIso,
-  motivosPendencia,
-  statusAtendimento,
-  type Atendimento,
-  type Cadastros,
-} from "@/data/catalogo";
+import { agoraIso, canaisAtendimento, escopoCondominios, escopoUnidades, hojeIso, motivosPendencia, statusAtendimento, type Atendimento, type Cadastros } from "@/data/catalogo";
 import {
   classificarAtendimentoOperacional,
   periodoUltimos7Dias,

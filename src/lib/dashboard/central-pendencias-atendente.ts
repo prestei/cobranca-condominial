@@ -1,12 +1,6 @@
-import {
-  getCadastros,
-  nomeCondominio,
-  retornoPendente,
-  situacaoCobrancaUnidade,
-  situacaoRetorno,
-  type Atendimento,
-} from "@/data/catalogo";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { nomeCondominio, retornoPendente, situacaoCobrancaUnidade, situacaoRetorno, type Atendimento } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { listarFilaCobranca, type FilaCobrancaItem } from "@/lib/fila/service";
 import { hojeEmFuso, dataHoraPartesEmFuso, FUSO_NOTIFICACOES } from "@/lib/notificacoes/timezone";
 import {
@@ -17,26 +11,20 @@ import {
 /** Dias sem registro de atendimento para classificar como «sem movimentação» (não é atraso de retorno). */
 export const DIAS_SEM_MOVIMENTACAO = 7;
 
-export type CategoriaPendenciaId =
-  | "hoje"
-  | "atrasadas"
-  | "proximos_retornos"
-  | "aguardando_resposta"
-  | "sem_movimentacao"
-  | "prioritarias";
-
-export type TipoPendenciaId = CategoriaPendenciaId;
-
 export type PendenciaOrdenacao = "prioridade" | "data_retorno" | "ultima_movimentacao";
 
-export const ROTULO_TIPO_PENDENCIA: Record<TipoPendenciaId, string> = {
-  prioritarias: "Prioritária",
-  atrasadas: "Atrasada",
-  hoje: "Hoje",
-  proximos_retornos: "Próximo retorno",
-  aguardando_resposta: "Aguardando resposta",
-  sem_movimentacao: "Sem movimentação",
-};
+export {
+  CATEGORIAS_PENDENCIA,
+  ROTULO_TIPO_PENDENCIA,
+  type CategoriaPendenciaId,
+  type TipoPendenciaId,
+} from "@/lib/dashboard/pendencias-labels";
+import {
+  CATEGORIAS_PENDENCIA,
+  ROTULO_TIPO_PENDENCIA,
+  type CategoriaPendenciaId,
+  type TipoPendenciaId,
+} from "@/lib/dashboard/pendencias-labels";
 
 const PRIORIDADE_TIPO: Record<TipoPendenciaId, number> = {
   prioritarias: 0,
@@ -311,13 +299,3 @@ export function listarCentralPendenciasAtendente(
     pageSize,
   };
 }
-
-export const CATEGORIAS_PENDENCIA: { id: CategoriaPendenciaId | "todas"; rotulo: string }[] = [
-  { id: "todas", rotulo: "Todas" },
-  { id: "hoje", rotulo: "Pendências de hoje" },
-  { id: "atrasadas", rotulo: "Pendências atrasadas" },
-  { id: "proximos_retornos", rotulo: "Próximos retornos" },
-  { id: "aguardando_resposta", rotulo: "Aguardando resposta" },
-  { id: "sem_movimentacao", rotulo: "Sem movimentação" },
-  { id: "prioritarias", rotulo: "Pendências prioritárias" },
-];

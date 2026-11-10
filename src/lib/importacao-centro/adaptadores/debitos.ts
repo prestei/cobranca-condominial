@@ -1,16 +1,5 @@
-import {
-  agoraIso,
-  escopoCondominios,
-  getCadastros,
-  nomeCondominio,
-  proximoNumero,
-  registrarAuditoria,
-  setDebitos,
-  setUnidades,
-  situacaoCobrancaUnidade,
-  type Debito,
-  type Importacao,
-} from "@/data/catalogo";
+import { agoraIso, escopoCondominios, nomeCondominio, proximoNumero, situacaoCobrancaUnidade, type Debito, type Importacao } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setDebitos, setUnidades } from "@/data/catalogo-store";
 import {
   chaveDuplicidadeDebitoNoArquivo,
   detectarDuplicidadeDebito,
@@ -340,7 +329,7 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
     provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao);
     // Espelha provisionamento no snapshot + tabelas normalizadas (não só operacional).
     void import("@/lib/db/repositories/catalog-persist").then(async ({ saveOperationalState }) => {
-      const { getCadastros } = await import("@/data/catalogo");
+      const { getCadastros } = await import("@/data/catalogo-store");
       await saveOperationalState(getCadastros());
     });
   },

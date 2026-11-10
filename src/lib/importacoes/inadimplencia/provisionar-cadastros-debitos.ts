@@ -1,16 +1,5 @@
-import {
-  getCadastros,
-  opcoesAdvogadosResponsaveis,
-  proximoNumero,
-  registrarAuditoria,
-  setResponsaveis,
-  setVinculos,
-  SITUACAO_COBRANCA_PADRAO,
-  type Condominio,
-  type Responsavel,
-  type Unidade,
-  type Vinculo,
-} from "@/data/catalogo";
+import { opcoesAdvogadosResponsaveis, proximoNumero, SITUACAO_COBRANCA_PADRAO, type Condominio, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setResponsaveis, setVinculos } from "@/data/catalogo-store";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
 import { normalizarNomeImportacao } from "@/lib/importacao-centro/normalizacao-campos";
 import { CondominioServiceError, criarCondominio } from "@/lib/condominios/service";

@@ -33,16 +33,8 @@ import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importac
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { usePermissao } from "@/hooks/use-permissao";
-import {
-  agoraIso,
-  type AtribuicaoCobranca,
-  type Debito,
-  type Condominio,
-  type Unidade,
-  type Responsavel,
-  type Vinculo,
-} from "@/data/catalogo";
-import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
+import { agoraIso, type AtribuicaoCobranca, type Debito, type Condominio, type Unidade, type Responsavel, type Vinculo } from "@/data/catalogo";
+import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo.types";
 import {
   configWizardImportacao,
   moduloWizardValido,

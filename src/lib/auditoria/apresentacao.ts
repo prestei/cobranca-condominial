@@ -1,4 +1,4 @@
-import type { Auditoria } from "@/data/catalogo";
+import { Auditoria } from "@/data/catalogo";
 
 export const rotuloTipoRegistro: Record<string, string> = {
   role: "Cargo",

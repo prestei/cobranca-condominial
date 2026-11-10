@@ -7,8 +7,8 @@ import { Button } from "@/components/button";
 import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
 import { FormField, Input } from "@/components/input";
-import { FAIXAS_ATRASO_DASHBOARD_ATENDENTE } from "@/lib/dashboard/graficos-atendente";
-import { ROTULO_TIPO_PENDENCIA, type TipoPendenciaId } from "@/lib/dashboard/central-pendencias-atendente";
+import { FAIXAS_ATRASO_DASHBOARD_ATENDENTE } from "@/lib/dashboard/faixas-atraso";
+import { ROTULO_TIPO_PENDENCIA, type TipoPendenciaId } from "@/lib/dashboard/pendencias-labels";
 import {
   filtrosDashboardPadrao,
   rotulosFiltrosAtivos,
@@ -16,7 +16,7 @@ import {
   situacoesFiltroDashboard,
   type DashboardFiltros,
   type DashboardFiltrosNorm,
-} from "@/lib/dashboard/filtros";
+} from "@/lib/dashboard/filtros-shared";
 import {
   listarFavoritosDashboard,
   removerFavoritoDashboard,
@@ -95,7 +95,7 @@ export function DashboardFiltrosPanel({ userId, aplicados, onAplicar, onRestaura
   );
   const situacoes = situacoesFiltroDashboard(unidades);
 
-  const ativos = rotulosFiltrosAtivos(aplicados, userId);
+  const ativos = rotulosFiltrosAtivos(aplicados, cadastros);
 
   function montarFiltros(): DashboardFiltros {
     const limite = Number(limiteDias);

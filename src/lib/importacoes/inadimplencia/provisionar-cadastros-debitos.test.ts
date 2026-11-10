@@ -1,16 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import {
-  getCadastros,
-  resetCadastrosParaTestes,
-  setAtribuicoesCobranca,
-  setCondominios,
-  setDebitos,
-  setResponsaveis,
-  setUnidades,
-  setVinculos,
-} from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes, setAtribuicoesCobranca, setCondominios, setDebitos, setResponsaveis, setUnidades, setVinculos } from "@/data/catalogo-store";
 import { adaptadorImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
 import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
 import {

@@ -1,4 +1,4 @@
-import type { Debito } from "@/data/catalogo";
+import { Debito } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import {
   dateFromIsoDate,

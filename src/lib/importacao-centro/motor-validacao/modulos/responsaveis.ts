@@ -1,5 +1,5 @@
 import { tiposVinculo } from "@/data/catalogo";
-import type { ContextoImportacaoResponsaveis } from "@/lib/importacao-centro/adaptadores/responsaveis";
+import type { ContextoImportacaoResponsaveis } from "@/lib/importacao-centro/adaptadores/responsaveis-types";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
 import { normalizarCpfCnpjImportacao } from "@/lib/importacao-centro/normalizacao-campos";
 import {

@@ -1,24 +1,4 @@
-import type {
-  Atendimento,
-  AtribuicaoCobranca,
-  Auditoria,
-  Cadastros,
-  Condominio,
-  Debito,
-  DocumentoJuridico,
-  EncaminhamentoJuridico,
-  Importacao,
-  NotificacaoFalha,
-  NotificacaoInterna,
-  PagamentoAcordo,
-  ParcelaAcordo,
-  PropostaNegociacao,
-  Responsavel,
-  Unidade,
-  Usuario,
-  Vinculo,
-  Cargo,
-} from "@/data/catalogo";
+import { Atendimento, AtribuicaoCobranca, Auditoria, Cadastros, Condominio, Debito, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo, Cargo } from "@/data/catalogo";
 import { dateFromIsoDate, dateFromIsoDateTime, decimalFromString } from "@/lib/db/mappers";
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";

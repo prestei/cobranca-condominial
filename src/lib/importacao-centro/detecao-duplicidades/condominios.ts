@@ -1,4 +1,4 @@
-import type { Condominio } from "@/data/catalogo";
+import { Condominio } from "@/data/catalogo";
 import type { CondominioImportPayload } from "@/lib/condominios/importar-planilha";
 import { chaveIdentificadorExterno, chaveNomeNormalizado } from "@/lib/importacao-centro/detecao-duplicidades/chaves";
 import type { ResultadoDetecaoDuplicidade } from "@/lib/importacao-centro/detecao-duplicidades/types";

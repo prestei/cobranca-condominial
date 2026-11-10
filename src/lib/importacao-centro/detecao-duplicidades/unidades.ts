@@ -1,4 +1,4 @@
-import type { Unidade } from "@/data/catalogo";
+import { Unidade } from "@/data/catalogo";
 import type { UnidadeInput } from "@/lib/unidades/service";
 import type { ResultadoDetecaoDuplicidade } from "@/lib/importacao-centro/detecao-duplicidades/types";
 

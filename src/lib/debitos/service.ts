@@ -1,11 +1,4 @@
-import {
-  agoraIso,
-  debitoEmAberto,
-  origensDebito,
-  statusDebito,
-  type Debito,
-  type FonteValoresDebito,
-} from "@/data/catalogo";
+import { agoraIso, debitoEmAberto, origensDebito, statusDebito, type Debito, type FonteValoresDebito } from "@/data/catalogo";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   createDebt,

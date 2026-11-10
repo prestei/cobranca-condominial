@@ -1,4 +1,4 @@
-import type { NotificacaoFalha, NotificacaoInterna } from "@/data/catalogo";
+import { NotificacaoFalha, NotificacaoInterna } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import {
   dateFromIsoDateTime,

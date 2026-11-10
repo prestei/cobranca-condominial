@@ -1,17 +1,4 @@
-import {
-  acimaDoLimite,
-  debitoAbertoNaData,
-  diasDeAtraso,
-  escopoCondominios,
-  escopoUnidades,
-  faixasAtraso,
-  type Cadastros,
-  grupoDebito,
-  gruposDebito,
-  hojeIso,
-  LIMITE_AMIGAVEL_DIAS,
-  type Debito,
-} from "@/data/catalogo";
+import { acimaDoLimite, debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, faixasAtraso, type Cadastros, grupoDebito, gruposDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, type Debito } from "@/data/catalogo";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
 import type { DebitoIndicadores } from "@/lib/debitos/indicadores";
 import { somarValorAtualizadoSemDuplicata } from "@/lib/debitos/indicadores";

@@ -1,16 +1,4 @@
-import {
-  debitoEmAberto,
-  formatarData,
-  SITUACAO_COBRANCA_PADRAO,
-  situacaoCobrancaUnidade,
-  situacoesUnidade,
-  statusUnidade,
-  tiposUnidade,
-  tiposVinculo,
-  type Responsavel,
-  type Unidade,
-  type Vinculo,
-} from "@/data/catalogo";
+import { debitoEmAberto, formatarData, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposUnidade, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { invalidateServiceContextCache, scopeCondominiumIds } from "@/lib/db/service-context";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";

@@ -53,7 +53,7 @@ import {
 } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import type { Cargo } from "@/data/catalogo";
+import { Cargo } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";

@@ -1,5 +1,6 @@
 -- Avatar do colaborador + configurações de app (ex.: distribuição automática).
--- Idempotente. Fonte da verdade: PostgreSQL (tabelas normalizadas).
+-- Idempotente. Histórico / referência manual.
+-- Aplicar via Prisma: prisma/migrations/20261110140000_avatar_and_app_setting/
 
 ALTER TABLE "user"
   ADD COLUMN IF NOT EXISTS avatar TEXT;

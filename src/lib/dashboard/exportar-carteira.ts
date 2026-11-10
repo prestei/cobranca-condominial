@@ -1,10 +1,6 @@
-import {
-  formatarData,
-  getCadastros,
-  registrarAuditoria,
-  type Condominio,
-} from "@/data/catalogo";
-import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
+import { formatarData, type Condominio } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria } from "@/data/catalogo-store";
+import { identificadorColaboradorPorId } from "@/lib/colaboradores/re-server";
 import {
   DashboardFiltrosError,
   parseFiltrosDashboard,

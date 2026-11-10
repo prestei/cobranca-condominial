@@ -27,8 +27,8 @@ import {
   situacaoPermiteIgnorarNaPrevia,
   valoresEditadosDaLinha,
 } from "@/lib/importacao-centro/pre-visualizacao";
-import type { PreviewImportacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
-import type { PreviewImportacaoDebitos, ResultadoCorrecaoPreviewDebitos } from "@/lib/importacoes/debitos-service";
+import type { PreviewImportacaoModulo } from "@/lib/importacoes/preview-importacao-modulo.types";
+import type { PreviewImportacaoDebitos, ResultadoCorrecaoPreviewDebitos } from "@/lib/importacoes/debitos-service.types";
 import { useToast } from "@/components/toast";
 
 function mapLinhasUi(

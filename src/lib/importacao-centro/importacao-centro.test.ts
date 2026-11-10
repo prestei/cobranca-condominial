@@ -8,7 +8,7 @@ import { validarAprovacao } from "@/lib/importacao-centro/aprovacao";
 import { ImportacaoCentroError } from "@/lib/importacao-centro/types";
 import type { AdaptadorImportacao, LinhaParseada } from "@/lib/importacao-centro/types";
 import { confirmarImportacaoCentral, previewImportacaoCentral } from "@/lib/importacao-centro/servico-central";
-import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo-store";
 
 type ItemTeste = { codigo: string; valor: number };
 

@@ -7,11 +7,11 @@ import { Button } from "@/components/button";
 import { FormField, Select, Switch } from "@/components/input";
 import { SheetToggleRow } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import type { AtribuicaoCobranca } from "@/data/catalogo";
+import { AtribuicaoCobranca } from "@/data/catalogo";
 import {
   descricaoEstrategiaDistribuicaoAutomatica,
   type DistribuicaoAutomaticaEstrategia,
-} from "@/lib/distribuicao/service";
+} from "@/lib/distribuicao/labels";
 import { Alert } from "@/components/alert";
 import { SkeletonForm } from "@/components/skeleton";
 

@@ -1,11 +1,5 @@
-import {
-  agoraIso,
-  getCadastros,
-  proximoNumero,
-  registrarAuditoria,
-  setImportacoes,
-  type Importacao,
-} from "@/data/catalogo";
+import { agoraIso, proximoNumero, type Importacao } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setImportacoes } from "@/data/catalogo-store";
 import type { AcaoAuditoriaImportacao, RegistroAcaoImportacao } from "@/lib/importacao-centro/historico-types";
 import type { ResumoAprovacaoImportacao } from "@/lib/importacao-centro/resumo-aprovacao";
 import {
@@ -25,16 +19,8 @@ import {
 
 export type { AcaoAuditoriaImportacao, RegistroAcaoImportacao } from "@/lib/importacao-centro/historico-types";
 
-export type ImportacaoConsulta = Importacao & {
-  resumoInconsistencias?: ResumoInconsistenciasImportacao;
-  resultadoFinanceiro?: { valor: string; moeda: "BRL" };
-  processoId?: string;
-  iniciadoEm?: string;
-  aprovadoEm?: string | null;
-  usuarioAprovacaoId?: number | null;
-  acoes?: RegistroAcaoImportacao[];
-  hashArquivoMascarado?: string;
-};
+export type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
+import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
 
 /**
  * Persiste o registro de importação no histórico (tabela `import`).

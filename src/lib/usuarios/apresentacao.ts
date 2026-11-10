@@ -1,4 +1,4 @@
-import type { Usuario } from "@/data/catalogo";
+import { Usuario } from "@/data/catalogo";
 
 /** Dados de colaborador expostos pela API (sem senha). */
 export type UsuarioPublico = Omit<Usuario, "senha">;

@@ -1,18 +1,7 @@
-import {
-  debitoEmAberto,
-  escopoCondominios,
-  formatarMoeda,
-  getCadastros,
-  type Atendimento,
-  type AtribuicaoCobranca,
-  type Debito,
-  type PagamentoAcordo,
-  type EncaminhamentoJuridico,
-  type PropostaNegociacao,
-  type Unidade,
-} from "@/data/catalogo";
+import { debitoEmAberto, escopoCondominios, formatarMoeda, type Atendimento, type AtribuicaoCobranca, type Debito, type PagamentoAcordo, type EncaminhamentoJuridico, type PropostaNegociacao, type Unidade } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { calcularResumoAcordo, type ResumoAcordo } from "@/lib/acordos/resumo";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 

@@ -1,4 +1,5 @@
-import { escopoCondominios, getCadastros } from "@/data/catalogo";
+import { escopoCondominios } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { linhaSeraGravada } from "@/lib/importacao-centro/pre-visualizacao";
 import type { LinhaConferencia } from "@/lib/importacao-centro/types";
 import { ImportacaoCentroError } from "@/lib/importacao-centro/types";

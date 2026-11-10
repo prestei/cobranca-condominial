@@ -1,7 +1,7 @@
-import type { Atendimento, AtribuicaoCobranca, Cadastros } from "@/data/catalogo";
+import { Atendimento, AtribuicaoCobranca, Cadastros } from "@/data/catalogo";
 import { escopoCondominios, situacaoRetorno } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 

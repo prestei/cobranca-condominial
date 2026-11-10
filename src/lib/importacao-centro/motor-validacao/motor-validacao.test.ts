@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getCadastros } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { classificarResultadoValidacao } from "@/lib/importacao-centro/motor-validacao/classificacao";
 import { aplicarMotorValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/motor";
 import type { LinhaParseada } from "@/lib/importacao-centro/types";

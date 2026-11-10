@@ -1,12 +1,6 @@
-import {
-  escopoCondominios,
-  escopoUnidades,
-  formatarData,
-  getCadastros,
-  type Condominio,
-  type Unidade,
-} from "@/data/catalogo";
-import { codigoReDoUsuario, identificadorColaboradorPorId } from "@/lib/colaboradores/re";
+import { escopoCondominios, escopoUnidades, formatarData, type Condominio, type Unidade } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
+import { codigoReDoUsuario, identificadorColaboradorPorId } from "@/lib/colaboradores/re-server";
 import { listarFilaCobranca, type FilaCobrancaItem } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";

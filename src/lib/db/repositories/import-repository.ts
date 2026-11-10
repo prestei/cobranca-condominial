@@ -1,4 +1,4 @@
-import type { Importacao } from "@/data/catalogo";
+import { Importacao } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { dateFromIsoDateTime, mapImportToImportacao } from "@/lib/db/mappers";
 

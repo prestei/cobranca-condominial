@@ -1,10 +1,4 @@
-import {
-  formatarData,
-  nomeCondominio,
-  nomeUnidade,
-  type Atendimento,
-  type Cadastros,
-} from "@/data/catalogo";
+import { formatarData, nomeCondominio, nomeUnidade, type Atendimento, type Cadastros } from "@/data/catalogo";
 
 export type HistoricoAgendaItem = {
   id: string;

@@ -1,11 +1,5 @@
-import {
-  escopoCondominios,
-  getCadastros,
-  hojeIso,
-  situacaoRetorno,
-  type Atendimento,
-  type AtribuicaoCobranca,
-} from "@/data/catalogo";
+import { escopoCondominios, hojeIso, situacaoRetorno, type Atendimento, type AtribuicaoCobranca } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 

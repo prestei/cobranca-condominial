@@ -1,4 +1,4 @@
-import type { Cadastros } from "@/data/catalogo";
+import { Cadastros } from "@/data/catalogo";
 import { digitosTelefone } from "@/lib/telefone";
 
 export type ContatoResponsavelUnidade = {

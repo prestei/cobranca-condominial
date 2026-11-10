@@ -3,7 +3,8 @@ import { beforeEach, describe, test } from "node:test";
 
 process.env.NODE_ENV ??= "test";
 
-import { agoraIso, getCadastros, resetCadastrosParaTestes, setAtribuicoesCobranca } from "@/data/catalogo";
+import { agoraIso } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes, setAtribuicoesCobranca } from "@/data/catalogo-store";
 import { atualizarConfigDistribuicaoAutomatica } from "@/lib/distribuicao/service";
 import {
   executarCicloDistribuicaoAutomatica,
@@ -21,16 +22,16 @@ function encerrarAtribuicaoVigente(unidadeId: number) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetCadastrosParaTestes();
   resetAgendamentoDistribuicaoAutomaticaParaTestes();
-  atualizarConfigDistribuicaoAutomatica(ADMIN_ID, { ativada: true, estrategia: "carga" });
+  await atualizarConfigDistribuicaoAutomatica(ADMIN_ID, { ativada: true, estrategia: "carga" });
 });
 
 describe("job periódico de distribuição automática", () => {
-  test("com opção ativa atribui pendentes sem RE", () => {
+  test("com opção ativa atribui pendentes sem RE", async () => {
     encerrarAtribuicaoVigente(3);
-    const ciclo = executarCicloDistribuicaoAutomatica();
+    const ciclo = await executarCicloDistribuicaoAutomatica();
     assert.equal(ciclo.executou, true);
     assert.ok((ciclo.resultado?.atribuidas ?? 0) >= 1);
     const vigente = getCadastros().atribuicoesCobranca.find(
@@ -39,10 +40,10 @@ describe("job periódico de distribuição automática", () => {
     assert.ok(vigente);
   });
 
-  test("com opção desativada não executa", () => {
+  test("com opção desativada não executa", async () => {
     encerrarAtribuicaoVigente(3);
-    atualizarConfigDistribuicaoAutomatica(ADMIN_ID, { ativada: false });
-    const ciclo = executarCicloDistribuicaoAutomatica();
+    await atualizarConfigDistribuicaoAutomatica(ADMIN_ID, { ativada: false });
+    const ciclo = await executarCicloDistribuicaoAutomatica();
     assert.equal(ciclo.executou, false);
     assert.equal(ciclo.motivo, "desativada");
     const vigente = getCadastros().atribuicoesCobranca.find(

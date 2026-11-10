@@ -35,14 +35,7 @@ import {
   agruparEncaminhamentosPorAdvogado,
   JuridicoPorGruposLista,
 } from "@/components/juridico/juridico-por-grupos-lista";
-import {
-  escopoCondominios,
-  formatarData,
-  nomeCondominio,
-  nomeUnidade,
-  opcoesAdvogadosResponsaveis,
-  statusEncaminhamentoJuridico,
-} from "@/data/catalogo";
+import { escopoCondominios, formatarData, nomeCondominio, nomeUnidade, opcoesAdvogadosResponsaveis, statusEncaminhamentoJuridico } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";

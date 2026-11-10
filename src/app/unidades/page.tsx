@@ -92,24 +92,7 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import {
-  escopoCondominios,
-  escopoUnidades,
-  formatarMoeda,
-  nomeCondominio,
-  SITUACAO_COBRANCA_PADRAO,
-  situacaoCobrancaUnidade,
-  situacoesUnidade,
-  statusUnidade,
-  tiposPessoa,
-  tiposUnidade,
-  tiposVinculo,
-  unidadeComDebitoOperacional,
-  unidadeNaFilaCobrancaAtiva,
-  type Responsavel,
-  type Unidade,
-  type Vinculo,
-} from "@/data/catalogo";
+import { escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";

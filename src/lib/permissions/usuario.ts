@@ -1,7 +1,7 @@
-import type { Cadastros } from "@/data/catalogo";
+import { Cadastros } from "@/data/catalogo";
 import { tryGetRequestCatalog } from "@/lib/db/request-catalog";
-import { parsePermissoesJson, permissoesVazias } from "@/lib/permissions/parse";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
+import { permissoesDoUsuarioComCadastros } from "@/lib/permissions/permissoes-com-cadastros";
 
 export { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
@@ -14,10 +14,5 @@ export function permissoesDoUsuarioId(userId: number, cadastros?: Cadastros): Pe
   if (!base) {
     throw new Error("permissoesDoUsuarioId exige cadastros explícitos fora do escopo de importação.");
   }
-  cadastros = base;
-  const usuario = cadastros.usuarios.find((item) => item.id === userId);
-  if (!usuario) return permissoesVazias();
-  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
-  if (!cargo) return permissoesVazias();
-  return parsePermissoesJson(cargo.permissaoJson);
+  return permissoesDoUsuarioComCadastros(userId, base);
 }

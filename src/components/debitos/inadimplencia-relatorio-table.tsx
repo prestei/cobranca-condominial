@@ -23,15 +23,7 @@ import {
   TableRow,
   type TableAction,
 } from "@/components/table";
-import {
-  formatarData,
-  formatarMoeda,
-  grupoDebito,
-  nomeCondominio,
-  nomeResponsavel,
-  type Debito,
-  type Cadastros,
-} from "@/data/catalogo";
+import { formatarData, formatarMoeda, grupoDebito, nomeCondominio, nomeResponsavel, type Debito, type Cadastros } from "@/data/catalogo";
 
 export type TotaisDebitoRelatorio = {
   valor: number;

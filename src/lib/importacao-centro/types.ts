@@ -1,4 +1,4 @@
-import type { Importacao } from "@/data/catalogo";
+import { Importacao } from "@/data/catalogo";
 import type { RegistroHistoricoCorrecaoPrevia } from "@/lib/importacao-centro/correcao-previa/types";
 import type { ConflitoImportacaoLinha, DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
 import type { InconsistenciaValidacao, RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";

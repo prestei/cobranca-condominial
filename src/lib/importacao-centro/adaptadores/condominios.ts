@@ -1,13 +1,5 @@
-import {
-  agoraIso,
-  getCadastros,
-  opcoesAdvogadosResponsaveis,
-  proximoNumero,
-  registrarAuditoria,
-  setCondominios,
-  type Condominio,
-  type Importacao,
-} from "@/data/catalogo";
+import { agoraIso, opcoesAdvogadosResponsaveis, proximoNumero, type Condominio, type Importacao } from "@/data/catalogo";
+import { getCadastros, registrarAuditoria, setCondominios } from "@/data/catalogo-store";
 import {
   interpretarPlanilhaCondominios,
   type CondominioImportPayload,

@@ -1,9 +1,11 @@
 import { origensDebito } from "@/data/catalogo";
 import { extensoesPermitidas, type ModuloImportacaoArquivo } from "@/lib/importacoes/limites";
-import { FORMATO_IMPORTACAO_CONDOMINIOS_V1 } from "@/lib/importacao-centro/adaptadores/condominios";
-import { FORMATO_IMPORTACAO_UNIDADES_V1 } from "@/lib/importacao-centro/adaptadores/unidades";
-import { FORMATO_IMPORTACAO_RESPONSAVEIS_V1 } from "@/lib/importacao-centro/adaptadores/responsaveis";
-import { FORMATO_IMPORTACAO_DEBITOS_V1 } from "@/lib/importacoes/importar-debitos-planilha";
+
+// Constantes literais — evita importar adaptadores/servidor (catalogo-store) no wizard cliente.
+const FORMATO_IMPORTACAO_CONDOMINIOS_V1 = "planilha-condominios-v1";
+const FORMATO_IMPORTACAO_UNIDADES_V1 = "planilha-unidades-v1";
+const FORMATO_IMPORTACAO_RESPONSAVEIS_V1 = "planilha-responsaveis-v1";
+const FORMATO_IMPORTACAO_DEBITOS_V1 = "planilha-inadimplencia-v1";
 
 export type ModuloWizardImportacao = ModuloImportacaoArquivo;
 

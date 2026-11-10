@@ -1,14 +1,6 @@
-import {
-  agoraIso,
-  debitoEmAberto,
-  escopoCondominios,
-  escopoUnidades,
-  unidadeNaFilaCobrancaAtiva,
-  type AtribuicaoCobranca,
-  type Cadastros,
-  type Unidade,
-} from "@/data/catalogo";
+import { agoraIso, debitoEmAberto, escopoCondominios, escopoUnidades, unidadeNaFilaCobrancaAtiva, type AtribuicaoCobranca, type Cadastros, type Unidade } from "@/data/catalogo";
 import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { getRequestCatalog, mutateRequestCatalog, runWithCatalogAsync } from "@/lib/db/request-catalog";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   listCollectionAssignments,
@@ -19,7 +11,7 @@ import {
 } from "@/lib/db/repositories/collection-repository";
 import { getAppSetting, setAppSetting } from "@/lib/db/repositories/app-setting-repository";
 import { invalidateServiceContextCache } from "@/lib/db/service-context";
-import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/lib/colaboradores/re-server";
 import { emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
@@ -67,18 +59,11 @@ export type DistribuirResultado = {
 };
 
 /** Estratégias de distribuição automática da fila sem responsável. */
-export type DistribuicaoAutomaticaEstrategia = "carga" | "rodizio" | "condominio" | "volume";
-
-export const descricaoEstrategiaDistribuicaoAutomatica: Record<DistribuicaoAutomaticaEstrategia, string> = {
-  carga:
-    "Cada cobrança vai para o RE com menos unidades na carteira vigente. Empates: menor código RE.",
-  rodizio:
-    "Distribui em sequência fixa entre os REs ativos (ordem alfabética do código RE), uma unidade por vez.",
-  condominio:
-    "Mantém o mesmo RE que já cuida da maior parte das unidades daquele condomínio. Se ninguém atende o condomínio ainda, usa carga equilibrada.",
-  volume:
-    "Equilibra o valor total em aberto (débitos pendentes/vencidos) entre as carteiras, não só a quantidade de unidades.",
-};
+export {
+  descricaoEstrategiaDistribuicaoAutomatica,
+  type DistribuicaoAutomaticaEstrategia,
+} from "@/lib/distribuicao/labels";
+import type { DistribuicaoAutomaticaEstrategia } from "@/lib/distribuicao/labels";
 
 type AtendenteComRe = { id: number; codigoRe: string };
 
@@ -102,9 +87,16 @@ let configDistribuicaoAutomatica: DistribuicaoAutomaticaConfig = {
 
 let cadastrosMemoria: Cadastros | null = null;
 
-async function prepararCadastrosDistribuicao(): Promise<Cadastros> {
-  cadastrosMemoria = await loadFullOperationalCadastros();
-  return cadastrosMemoria;
+/**
+ * Carrega o catálogo operacional e executa o fluxo dentro de `runWithCatalog`,
+ * para helpers que ainda leem via `getCadastros()` (ex.: listarAtendentesComRe).
+ */
+async function withDistribuicaoCatalog<T>(fn: () => Promise<T>): Promise<T> {
+  const carregado = await loadFullOperationalCadastros();
+  return runWithCatalogAsync(carregado, async () => {
+    cadastrosMemoria = getRequestCatalog();
+    return fn();
+  });
 }
 
 function cadastrosAtual(): Cadastros {
@@ -112,6 +104,16 @@ function cadastrosAtual(): Cadastros {
     throw new DistribuicaoServiceError("Catálogo operacional não carregado.", 503);
   }
   return cadastrosMemoria;
+}
+
+function sincronizarAtribuicoesMemoria(atribuicoesCobranca: AtribuicaoCobranca[]) {
+  const next = { ...cadastrosAtual(), atribuicoesCobranca };
+  cadastrosMemoria = next;
+  try {
+    mutateRequestCatalog(() => next);
+  } catch {
+    // Fora de ALS (testes sem request catalog): memória local basta.
+  }
 }
 
 export function distribuicaoAutomaticaDisponivel(): true {
@@ -440,7 +442,7 @@ async function executarDistribuicaoAutomaticaCore(
 function resolverUsuarioGestaoDistribuicao(): number {
   const cadastros = cadastrosAtual();
   const gestor = cadastros.usuarios.find(
-    (item) => item.ativo && temPermissao(permissoesDoUsuarioId(item.id), "usuarios", "criar"),
+    (item) => item.ativo && temPermissao(permissoesDoUsuarioId(item.id, cadastros), "usuarios", "criar"),
   );
   if (!gestor) {
     throw new DistribuicaoServiceError("Não há usuário com permissão para distribuir cobranças.", 500);
@@ -452,12 +454,13 @@ export async function executarDistribuicaoAutomatica(
   userId: number,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<ExecutarDistribuicaoAutomaticaResultado> {
-  await prepararCadastrosDistribuicao();
-  assertGerenciaDistribuicao(userId);
-  if (!configDistribuicaoAutomatica.ativada) {
-    throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
-  }
-  return executarDistribuicaoAutomaticaCore(userId, meta, { escopoUserId: userId });
+  return withDistribuicaoCatalog(async () => {
+    assertGerenciaDistribuicao(userId);
+    if (!configDistribuicaoAutomatica.ativada) {
+      throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
+    }
+    return executarDistribuicaoAutomaticaCore(userId, meta, { escopoUserId: userId });
+  });
 }
 
 /**
@@ -470,23 +473,24 @@ export async function dispararDistribuicaoAutomaticaSeAtivada(
   opcoes?: { unidadeIds?: number[] },
 ): Promise<ExecutarDistribuicaoAutomaticaResultado | null> {
   if (!configDistribuicaoAutomatica.ativada) return null;
-  await prepararCadastrosDistribuicao();
-  const autor = autorUserId > 0 ? autorUserId : resolverUsuarioGestaoDistribuicao();
-  const preferirAtendenteId = listarAtendentesComRe().some((item) => item.id === autor) ? autor : undefined;
-  return executarDistribuicaoAutomaticaCore(autor, meta, {
-    escopoGlobal: true,
-    unidadeIds: opcoes?.unidadeIds,
-    preferirAtendenteId,
+  return withDistribuicaoCatalog(async () => {
+    const autor = autorUserId > 0 ? autorUserId : resolverUsuarioGestaoDistribuicao();
+    const preferirAtendenteId = listarAtendentesComRe().some((item) => item.id === autor) ? autor : undefined;
+    return executarDistribuicaoAutomaticaCore(autor, meta, {
+      escopoGlobal: true,
+      unidadeIds: opcoes?.unidadeIds,
+      preferirAtendenteId,
+    });
   });
 }
 
-export function podeGerenciarDistribuicao(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+export function podeGerenciarDistribuicao(userId: number, cadastros?: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros ?? cadastrosMemoria ?? undefined);
   return temPermissao(perm, "usuarios", "criar");
 }
 
 function assertGerenciaDistribuicao(userId: number) {
-  if (!podeGerenciarDistribuicao(userId)) {
+  if (!podeGerenciarDistribuicao(userId, cadastrosMemoria ?? undefined)) {
     throw new DistribuicaoServiceError("Sem permissão para distribuir ou redistribuir cobranças.", 403);
   }
 }
@@ -554,43 +558,45 @@ function montarHistoricoItem(registro: AtribuicaoCobranca): HistoricoAtribuicaoI
 }
 
 export async function listarCarteiraPorRe(userId: number): Promise<CarteiraReResumo[]> {
-  await prepararCadastrosDistribuicao();
-  assertGerenciaDistribuicao(userId);
-  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
-  const contagem = new Map<number, number>();
+  return withDistribuicaoCatalog(async () => {
+    assertGerenciaDistribuicao(userId);
+    const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
+    const contagem = new Map<number, number>();
 
-  for (const registro of cadastrosAtual().atribuicoesCobranca) {
-    if (registro.encerradoEm) continue;
-    if (!idsEscopo.has(registro.unidadeId)) continue;
-    const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
-    if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
-    contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
-  }
+    for (const registro of cadastrosAtual().atribuicoesCobranca) {
+      if (registro.encerradoEm) continue;
+      if (!idsEscopo.has(registro.unidadeId)) continue;
+      const unidade = cadastrosAtual().unidades.find((item) => item.id === registro.unidadeId);
+      if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
+      contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
+    }
 
-  return listarAtendentesComRe().map((atendente) => ({
-    atendenteId: atendente.id,
-    codigoRe: atendente.codigoRe,
-    totalUnidades: contagem.get(atendente.id) ?? 0,
-  }));
+    return listarAtendentesComRe().map((atendente) => ({
+      atendenteId: atendente.id,
+      codigoRe: atendente.codigoRe,
+      totalUnidades: contagem.get(atendente.id) ?? 0,
+    }));
+  });
 }
 
 export async function listarHistoricoAtribuicoes(
   userId: number,
   opcoes?: { unidadeId?: number; limit?: number },
 ): Promise<HistoricoAtribuicaoItem[]> {
-  await prepararCadastrosDistribuicao();
-  assertGerenciaDistribuicao(userId);
-  const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
-  const limit = Math.min(200, Math.max(1, opcoes?.limit ?? 50));
+  return withDistribuicaoCatalog(async () => {
+    assertGerenciaDistribuicao(userId);
+    const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
+    const limit = Math.min(200, Math.max(1, opcoes?.limit ?? 50));
 
-  let lista = cadastrosAtual().atribuicoesCobranca.filter((item) => idsEscopo.has(item.unidadeId));
-  if (opcoes?.unidadeId) {
-    lista = lista.filter((item) => item.unidadeId === opcoes.unidadeId);
-  }
-  return lista
-    .sort((a, b) => b.atribuidoEm.localeCompare(a.atribuidoEm))
-    .slice(0, limit)
-    .map(montarHistoricoItem);
+    let lista = cadastrosAtual().atribuicoesCobranca.filter((item) => idsEscopo.has(item.unidadeId));
+    if (opcoes?.unidadeId) {
+      lista = lista.filter((item) => item.unidadeId === opcoes.unidadeId);
+    }
+    return lista
+      .sort((a, b) => b.atribuidoEm.localeCompare(a.atribuidoEm))
+      .slice(0, limit)
+      .map(montarHistoricoItem);
+  });
 }
 
 export type DistribuirUnidadesOpcoes = {
@@ -606,7 +612,7 @@ export async function distribuirUnidades(
   meta?: { ip?: string; userAgent?: string },
   opcoes?: DistribuirUnidadesOpcoes,
 ): Promise<DistribuirResultado> {
-  await prepararCadastrosDistribuicao();
+  return withDistribuicaoCatalog(async () => {
   assertGerenciaDistribuicao(userId);
 
   const ids = [...new Set(input.unidadeIds.filter((id) => Number.isFinite(id) && id > 0))];
@@ -702,7 +708,7 @@ export async function distribuirUnidades(
     return { atribuidas: 0, ignoradasMesmoResponsavel, atribuicoes: [] };
   }
 
-  cadastrosMemoria = { ...cadastrosAtual(), atribuicoesCobranca: atualizados };
+  sincronizarAtribuicoesMemoria(atualizados);
   invalidateServiceContextCache();
 
   for (const registro of novosRegistros) {
@@ -714,4 +720,5 @@ export async function distribuirUnidades(
     ignoradasMesmoResponsavel,
     atribuicoes: novosRegistros,
   };
+  });
 }

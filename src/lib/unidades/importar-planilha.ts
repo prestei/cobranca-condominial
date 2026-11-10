@@ -1,10 +1,4 @@
-import {
-  SITUACAO_COBRANCA_PADRAO,
-  situacaoCobrancaUnidade,
-  situacoesUnidade,
-  statusUnidade,
-  tiposUnidade,
-} from "@/data/catalogo";
+import { SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposUnidade } from "@/data/catalogo";
 import { lerMatrizPlanilha } from "@/lib/planilha/ler-planilha";
 import { normalizarCabecalhoPlanilha } from "@/lib/importacao-centro/normalizacao";
 import {

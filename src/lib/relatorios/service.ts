@@ -1,27 +1,8 @@
-import {
-  acimaDoLimite,
-  advogados,
-  debitoAbertoNaData,
-  diasDeAtraso,
-  escopoCondominios,
-  escopoUnidades,
-  formatarData,
-  grupoDebito,
-  type Cadastros,
-  hojeIso,
-  LIMITE_AMIGAVEL_DIAS,
-  nomeUnidade,
-  nomeUsuario,
-  opcoesAdvogadosResponsaveis,
-  situacaoRetorno,
-  type Atendimento,
-  type Condominio,
-  type Debito,
-} from "@/data/catalogo";
+import { acimaDoLimite, advogados, debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, formatarData, grupoDebito, type Cadastros, hojeIso, LIMITE_AMIGAVEL_DIAS, nomeUnidade, nomeUsuario, opcoesAdvogadosResponsaveis, situacaoRetorno, type Atendimento, type Condominio, type Debito } from "@/data/catalogo";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
 import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { scopedUnits, scopeCondominiumIds } from "@/lib/db/service-context";
-import { codigoReDoUsuario, listarAtendentesComRe, nomeColaboradorPorCodigoRe } from "@/lib/colaboradores/re";
+import { codigoReDoUsuario, listarAtendentesComRe, nomeColaboradorPorCodigoRe } from "@/lib/colaboradores/re-server";
 import { listarDebitos } from "@/lib/debitos/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";

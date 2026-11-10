@@ -89,28 +89,11 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   vencimentoParaFaixaDashboard,
   type FaixaAtrasoDashboardId,
-} from "@/lib/dashboard/graficos-atendente";
-import {
-  dataCorteLimite,
-  debitoAbertoNaData,
-  diasDeAtraso,
-  formatarData,
-  formatarMoeda,
-  grupoDebito,
-  hojeIso,
-  LIMITE_AMIGAVEL_DIAS,
-  escopoCondominios,
-  escopoUnidades,
-  nomeCondominio,
-  nomeUnidade,
-  origensDebito,
-  statusDebito,
-  type Debito,
-  type Unidade,
-} from "@/data/catalogo";
+} from "@/lib/dashboard/faixas-atraso";
+import { dataCorteLimite, debitoAbertoNaData, diasDeAtraso, formatarData, formatarMoeda, grupoDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, escopoCondominios, escopoUnidades, nomeCondominio, nomeUnidade, origensDebito, statusDebito, type Debito, type Unidade } from "@/data/catalogo";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
+import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";

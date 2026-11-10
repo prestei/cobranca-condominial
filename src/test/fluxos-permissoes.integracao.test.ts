@@ -7,7 +7,7 @@ import { beforeEach, describe, test } from "node:test";
 process.env.NODE_ENV ??= "test";
 process.env.AUTH_SECRET ??= "test-auth-secret-min-32-characters!!";
 
-import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo";
+import { getCadastros, resetCadastrosParaTestes } from "@/data/catalogo-store";
 import { findUsuarioPorCredenciais } from "@/lib/auth/credentials";
 import { SENHA_DEMONSTRACAO } from "@/lib/auth/constants";
 import { readSessionToken, signSessionToken } from "@/lib/auth/jwt";

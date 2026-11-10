@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { getCadastros } from "@/data/catalogo";
+import { getCadastros } from "@/data/catalogo-store";
 import { buscarGlobalDashboard, BuscaGlobalError } from "@/lib/dashboard/busca-global";
 import { montarExportacaoCarteiraDashboard, ExportarCarteiraError } from "@/lib/dashboard/exportar-carteira";
 

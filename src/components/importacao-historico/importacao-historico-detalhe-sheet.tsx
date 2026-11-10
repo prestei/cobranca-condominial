@@ -21,7 +21,7 @@ import {
 import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
 import { normalizarSituacaoImportacao } from "@/lib/importacao-centro/situacao-importacao";
 import { formatarData, nomeUsuario } from "@/data/catalogo";
-import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-auditoria";
+import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
 import {
   badgeVariantSituacaoImportacao,
   rotuloSituacaoImportacao,
