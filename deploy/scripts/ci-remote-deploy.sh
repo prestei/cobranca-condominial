@@ -26,8 +26,11 @@ if [[ -z "${AUTH_SECRET:-}" || ${#AUTH_SECRET} -lt 32 ]]; then
 fi
 
 echo "==> Dependências"
+# Para o app para não travar remoção de node_modules (.next/arquivos abertos).
+systemctl stop cobranca-app.service >/dev/null 2>&1 || true
 # Evita ENOTEMPTY residual de installs interrompidos em deploys anteriores.
-rm -rf node_modules
+chmod -R u+w node_modules 2>/dev/null || true
+rm -rf node_modules .next
 npm ci
 
 echo "==> Prisma generate + migrate deploy"
