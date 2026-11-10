@@ -2,6 +2,13 @@
 # Deploy na VPS sem Docker: migrate → build → restart systemd.
 set -euo pipefail
 
+# Evita corrida entre GitHub Actions e npm run vps:push no mesmo host.
+exec 9>/var/lock/cobranca-deploy.lock
+if ! flock -w 900 9; then
+  echo "ERROR: outro deploy ainda em andamento (lock /var/lock/cobranca-deploy.lock)" >&2
+  exit 1
+fi
+
 APP_DIR="${APP_DIR:-/opt/cobranca-condominial}"
 cd "$APP_DIR"
 
