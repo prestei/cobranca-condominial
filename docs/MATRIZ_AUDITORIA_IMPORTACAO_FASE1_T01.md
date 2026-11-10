@@ -44,7 +44,7 @@ Nenhuma rota de `src/app/**/page.tsx` ficou de fora.
 
 **Indicadores:** tela `/indicadores` removida; API `GET /api/indicadores` permanece.
 
-**Menu lateral** (`workspace-shell.tsx`): Início, Atendimentos, Inadimplência, Jurídico, Condomínios, Unidades, Relatórios, Colaboradores, Cargos, Auditoria; no perfil atendente também Minha agenda, Notificações, Minha conta, Ajuda. **`/importacoes` não está no menu** — entrada via atalho **Importar** (Inadimplência, fila) ou URL direta.
+**Menu lateral** (`workspace-shell.tsx`): Início, Atendimentos, Inadimplência, Jurídico, Condomínios, Unidades, Relatórios, Importações, Colaboradores, Cargos, Auditoria; no perfil atendente — Início, Atendimentos, Inadimplência, **Importações**, Minha agenda, Notificações, Minha conta, Ajuda. Entrada também via atalho **Importar** (Inadimplência, fila).
 
 ---
 
@@ -121,7 +121,7 @@ Relacionamentos PostgreSQL: ver diagrama completo em [banco.md](banco.md) (`serv
 
 Ações: `ler`, `criar`, `editar`, `excluir`, `exportar` (só relatórios). Módulo `importacoes`: consultar histórico (`ler`); envio e prévia (`criar`); correção e aprovação (`editar`); excluir histórico (`excluir`) — `src/lib/importacoes/permissoes.ts`.
 
-Seeds: Administrador (amplo), Atendente (operacional), Advogado (consulta) — `src/lib/permissions/seeds.ts` e [regra-negocio.md](regra-negocio.md). Aprovação bloqueada para registros fora do escopo de condomínio do usuário.
+Permissões vigentes em `role.permissao_json` (migrations em `docs/migrations/`); Atendente com `importacoes.ler/criar/editar` via `2026-11-12-atendente-permissao-importacoes.sql`. Ver [regra-negocio.md](regra-negocio.md) e [cargos.md](modulos/cargos.md). Aprovação bloqueada para registros fora do escopo de condomínio do usuário.
 
 ---
 

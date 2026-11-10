@@ -16,7 +16,7 @@ const MODULOS_VALIDOS = new Set<ModuloImportacaoArquivo>(["debitos", "unidades",
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "iniciarImportacao");
+  const denied = await requirePermissaoAcaoImportacao(session, "iniciarImportacao");
   if (denied) return denied;
 
   const contentLength = Number(request.headers.get("content-length") ?? 0);

@@ -39,7 +39,7 @@ export const previewImportacaoDebitos = servico.preview as (
 
 export const confirmarImportacaoDebitos = servico.confirmar;
 
-export function corrigirLinhaPreviewImportacaoDebitos(
+export async function corrigirLinhaPreviewImportacaoDebitos(
   userId: number,
   input: {
     sessaoPreviaId: string;
@@ -47,8 +47,8 @@ export function corrigirLinhaPreviewImportacaoDebitos(
     linha: number;
     campos: Record<string, string>;
   },
-): ResultadoCorrecaoPreviewDebitos {
-  const resultado = corrigirLinhaPreviaDebitos(userId, input, adaptadorImportacaoDebitos);
+): Promise<ResultadoCorrecaoPreviewDebitos> {
+  const resultado = await corrigirLinhaPreviaDebitos(userId, input, adaptadorImportacaoDebitos);
   const preview = mapearPreviewImportacaoModulo(resultado.preview, "debitos", {
     sessaoPreviaId: input.sessaoPreviaId,
     userId,

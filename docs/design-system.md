@@ -37,6 +37,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `AppShell`, `AppShellSidebar`, `AppShellNavLink`, … | `app-shell.tsx` | Modelo clássico: sidebar navy, top bar, drawer mobile (961px). |
 | `WorkspaceShell` | `workspace-shell.tsx` | Casca das telas internas: `AppShell` com cobrança, carteira, análise e operação. Relatórios fica em Análise. |
 | `PageHeader`, `PageContent` | `page-header.tsx` | Título com ícone Lucide opcional (`icon`) em caixa `size-9` arredondada (`bg-primary-fixed/40 text-primary-container`), descrição opcional (`text-body-sm`, bloco até `max-w-2xl`) e ações. Layout em flex: texto não encolhe com títulos curtos; ações à direita no desktop. |
+| `AtalhosContatoAtendente` | `atendimentos/atalhos-contato-atendente.tsx` | Só visão **Atendente** na fila: titular + botões **WhatsApp** (secondary/brass) e **E-mail** (outline brass); `compacto` na tabela desktop. Abre `wa.me`/`mailto` e dispara o sheet de palitagem — sem envio pelo servidor. |
 
 ## Gráficos
 

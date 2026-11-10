@@ -14,6 +14,7 @@ import {
 import {
   Building2,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   Flag,
   ClipboardList,
@@ -31,6 +32,7 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
+import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import { Badge } from "@/components/badge";
 import { GraficoBarras, GraficoRosca } from "@/components/charts";
 import { Button } from "@/components/button";
@@ -209,6 +211,7 @@ function DebitosPage() {
   const { toast } = useToast();
   const { user: sessao, loading: authLoading } = useAuth();
   const { pode } = usePermissao();
+  const { abrir: abrirAgendar } = useAgendarAtendimento();
   const podeImportar = pode("importacoes", "criar");
   const formId = useId();
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
@@ -610,8 +613,19 @@ function DebitosPage() {
 
   function acoes(item: Debito) {
     const lista = [];
-    if (pode("atendimentos", "criar"))
+    if (pode("atendimentos", "criar")) {
       lista.push({ label: "Iniciar atendimento", icon: ClipboardList, onSelect: () => iniciarAtendimento(item) });
+      lista.push({
+        label: "Agendar atendimento",
+        icon: CalendarClock,
+        onSelect: () =>
+          abrirAgendar({
+            unidadeId: item.unidadeId,
+            condominioId: item.condominioId,
+            tituloUnidade: nomeUnidade(item.unidadeId),
+          }),
+      });
+    }
     if (pode("debitos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
     if (pode("debitos", "editar") || pode("unidades", "editar")) {
       const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);

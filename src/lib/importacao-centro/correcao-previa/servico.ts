@@ -81,7 +81,7 @@ export type ResultadoCorrecaoLinhaPrevia = {
   mensagens?: string[];
 };
 
-export function corrigirLinhaPreviaDebitos(
+export async function corrigirLinhaPreviaDebitos(
   userId: number,
   input: {
     sessaoPreviaId: string;
@@ -90,8 +90,8 @@ export function corrigirLinhaPreviaDebitos(
     campos: Record<string, string>;
   },
   adapter: AdaptadorImportacao<DebitoImportRow, import("@/lib/importacao-centro/adaptadores/debitos").ContextoImportacaoDebitos>,
-): ResultadoCorrecaoLinhaPrevia {
-  assertPermissaoAcaoImportacao(userId, "corrigirRegistros");
+): Promise<ResultadoCorrecaoLinhaPrevia> {
+  await assertPermissaoAcaoImportacao(userId, "corrigirRegistros");
   const sessao = obterSessaoPreviaImportacao<DebitoImportRow, import("@/lib/importacao-centro/adaptadores/debitos").ContextoImportacaoDebitos>(
     userId,
     input.sessaoPreviaId,

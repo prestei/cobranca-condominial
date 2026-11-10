@@ -41,7 +41,7 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
   processoId?: string;
   sessaoPreviaId?: string;
 }> {
-  assertPermissaoAcaoImportacao(userId, "visualizarPrevia");
+  await assertPermissaoAcaoImportacao(userId, "visualizarPrevia");
   const entrada = await resolverEntradaImportacao(adapter.modulo, userId, input);
   const entradaLeitura: EntradaImportacaoArquivo = {
     origem: entrada.origem,
@@ -115,7 +115,7 @@ export async function confirmarImportacaoCentral<TPayload, TContexto>(
   input: EntradaConfirmacaoImportacao,
   meta?: MetaExecucaoImportacao,
 ): Promise<ResultadoConfirmacaoCentral> {
-  assertPermissaoAcaoImportacao(userId, "aprovarImportacao");
+  await assertPermissaoAcaoImportacao(userId, "aprovarImportacao");
   const entrada = await resolverEntradaImportacao(adapter.modulo, userId, input);
   validarEntradaLeitura(
     {

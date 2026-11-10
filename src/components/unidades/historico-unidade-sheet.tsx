@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { Handshake, History, Scale } from "lucide-react";
+import { CalendarClock, Handshake, History, Scale } from "lucide-react";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { Button } from "@/components/button";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { Icon } from "@/components/icon";
+import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
   Sheet,
@@ -33,6 +34,7 @@ type Props = {
 export function HistoricoUnidadeSheet({ unidadeId, tituloUnidade, tituloCondominio, onClose }: Props) {
   const formId = useId();
   const { pode } = usePermissao();
+  const { abrir: abrirAgendar } = useAgendarAtendimento();
   const [referencia, setReferencia] = useState<HistoricoUnidadeReferencia | null>(null);
   const [propostaAberta, setPropostaAberta] = useState(false);
   const [juridicoAberto, setJuridicoAberto] = useState(false);
@@ -100,6 +102,23 @@ export function HistoricoUnidadeSheet({ unidadeId, tituloUnidade, tituloCondomin
           </SheetHeaderLead>
           <SheetClose />
           <div className="flex flex-wrap gap-sm">
+            {pode("atendimentos", "criar") && referencia ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  abrirAgendar({
+                    unidadeId: referencia.unidade.id,
+                    condominioId: referencia.unidade.condominioId,
+                    tituloUnidade: titulo,
+                  })
+                }
+              >
+                <CalendarClock className="size-4" aria-hidden />
+                Agendar
+              </Button>
+            ) : null}
             {pode("atendimentos", "criar") && referencia ? (
               <Button type="button" variant="secondary" size="sm" onClick={() => setPropostaAberta(true)}>
                 <Handshake className="size-4" aria-hidden />

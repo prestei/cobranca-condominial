@@ -97,7 +97,7 @@ export async function receberUploadImportacao(
   userId: number,
   input: { nomeArquivo: string; buffer: Buffer; mimeDeclarado?: string },
 ) {
-  assertPermissaoAcaoImportacao(userId, "iniciarImportacao");
+  await assertPermissaoAcaoImportacao(userId, "iniciarImportacao");
   try {
     return await receberArquivoImportacao({
       userId,

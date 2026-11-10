@@ -4,13 +4,19 @@ import { readFileSync } from "node:fs";
 import {
   getCadastros,
   resetCadastrosParaTestes,
+  setAtribuicoesCobranca,
   setCondominios,
+  setDebitos,
   setResponsaveis,
   setUnidades,
   setVinculos,
 } from "@/data/catalogo";
 import { adaptadorImportacaoDebitos } from "@/lib/importacao-centro/adaptadores/debitos";
 import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
+import {
+  atualizarConfigDistribuicaoAutomatica,
+  obterConfigDistribuicaoAutomatica,
+} from "@/lib/distribuicao/service";
 import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";
 
@@ -103,6 +109,33 @@ test("provisionamento reutiliza responsável e vínculo já existentes sem sobre
   assert.equal(maria.cpfCnpj, "123.456.789-09");
   assert.equal(maria.email, "maria@exemplo.com");
   assert.equal(maria.observacoes, "cadastro manual");
+});
+
+test("atendente na prévia provisiona condomínio fora da carteira sem erro de escopo", () => {
+  resetCadastrosParaTestes();
+  setCondominios([]);
+  setUnidades([]);
+  setResponsaveis([]);
+  setVinculos([]);
+
+  const ATENDENTE_ID = 2;
+  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+    modo: "preview",
+    userId: ATENDENTE_ID,
+    origem: "PDF",
+    arquivo: "novo-condo-atendente.csv",
+    hashArquivo: "teste-atendente-provisionamento",
+    conteudo: "",
+    matrizPlanilha: MATRIZ,
+  });
+
+  assert.ok(getCadastros().condominios.some((item) => item.nome === "Condomínio Novo Import"));
+  assert.equal(processado.linhasInternas.filter((item) => item.situacao === "erro").length, 0);
+  assert.ok(processado.linhasInternas.some((item) => item.situacao === "novo"));
+  assert.equal(
+    processado.linhasInternas.filter((item) => item.mensagem?.includes("fora do escopo")).length,
+    0,
+  );
 });
 
 test("prévia de inadimplência com PDF cria condomínio, unidades e responsáveis sem cadastro prévio", async () => {
@@ -216,6 +249,8 @@ test("confirmação de débitos promove unidade Sem cobrança para Em cobrança"
   setUnidades([]);
   setResponsaveis([]);
   setVinculos([]);
+  setDebitos([]);
+  setAtribuicoesCobranca([]);
 
   const buffer = readFileSync("src/test/fixtures/relatorio-inadimplencia-solar-das-palmeiras.pdf");
   const relatorio = await interpretarPdfInadimplencia(buffer);
@@ -241,9 +276,18 @@ test("confirmação de débitos promove unidade Sem cobrança para Em cobrança"
   };
   for (const linha of processado.linhasInternas) {
     if (!linha.payload || linha.situacao !== "novo") continue;
-    adaptadorImportacaoDebitos.persistirLinha(linha.payload, "novo", contexto, { origem: "PDF" });
+    adaptadorImportacaoDebitos.persistirLinha(linha.payload, "novo", contexto, {
+      origem: "PDF",
+      arquivo: "solar-confirm.pdf",
+      userId: 1,
+    });
   }
-  adaptadorImportacaoDebitos.finalizarPersistencia(contexto);
+  atualizarConfigDistribuicaoAutomatica(1, { ativada: true, estrategia: "carga" });
+  adaptadorImportacaoDebitos.finalizarPersistencia(contexto, {
+    userId: 1,
+    origem: "PDF",
+    arquivo: "solar-confirm.pdf",
+  });
 
   const unidadesComDebito = new Set(getCadastros().debitos.map((item) => item.unidadeId));
   assert.ok(unidadesComDebito.size >= 3);
@@ -252,4 +296,71 @@ test("confirmação de débitos promove unidade Sem cobrança para Em cobrança"
     assert.equal(unidade.situacao, "Em cobrança", unidade.identificacao);
   }
   assert.ok(getCadastros().debitos.every((item) => item.status === "Vencido"));
+
+  assert.equal(obterConfigDistribuicaoAutomatica().ativada, true);
+  const idsImportados = [...contexto.unidadeIdsComDebitoImportado];
+  assert.ok(idsImportados.length >= 1);
+  for (const unidadeId of idsImportados) {
+    const vigente = getCadastros().atribuicoesCobranca.find(
+      (item) => item.unidadeId === unidadeId && !item.encerradoEm,
+    );
+    assert.ok(vigente, `unidade ${unidadeId} deveria ter RE após distribuição automática`);
+    assert.match(vigente.motivo, /Distribuição automática/);
+  }
+});
+
+test("confirmação sem distribuição automática não atribui RE", async () => {
+  resetCadastrosParaTestes();
+  setCondominios([]);
+  setUnidades([]);
+  setResponsaveis([]);
+  setVinculos([]);
+  setDebitos([]);
+  setAtribuicoesCobranca([]);
+  atualizarConfigDistribuicaoAutomatica(1, { ativada: false, estrategia: "carga" });
+
+  const buffer = readFileSync("src/test/fixtures/relatorio-inadimplencia-solar-das-palmeiras.pdf");
+  const relatorio = await interpretarPdfInadimplencia(buffer);
+  assert.ok(relatorio);
+
+  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+    modo: "preview",
+    userId: 1,
+    origem: "PDF",
+    arquivo: "solar-sem-auto.pdf",
+    hashArquivo: "teste-sem-distribuicao-auto",
+    conteudo: "",
+    matrizPlanilha: relatorio.matriz,
+    metadadosRelatorio: { tipo: relatorio.formato, inconsistencias: relatorio.inconsistencias ?? [] },
+  });
+
+  const contexto = {
+    ...processado.contexto,
+    unidadeIdsComDebitoImportado: new Set<number>(),
+    debitosMutaveis: [...processado.contexto.debitosMutaveis],
+  };
+  for (const linha of processado.linhasInternas) {
+    if (!linha.payload || linha.situacao !== "novo") continue;
+    adaptadorImportacaoDebitos.persistirLinha(linha.payload, "novo", contexto, {
+      origem: "PDF",
+      arquivo: "solar-sem-auto.pdf",
+      userId: 1,
+    });
+  }
+  const unidadesImportadas = [...contexto.unidadeIdsComDebitoImportado];
+  adaptadorImportacaoDebitos.finalizarPersistencia(contexto, {
+    userId: 1,
+    origem: "PDF",
+    arquivo: "solar-sem-auto.pdf",
+  });
+
+  assert.ok(unidadesImportadas.length >= 1);
+  for (const unidadeId of unidadesImportadas) {
+    const vigente = getCadastros().atribuicoesCobranca.find(
+      (item) => item.unidadeId === unidadeId && !item.encerradoEm,
+    );
+    assert.equal(vigente, undefined, `unidade importada ${unidadeId} não deveria ter RE`);
+  }
+
+  atualizarConfigDistribuicaoAutomatica(1, { ativada: true, estrategia: "carga" });
 });

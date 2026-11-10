@@ -32,7 +32,16 @@ import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importac
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { usePermissao } from "@/hooks/use-permissao";
-import { agoraIso, type Debito, type Condominio, type Unidade, type Responsavel, type Vinculo } from "@/data/catalogo";
+import {
+  agoraIso,
+  type AtribuicaoCobranca,
+  type Debito,
+  type Condominio,
+  type Unidade,
+  type Responsavel,
+  type Vinculo,
+} from "@/data/catalogo";
+import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
 import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
   configWizardImportacao,
@@ -434,6 +443,7 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         unidades?: Unidade[];
         responsaveis?: Responsavel[];
         vinculos?: Vinculo[];
+        atribuicoesCobranca?: AtribuicaoCobranca[];
         error?: string;
       };
       if (!response.ok || !body.resultado) {
@@ -451,10 +461,12 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
       if (body.responsaveis || body.vinculos) {
         mesclarResponsaveisImportacao(body.responsaveis ?? [], body.vinculos ?? []);
       }
+      if (body.atribuicoesCobranca) aplicarSnapshotAtribuicoes(body.atribuicoesCobranca);
       aplicarImportacaoSalva(body.resultado.importacao);
       setResultado(body.resultado);
       setStep(2);
       onHistoricoAtualizado?.();
+      onConcluida?.();
       const sitFinal = normalizarSituacaoImportacao(body.resultado.importacao.status);
       const parcialFinal = sitFinal === "Concluida parcialmente";
       toast({

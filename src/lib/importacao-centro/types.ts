@@ -163,7 +163,10 @@ export interface AdaptadorImportacao<TPayload, TContexto> {
     meta: { origem: string; arquivo: string; userId: number },
   ): "novo" | "atualizacao" | "ignorado";
 
-  finalizarPersistencia(contexto: TContexto): void;
+  finalizarPersistencia(
+    contexto: TContexto,
+    meta?: { userId: number; origem?: string; arquivo?: string } & MetaExecucaoImportacao,
+  ): void;
 
   montarRegistroImportacao(input: {
     userId: number;

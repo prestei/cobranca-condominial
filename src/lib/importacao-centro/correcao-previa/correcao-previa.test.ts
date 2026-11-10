@@ -47,7 +47,7 @@ test("aplicarCorrecoesPayloadDebitos rejeita campo não autorizado", () => {
   assert.ok(erros.some((item) => item.includes("não pode ser corrigido")));
 });
 
-test("corrigirLinhaPreviaDebitos remove erro financeiro e registra histórico", () => {
+test("corrigirLinhaPreviaDebitos remove erro financeiro e registra histórico", async () => {
   const userId = 1;
   const matriz = lerArquivoImportacao(CSV);
   const contexto = adaptadorImportacaoDebitos.prepararContexto(userId);
@@ -79,7 +79,7 @@ test("corrigirLinhaPreviaDebitos remove erro financeiro e registra histórico", 
     inconsistenciasArquivo: resultadoMotor.inconsistenciasArquivo,
   });
 
-  const resultado = corrigirLinhaPreviaDebitos(
+  const resultado = await corrigirLinhaPreviaDebitos(
     userId,
     {
       sessaoPreviaId,

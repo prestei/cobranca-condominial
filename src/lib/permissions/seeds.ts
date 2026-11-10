@@ -19,6 +19,7 @@ const atendente: PermissoesCargo = {
   dashboard: { ler: true },
   atendimentos: { ler: true, criar: true, editar: true },
   debitos: { ler: true },
+  importacoes: { ler: true, criar: true, editar: true },
 };
 
 const advogado: PermissoesCargo = {

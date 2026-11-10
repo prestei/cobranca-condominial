@@ -14,7 +14,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "consultarHistorico");
+  const denied = await requirePermissaoAcaoImportacao(session, "consultarHistorico");
   if (denied) return denied;
 
   const { id: idRaw } = await context.params;
@@ -28,12 +28,12 @@ export async function GET(_request: Request, context: RouteContext) {
     return Response.json({ error: "Importação não encontrada." }, { status: 404 });
   }
 
-  const importacao = obterImportacaoHistorico(session.userId, id);
+  const importacao = await obterImportacaoHistorico(session.userId, id);
   if (!importacao) {
     return Response.json({ error: "Importação não encontrada." }, { status: 404 });
   }
 
-  const retomada = avaliarRetomadaImportacao(session.userId, bruto);
+  const retomada = await avaliarRetomadaImportacao(session.userId, bruto);
   return Response.json({ importacao, retomada });
 }
 

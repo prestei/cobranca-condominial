@@ -30,6 +30,8 @@ test("aplicarMotorValidacaoImportacao enriquece linhas sem gravar", () => {
     unidades: [{ id: 10, condominioId: 1, identificacao: "101", bloco: "", status: "Ativa" }],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
 
   const matriz = [
@@ -82,6 +84,8 @@ test("motor sinaliza data ambígua da normalização sem descartar o original", 
     unidades: [{ id: 10, condominioId: 1, identificacao: "101", bloco: "", status: "Ativa" }],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
 
   const parseadas: LinhaParseada<DebitoImportRow>[] = [
@@ -148,6 +152,8 @@ test("aviso de coluna desconhecida não vira erro bloqueante", () => {
     unidades: [{ id: 10, condominioId: 1, identificacao: "101", bloco: "", status: "Ativa", situacao: "Em cobrança" }],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
   const parseadas: LinhaParseada<DebitoImportRow>[] = [
     {
@@ -188,6 +194,8 @@ test("validação financeira bloqueia negativo e sinaliza soma divergente como a
     unidades: [{ id: 10, condominioId: 1, identificacao: "101", bloco: "", status: "Ativa" }],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
   const base = {
     condominioId: 1,
@@ -233,6 +241,8 @@ test("validação relacional e de negócio: unidade inexistente e unidade inativ
     unidades: [{ id: 10, condominioId: 1, identificacao: "101", bloco: "", status: "Inativa", situacao: "Sem cobrança" }],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
   const payload: DebitoImportRow = {
     condominioId: 1,
@@ -296,7 +306,7 @@ test("motor não altera cadastros de negócio", () => {
     {
       modulo: "debitos",
       matriz: [["Unidade"], ["101"]],
-      contexto: { condominios: [], unidades: [], debitos: [], debitosMutaveis: [] },
+      contexto: { condominios: [], unidades: [], debitos: [], debitosMutaveis: [], idsCondominioEscopo: new Set(), unidadeIdsComDebitoImportado: new Set() },
     },
   );
   assert.equal(JSON.stringify(getCadastros().debitos), antes);
@@ -308,6 +318,8 @@ test("erros bloqueantes removem payload da linha", () => {
     unidades: [],
     debitos: [],
     debitosMutaveis: [],
+    idsCondominioEscopo: new Set([1]),
+    unidadeIdsComDebitoImportado: new Set(),
   };
 
   const parseadas: LinhaParseada<DebitoImportRow>[] = [

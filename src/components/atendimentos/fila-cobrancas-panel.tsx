@@ -23,6 +23,7 @@ import {
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
+import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-contato-atendente";
 import {
   agruparFilaPorAtendente,
   agruparFilaPorCondominio,
@@ -194,6 +195,13 @@ export function FilaCobrancasPanel() {
   } | null>(null);
   const [concluirAtendimentoId, setConcluirAtendimentoId] = useState<string | null>(null);
   const [destaqueUnidadeId, setDestaqueUnidadeId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!visaoGeral && visao === "atendente") {
+      setVisao("geral");
+      setPage(1);
+    }
+  }, [visao, visaoGeral]);
 
   const atendentesKey = snapshotAtendentesComRe();
   const atendentes = useMemo(() => listarAtendentesComRe(), [atendentesKey]);
@@ -380,8 +388,10 @@ export function FilaCobrancasPanel() {
     sincronizarQueryRetorno("todos");
   }
 
-  function registrarAtendimento(unidadeId: number) {
-    router.push(`/atendimentos?novo=1&unidade=${unidadeId}`);
+  function registrarAtendimento(unidadeId: number, canal?: "WhatsApp" | "E-mail" | "Telefone") {
+    const params = new URLSearchParams({ novo: "1", unidade: String(unidadeId) });
+    if (canal) params.set("canal", canal);
+    router.push(`/atendimentos?${params.toString()}`);
   }
 
   function abrirHistorico(item: FilaCobrancaItem) {
@@ -568,7 +578,11 @@ export function FilaCobrancasPanel() {
     <EmptyState
       icon={<Icon icon={ListOrdered} size="lg" className="text-on-surface-variant" />}
       title="Fila vazia"
-      description="Não há unidades em cobrança ativa com os filtros aplicados."
+      description={
+        visaoGeral
+          ? "Não há unidades em cobrança ativa com os filtros aplicados."
+          : "Nenhuma unidade na sua carteira em cobrança ativa. Importe a inadimplência ou aguarde a distribuição automática."
+      }
     />
   );
 
@@ -697,7 +711,7 @@ export function FilaCobrancasPanel() {
           >
             <TabsList>
               <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
-              <TabsTrigger value="atendente">Por atendente</TabsTrigger>
+              {visaoGeral ? <TabsTrigger value="atendente">Por atendente</TabsTrigger> : null}
               <TabsTrigger value="geral">Geral</TabsTrigger>
             </TabsList>
 
@@ -718,6 +732,11 @@ export function FilaCobrancasPanel() {
                     destaqueUnidadeId={destaqueUnidadeId}
                     onToggleUnidade={toggleUnidade}
                     acoesLinha={acoesLinha}
+                    onIniciarCanal={
+                      visaoGeral
+                        ? undefined
+                        : (unidadeId, canal) => registrarAtendimento(unidadeId, canal)
+                    }
                   />
                 }
                 mobile={
@@ -731,45 +750,52 @@ export function FilaCobrancasPanel() {
                     destaqueUnidadeId={destaqueUnidadeId}
                     onToggleUnidade={toggleUnidade}
                     acoesLinha={acoesLinha}
+                    onIniciarCanal={
+                      visaoGeral
+                        ? undefined
+                        : (unidadeId, canal) => registrarAtendimento(unidadeId, canal)
+                    }
                   />
                 }
               />
             </TabsContent>
 
-            <TabsContent value="atendente" className="flex flex-col gap-md !bg-transparent !p-0">
-              <ResponsiveTable
-                onExport={(formato) => void aoExportar(formato)}
-                onImport={abrirImportacao}
-                showImport={podeImportar}
-                mobileDataBarClassName={filaMobileDataBarClassName}
-                desktop={
-                  <FilaPorGruposLista
-                    grupos={gruposAtendente}
-                    modo="atendente"
-                    emptyState={emptyStateFila}
-                    variante="desktop"
-                    visaoGeral={visaoGeral}
-                    selecionadas={selecionadas}
-                    destaqueUnidadeId={destaqueUnidadeId}
-                    onToggleUnidade={toggleUnidade}
-                    acoesLinha={acoesLinha}
-                  />
-                }
-                mobile={
-                  <FilaPorGruposLista
-                    grupos={gruposAtendente}
-                    modo="atendente"
-                    emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
-                    variante="mobile"
-                    visaoGeral={visaoGeral}
-                    selecionadas={selecionadas}
-                    destaqueUnidadeId={destaqueUnidadeId}
-                    onToggleUnidade={toggleUnidade}
-                    acoesLinha={acoesLinha}
-                  />
-                }
-              />
-            </TabsContent>
+            {visaoGeral ? (
+              <TabsContent value="atendente" className="flex flex-col gap-md !bg-transparent !p-0">
+                <ResponsiveTable
+                  onExport={(formato) => void aoExportar(formato)}
+                  onImport={abrirImportacao}
+                  showImport={podeImportar}
+                  mobileDataBarClassName={filaMobileDataBarClassName}
+                  desktop={
+                    <FilaPorGruposLista
+                      grupos={gruposAtendente}
+                      modo="atendente"
+                      emptyState={emptyStateFila}
+                      variante="desktop"
+                      visaoGeral={visaoGeral}
+                      selecionadas={selecionadas}
+                      destaqueUnidadeId={destaqueUnidadeId}
+                      onToggleUnidade={toggleUnidade}
+                      acoesLinha={acoesLinha}
+                    />
+                  }
+                  mobile={
+                    <FilaPorGruposLista
+                      grupos={gruposAtendente}
+                      modo="atendente"
+                      emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
+                      variante="mobile"
+                      visaoGeral={visaoGeral}
+                      selecionadas={selecionadas}
+                      destaqueUnidadeId={destaqueUnidadeId}
+                      onToggleUnidade={toggleUnidade}
+                      acoesLinha={acoesLinha}
+                    />
+                  }
+                />
+              </TabsContent>
+            ) : null}
 
             <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
               {total === 0 ? (
@@ -840,13 +866,17 @@ export function FilaCobrancasPanel() {
                             >
                               Situação
                             </TableHead>
-                            <TableHead
-                              sortable
-                              sortDirection={directionFor("re")}
-                              onSort={() => alternarOrdenacao("re")}
-                            >
-                              RE responsável
-                            </TableHead>
+                            {visaoGeral ? (
+                              <TableHead
+                                sortable
+                                sortDirection={directionFor("re")}
+                                onSort={() => alternarOrdenacao("re")}
+                              >
+                                RE responsável
+                              </TableHead>
+                            ) : (
+                              <TableHead>Iniciar contato</TableHead>
+                            )}
                             <TableHead
                               sortable
                               sortDirection={directionFor("ultimoAtendimento")}
@@ -899,9 +929,24 @@ export function FilaCobrancasPanel() {
                               <TableCell>
                                 <BadgeSituacaoCobranca situacao={item.situacao} />
                               </TableCell>
-                              <TableCell className="text-on-surface">
-                                {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
-                              </TableCell>
+                              {visaoGeral ? (
+                                <TableCell className="text-on-surface">
+                                  {item.codigoRe ?? (
+                                    <span className="text-on-surface-variant">Sem responsável</span>
+                                  )}
+                                </TableCell>
+                              ) : (
+                                <TableCell>
+                                  <AtalhosContatoAtendente
+                                    compacto
+                                    unidadeId={item.unidadeId}
+                                    condominioId={item.condominioId}
+                                    identificacao={item.identificacao}
+                                    bloco={item.bloco}
+                                    onIniciar={(canal) => registrarAtendimento(item.unidadeId, canal)}
+                                  />
+                                </TableCell>
+                              )}
                               <TableCell className="text-on-surface-variant">
                                 {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
                               </TableCell>
@@ -929,7 +974,14 @@ export function FilaCobrancasPanel() {
                               !["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
                           );
                           return (
-                            <TableMobileCard key={item.unidadeId}>
+                            <TableMobileCard
+                              key={item.unidadeId}
+                              className={
+                                visaoGeral
+                                  ? undefined
+                                  : "border-brass/25 bg-gradient-to-b from-gold-subtle/70 to-surface-card"
+                              }
+                            >
                               <TableMobileCardHeader>
                                 {visaoGeral ? (
                                   <Checkbox
@@ -938,7 +990,12 @@ export function FilaCobrancasPanel() {
                                     onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
                                   />
                                 ) : (
-                                  <span aria-hidden="true" />
+                                  <span
+                                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brass/15 text-brass"
+                                    aria-hidden="true"
+                                  >
+                                    <Icon icon={ClipboardList} size="sm" />
+                                  </span>
                                 )}
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
@@ -975,12 +1032,23 @@ export function FilaCobrancasPanel() {
                                   <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-sm text-body-sm">
-                                  <div className="min-w-0">
-                                    <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
-                                    <p className="text-body-md text-on-surface">
-                                      {item.codigoRe ?? "Sem responsável"}
-                                    </p>
-                                  </div>
+                                  {visaoGeral ? (
+                                    <div className="min-w-0">
+                                      <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
+                                      <p className="text-body-md text-on-surface">
+                                        {item.codigoRe ?? "Sem responsável"}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="min-w-0">
+                                      <p className="text-label-sm uppercase text-on-surface-variant">Último</p>
+                                      <p className="text-body-md text-on-surface">
+                                        {item.ultimoAtendimento
+                                          ? formatarData(item.ultimoAtendimento)
+                                          : "—"}
+                                      </p>
+                                    </div>
+                                  )}
                                   <div className="min-w-0 text-end">
                                     <p className="text-label-sm uppercase text-on-surface-variant">Retorno</p>
                                     <div className="flex justify-end text-body-md">
@@ -989,6 +1057,17 @@ export function FilaCobrancasPanel() {
                                   </div>
                                 </div>
                               </div>
+                              {!visaoGeral ? (
+                                <div className="mt-sm">
+                                  <AtalhosContatoAtendente
+                                    unidadeId={item.unidadeId}
+                                    condominioId={item.condominioId}
+                                    identificacao={item.identificacao}
+                                    bloco={item.bloco}
+                                    onIniciar={(canal) => registrarAtendimento(item.unidadeId, canal)}
+                                  />
+                                </div>
+                              ) : null}
                               {acoesRapidas.length > 0 ? (
                                 <div className="mt-sm flex flex-col gap-xs">
                                   {acoesRapidas.find((a) => a.label === "Registrar contato") ? (
@@ -996,10 +1075,11 @@ export function FilaCobrancasPanel() {
                                       type="button"
                                       size="sm"
                                       className="min-h-11 w-full"
+                                      variant={visaoGeral ? "primary" : "outline"}
                                       onClick={() => registrarAtendimento(item.unidadeId)}
                                     >
                                       <Icon icon={ClipboardList} size="sm" aria-hidden />
-                                      Registrar contato
+                                      {visaoGeral ? "Registrar contato" : "Registrar sem abrir canal"}
                                     </Button>
                                   ) : null}
                                   <div className="grid grid-cols-2 gap-xs">

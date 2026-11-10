@@ -15,8 +15,8 @@ import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
 import { obterProcessoArquivoTemporario, removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import type { ModuloImportacaoArquivo } from "@/lib/importacoes/limites";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import { temPermissao } from "@/lib/permissions/check";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class HistoricoImportacaoError extends Error {
   constructor(
@@ -38,12 +38,12 @@ export type RetomadaImportacaoHistorico =
     }
   | { disponivel: false; motivo: string };
 
-export function listarImportacoesHistorico(
+export async function listarImportacoesHistorico(
   userId: number,
   opcoes?: { exporDetalhesInternos?: boolean },
-): ImportacaoConsulta[] {
-  assertPermissaoAcaoImportacao(userId, "consultarHistorico");
-  const perm = permissoesDoUsuarioId(userId);
+): Promise<ImportacaoConsulta[]> {
+  await assertPermissaoAcaoImportacao(userId, "consultarHistorico");
+  const perm = await resolverPermissoesUsuario(userId);
   const exporDetalhesInternos =
     opcoes?.exporDetalhesInternos ??
     (temPermissao(perm, "auditoria", "ler") || temPermissao(perm, "importacoes", "editar"));
@@ -53,15 +53,15 @@ export function listarImportacoesHistorico(
     .map((item) => sanitizarImportacaoParaConsulta(item, { exporDetalhesInternos }));
 }
 
-export function obterImportacaoHistorico(
+export async function obterImportacaoHistorico(
   userId: number,
   id: number,
   opcoes?: { exporDetalhesInternos?: boolean },
-): ImportacaoConsulta | null {
-  assertPermissaoAcaoImportacao(userId, "consultarHistorico");
+): Promise<ImportacaoConsulta | null> {
+  await assertPermissaoAcaoImportacao(userId, "consultarHistorico");
   const item = obterImportacaoPorId(id);
   if (!item) return null;
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   const exporDetalhesInternos =
     opcoes?.exporDetalhesInternos ??
     (temPermissao(perm, "auditoria", "ler") || temPermissao(perm, "importacoes", "editar"));
@@ -81,11 +81,15 @@ function importacaoPendenteConferencia(status: string): boolean {
   return sit === "Aguardando conferencia" || sit === "Aguardando aprovacao" || sit === "Em processamento";
 }
 
-export function avaliarRetomadaImportacao(userId: number, importacao: Importacao): RetomadaImportacaoHistorico {
+export async function avaliarRetomadaImportacao(
+  userId: number,
+  importacao: Importacao,
+): Promise<RetomadaImportacaoHistorico> {
   if (!importacaoPendenteConferencia(importacao.status)) {
     return { disponivel: false, motivo: "Esta importação já foi finalizada; não há conferência pendente." };
   }
-  if (!temPermissao(permissoesDoUsuarioId(userId), "importacoes", "criar")) {
+  const perm = await resolverPermissoesUsuario(userId);
+  if (!temPermissao(perm, "importacoes", "criar")) {
     return { disponivel: false, motivo: "Sem permissão para retomar importações." };
   }
   const processoId = importacao.processoId?.trim() ?? parseObservacaoImportacao(importacao.observacaoInterna).processoId;
@@ -121,7 +125,8 @@ export async function excluirImportacaoHistorico(
   id: number,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<void> {
-  if (!temPermissao(permissoesDoUsuarioId(userId), "importacoes", "excluir")) {
+  const perm = await resolverPermissoesUsuario(userId);
+  if (!temPermissao(perm, "importacoes", "excluir")) {
     throw new HistoricoImportacaoError("Sem permissão para excluir registros de importação.", 403);
   }
   const item = obterImportacaoPorId(id);

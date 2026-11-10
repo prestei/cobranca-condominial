@@ -1,7 +1,6 @@
 import {
   agoraIso,
   escopoCondominios,
-  escopoUnidades,
   getCadastros,
   nomeCondominio,
   proximoNumero,
@@ -29,6 +28,7 @@ import { montarCamposHistoricoFinal } from "@/lib/importacao-centro/historico-au
 import { resolverSituacaoFinalImportacao, importacaoConcluidaOuParcial } from "@/lib/importacao-centro/situacao-importacao";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
 import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+import { dispararDistribuicaoAutomaticaSeAtivada } from "@/lib/distribuicao/service";
 import { assertEscopoGravacaoImportacaoDebitos } from "@/lib/importacoes/permissoes";
 import type {
   AdaptadorImportacao,
@@ -49,6 +49,8 @@ export type ContextoImportacaoDebitos = {
   }>;
   debitos: Debito[];
   debitosMutaveis: Debito[];
+  /** Condomínios do escopo operacional (carteira/vínculo); usado no merge ao gravar. */
+  idsCondominioEscopo: Set<number>;
   /** Unidades que receberam débito novo/atualizado nesta confirmação → entram em cobrança. */
   unidadeIdsComDebitoImportado: Set<number>;
   formatoDetectado?: string;
@@ -176,8 +178,17 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
 
   prepararContexto(userId) {
     const cadastros = getCadastros();
-    const condominios = escopoCondominios(cadastros, userId);
-    const unidades = escopoUnidades(cadastros, userId).map((item) => ({
+    const idsCondominioEscopo = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+    // Resolução após provisionamento: catálogo completo. A carteira do atendente não inclui
+    // condomínio/unidade criados nesta importação — filtrar só pelo escopo gerava
+    // "Condomínio inválido ou fora do escopo" mesmo com cadastro auxiliar já gravado.
+    const condominios = cadastros.condominios.map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      identificadorExterno: item.identificadorExterno,
+      status: item.status,
+    }));
+    const unidades = cadastros.unidades.map((item) => ({
       id: item.id,
       condominioId: item.condominioId,
       identificacao: item.identificacao,
@@ -185,13 +196,14 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
       status: item.status,
       situacao: item.situacao,
     }));
-    const idsCondominio = new Set(condominios.map((item) => item.id));
-    const debitos = cadastros.debitos.filter((item) => idsCondominio.has(item.condominioId));
+    // Débitos existentes só do escopo operacional (não sobrescrever carteira alheia na atualização).
+    const debitos = cadastros.debitos.filter((item) => idsCondominioEscopo.has(item.condominioId));
     return {
       condominios,
       unidades,
       debitos,
       debitosMutaveis: [...debitos],
+      idsCondominioEscopo,
       unidadeIdsComDebitoImportado: new Set<number>(),
       formatoDetectado: FORMATO_IMPORTACAO_DEBITOS_V1,
       inconsistenciasRelatorio: [],
@@ -248,10 +260,13 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
     return resultado.acao;
   },
 
-  finalizarPersistencia(contexto) {
-    const idsCondominio = new Set(contexto.condominios.map((item) => item.id));
+  finalizarPersistencia(contexto, meta) {
+    const idsMerge = new Set(contexto.idsCondominioEscopo);
+    for (const debito of contexto.debitosMutaveis) {
+      idsMerge.add(debito.condominioId);
+    }
     setDebitos((current) => {
-      const foraDoEscopo = current.filter((item) => !idsCondominio.has(item.condominioId));
+      const foraDoEscopo = current.filter((item) => !idsMerge.has(item.condominioId));
       return [...foraDoEscopo, ...contexto.debitosMutaveis].sort(
         (a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id,
       );
@@ -267,6 +282,19 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
         return { ...item, situacao: "Em cobrança" };
       }),
     );
+
+    // Início automático de atendimento: se a distribuição automática estiver ativa, atribui RE
+    // às unidades da importação que entraram/permanecem sem responsável.
+    if (!meta?.userId) return;
+    try {
+      dispararDistribuicaoAutomaticaSeAtivada(
+        meta.userId,
+        { ip: meta.ip, userAgent: meta.userAgent },
+        { unidadeIds: [...idsPromover] },
+      );
+    } catch (error) {
+      console.error("[importacao] distribuição automática após inadimplência falhou:", error);
+    }
   },
 
   montarRegistroImportacao(input) {

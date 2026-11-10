@@ -56,11 +56,11 @@ const topicos: TopicoAjuda[] = [
   {
     id: "agenda",
     titulo: "Minha agenda",
-    descricao: "Filtre retornos de hoje, atrasados, da semana e futuros para organizar o dia.",
-    href: "/atendimentos?retorno=hoje",
+    descricao: "Histórico dos seus atendimentos dia a dia, no formato de agenda.",
+    href: "/minha-agenda",
     icon: CalendarClock,
     modulo: "atendimentos",
-    palavrasChave: ["retorno", "hoje", "atrasado", "calendário"],
+    palavrasChave: ["retorno", "hoje", "atrasado", "calendário", "histórico"],
     perfis: ["atendente"],
   },
   {
@@ -104,7 +104,7 @@ const topicos: TopicoAjuda[] = [
 
 const atalhos: AtalhoAjuda[] = [
   { href: "/atendimentos", titulo: "Atendimentos", icon: ClipboardList, modulo: "atendimentos" },
-  { href: "/atendimentos?retorno=hoje", titulo: "Minha agenda", icon: CalendarClock, modulo: "atendimentos" },
+  { href: "/minha-agenda", titulo: "Minha agenda", icon: CalendarClock, modulo: "atendimentos" },
   { href: "/debitos", titulo: "Inadimplência", icon: Wallet, modulo: "debitos" },
   { href: "/notificacoes", titulo: "Notificações", icon: Bell, modulo: "dashboard" },
   { href: "/", titulo: "Início", icon: LayoutDashboard, modulo: "dashboard" },

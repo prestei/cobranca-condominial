@@ -54,6 +54,7 @@ export type DashboardRetornoResumo = {
 
 export type DashboardRetornoLinha = {
   atendimentoId: string;
+  unidadeId: number;
   dataPrevista: string;
   unidadeLabel: string;
   codigoRe: string | null;
@@ -313,6 +314,7 @@ function distribuicaoAdvogados(
 function mapRetornoItens(itens: RetornoAgendaItem[], limite = 12): DashboardRetornoLinha[] {
   return itens.slice(0, limite).map((item) => ({
     atendimentoId: item.atendimentoId,
+    unidadeId: item.unidadeId,
     dataPrevista: item.dataPrevista,
     unidadeLabel: item.unidadeLabel,
     codigoRe: item.codigoRe,

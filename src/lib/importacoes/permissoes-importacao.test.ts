@@ -17,9 +17,10 @@ import {
 import { listarImportacoesHistorico } from "@/lib/importacoes/historico-service";
 import { temPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { parsePermissoesJson, serializarPermissoes } from "@/lib/permissions/parse";
-import { PERMISSAO_JSON_ADMIN } from "@/lib/permissions/seeds";
+import { PERMISSAO_JSON_ADMIN, PERMISSAO_JSON_ATENDENTE } from "@/lib/permissions/seeds";
 
 const ADMIN_ID = 1;
+const ATENDENTE_ID = 2;
 const ADVOGADO_ID = 5;
 
 const PLANILHA_VALIDA = [
@@ -32,16 +33,29 @@ beforeEach(() => {
 });
 
 describe("Ticket 12 — mapa de permissões", () => {
-  test("ações do fluxo respeitam perfil seed", () => {
-    assert.ok(temPermissaoAcaoImportacao(ADMIN_ID, "iniciarImportacao"));
-    assert.ok(temPermissaoAcaoImportacao(ADMIN_ID, "visualizarPrevia"));
-    assert.ok(temPermissaoAcaoImportacao(ADMIN_ID, "corrigirRegistros"));
-    assert.ok(temPermissaoAcaoImportacao(ADMIN_ID, "aprovarImportacao"));
-    assert.ok(temPermissaoAcaoImportacao(ADMIN_ID, "consultarHistorico"));
+  test("ações do fluxo respeitam perfil seed", async () => {
+    assert.ok(await temPermissaoAcaoImportacao(ADMIN_ID, "iniciarImportacao"));
+    assert.ok(await temPermissaoAcaoImportacao(ADMIN_ID, "visualizarPrevia"));
+    assert.ok(await temPermissaoAcaoImportacao(ADMIN_ID, "corrigirRegistros"));
+    assert.ok(await temPermissaoAcaoImportacao(ADMIN_ID, "aprovarImportacao"));
+    assert.ok(await temPermissaoAcaoImportacao(ADMIN_ID, "consultarHistorico"));
 
-    assert.ok(!temPermissaoAcaoImportacao(ADVOGADO_ID, "iniciarImportacao"));
-    assert.ok(!temPermissaoAcaoImportacao(ADVOGADO_ID, "visualizarPrevia"));
-    assert.ok(!temPermissaoAcaoImportacao(ADVOGADO_ID, "aprovarImportacao"));
+    assert.ok(await temPermissaoAcaoImportacao(ATENDENTE_ID, "iniciarImportacao"));
+    assert.ok(await temPermissaoAcaoImportacao(ATENDENTE_ID, "visualizarPrevia"));
+    assert.ok(await temPermissaoAcaoImportacao(ATENDENTE_ID, "aprovarImportacao"));
+    assert.ok(await temPermissaoAcaoImportacao(ATENDENTE_ID, "consultarHistorico"));
+
+    assert.equal(await temPermissaoAcaoImportacao(ADVOGADO_ID, "iniciarImportacao"), false);
+    assert.equal(await temPermissaoAcaoImportacao(ADVOGADO_ID, "visualizarPrevia"), false);
+    assert.equal(await temPermissaoAcaoImportacao(ADVOGADO_ID, "aprovarImportacao"), false);
+  });
+
+  test("seed do Atendente inclui importações ler/criar/editar", () => {
+    const perm = parsePermissoesJson(PERMISSAO_JSON_ATENDENTE);
+    assert.equal(perm.importacoes?.ler, true);
+    assert.equal(perm.importacoes?.criar, true);
+    assert.equal(perm.importacoes?.editar, true);
+    assert.notEqual(perm.importacoes?.excluir, true);
   });
 });
 
@@ -86,7 +100,7 @@ describe("Ticket 12 — bloqueio no serviço", () => {
     );
   });
 
-  test("sem ler não lista histórico", () => {
+  test("sem ler não lista histórico", async () => {
     const cargoAdmin = getCadastros().cargos.find((item) => item.id === 1);
     assert.ok(cargoAdmin);
     const base = parsePermissoesJson(PERMISSAO_JSON_ADMIN);
@@ -95,7 +109,7 @@ describe("Ticket 12 — bloqueio no serviço", () => {
       importacoes: { criar: true, editar: true },
     });
 
-    assert.throws(
+    await assert.rejects(
       () => listarImportacoesHistorico(ADMIN_ID),
       (err: unknown) => err instanceof ImportacaoCentroError && err.status === 403,
     );

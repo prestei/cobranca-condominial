@@ -49,6 +49,15 @@ const indicadorDotClass: Record<string, string> = {
   erro: "bg-status-critical",
 };
 
+/** Fundos opacos nas sticky — `bg-inherit` + zebra translúcida deixava referência/unidade atravessarem “Linha”. */
+const stickyCellBg =
+  "bg-surface-card group-even/row:bg-surface-container-low group-hover/row:bg-primary-subtle";
+const stickyStatusClass = `sticky left-0 z-[3] w-10 min-w-10! max-w-10! ${stickyCellBg}`;
+const stickyLinhaClass = `sticky left-10 z-[3] w-14 min-w-14! max-w-14! tabular-nums font-medium ${stickyCellBg} shadow-[4px_0_8px_-4px_rgba(18,33,58,0.18)]`;
+const stickyHeadStatusClass = "sticky left-0 z-[4] w-10 min-w-10! max-w-10! bg-surface-card";
+const stickyHeadLinhaClass =
+  "sticky left-10 z-[4] w-14 min-w-14! max-w-14! bg-surface-card shadow-[4px_0_8px_-4px_rgba(18,33,58,0.18)]";
+
 /** Código da unidade para agrupamento (aceita legado "Condomínio · MB-0102"). */
 function chaveUnidadeGrupo(linha: LinhaPreVisualizacaoImportacaoUi): string {
   const bruto = linha.resumo?.unidade?.trim();
@@ -238,17 +247,17 @@ export function ImportacaoPreVisualizacao({
 
       <section className="flex flex-col gap-md">
         <Table className="min-w-[72rem] text-body-sm" showExport={false}>
-            <TableHeader className="sticky top-0 z-[1] bg-surface-card">
+            <TableHeader className="sticky top-0 z-[2] bg-surface-card">
               <TableRow className="border-b border-border-subtle">
-                <TableHead className="sticky left-0 z-[2] w-10 bg-surface-card" />
-                <TableHead className="sticky left-10 z-[2] w-14 bg-surface-card">Linha</TableHead>
+                <TableHead className={stickyHeadStatusClass} />
+                <TableHead className={stickyHeadLinhaClass}>Linha</TableHead>
                 {colunas.map((coluna) => (
                   <TableHead
                     key={coluna.id}
                     className={[
                       coluna.className,
                       coluna.alinhamento === "right" ? "text-right" : undefined,
-                      "text-label text-on-surface-variant",
+                      "bg-surface-card text-label text-on-surface-variant",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -256,7 +265,7 @@ export function ImportacaoPreVisualizacao({
                     {coluna.rotulo}
                   </TableHead>
                 ))}
-                <TableHead className="min-w-[7rem]">Ações</TableHead>
+                <TableHead className="min-w-[7rem] bg-surface-card">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -297,22 +306,20 @@ export function ImportacaoPreVisualizacao({
                       ) : null}
                       <TableRow
                         className={[
-                          "align-top even:bg-surface-dim/40 hover:bg-primary-subtle/30",
+                          "align-top even:bg-surface-container-low hover:bg-primary-subtle",
                           item.ignoradoPeloUsuario ? "opacity-60" : undefined,
                         ]
                           .filter(Boolean)
                           .join(" ")}
                       >
-                        <TableCell className="sticky left-0 z-[1] bg-inherit">
+                        <TableCell className={stickyStatusClass}>
                           <span
                             className={`inline-block size-2.5 rounded-full shadow-sm ${indicadorDotClass[item.indicador]}`}
                             title={item.indicador}
                             aria-hidden
                           />
                         </TableCell>
-                        <TableCell className="sticky left-10 z-[1] bg-inherit tabular-nums font-medium">
-                          {item.linha}
-                        </TableCell>
+                        <TableCell className={stickyLinhaClass}>{item.linha}</TableCell>
                         {colunas.map((coluna) => {
                           const valor =
                             agruparPorUnidade && coluna.id === "unidade"
@@ -325,7 +332,7 @@ export function ImportacaoPreVisualizacao({
                             className={[
                               coluna.className,
                               coluna.alinhamento === "right" ? "text-right tabular-nums" : undefined,
-                              "max-w-[12rem] truncate",
+                              "relative z-0 max-w-[12rem] truncate",
                               agruparPorUnidade && coluna.id === "unidade" ? "text-on-surface-variant" : undefined,
                             ]
                               .filter(Boolean)

@@ -25,7 +25,7 @@ function parseBody(
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "visualizarPrevia");
+  const denied = await requirePermissaoAcaoImportacao(session, "visualizarPrevia");
   if (denied) return denied;
 
   let body: unknown;

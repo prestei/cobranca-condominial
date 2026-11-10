@@ -9,6 +9,7 @@ import {
 } from "@/components/importacao-wizard/importacao-wizard-sheet";
 import {
   Building2,
+  CalendarClock,
   CheckCircle2,
   Flag,
   Star,
@@ -30,6 +31,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
 import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import { Badge } from "@/components/badge";
@@ -163,6 +165,7 @@ const badgeStatus: Record<string, "success" | "error"> = { Ativa: "success", Ina
 function UnidadesPage() {
   const { toast } = useToast();
   const { pode, permissoes } = usePermissao();
+  const { abrir: abrirAgendar } = useAgendarAtendimento();
   const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -680,6 +683,18 @@ function UnidadesPage() {
   function acoes(item: Unidade) {
     const lista = [];
     if (pode("unidades", "ler")) lista.push({ label: "Consultar", icon: Eye, onSelect: () => setDetalheId(item.id) });
+    if (pode("atendimentos", "criar")) {
+      lista.push({
+        label: "Agendar atendimento",
+        icon: CalendarClock,
+        onSelect: () =>
+          abrirAgendar({
+            unidadeId: item.id,
+            condominioId: item.condominioId,
+            tituloUnidade: item.identificacao,
+          }),
+      });
+    }
     if (pode("unidades", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
     if (pode("unidades", "excluir"))
       lista.push({ label: "Excluir", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(item) });

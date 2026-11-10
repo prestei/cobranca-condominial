@@ -262,24 +262,88 @@ function escolherReParaUnidadePendente(
   }
 }
 
-export function executarDistribuicaoAutomatica(
-  userId: number,
-  meta?: { ip?: string; userAgent?: string },
-): ExecutarDistribuicaoAutomaticaResultado {
-  assertGerenciaDistribuicao(userId);
-  if (!configDistribuicaoAutomatica.ativada) {
-    throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
+function listarCarteiraGlobalPorRe(): CarteiraReResumo[] {
+  const contagem = new Map<number, number>();
+  for (const registro of getCadastros().atribuicoesCobranca) {
+    if (registro.encerradoEm) continue;
+    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
+    contagem.set(registro.atendenteId, (contagem.get(registro.atendenteId) ?? 0) + 1);
   }
+  return listarAtendentesComRe().map((atendente) => ({
+    atendenteId: atendente.id,
+    codigoRe: atendente.codigoRe,
+    totalUnidades: contagem.get(atendente.id) ?? 0,
+  }));
+}
 
-  const pendentes = listarFilaCobranca(userId).filter((item) => !item.codigoRe);
+function montarVolumeInadimplenciaGlobalPorRe(): Map<number, number> {
+  const volume = new Map<number, number>();
+  for (const registro of getCadastros().atribuicoesCobranca) {
+    if (registro.encerradoEm) continue;
+    const unidade = getCadastros().unidades.find((item) => item.id === registro.unidadeId);
+    if (!unidade || !unidadeElegivelDistribuicao(unidade)) continue;
+    volume.set(
+      registro.atendenteId,
+      (volume.get(registro.atendenteId) ?? 0) + valorNumericoInadimplenciaUnidade(registro.unidadeId),
+    );
+  }
+  return volume;
+}
+
+function listarUnidadesPendentesSemRe(unidadeIds?: number[]): Array<{ unidadeId: number; condominioId: number }> {
+  const filtro = unidadeIds && unidadeIds.length > 0 ? new Set(unidadeIds) : null;
+  const pendentes: Array<{ unidadeId: number; condominioId: number }> = [];
+  for (const unidade of getCadastros().unidades) {
+    if (filtro && !filtro.has(unidade.id)) continue;
+    if (!unidadeElegivelDistribuicao(unidade)) continue;
+    if (atribuicaoVigente(unidade.id)) continue;
+    pendentes.push({ unidadeId: unidade.id, condominioId: unidade.condominioId });
+  }
+  return pendentes;
+}
+
+/**
+ * Núcleo da distribuição automática (estratégia configurada).
+ * `escopoGlobal` ignora carteira do usuário — usado após importação de inadimplência.
+ * `preferirAtendenteId`: quando o autor da importação é atendente com RE, prioriza a carteira dele.
+ */
+function executarDistribuicaoAutomaticaCore(
+  atribuidoPorId: number,
+  meta: { ip?: string; userAgent?: string } | undefined,
+  opcoes: {
+    escopoUserId?: number;
+    unidadeIds?: number[];
+    escopoGlobal?: boolean;
+    preferirAtendenteId?: number;
+  },
+): ExecutarDistribuicaoAutomaticaResultado {
+  const pendentes = opcoes.escopoGlobal
+    ? listarUnidadesPendentesSemRe(opcoes.unidadeIds)
+    : listarFilaCobranca(opcoes.escopoUserId ?? atribuidoPorId)
+        .filter((item) => !item.codigoRe)
+        .filter((item) => !opcoes.unidadeIds?.length || opcoes.unidadeIds.includes(item.unidadeId))
+        .map((item) => ({ unidadeId: item.unidadeId, condominioId: item.condominioId }));
+
   if (pendentes.length === 0) {
     return { atribuidas: 0, ignoradasMesmoResponsavel: 0, atribuicoes: [], pendentesAntes: 0 };
   }
 
-  const carteiras = listarCarteiraPorRe(userId);
+  const carteiras = opcoes.escopoGlobal
+    ? listarCarteiraGlobalPorRe()
+    : listarCarteiraPorRe(opcoes.escopoUserId ?? atribuidoPorId);
   const contagemUnidades = new Map<number, number>(carteiras.map((item) => [item.atendenteId, item.totalUnidades]));
-  const contagemVolume = montarVolumeInadimplenciaPorRe(userId);
+  const contagemVolume = opcoes.escopoGlobal
+    ? montarVolumeInadimplenciaGlobalPorRe()
+    : montarVolumeInadimplenciaPorRe(opcoes.escopoUserId ?? atribuidoPorId);
   const estrategia = configDistribuicaoAutomatica.estrategia;
+  const usuarioDistribuicao = opcoes.escopoGlobal
+    ? resolverUsuarioGestaoDistribuicao()
+    : (opcoes.escopoUserId ?? atribuidoPorId);
+  const preferido =
+    opcoes.preferirAtendenteId != null
+      ? listarAtendentesComRe().find((item) => item.id === opcoes.preferirAtendenteId)
+      : undefined;
 
   let atribuidas = 0;
   let ignoradasMesmoResponsavel = 0;
@@ -287,29 +351,33 @@ export function executarDistribuicaoAutomatica(
   let indiceRodizio = 0;
 
   for (const item of pendentes) {
-    const { atendente, proximoIndiceRodizio } = escolherReParaUnidadePendente(
-      userId,
-      item,
-      estrategia,
-      contagemUnidades,
-      contagemVolume,
-      indiceRodizio,
-    );
+    const escolhido = preferido
+      ? { atendente: preferido, proximoIndiceRodizio: indiceRodizio }
+      : escolherReParaUnidadePendente(
+          usuarioDistribuicao,
+          item,
+          estrategia,
+          contagemUnidades,
+          contagemVolume,
+          indiceRodizio,
+        );
+    const { atendente, proximoIndiceRodizio } = escolhido;
     indiceRodizio = proximoIndiceRodizio;
 
     const resultado = distribuirUnidades(
-      userId,
+      usuarioDistribuicao,
       {
         unidadeIds: [item.unidadeId],
         codigoRe: atendente.codigoRe,
         motivo: `Distribuição automática (${estrategia})`,
       },
       meta,
+      { atribuidoPorIdOverride: atribuidoPorId, ignorarEscopo: opcoes.escopoGlobal === true },
     );
     atribuidas += resultado.atribuidas;
     ignoradasMesmoResponsavel += resultado.ignoradasMesmoResponsavel;
     atribuicoes.push(...resultado.atribuicoes);
-    if (resultado.atribuidas > 0) {
+    if (resultado.atribuicoes.length > 0) {
       contagemUnidades.set(atendente.id, (contagemUnidades.get(atendente.id) ?? 0) + resultado.atribuidas);
       if (estrategia === "volume") {
         contagemVolume.set(
@@ -326,6 +394,47 @@ export function executarDistribuicaoAutomatica(
     atribuicoes,
     pendentesAntes: pendentes.length,
   };
+}
+
+function resolverUsuarioGestaoDistribuicao(): number {
+  const cadastros = getCadastros();
+  const gestor = cadastros.usuarios.find(
+    (item) => item.ativo && temPermissao(permissoesDoUsuarioId(item.id), "usuarios", "criar"),
+  );
+  if (!gestor) {
+    throw new DistribuicaoServiceError("Não há usuário com permissão para distribuir cobranças.", 500);
+  }
+  return gestor.id;
+}
+
+export function executarDistribuicaoAutomatica(
+  userId: number,
+  meta?: { ip?: string; userAgent?: string },
+): ExecutarDistribuicaoAutomaticaResultado {
+  assertGerenciaDistribuicao(userId);
+  if (!configDistribuicaoAutomatica.ativada) {
+    throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
+  }
+  return executarDistribuicaoAutomaticaCore(userId, meta, { escopoUserId: userId });
+}
+
+/**
+ * Se a distribuição automática estiver ativada, atribui RE às unidades sem responsável
+ * (ex.: após confirmação de novas inadimplências). Não exige permissão do autor da importação.
+ */
+export function dispararDistribuicaoAutomaticaSeAtivada(
+  autorUserId: number,
+  meta?: { ip?: string; userAgent?: string },
+  opcoes?: { unidadeIds?: number[] },
+): ExecutarDistribuicaoAutomaticaResultado | null {
+  if (!configDistribuicaoAutomatica.ativada) return null;
+  const autor = autorUserId > 0 ? autorUserId : resolverUsuarioGestaoDistribuicao();
+  const preferirAtendenteId = listarAtendentesComRe().some((item) => item.id === autor) ? autor : undefined;
+  return executarDistribuicaoAutomaticaCore(autor, meta, {
+    escopoGlobal: true,
+    unidadeIds: opcoes?.unidadeIds,
+    preferirAtendenteId,
+  });
 }
 
 export function podeGerenciarDistribuicao(userId: number) {
@@ -439,10 +548,18 @@ export function listarHistoricoAtribuicoes(
     .map(montarHistoricoItem);
 }
 
+export type DistribuirUnidadesOpcoes = {
+  /** Autor da atribuição na auditoria (ex.: quem confirmou a importação). */
+  atribuidoPorIdOverride?: number;
+  /** Permite atribuir unidades fora do escopo do gestor (disparo sistêmico pós-importação). */
+  ignorarEscopo?: boolean;
+};
+
 export function distribuirUnidades(
   userId: number,
   input: DistribuirInput,
   meta?: { ip?: string; userAgent?: string },
+  opcoes?: DistribuirUnidadesOpcoes,
 ): DistribuirResultado {
   assertGerenciaDistribuicao(userId);
 
@@ -455,6 +572,7 @@ export function distribuirUnidades(
   const motivo = (input.motivo ?? "").trim();
   const erros: string[] = [];
   const plano: Array<{ unidadeId: number; vigente: AtribuicaoCobranca | undefined }> = [];
+  const atribuidoPorId = opcoes?.atribuidoPorIdOverride ?? userId;
 
   for (const unidadeId of ids) {
     const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
@@ -462,11 +580,13 @@ export function distribuirUnidades(
       erros.push(`Unidade ${unidadeId} não encontrada.`);
       continue;
     }
-    try {
-      unidadeNoEscopo(userId, unidade);
-    } catch {
-      erros.push(`Unidade ${unidade.identificacao} fora do escopo.`);
-      continue;
+    if (!opcoes?.ignorarEscopo) {
+      try {
+        unidadeNoEscopo(userId, unidade);
+      } catch {
+        erros.push(`Unidade ${unidade.identificacao} fora do escopo.`);
+        continue;
+      }
     }
     if (!unidadeElegivelDistribuicao(unidade)) {
       erros.push(`Unidade ${unidade.identificacao} não está em cobrança ativa.`);
@@ -504,7 +624,7 @@ export function distribuirUnidades(
       id: nextId,
       unidadeId: item.unidadeId,
       atendenteId: atendente.id,
-      atribuidoPorId: userId,
+      atribuidoPorId,
       atribuidoEm: agora,
       encerradoEm: null,
       motivo,
@@ -523,7 +643,7 @@ export function distribuirUnidades(
         dadosNovos: codigoReDoUsuario(atendente) ?? "",
         camposAlterados: "atendente_id, anterior_atendente_id, motivo",
       },
-      userId,
+      atribuidoPorId,
       meta,
     );
   }

@@ -7,7 +7,7 @@ type RouteContext = { params: Promise<{ processoId: string }> };
 export async function POST(_request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "aprovarImportacao");
+  const denied = await requirePermissaoAcaoImportacao(session, "aprovarImportacao");
   if (denied) return denied;
 
   const { processoId } = await context.params;

@@ -17,12 +17,12 @@ Matriz completa de abas, entidades, formatos, permissões e lacunas: [MATRIZ_AUD
 
 ## Rotas e telas
 
-- `/importacoes` — `src/app/importacoes/page.tsx` — histórico e wizard (arquivo → conferência → resultado) para débitos, condomínios, unidades e responsáveis. Item **Importações** no menu lateral (Análise). Query `?modulo=debitos&abrir=1` abre o sheet já no módulo de inadimplência.
+- `/importacoes` — `src/app/importacoes/page.tsx` — histórico e wizard (arquivo → conferência → resultado) para débitos, condomínios, unidades e responsáveis. Item **Importações** no menu lateral (Administradora em Análise; Atendente em Operação). Query `?modulo=debitos&abrir=1` abre o sheet já no módulo de inadimplência.
 - Atalhos **Importar** (sem sair da tela) em **Inadimplência**, **Condomínios**, **Unidades** e na fila de **Atendimentos**: abrem `ImportacaoWizardSheet` no módulo correspondente (permissão `importacoes.criar`).
 
 ## Perfis e permissões
 
-Mapeamento oficial (Ticket 12) em `src/lib/importacoes/permissoes.ts`. Toda ação é validada **no servidor** (serviços do centro de importação e rotas `/api/importacoes/*`), não apenas na UI.
+Mapeamento oficial (Ticket 12) em `src/lib/importacoes/permissoes.ts`. Toda ação é validada **no servidor** (serviços do centro de importação e rotas `/api/importacoes/*`), não apenas na UI. As checagens usam `resolverPermissoesUsuario` (PostgreSQL `role.permissao_json`), o mesmo critério de `requirePermissao` — assim o Atendente com Consultar/Cadastrar/Alterar no cargo consegue importar mesmo após alteração de permissão em outro worker.
 
 | Ação do fluxo | Permissão | Onde |
 | --- | --- | --- |
@@ -33,7 +33,13 @@ Mapeamento oficial (Ticket 12) em `src/lib/importacoes/permissoes.ts`. Toda aç�
 | Aprovar e gravar | `importacoes.editar` | `POST …/debitos/confirmar`, `POST …/processo/:id/aprovacao` |
 | Excluir registro de histórico | `importacoes.excluir` | `DELETE /api/importacoes/:id` |
 
-**Escopo de condomínio:** conferência e parse usam `escopoCondominios` / `escopoUnidades`; na aprovação, linhas que seriam gravadas fora do escopo retornam `403`. Débitos existentes fora do escopo não entram no contexto de atualização (`adaptadores/debitos.ts`).
+| Perfil (`role.permissao_json` no banco) | `ler` | `criar` | `editar` | `excluir` |
+| --- | --- | --- | --- | --- |
+| Administradora | Sim | Sim | Sim | Sim |
+| Atendente | Sim | Sim | Sim | Não |
+| Advogado | Não | Não | Não | Não |
+
+**Escopo de condomínio:** após o provisionamento, o parse/resolução de débitos usa o **catálogo completo** de condomínios e unidades (senão o atendente não enxerga o cadastro auxiliar recém-criado e a linha cai em “Condomínio inválido ou fora do escopo”). Débitos **já existentes** só entram no contexto de atualização se estiverem no escopo operacional (`idsCondominioEscopo`). Na aprovação, gravação é permitida no escopo da carteira **ou** em condomínio provisionado na importação (`IMPORT-…` / observação de criação automática); demais fora do escopo retornam `403`.
 
 Quem executa fica registrado em `import.usuario_id` (colaborador logado).
 
@@ -116,10 +122,10 @@ Código: `src/lib/importacoes/receber-arquivo.ts`, `resolver-entrada-importacao.
 ## Regras de negócio
 
 - Linhas inválidas **não** são gravadas; aparecem na prévia e no relatório.
-- **Provisionamento cadastral na inadimplência:** se o arquivo referencia condomínio, unidade ou responsável ainda não cadastrados, `provisionarCadastrosImportacaoDebitos` cria o cadastro **antes** do parse dos débitos (`antesDeInterpretar` do adaptador). Idempotente (não altera existentes: não sobrescreve CPF, e-mail, telefone nem vínculos já gravados). Condomínio novo recebe advogado padrão (usuário logado quando for opção válida; senão o primeiro da lista), administradora = origem do arquivo e observação de criação automática. Unidade nova recebe tipo Apartamento, status Ativa e situação **Sem cobrança** na prévia; na **confirmação**, ao gravar débitos, unidade em Sem cobrança passa a **Em cobrança**. Responsável novo (só nome no PDF) recebe documento provisório `IMPORT-…` e vínculo **Proprietario** na unidade (principal apenas se a unidade ainda não tiver principal). A prévia e a confirmação devolvem `condominios`/`unidades`/`responsaveis`/`vinculos` do escopo para sincronizar o cliente (`sincronizarCondominiosDoServidor` / `sincronizarUnidadesDoServidor` mesclam por id e **aceitam cadastros novos** ainda ausentes no catálogo local — sem isso a UI descartava o provisionamento). Módulos dedicados **Condomínios**, **Unidades** e **Responsáveis** no wizard continuam disponíveis para planilhas só de cadastro.
+- **Provisionamento cadastral na inadimplência:** se o arquivo referencia condomínio, unidade ou responsável ainda não cadastrados, `provisionarCadastrosImportacaoDebitos` cria o cadastro **antes** do parse dos débitos (`antesDeInterpretar` do adaptador). Idempotente (não altera existentes: não sobrescreve CPF, e-mail, telefone nem vínculos já gravados). Condomínio novo recebe advogado padrão (usuário logado quando for opção válida; senão o primeiro da lista), administradora = origem do arquivo, identificador `IMPORT-…` e observação de criação automática. O parse seguinte usa o catálogo completo (não só a carteira), para o atendente não receber “Condomínio inválido ou fora do escopo” no cadastro que acabou de ser criado. Unidade nova recebe tipo Apartamento, status Ativa e situação **Sem cobrança** na prévia; na **confirmação**, ao gravar débitos, unidade em Sem cobrança passa a **Em cobrança**. Responsável novo (só nome no PDF) recebe documento provisório `IMPORT-…` e vínculo **Proprietario** na unidade (principal apenas se a unidade ainda não tiver principal). A prévia e a confirmação devolvem `condominios`/`unidades`/`responsaveis`/`vinculos` do escopo para sincronizar o cliente (`sincronizarCondominiosDoServidor` / `sincronizarUnidadesDoServidor` mesclam por id e **aceitam cadastros novos** ainda ausentes no catálogo local — sem isso a UI descartava o provisionamento). Módulos dedicados **Condomínios**, **Unidades** e **Responsáveis** no wizard continuam disponíveis para planilhas só de cadastro.
 - Deduplicação (Ticket 06): hash do arquivo + regras por entidade — condomínio (ID externo / nome normalizado), unidade (condomínio + bloco + código), responsável (documento / ID origem), débito (`identificador_externo` ou chave natural: condomínio + unidade + categoria + referência + vencimento + **valor principal**; mesma referência com vencimentos distintos **não** é duplicata).
 - Débitos **manuais** (sem identificador externo) **não** são sobrescritos por importação; linha marcada como *manual protegido*.
-- Na inadimplência, a prévia só provisiona cadastro; unidade em **Sem cobrança** passa a **Em cobrança** na confirmação, junto com a gravação dos débitos.
+- Na inadimplência, a prévia só provisiona cadastro; unidade em **Sem cobrança** passa a **Em cobrança** na confirmação, junto com a gravação dos débitos. Se a **distribuição automática** estiver ativada, nessa mesma confirmação o sistema atribui RE às unidades do lote ainda sem responsável (regra vigente em `/atendimentos` → Configurar Distribuição).
 - Importação **não** cancela débitos que sumiram do arquivo da administradora.
 
 ## Arquitetura central (`src/lib/importacao-centro`)

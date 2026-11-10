@@ -96,22 +96,31 @@ function AtendimentosPage() {
     if (!searchParams || searchParams.get("novo") !== "1") return;
     const cadastrosAtuais = getCadastros();
     const unidadeQuery = searchParams.get("unidade");
+    const canalQuery = searchParams.get("canal")?.trim() ?? "";
+    const canal =
+      canalQuery && (canaisAtendimento as readonly string[]).includes(canalQuery) ? canalQuery : "";
     let condominioId = "";
     let unidadeId = "";
+    let responsavelId = "";
     if (unidadeQuery) {
       const unidade = cadastrosAtuais.unidades.find((item) => String(item.id) === unidadeQuery);
       if (unidade) {
         unidadeId = unidadeQuery;
         condominioId = String(unidade.condominioId);
+        const vinculo =
+          cadastrosAtuais.vinculos.find((item) => item.unidadeId === unidade.id && item.principal) ??
+          cadastrosAtuais.vinculos.find((item) => item.unidadeId === unidade.id);
+        responsavelId = vinculo ? String(vinculo.responsavelId) : "";
       }
     }
-    setForm({ ...formularioVazio, condominioId, unidadeId });
+    setForm({ ...formularioVazio, condominioId, unidadeId, responsavelId, canal });
     setErrors({});
     setStep(0);
     setSheetOpen(true);
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("novo");
     params.delete("unidade");
+    params.delete("canal");
     params.delete("aba");
     const qs = params.toString();
     router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");

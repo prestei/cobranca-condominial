@@ -66,8 +66,9 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
         atendimentosSemRetorno: true,
       },
       { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
+      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
       {
-        href: "/atendimentos?retorno=hoje",
+        href: "/minha-agenda",
         label: "Minha agenda",
         icon: CalendarClock,
         modulo: "atendimentos",
@@ -128,7 +129,7 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
 
 function navLinkAtivo(pathname: string, retornoNaUrl: string | null, link: NavLink) {
   if (link.agendaRetornos) {
-    return pathname === "/atendimentos" && Boolean(retornoNaUrl);
+    return pathname === "/minha-agenda" || pathname.startsWith("/minha-agenda/");
   }
   if (link.atendimentosSemRetorno) {
     return (pathname === "/atendimentos" || pathname.startsWith("/atendimentos/")) && !retornoNaUrl;
@@ -153,10 +154,25 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
   const retornoNaUrl = searchParams?.get("retorno") ?? null;
   const menuSecoes = perfil === "atendente" ? secoesAtendente : secoes;
   const cadastros = useCadastros();
-  const retornos =
-    layoutMontado && !sessaoCarregando && sessao?.userId
-      ? cadastros.atendimentos.filter(retornoPendente).length
-      : 0;
+  const retornos = useMemo(() => {
+    if (!layoutMontado || sessaoCarregando || !sessao?.userId) return 0;
+    const pendentes = cadastros.atendimentos.filter(retornoPendente);
+    // Administradora: todos. Atendente: só unidades da carteira vigente.
+    if (pode("usuarios", "criar")) return pendentes.length;
+    const carteira = new Set(
+      cadastros.atribuicoesCobranca
+        .filter((item) => !item.encerradoEm && item.atendenteId === sessao.userId)
+        .map((item) => item.unidadeId),
+    );
+    return pendentes.filter((item) => carteira.has(Number(item.unidadeId))).length;
+  }, [
+    layoutMontado,
+    sessaoCarregando,
+    sessao?.userId,
+    cadastros.atendimentos,
+    cadastros.atribuicoesCobranca,
+    pode,
+  ]);
   const usuario =
     sessaoCarregando || !sessao?.userId ? undefined : usuarioSessaoApp(cadastros, sessao.userId);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();

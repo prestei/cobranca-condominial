@@ -16,19 +16,21 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Fila de cobranças** — KPIs, filtros e listagem em abas: **Por condomínio** (padrão), **Por atendente** e **Geral**; **Configurar Distribuição** no header (Administradora) |
-| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (substitui a aba Retornos) |
+| `/atendimentos` | **Fila de cobranças** — KPIs, filtros e listagem em abas: **Por condomínio** (padrão) e **Geral**; Administradora também tem **Por atendente**; **Configurar Distribuição** no header (Administradora) |
+| `/minha-agenda` | **Agenda do atendente** — calendário mensal com todos os dias; contatos realizados e retornos agendados; navegação mês a mês (somente perfil atendente) |
+| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (compromissos futuros na cobrança) |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
+| `/atendimentos?novo=1&unidade=&canal=` | Mesmo sheet com canal pré-selecionado (`WhatsApp`, `E-mail`, …) — usado pelos atalhos do atendente |
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
 | `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; agrupamentos `src/components/atendimentos/fila-por-grupos-lista.tsx` (painéis recolhíveis por condomínio/atendente, com tabela e paginação por grupo); sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx` (aberto pelo botão **Configurar Distribuição** no `PageHeader`). Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
+Arquivos: `src/app/atendimentos/page.tsx`; agenda do atendente `src/app/minha-agenda/page.tsx` + `src/components/atendimentos/agenda-historico-visual.tsx` + `src/lib/atendimentos/agrupar-historico-por-dia.ts`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; agrupamentos `src/components/atendimentos/fila-por-grupos-lista.tsx`; atalhos do atendente `src/components/atendimentos/atalhos-contato-atendente.tsx` + `src/lib/contato-responsavel.ts`; sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx`. **Agendar atendimento** (sistema-wide): `AgendarAtendimentoProvider` em `Providers` (`src/app/providers.tsx`) + `AgendarAtendimentoSheet` (`src/components/atendimentos/agendar-atendimento-sheet.tsx`) — disponível no histórico/detalhe da unidade, unidades, débitos, minha agenda, home do atendente e central de pendências; na **fila** o fluxo permanece **Registrar contato** (palitagem). Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`.
 
 ## Perfis e permissões
 
 | Ação | Administradora | Atendente | Advogado |
 | --- | --- | --- | --- |
-| Ver fila (`atendimentos.ler`) | Carteira geral no escopo | Somente unidades com RE atribuído ao login | Sem acesso (sem `atendimentos.ler` no seed) |
+| Ver fila (`atendimentos.ler`) | Carteira geral no escopo; abas Por condomínio / Por atendente / Geral | Somente unidades com RE atribuído ao login; abas **Por condomínio** / **Geral** | Sem acesso (sem `atendimentos.ler` no seed) |
 | Registrar atendimento | Sim | Sim (autor = sessão) | Não |
 | Filtro por RE | Sim | Não |
 | Distribuir / redistribuir cobranças | Sim (`usuarios.criar`) | Não | Não |
@@ -64,16 +66,18 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 - RE responsável: vigência em `AtribuicaoCobranca` / `collection_assignment` (`encerrado_em` nulo = vigente).
 - Redistribuição encerra a vigência anterior, grava `anterior_atendente_id`, autor (`atribuido_por_id`), data/hora e motivo opcional; **não altera** `usuario_id` dos atendimentos já registrados.
 - Distribuição múltipla: validação completa antes de persistir; falha em qualquer unidade cancela o lote.
-- Não implementar regra automática de entrada na cobrança (decisão pendente).
+- **Início automático após importação:** com distribuição automática **ativada**, a confirmação de inadimplência promove a unidade a **Em cobrança** e dispara `dispararDistribuicaoAutomaticaSeAtivada` para atribuir RE às unidades daquele lote ainda sem responsável (estratégia configurada). Com a opção desativada, a unidade entra na fila sem RE até distribuição manual ou execução explícita.
+- **Verificação periódica (5 min):** com a opção ativa, o processo Node agenda `executarCicloDistribuicaoAutomatica` a cada 5 minutos (`job-periodico.ts`, iniciado em `instrumentation.ts`) para pegar cobranças sem RE que tenham entrado por outros caminhos.
 
 ## Fluxos
 
-1. Operador abre **Atendimentos** → identifica cobranças pelos KPIs e filtros. Listagem em abas **Por condomínio** (padrão — painéis recolhíveis com tabela/paginação por condomínio), **Por atendente** (mesmo padrão agrupado pelo RE vigente; itens sem responsável em painel próprio) e **Geral** (tabela plana paginada). Seção **Filtros** (`FiltrosSection` + `FilterBar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
-2. **Administradora** — botão **Configurar Distribuição** no header abre o sheet (ativar regra e estratégia; ao salvar com opção ativa, executa a distribuição) ou seleção manual na tabela + atribuição por RE.
+1. Operador abre **Atendimentos** → identifica cobranças pelos KPIs e filtros. Abas **Por condomínio** (padrão — painéis recolhíveis) e **Geral** (tabela plana). **Administradora** também tem **Por atendente**. **Atendente:** só a própria carteira; cartões/linhas com visual brass/gold e atalhos **WhatsApp** / **E-mail**. Seção **Filtros**: busca, condomínio, situação, responsável (admin) e retorno; **Filtrar** no servidor (`GET /api/fila`).
+2. **Administradora** — **Configurar Distribuição** (ativar regra/estratégia). Com a opção **ativa**, a confirmação de inadimplência distribui automaticamente; se quem importou for atendente com RE, as unidades do lote vão para a **carteira dele**. Job a cada 5 min cobre pendências restantes.
 3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
 4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).
-5. **Registrar contato** — menu de ações ou `?novo=1&unidade=` → `POST /api/atendimentos`.
-6. Cada tentativa acrescenta um `service_ticket`; registros anteriores não são sobrescritos.
+5. **Registrar contato** — menu de ações, atalho WhatsApp/E-mail do atendente ou `?novo=1&unidade=` (`&canal=` opcional) → `POST /api/atendimentos`.
+6. **Agendar atendimento** — ação com `atendimentos.criar` em unidades, débitos, detalhe/histórico da unidade, `/minha-agenda` e home do atendente (não na fila: lá o fluxo é **Registrar contato**). Abre sheet dedicado que cria um `service_ticket` com `data_proxima_acao` e `proxima_acao`; o compromisso entra na agenda e no filtro de retornos.
+7. Cada tentativa acrescenta um `service_ticket`; registros anteriores não são sobrescritos.
 
 ## Regras de negócio (agenda de retornos — T11)
 
@@ -84,6 +88,7 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 - **Atendente:** vê e conclui retornos das unidades da carteira vigente (`collection_assignment`), independentemente de quem registrou a palitagem.
 - **Administradora:** vê a equipe; filtros por condomínio e RE responsável (carteira vigente).
 - Novo próximo passo: registrar **nova** tentativa (sheet de palitagem / botão “Nova tentativa”); tentativas anteriores permanecem.
+- **Agendar atendimento (atalho):** `POST /api/atendimentos` com resposta `Não`, status `Pendente`, assunto de agendamento e `data_proxima_acao` obrigatória — mesmo escopo/carteira da palitagem; não substitui a conclusão de retorno (`concluir-retorno`) nem a correção administrativa (`PATCH`).
 - Sem notificações SMS/e-mail/push neste ticket.
 
 ## Regras de negócio (palitagem — T10)

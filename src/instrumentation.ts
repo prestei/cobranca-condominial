@@ -53,6 +53,8 @@ export async function register() {
         : {}),
     });
     console.info("[pg] Catálogo hidratado do PostgreSQL (catalogo_snapshot + identidade).");
+    const { agendarDistribuicaoAutomaticaPeriodica } = await import("@/lib/distribuicao/job-periodico");
+    agendarDistribuicaoAutomaticaPeriodica();
     return;
   }
 
@@ -88,4 +90,7 @@ export async function register() {
     throw new Error("[pg] Não foi possível gravar o snapshot inicial no PostgreSQL.");
   }
   console.info("[pg] Snapshot inicial do catálogo gravado no PostgreSQL.");
+
+  const { agendarDistribuicaoAutomaticaPeriodica } = await import("@/lib/distribuicao/job-periodico");
+  agendarDistribuicaoAutomaticaPeriodica();
 }

@@ -127,7 +127,7 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
         input.linhasIgnoradas,
       );
 
-      adapter.finalizarPersistencia(contexto);
+      adapter.finalizarPersistencia(contexto, { userId, origem, arquivo, ...meta });
 
       const relatorioFinal = {
         ...relatorio,

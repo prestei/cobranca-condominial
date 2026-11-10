@@ -71,7 +71,7 @@ function parseBody(
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "aprovarImportacao");
+  const denied = await requirePermissaoAcaoImportacao(session, "aprovarImportacao");
   if (denied) return denied;
 
   let body: unknown;
@@ -89,15 +89,28 @@ export async function POST(request: Request) {
   try {
     const resultado = await confirmarImportacaoDebitos(session.userId, input, requestMeta(request));
     const cadastros = getCadastros();
-    const condominios = escopoCondominios(cadastros, session.userId);
-    const scopeIds = new Set(condominios.map((item) => item.id));
-    const debitos = cadastros.debitos.filter((item) => scopeIds.has(item.condominioId));
+    const condominiosEscopo = escopoCondominios(cadastros, session.userId);
+    const scopeIds = new Set(condominiosEscopo.map((item) => item.id));
+    // Inclui condomínios/unidades da carteira após a distribuição automática pós-importação.
     const unidades = cadastros.unidades.filter((item) => scopeIds.has(item.condominioId));
     const unidadeIds = new Set(unidades.map((item) => item.id));
+    const condominioIdsUnidades = new Set(unidades.map((item) => item.condominioId));
+    const condominios = cadastros.condominios.filter(
+      (item) => scopeIds.has(item.id) || condominioIdsUnidades.has(item.id),
+    );
+    const debitos = cadastros.debitos.filter((item) => scopeIds.has(item.condominioId) || unidadeIds.has(item.unidadeId));
     const vinculos = cadastros.vinculos.filter((item) => unidadeIds.has(item.unidadeId));
     const responsavelIds = new Set(vinculos.map((item) => item.responsavelId));
     const responsaveis = cadastros.responsaveis.filter((item) => responsavelIds.has(item.id));
-    return Response.json({ resultado, debitos, condominios, unidades, responsaveis, vinculos });
+    return Response.json({
+      resultado,
+      debitos,
+      condominios,
+      unidades,
+      responsaveis,
+      vinculos,
+      atribuicoesCobranca: cadastros.atribuicoesCobranca,
+    });
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {
       return Response.json({ error: error.message }, { status: error.status });

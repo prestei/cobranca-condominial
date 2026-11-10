@@ -29,7 +29,7 @@ function parseBody(
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = requirePermissaoAcaoImportacao(session, "corrigirRegistros");
+  const denied = await requirePermissaoAcaoImportacao(session, "corrigirRegistros");
   if (denied) return denied;
 
   let body: unknown;
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const resultado = corrigirLinhaPreviewImportacaoDebitos(session.userId, input);
+    const resultado = await corrigirLinhaPreviewImportacaoDebitos(session.userId, input);
     return Response.json(resultado);
   } catch (error) {
     if (error instanceof ImportacaoDebitosError) {

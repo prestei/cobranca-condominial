@@ -17,7 +17,6 @@ import { DashboardAdvogadoView } from "@/components/dashboard/dashboard-advogado
 
 const descricaoPorPerfil = {
   administradora: "Visão da carteira, operação da equipe e retornos.",
-  atendente: "Sua carteira, contatos da semana e agenda de retornos.",
   advogado: "Condomínios sob sua responsabilidade e indicadores de inadimplência.",
 } as const;
 
@@ -59,14 +58,23 @@ export function DashboardHome() {
   }, [carregar]);
 
   const chaveGrafico = dados ? `dash|${dados.perfil}|${dados.dataBase}` : "dash";
+  const perfilAtendente = !carregando && !erro && dados?.perfil === "atendente";
+  const perfilOutro =
+    !carregando && !erro && dados && (dados.perfil === "administradora" || dados.perfil === "advogado");
 
   return (
     <WorkspaceShell>
-      <PageHeader
-        icon={LayoutDashboard}
-        title={tituloInicio(usuario.name)}
-        description={dados ? descricaoPorPerfil[dados.perfil] : "Visão operacional da carteira."}
-      />
+      {perfilAtendente ? null : (
+        <PageHeader
+          icon={LayoutDashboard}
+          title={tituloInicio(usuario.name)}
+          description={
+            perfilOutro
+              ? descricaoPorPerfil[dados.perfil]
+              : "Visão operacional da carteira."
+          }
+        />
+      )}
       <PageContent className="flex flex-col gap-xl">
         {carregando ? <SkeletonDashboard metrics={4} panels={2} label="Carregando dashboard" /> : null}
 
@@ -85,8 +93,8 @@ export function DashboardHome() {
           <DashboardAdministradoraView dados={dados} chaveGrafico={chaveGrafico} />
         ) : null}
 
-        {!carregando && !erro && dados?.perfil === "atendente" ? (
-          <DashboardAtendenteView dados={dados} chaveGrafico={chaveGrafico} />
+        {perfilAtendente && dados?.perfil === "atendente" ? (
+          <DashboardAtendenteView dados={dados} nomeUsuario={usuario.name} />
         ) : null}
 
         {!carregando && !erro && dados?.perfil === "advogado" ? (

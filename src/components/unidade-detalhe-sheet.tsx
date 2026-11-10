@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import {
+  CalendarClock,
   ClipboardList,
   CreditCard,
   DoorOpen,
@@ -22,6 +23,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Select } from "@/components/input";
 import { SkeletonForm } from "@/components/skeleton";
+import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import {
   Sheet,
   SheetBody,
@@ -111,6 +113,7 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
   const router = useRouter();
   const { toast } = useToast();
   const { permissoes, pode } = usePermissao();
+  const { abrir: abrirAgendar } = useAgendarAtendimento();
   const [detalhe, setDetalhe] = useState<DetalheUnidade | null>(null);
   const [loading, setLoading] = useState(false);
   const [historicoRef, setHistoricoRef] = useState<HistoricoUnidadeReferencia | null>(null);
@@ -420,6 +423,22 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   >
                     <Icon icon={ClipboardList} size="sm" />
                     Atendimentos
+                  </Button>
+                ) : null}
+                {pode("atendimentos", "criar") ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      abrirAgendar({
+                        unidadeId: detalhe.unidade.id,
+                        condominioId: detalhe.unidade.condominioId,
+                        tituloUnidade: detalhe.unidade.identificacao,
+                      })
+                    }
+                  >
+                    <Icon icon={CalendarClock} size="sm" />
+                    Agendar atendimento
                   </Button>
                 ) : null}
                 {pode("atendimentos", "criar") ? (

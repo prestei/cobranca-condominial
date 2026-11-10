@@ -26,7 +26,7 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 **Modelo:** JSON em `permissao_json` / `Cargo.permissaoJson`, normalizado em `src/lib/permissions/`. Chaves de primeiro nível = módulos (`dashboard`, `atendimentos`, `debitos`, …). Valores = objeto com flags `ler`, `criar`, `editar`, `excluir` e, em relatórios, `exportar`.
 
-**Seeds de demonstração:** `src/lib/permissions/seeds.ts` (Administrador, Atendente, Advogado). JSON legado com flags planas (`cadastros`, `retornos`, …) é migrado automaticamente ao ler (`parsePermissoesJson`).
+**Permissões vigentes:** `role.permissao_json` no PostgreSQL. Evolução de matriz dos cargos de fábrica via `docs/migrations/*.sql` (ex.: Atendente + importações em `2026-11-12-atendente-permissao-importacoes.sql`). `src/lib/permissions/seeds.ts` só entra no bootstrap de tabela `role` vazia / reparo de JSON vazio e em “Restaurar padrão” na UI — não é a fonte das alterações de permissão em ambiente com banco. O seed do **Atendente** inclui `importacoes.ler/criar/editar` (alinhado à migration e a [importacoes.md](importacoes.md)); “Restaurar padrão” não remove mais o direito de importar. JSON legado com flags planas (`cadastros`, `retornos`, …) é migrado automaticamente ao ler (`parsePermissoesJson`).
 
 **Enforcement:**
 
@@ -39,7 +39,7 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 Persistência em PostgreSQL (`role` via `src/lib/db/identity-pg.ts`). Cache de processo só espelha o banco. Modelo lógico em `docs/banco.md` (`role.permissao_json`).
 
-Na subida, `garantirIdentidadeInicialPg` grava cargos padrão se a tabela estiver vazia e **repara** `permissao_json` vazio/`{}` dos cargos de fábrica (Administrador, Atendente, Advogado) a partir de `src/lib/permissions/seeds.ts` — sem sobrescrever cargos que já tenham alguma permissão. Migration `docs/migrations/2026-11-11-reparar-permissao-json-cargos-padrao.sql` aplica o mesmo reparo no banco. Login/sessão e `requirePermissao` leem `role.permissao_json` no PostgreSQL (`src/lib/permissions/resolver.ts`); o proxy usa o snapshot de permissões gravado no JWT (atualizado no login e em `GET /api/auth/session`). O menu no cliente usa apenas o payload da sessão, sem seed local. Sem Docker: deploy via systemd + PostgreSQL local (`npm run vps:push`).
+Na subida, `garantirIdentidadeInicialPg` grava cargos padrão se a tabela estiver vazia e **repara** `permissao_json` vazio/`{}` dos cargos de fábrica — sem sobrescrever cargos que já tenham alguma permissão. Ajustes de matriz (ex.: importações do Atendente) ficam em migrations SQL em `docs/migrations/`. Login/sessão, `requirePermissao` e as checagens do fluxo de importação (`requirePermissaoAcaoImportacao` / `assertPermissaoAcaoImportacao` em `src/lib/importacoes/permissoes.ts`) leem `role.permissao_json` no PostgreSQL via `resolverPermissoesUsuario` — não dependem só do cache em memória do processo. O proxy usa o snapshot de permissões gravado no JWT (atualizado no login e em `GET /api/auth/session`). O menu no cliente usa apenas o payload da sessão. Sem Docker: deploy via systemd + PostgreSQL local (`npm run vps:push`).
 
 ## API e contratos
 

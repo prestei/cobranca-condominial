@@ -127,8 +127,8 @@ export function useDistribuicaoAutomaticaConfig({ refreshKey, onSalvo, enabled =
         description: config.ativada
           ? atribuidas > 0
             ? `${atribuidas} cobrança(s) atribuída(s) com a regra ${rotuloEstrategiaDistribuicao[config.estrategia]}.`
-            : "Novas cobranças sem RE serão atribuídas conforme a regra escolhida."
-          : "A distribuição automática está desativada.",
+            : "Novas cobranças sem RE (importação e verificação a cada 5 min) serão atribuídas conforme a regra escolhida."
+          : "A distribuição automática está desativada. Importações entram na fila sem RE até atribuição manual.",
       });
     } catch (error) {
       toast({

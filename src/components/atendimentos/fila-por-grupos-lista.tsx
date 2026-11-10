@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { Building2, CalendarClock, ChevronDown, ListOrdered, User } from "lucide-react";
+import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-contato-atendente";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
@@ -24,6 +25,7 @@ import {
   TableRow,
 } from "@/components/table";
 import { formatarData, nomeCondominio } from "@/data/catalogo";
+import type { CanalAtalhoContato } from "@/lib/contato-responsavel";
 import { formatarProximoRetorno } from "@/lib/fila/formatar-proximo-retorno";
 import type { FilaCobrancaItem } from "@/lib/fila/service";
 
@@ -124,6 +126,7 @@ type TabelaProps = {
   destaqueUnidadeId: number | null;
   onToggleUnidade: (unidadeId: number, checked: boolean) => void;
   acoesLinha: (item: FilaCobrancaItem) => FilaLinhaAcao[];
+  onIniciarCanal?: (unidadeId: number, canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
   embutida?: boolean;
   pageOffset?: number;
   totalItens?: number;
@@ -138,9 +141,15 @@ function TabelaDesktop({
   destaqueUnidadeId,
   onToggleUnidade,
   acoesLinha,
+  onIniciarCanal,
   embutida = false,
 }: TabelaProps) {
-  const colSpan = (visaoGeral ? 1 : 0) + (modo === "condominio" ? 6 : 7) + 1;
+  const mostraContato = !visaoGeral && Boolean(onIniciarCanal);
+  const colSpan =
+    (visaoGeral ? 1 : 0) +
+    (modo === "condominio" ? 6 : 7) +
+    (mostraContato && modo === "atendente" ? 1 : 0) +
+    1;
 
   return (
     <Table
@@ -155,7 +164,10 @@ function TabelaDesktop({
           <TableHead>Unidade</TableHead>
           <TableHead>Inadimplência</TableHead>
           <TableHead>Situação</TableHead>
-          {modo === "condominio" ? <TableHead>RE responsável</TableHead> : null}
+          {modo === "condominio" ? (
+            visaoGeral ? <TableHead>RE responsável</TableHead> : <TableHead>Iniciar contato</TableHead>
+          ) : null}
+          {mostraContato && modo === "atendente" ? <TableHead>Iniciar contato</TableHead> : null}
           <TableHead>Último atendimento</TableHead>
           <TableHead>Próximo retorno</TableHead>
           <TableHead actions />
@@ -206,8 +218,33 @@ function TabelaDesktop({
                 <BadgeSituacaoCobranca situacao={item.situacao} />
               </TableCell>
               {modo === "condominio" ? (
-                <TableCell className="text-on-surface">
-                  {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
+                visaoGeral ? (
+                  <TableCell className="text-on-surface">
+                    {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
+                  </TableCell>
+                ) : (
+                  <TableCell>
+                    <AtalhosContatoAtendente
+                      compacto
+                      unidadeId={item.unidadeId}
+                      condominioId={item.condominioId}
+                      identificacao={item.identificacao}
+                      bloco={item.bloco}
+                      onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                    />
+                  </TableCell>
+                )
+              ) : null}
+              {mostraContato && modo === "atendente" ? (
+                <TableCell>
+                  <AtalhosContatoAtendente
+                    compacto
+                    unidadeId={item.unidadeId}
+                    condominioId={item.condominioId}
+                    identificacao={item.identificacao}
+                    bloco={item.bloco}
+                    onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                  />
                 </TableCell>
               ) : null}
               <TableCell className="text-on-surface-variant">
@@ -237,12 +274,15 @@ function TabelaMobile({
   selecionadas,
   onToggleUnidade,
   acoesLinha,
+  onIniciarCanal,
   pageOffset = 0,
   totalItens = 0,
 }: TabelaProps) {
   if (itens.length === 0) {
     return <TableMobileEmpty>{emptyState}</TableMobileEmpty>;
   }
+
+  const mostraContato = !visaoGeral && Boolean(onIniciarCanal);
 
   return (
     <TableMobileList aria-label={modo === "condominio" ? "Fila do condomínio" : "Fila do atendente"}>
@@ -255,7 +295,15 @@ function TabelaMobile({
           (acao) => !["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
         );
         return (
-          <TableMobileCard key={item.unidadeId} id={`fila-unidade-${item.unidadeId}`}>
+          <TableMobileCard
+            key={item.unidadeId}
+            id={`fila-unidade-${item.unidadeId}`}
+            className={
+              mostraContato
+                ? "border-brass/25 bg-gradient-to-b from-gold-subtle/70 to-surface-card"
+                : undefined
+            }
+          >
             <TableMobileCardHeader>
               {visaoGeral ? (
                 <Checkbox
@@ -265,7 +313,9 @@ function TabelaMobile({
                 />
               ) : (
                 <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                    mostraContato ? "bg-brass/15 text-brass" : "bg-surface-subtle text-on-surface-variant"
+                  }`}
                   aria-hidden="true"
                 >
                   <Icon icon={ListOrdered} size="sm" />
@@ -303,15 +353,23 @@ function TabelaMobile({
                 <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
               </div>
               <div className="grid grid-cols-2 gap-sm text-body-sm">
-                {modo === "condominio" ? (
+                {modo === "condominio" && visaoGeral ? (
                   <div className="min-w-0">
                     <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
                     <p className="text-body-md text-on-surface">{item.codigoRe ?? "Sem responsável"}</p>
                   </div>
                 ) : (
                   <div className="min-w-0">
-                    <p className="text-label-sm uppercase text-on-surface-variant">Condomínio</p>
-                    <p className="truncate text-body-md text-on-surface">{nomeCondominio(item.condominioId)}</p>
+                    <p className="text-label-sm uppercase text-on-surface-variant">
+                      {modo === "atendente" ? "Condomínio" : "Último"}
+                    </p>
+                    <p className="truncate text-body-md text-on-surface">
+                      {modo === "atendente"
+                        ? nomeCondominio(item.condominioId)
+                        : item.ultimoAtendimento
+                          ? formatarData(item.ultimoAtendimento)
+                          : "—"}
+                    </p>
                   </div>
                 )}
                 <div className="min-w-0 text-end">
@@ -322,6 +380,17 @@ function TabelaMobile({
                 </div>
               </div>
             </div>
+            {mostraContato ? (
+              <div className="mt-sm">
+                <AtalhosContatoAtendente
+                  unidadeId={item.unidadeId}
+                  condominioId={item.condominioId}
+                  identificacao={item.identificacao}
+                  bloco={item.bloco}
+                  onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                />
+              </div>
+            ) : null}
             {acoesRapidas.length > 0 ? (
               <div className="mt-sm flex flex-col gap-xs">
                 {acoesRapidas.find((a) => a.label === "Registrar contato") ? (
@@ -329,6 +398,7 @@ function TabelaMobile({
                     type="button"
                     size="sm"
                     className="min-h-11 w-full"
+                    variant={mostraContato ? "outline" : "primary"}
                     onClick={() => acoesRapidas.find((a) => a.label === "Registrar contato")?.onSelect()}
                   >
                     <Icon
@@ -336,7 +406,7 @@ function TabelaMobile({
                       size="sm"
                       aria-hidden
                     />
-                    Registrar contato
+                    {mostraContato ? "Registrar sem abrir canal" : "Registrar contato"}
                   </Button>
                 ) : null}
                 <div className="grid grid-cols-2 gap-xs">
@@ -376,6 +446,7 @@ function PainelGrupo({
   destaqueUnidadeId,
   onToggleUnidade,
   acoesLinha,
+  onIniciarCanal,
 }: {
   grupo: GrupoFila;
   modo: "condominio" | "atendente";
@@ -387,6 +458,7 @@ function PainelGrupo({
   destaqueUnidadeId: number | null;
   onToggleUnidade: (unidadeId: number, checked: boolean) => void;
   acoesLinha: (item: FilaCobrancaItem) => FilaLinhaAcao[];
+  onIniciarCanal?: (unidadeId: number, canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
 }) {
   const painelId = useId();
   const [page, setPage] = useState(1);
@@ -458,6 +530,7 @@ function PainelGrupo({
               destaqueUnidadeId={destaqueUnidadeId}
               onToggleUnidade={onToggleUnidade}
               acoesLinha={acoesLinha}
+              onIniciarCanal={onIniciarCanal}
               embutida
             />
           ) : (
@@ -470,6 +543,7 @@ function PainelGrupo({
               destaqueUnidadeId={destaqueUnidadeId}
               onToggleUnidade={onToggleUnidade}
               acoesLinha={acoesLinha}
+              onIniciarCanal={onIniciarCanal}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
               totalItens={total}
             />
@@ -491,6 +565,7 @@ type ListaProps = {
   destaqueUnidadeId: number | null;
   onToggleUnidade: (unidadeId: number, checked: boolean) => void;
   acoesLinha: (item: FilaCobrancaItem) => FilaLinhaAcao[];
+  onIniciarCanal?: (unidadeId: number, canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
 };
 
 export function FilaPorGruposLista({
@@ -503,6 +578,7 @@ export function FilaPorGruposLista({
   destaqueUnidadeId,
   onToggleUnidade,
   acoesLinha,
+  onIniciarCanal,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
 
@@ -545,6 +621,7 @@ export function FilaPorGruposLista({
           destaqueUnidadeId={destaqueUnidadeId}
           onToggleUnidade={onToggleUnidade}
           acoesLinha={acoesLinha}
+          onIniciarCanal={onIniciarCanal}
         />
       ))}
     </div>

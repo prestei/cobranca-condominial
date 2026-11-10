@@ -32,6 +32,7 @@ import {
 } from "@/components/table";
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
 import { UnidadeDetalheSheet } from "@/components/unidade-detalhe-sheet";
+import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
 import { formatarData, getCadastros } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -63,6 +64,7 @@ const PAGE_PENDENCIAS = 10;
 export function DashboardCentralPendencias() {
   const router = useRouter();
   const { pode } = usePermissao();
+  const { abrir: abrirAgendar } = useAgendarAtendimento();
   const cadastros = useCadastros();
   const syncKey = useMemo(
     () =>
@@ -146,6 +148,15 @@ export function DashboardCentralPendencias() {
         label: "Registrar nova interação",
         icon: ClipboardList,
         onSelect: () => router.push(`/atendimentos?novo=1&unidade=${item.unidadeId}`),
+      });
+      lista.push({
+        label: "Agendar atendimento",
+        icon: CalendarClock,
+        onSelect: () =>
+          abrirAgendar({
+            unidadeId: item.unidadeId,
+            tituloUnidade: item.unidadeLabel,
+          }),
       });
     }
     if (pode("atendimentos", "editar") && item.atendimentoId) {
