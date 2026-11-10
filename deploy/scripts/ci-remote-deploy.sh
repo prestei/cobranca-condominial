@@ -28,10 +28,16 @@ fi
 echo "==> Dependências"
 # Para o app para não travar remoção de node_modules (.next/arquivos abertos).
 systemctl stop cobranca-app.service >/dev/null 2>&1 || true
-# Evita ENOTEMPTY residual de installs interrompidos em deploys anteriores.
+# Evita ENOTEMPTY/ENOENT residual de installs interrompidos ou em corrida.
 chmod -R u+w node_modules 2>/dev/null || true
 rm -rf node_modules .next
-npm ci
+# Preferir npm ci; se o cache/extracao falhar, limpa cache e tenta de novo.
+if ! npm ci; then
+  echo "==> npm ci falhou; limpando cache e retentando"
+  npm cache clean --force >/dev/null 2>&1 || true
+  rm -rf node_modules
+  npm ci
+fi
 
 echo "==> Prisma generate + migrate deploy"
 npx prisma generate
