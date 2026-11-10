@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   try {
-    const debitos = listarDebitos(session.userId, parseFiltros(searchParams));
+    const debitos = await listarDebitos(session.userId, parseFiltros(searchParams));
     return Response.json({ debitos });
   } catch (error) {
     if (error instanceof DebitoServiceError) {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const debito = criarDebito(session.userId, input, requestMeta(request));
+    const debito = await criarDebito(session.userId, input, requestMeta(request));
     return Response.json({ debito }, { status: 201 });
   } catch (error) {
     if (error instanceof DebitoServiceError) {

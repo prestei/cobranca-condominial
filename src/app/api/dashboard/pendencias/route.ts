@@ -5,6 +5,7 @@ import {
   type PendenciaOrdenacao,
   type TipoPendenciaId,
 } from "@/lib/dashboard/central-pendencias-atendente";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
   const denied = await requirePermissao(session, "dashboard", "ler");
   if (denied) return denied;
 
-  const perfil = resolverPerfilOperacional(permissoesDoUsuarioId(session.userId));
+  const cadastrosEscopo = await loadCadastrosForScope();
+  const perfil = resolverPerfilOperacional(permissoesDoUsuarioId(session.userId, cadastrosEscopo));
   if (perfil !== "atendente") {
     return Response.json({ error: "Central de pendências disponível apenas para atendentes." }, { status: 403 });
   }
@@ -55,7 +57,7 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const pageSize = Math.max(1, Number(searchParams.get("pageSize")) || 10);
 
-  const resultado = listarCentralPendenciasAtendente(session.userId, {
+  const resultado = await listarCentralPendenciasAtendente(session.userId, {
     categoria,
     tipo,
     ordenacao,

@@ -24,8 +24,12 @@ beforeEach(() => {
 });
 
 describe("T32 — faixas de atraso", () => {
-  test("quatro faixas documentadas e soma igual ao total sem duplicar débito", () => {
-    const graficos = montarGraficosAtendente(ATENDENTE_RAQUEL_ID, { dataBase: DATA_BASE, limiteDias: 60 });
+  test("quatro faixas documentadas e soma igual ao total sem duplicar débito", async () => {
+    const graficos = await montarGraficosAtendente(
+      ATENDENTE_RAQUEL_ID,
+      { dataBase: DATA_BASE, limiteDias: 60 },
+      getCadastros(),
+    );
     assert.ok(graficos);
     assert.equal(graficos.faixasAtraso.length, FAIXAS_ATRASO_DASHBOARD_ATENDENTE.length);
     const somaFaixas = graficos.faixasAtraso.reduce((acc, item) => acc + item.valor, 0);
@@ -58,8 +62,8 @@ describe("T32 — classificação por situação", () => {
 });
 
 describe("T32 — payload do dashboard", () => {
-  test("perfil atendente inclui bloco graficos", () => {
-    const dash = obterDashboard(ATENDENTE_RAQUEL_ID, { dataBase: DATA_BASE });
+  test("perfil atendente inclui bloco graficos", async () => {
+    const dash = await obterDashboard(ATENDENTE_RAQUEL_ID, { dataBase: DATA_BASE });
     assert.equal(dash.perfil, "atendente");
     if (dash.perfil !== "atendente") return;
     assert.ok(dash.graficos);

@@ -39,12 +39,13 @@ export function DashboardHome() {
         setErro(body.error ?? "Não foi possível carregar o dashboard.");
         return;
       }
-      if (!body.dashboard) {
+      const payload = body.dashboard;
+      if (!payload || typeof payload !== "object" || !("perfil" in payload)) {
         setErro("Resposta inválida do servidor.");
         setDados(null);
         return;
       }
-      setDados(body.dashboard);
+      setDados(payload);
     } catch {
       setErro("Falha de comunicação ao carregar o dashboard.");
       setDados(null);

@@ -145,7 +145,7 @@ function cadastrosDash(): Cadastros {
 }
 
 function resolverPerfil(userId: number): DashboardPerfil {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastrosDash());
   if (temPermissao(perm, "usuarios", "criar")) return "administradora";
   if (temPermissao(perm, "juridico", "ler") && temPermissao(perm, "condominios", "ler")) return "advogado";
   return "atendente";
@@ -338,15 +338,15 @@ async function indicadoresEscopo(
   dataBase: string,
   limiteDias: number,
 ): Promise<DebitoIndicadores | null> {
-  const perm = permissoesDoUsuarioId(userId);
-  if (!temPermissao(perm, "debitos", "ler")) return null;
   const cadastros = cadastrosDash();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
+  if (!temPermissao(perm, "debitos", "ler")) return null;
   const unidadesCarteira = escopoUnidades(cadastros, userId).length;
   return obterIndicadoresDebitos(userId, { dataBase, limiteDias, unidadesCarteira, filtros: {} });
 }
 
 async function resumoJuridico(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastrosDash());
   if (!temPermissao(perm, "juridico", "ler")) return null;
   const lista = await listarEncaminhamentosJuridicos(userId);
   const abertos = lista.filter((item) => item.status !== "Arquivado" && item.status !== "Retornado à cobrança amigável");
@@ -365,7 +365,7 @@ export async function obterDashboard(
   input?: { dataBase?: string; limiteDias?: number },
 ): Promise<DashboardPayload> {
   cadastrosDashboard = await loadFullOperationalCadastros();
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastrosDashboard);
   if (!temPermissao(perm, "dashboard", "ler")) {
     throw new DashboardServiceError("Sem permissão para consultar o dashboard.", 403);
   }
@@ -401,7 +401,7 @@ export async function obterDashboard(
       porFaixa: distribuicaoFaixas(debitos, dataBase, totalAberto),
       porAdvogado: distribuicaoAdvogados(userId, debitos, dataBase, limiteDias),
       parteJuridicaPercentual,
-      evolucaoMensal: evolucaoCarteiraMensal(userId, dataBase, limiteDias),
+      evolucaoMensal: evolucaoCarteiraMensal(userId, dataBase, limiteDias, cadastrosDashboard),
     };
   }
 
@@ -410,7 +410,7 @@ export async function obterDashboard(
     const atendimentosHoje = (await listarAtendimentos(userId)).filter(
       (item) => item.dataHora.slice(0, 10) === hoje,
     ).length;
-    const indicadoresOperacionais = contarIndicadoresOperacionaisAtendente(userId, operacao.periodo);
+    const indicadoresOperacionais = contarIndicadoresOperacionaisAtendente(userId, operacao.periodo, cadastrosDashboard);
     return {
       perfil,
       ...comum,
@@ -420,7 +420,7 @@ export async function obterDashboard(
       indicadoresOperacionais,
       retornos: await retornosPendentesDashboard(userId),
       indicadores: await indicadoresEscopo(userId, dataBase, limiteDias),
-      graficos: montarGraficosAtendente(userId, { dataBase, limiteDias }),
+      graficos: await montarGraficosAtendente(userId, { dataBase, limiteDias }, cadastrosDashboard),
     };
   }
 

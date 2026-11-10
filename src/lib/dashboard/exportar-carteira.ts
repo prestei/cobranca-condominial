@@ -1,5 +1,6 @@
-import { formatarData, type Condominio } from "@/data/catalogo";
-import { getCadastros, registrarAuditoria } from "@/data/catalogo-store";
+import { formatarData, nomeCondominio, type Cadastros, type Condominio } from "@/data/catalogo";
+import { registrarAuditoria } from "@/data/catalogo-store";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re-server";
 import {
   DashboardFiltrosError,
@@ -29,17 +30,16 @@ export const LIMITES_EXPORTACAO_CARTEIRA = {
 
 export type ListagemExportacaoCarteira = "fila" | "atendimentos";
 
-function nomeCondominio(id: number) {
-  return getCadastros().condominios.find((item) => item.id === id)?.nome ?? "—";
-}
-
 function labelUnidade(item: Pick<FilaCobrancaItem, "identificacao" | "bloco">) {
   return item.bloco ? `${item.identificacao} · ${item.bloco}` : item.identificacao;
 }
 
-function filaFiltradaDashboard(userId: number, filtros: DashboardFiltrosNorm): FilaCobrancaItem[] {
-  const unidadesRecorte = resolverUnidadesDashboard(userId, filtros);
-  let lista = listarFilaCobranca(userId, {
+async function filaFiltradaDashboard(
+  userId: number,
+  filtros: DashboardFiltrosNorm,
+): Promise<FilaCobrancaItem[]> {
+  const unidadesRecorte = await resolverUnidadesDashboard(userId, filtros);
+  let lista = await listarFilaCobranca(userId, {
     condominioId: filtros.condominioId,
     situacao: filtros.situacao,
     busca: filtros.busca,
@@ -53,29 +53,29 @@ function filaFiltradaDashboard(userId: number, filtros: DashboardFiltrosNorm): F
   return lista;
 }
 
-function atendimentosFiltradosDashboard(userId: number, filtros: DashboardFiltrosNorm) {
-  const unidadesRecorte = resolverUnidadesDashboard(userId, filtros);
-  const idsFila = new Set(listarFilaCobranca(userId).map((item) => item.unidadeId));
+async function atendimentosFiltradosDashboard(userId: number, filtros: DashboardFiltrosNorm, cadastros: Cadastros) {
+  const unidadesRecorte = await resolverUnidadesDashboard(userId, filtros);
+  const idsFila = new Set((await listarFilaCobranca(userId)).map((item) => item.unidadeId));
   const { inicio, fim } = filtros.periodoResolvido;
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   const geral = temPermissao(perm, "usuarios", "criar");
 
-  return getCadastros()
-    .atendimentos.filter((item) => {
+  return cadastros.atendimentos
+    .filter((item) => {
       const unidadeId = Number(item.unidadeId);
       if (unidadesRecorte && !unidadesRecorte.has(unidadeId)) return false;
       if (!geral && !idsFila.has(unidadeId)) return false;
       const dia = item.dataHora.slice(0, 10);
       if (dia < inicio || dia > fim) return false;
       if (filtros.condominioId) {
-        const unidade = getCadastros().unidades.find((u) => u.id === unidadeId);
+        const unidade = cadastros.unidades.find((u) => u.id === unidadeId);
         if (!unidade || unidade.condominioId !== filtros.condominioId) return false;
       }
       if (filtros.unidadeId && unidadeId !== filtros.unidadeId) return false;
       if (filtros.busca?.trim()) {
         const termo = filtros.busca.trim().toLocaleLowerCase("pt-BR");
-        const unidade = getCadastros().unidades.find((u) => u.id === unidadeId);
-        const condominio = unidade ? nomeCondominio(unidade.condominioId) : "";
+        const unidade = cadastros.unidades.find((u) => u.id === unidadeId);
+        const condominio = unidade ? nomeCondominio(unidade.condominioId, cadastros) : "";
         const texto = `${item.assunto} ${item.descricao} ${condominio} ${unidade?.identificacao ?? ""}`.toLocaleLowerCase(
           "pt-BR",
         );
@@ -86,8 +86,8 @@ function atendimentosFiltradosDashboard(userId: number, filtros: DashboardFiltro
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
 }
 
-function assertPodeExportar(userId: number, listagem: ListagemExportacaoCarteira) {
-  const perm = permissoesDoUsuarioId(userId);
+function assertPodeExportar(userId: number, listagem: ListagemExportacaoCarteira, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "dashboard", "ler")) {
     throw new ExportarCarteiraError("Sem permissão para exportar do dashboard.", 403);
   }
@@ -98,8 +98,8 @@ function assertPodeExportar(userId: number, listagem: ListagemExportacaoCarteira
   }
 }
 
-function colunasFilaExport(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+function colunasFilaExport(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   const base = ["Condomínio", "Unidade", "Situação", "RE responsável", "Último atendimento", "Próximo retorno", "Retorno"];
   if (temPermissao(perm, "debitos", "ler")) {
     return ["Condomínio", "Unidade", "Inadimplência", "Dias atraso (máx.)", ...base.slice(2)];
@@ -107,14 +107,11 @@ function colunasFilaExport(userId: number) {
   return base;
 }
 
-function linhasFilaExport(userId: number, itens: FilaCobrancaItem[]) {
-  const perm = permissoesDoUsuarioId(userId);
+function linhasFilaExport(userId: number, cadastros: Cadastros, itens: FilaCobrancaItem[]) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   const comDebitos = temPermissao(perm, "debitos", "ler");
   return itens.map((item) => {
-    const base = [
-      nomeCondominio(item.condominioId),
-      labelUnidade(item),
-    ];
+    const base = [nomeCondominio(item.condominioId, cadastros), labelUnidade(item)];
     if (comDebitos) {
       base.push(item.valorInadimplencia ?? "—", item.diasAtrasoMax > 0 ? String(item.diasAtrasoMax) : "0");
     }
@@ -133,11 +130,11 @@ function colunasAtendimentosExport() {
   return ["Data/hora", "RE autor", "Condomínio", "Unidade", "Canal", "Motivo", "Assunto", "Status", "Respondeu"];
 }
 
-function linhasAtendimentosExport(itens: ReturnType<typeof atendimentosFiltradosDashboard>) {
+function linhasAtendimentosExport(cadastros: Cadastros, itens: Awaited<ReturnType<typeof atendimentosFiltradosDashboard>>) {
   return itens.map((item) => {
-    const unidade = getCadastros().unidades.find((u) => u.id === Number(item.unidadeId));
+    const unidade = cadastros.unidades.find((u) => u.id === Number(item.unidadeId));
     const condominio: Condominio | undefined = unidade
-      ? getCadastros().condominios.find((c) => c.id === unidade.condominioId)
+      ? cadastros.condominios.find((c) => c.id === unidade.condominioId)
       : undefined;
     const unidadeLabel = unidade
       ? unidade.bloco
@@ -146,7 +143,7 @@ function linhasAtendimentosExport(itens: ReturnType<typeof atendimentosFiltrados
       : String(item.unidadeId);
     return [
       formatarData(item.dataHora),
-      identificadorColaboradorPorId(item.usuarioId),
+      identificadorColaboradorPorId(item.usuarioId, cadastros),
       condominio?.nome ?? "—",
       unidadeLabel,
       item.canal,
@@ -165,17 +162,20 @@ export function parseListagemExportacaoCarteira(raw: string | null): ListagemExp
   throw new ExportarCarteiraError("Listagem de exportação inválida. Use fila ou atendimentos.", 400);
 }
 
-export function montarExportacaoCarteiraDashboard(
+/** Monta exportação da carteira; catálogo vem do PostgreSQL (exceto auditoria em memória nos testes). */
+export async function montarExportacaoCarteiraDashboard(
   userId: number,
   listagem: ListagemExportacaoCarteira,
   searchParams: URLSearchParams,
   meta?: { ip?: string; userAgent?: string },
-): RelatorioExportPayload {
-  assertPodeExportar(userId, listagem);
+  cadastros?: Cadastros,
+): Promise<RelatorioExportPayload> {
+  const base = cadastros ?? (await loadFullOperationalCadastros());
+  assertPodeExportar(userId, listagem, base);
   let filtros: DashboardFiltrosNorm;
   try {
     filtros = parseFiltrosDashboard(searchParams);
-    validarFiltrosDashboardEscopo(userId, filtros);
+    validarFiltrosDashboardEscopo(userId, filtros, base);
   } catch (error) {
     if (error instanceof DashboardFiltrosError) {
       throw new ExportarCarteiraError(error.message, error.status);
@@ -187,7 +187,7 @@ export function montarExportacaoCarteiraDashboard(
   const metaFiltros = rotulosFiltrosAtivos(filtros, userId).map((item) => item.rotulo);
 
   if (listagem === "fila") {
-    const itens = filaFiltradaDashboard(userId, filtros);
+    const itens = await filaFiltradaDashboard(userId, filtros);
     if (itens.length > LIMITES_EXPORTACAO_CARTEIRA.linhasMaximas) {
       throw new ExportarCarteiraError(
         `Exportação limitada a ${LIMITES_EXPORTACAO_CARTEIRA.linhasMaximas} linhas. Refine os filtros.`,
@@ -201,8 +201,8 @@ export function montarExportacaoCarteiraDashboard(
       secoes: [
         {
           titulo: "Fila de cobranças (filtros do dashboard)",
-          colunas: colunasFilaExport(userId),
-          linhas: linhasFilaExport(userId, itens),
+          colunas: colunasFilaExport(userId, base),
+          linhas: linhasFilaExport(userId, base, itens),
         },
       ],
     };
@@ -221,7 +221,7 @@ export function montarExportacaoCarteiraDashboard(
     return payload;
   }
 
-  const atendimentos = atendimentosFiltradosDashboard(userId, filtros);
+  const atendimentos = await atendimentosFiltradosDashboard(userId, filtros, base);
   if (atendimentos.length > LIMITES_EXPORTACAO_CARTEIRA.linhasMaximas) {
     throw new ExportarCarteiraError(
       `Exportação limitada a ${LIMITES_EXPORTACAO_CARTEIRA.linhasMaximas} linhas. Refine os filtros.`,
@@ -236,7 +236,7 @@ export function montarExportacaoCarteiraDashboard(
       {
         titulo: "Atendimentos (filtros do dashboard)",
         colunas: colunasAtendimentosExport(),
-        linhas: linhasAtendimentosExport(atendimentos),
+        linhas: linhasAtendimentosExport(base, atendimentos),
       },
     ],
   };

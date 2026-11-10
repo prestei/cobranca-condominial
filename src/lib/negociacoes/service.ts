@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/repositories/negotiation-repository";
 import { openAssignmentForUnit, requireUnitInScope } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class PropostaNegociacaoServiceError extends Error {
   constructor(
@@ -40,8 +40,8 @@ export type PropostaNegociacaoFiltros = {
   status?: string;
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+async function usuarioVeCarteiraGeral(userId: number) {
+  const perm = await resolverPermissoesUsuario(userId);
   return temPermissao(perm, "usuarios", "criar");
 }
 
@@ -72,7 +72,7 @@ async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condomin
 }
 
 async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
-  if (usuarioVeCarteiraGeral(userId)) return;
+  if (await usuarioVeCarteiraGeral(userId)) return;
   const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new PropostaNegociacaoServiceError(
@@ -154,7 +154,7 @@ export async function listarPropostasNegociacao(
 ): Promise<PropostaNegociacao[]> {
   const idsUnidade = await idsUnidadeNoEscopo(userId);
   let lista = (await listNegotiationProposals()).filter((item) => idsUnidade.has(item.unidadeId));
-  if (!usuarioVeCarteiraGeral(userId)) {
+  if (!(await usuarioVeCarteiraGeral(userId))) {
     lista = lista.filter((item) => item.usuarioId === userId);
   }
   if (filtros?.unidadeId) {
@@ -175,7 +175,7 @@ export async function obterPropostaNegociacao(userId: number, id: string): Promi
   if (!idsUnidade.has(proposta.unidadeId)) {
     throw new PropostaNegociacaoServiceError("Proposta fora do seu escopo de acesso.", 403);
   }
-  if (!usuarioVeCarteiraGeral(userId) && proposta.usuarioId !== userId) {
+  if (!(await usuarioVeCarteiraGeral(userId)) && proposta.usuarioId !== userId) {
     throw new PropostaNegociacaoServiceError("Proposta fora da sua carteira.", 403);
   }
   return proposta;
@@ -231,7 +231,7 @@ export async function atualizarStatusPropostaNegociacao(
   input: PropostaNegociacaoStatusInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PropostaNegociacao> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new PropostaNegociacaoServiceError("Sem permissão para alterar o status da proposta.", 403);
   }

@@ -1,5 +1,5 @@
 import { agoraIso, escopoCondominios, escopoUnidades, formatarData, situacaoRetorno, type Atendimento, type AtribuicaoCobranca, type Cadastros, type NotificacaoFalha, type NotificacaoInterna } from "@/data/catalogo";
-import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
 import {
   createInternalNotification,
@@ -74,15 +74,17 @@ export function atualizarPreferenciasNotificacao(
   return next;
 }
 
-function assertPodeConsultarNotificacoes(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+async function assertPodeConsultarNotificacoes(userId: number) {
+  const cadastros = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "dashboard", "ler")) {
     throw new NotificacaoServiceError("Sem permissão para consultar notificações.", 403);
   }
 }
 
-function destinatarioPodeReceber(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+async function destinatarioPodeReceber(userId: number) {
+  const cadastros = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "atendimentos", "ler");
 }
 
@@ -111,7 +113,7 @@ async function rotuloUnidade(unidadeId: number): Promise<string> {
 }
 
 async function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm" | "lidaEm">): Promise<NotificacaoInterna | null> {
-  if (!destinatarioPodeReceber(input.destinatarioId)) {
+  if (!(await destinatarioPodeReceber(input.destinatarioId))) {
     return null;
   }
 
@@ -258,7 +260,7 @@ async function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna, c
   const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
   if (!unidade || !idsCondominio.has(unidade.condominioId)) return false;
 
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   const veCarteiraGeral = temPermissao(perm, "usuarios", "criar");
   if (veCarteiraGeral) return true;
 
@@ -293,7 +295,7 @@ export async function listarNotificacoes(
   userId: number,
   opcoes?: { limit?: number; apenasNaoLidas?: boolean },
 ): Promise<NotificacaoApresentacao[]> {
-  assertPodeConsultarNotificacoes(userId);
+  await assertPodeConsultarNotificacoes(userId);
   await processarLembretesRetornoHoje();
 
   const limit = Math.min(100, Math.max(1, opcoes?.limit ?? 20));
@@ -308,14 +310,14 @@ export async function listarNotificacoes(
 }
 
 export async function contarNotificacoesNaoLidas(userId: number) {
-  assertPodeConsultarNotificacoes(userId);
+  await assertPodeConsultarNotificacoes(userId);
   await processarLembretesRetornoHoje();
   const lista = await listInternalNotificationsByRecipient(userId);
   return lista.filter((item) => !item.lidaEm).length;
 }
 
 export async function marcarNotificacaoLida(userId: number, id: number): Promise<NotificacaoApresentacao> {
-  assertPodeConsultarNotificacoes(userId);
+  await assertPodeConsultarNotificacoes(userId);
   const alvo = await findInternalNotificationById(id);
   if (!alvo || alvo.destinatarioId !== userId) {
     throw new NotificacaoServiceError("Notificação não encontrada.", 404);
@@ -328,7 +330,7 @@ export async function marcarNotificacaoLida(userId: number, id: number): Promise
 }
 
 export async function marcarTodasNotificacoesLidas(userId: number) {
-  assertPodeConsultarNotificacoes(userId);
+  await assertPodeConsultarNotificacoes(userId);
   const agora = agoraIso();
   const lista = await listInternalNotificationsByRecipient(userId);
   for (const item of lista) {
@@ -340,7 +342,7 @@ export async function marcarTodasNotificacoesLidas(userId: number) {
 }
 
 export async function obterNotificacaoParaAbrir(userId: number, id: number): Promise<NotificacaoApresentacao> {
-  assertPodeConsultarNotificacoes(userId);
+  await assertPodeConsultarNotificacoes(userId);
   const alvo = await findInternalNotificationById(id);
   if (!alvo || alvo.destinatarioId !== userId) {
     throw new NotificacaoServiceError("Notificação não encontrada.", 404);

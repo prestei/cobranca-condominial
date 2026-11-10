@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize")) || 20));
 
   try {
-    const resultado = listarRetornosAgenda(session.userId, parseFiltros(searchParams), { page, pageSize });
+    const resultado = await listarRetornosAgenda(session.userId, parseFiltros(searchParams), { page, pageSize });
     return Response.json(resultado);
   } catch (error) {
     if (error instanceof RetornoServiceError) {

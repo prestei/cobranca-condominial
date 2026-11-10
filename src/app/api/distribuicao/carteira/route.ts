@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    return Response.json({ carteiras: listarCarteiraPorRe(session.userId) });
+    return Response.json({ carteiras: await listarCarteiraPorRe(session.userId) });
   } catch (error) {
     if (error instanceof DistribuicaoServiceError) {
       return Response.json({ error: error.message }, { status: error.status });

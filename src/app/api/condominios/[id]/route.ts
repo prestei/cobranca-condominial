@@ -90,7 +90,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return Response.json({ error: "Situação do condomínio inválida." }, { status: 400 });
     }
     try {
-      const condominio = alterarStatusCondominio(
+      const condominio = await alterarStatusCondominio(
         session.userId,
         condominioId,
         status as StatusCondominio,
@@ -111,7 +111,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   try {
-    const condominio = atualizarCondominio(session.userId, condominioId, input, requestMeta(request));
+    const condominio = await atualizarCondominio(session.userId, condominioId, input, requestMeta(request));
     return Response.json({ condominio });
   } catch (error) {
     if (error instanceof CondominioServiceError) {

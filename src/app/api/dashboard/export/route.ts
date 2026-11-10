@@ -24,7 +24,12 @@ export async function GET(request: Request) {
 
   try {
     const listagem = parseListagemExportacaoCarteira(searchParams.get("listagem"));
-    const payload = montarExportacaoCarteiraDashboard(session.userId, listagem, searchParams, metaRequest(request));
+    const payload = await montarExportacaoCarteiraDashboard(
+      session.userId,
+      listagem,
+      searchParams,
+      metaRequest(request),
+    );
 
     if (formato === "xls" || formato === "excel") {
       const body = relatorioParaXls(payload);

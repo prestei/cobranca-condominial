@@ -1,4 +1,15 @@
-import { debitoAbertoNaData, diasDeAtraso, escopoUnidades, hojeIso, situacaoCobrancaUnidade, type Atendimento, type Debito, type Unidade } from "@/data/catalogo";
+import {
+  debitoAbertoNaData,
+  diasDeAtraso,
+  escopoCondominios,
+  escopoUnidades,
+  hojeIso,
+  situacaoCobrancaUnidade,
+  type Atendimento,
+  type Cadastros,
+  type Debito,
+  type Unidade,
+} from "@/data/catalogo";
 import { getCadastros } from "@/data/catalogo-store";
 import {
   aguardandoRetornoTerceiro,
@@ -11,7 +22,6 @@ import {
 } from "@/lib/debitos/indicadores";
 import { listarDebitos } from "@/lib/debitos/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
-import { listarEncaminhamentosJuridicos } from "@/lib/juridico/service";
 import { propostaContaComoNegociacaoCriada } from "@/lib/indicadores/regras-evento";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -117,36 +127,56 @@ function rotuloMes(anoMes: string) {
   return `${mes}/${ano.slice(2)}`;
 }
 
-function unidadeIdsCarteiraVigente(userId: number): Set<number> {
+function unidadeIdsCarteiraVigente(userId: number, cadastros: Cadastros = getCadastros()): Set<number> {
   const ids = new Set<number>();
-  for (const item of getCadastros().atribuicoesCobranca) {
+  for (const item of cadastros.atribuicoesCobranca) {
     if (!item.encerradoEm && item.atendenteId === userId) ids.add(item.unidadeId);
   }
   return ids;
 }
 
-export function debitosCarteiraVigente(userId: number): Debito[] {
-  const ids = unidadeIdsCarteiraVigente(userId);
-  return listarDebitos(userId).filter((item) => ids.has(item.unidadeId));
+function debitosNoEscopo(cadastros: Cadastros, userId: number): Debito[] {
+  const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
+  return cadastros.debitos.filter((item) => idsCondominio.has(item.condominioId));
 }
 
-function debitosAbertosCarteira(userId: number, dataBase: string): Debito[] {
-  return debitosCarteiraVigente(userId).filter((item) => debitoAbertoNaData(item, dataBase));
+function debitosCarteiraVigenteComCadastros(cadastros: Cadastros, userId: number): Debito[] {
+  const ids = unidadeIdsCarteiraVigente(userId, cadastros);
+  return debitosNoEscopo(cadastros, userId).filter((item) => ids.has(item.unidadeId));
+}
+
+/** Legado para testes com catálogo em memória; prefira `debitosCarteiraVigenteComCadastros` no servidor. */
+export async function debitosCarteiraVigente(userId: number): Promise<Debito[]> {
+  const ids = unidadeIdsCarteiraVigente(userId);
+  return (await listarDebitos(userId)).filter((item) => ids.has(item.unidadeId));
+}
+
+function debitosAbertosCarteiraComCadastros(cadastros: Cadastros, userId: number, dataBase: string): Debito[] {
+  return debitosCarteiraVigenteComCadastros(cadastros, userId).filter((item) => debitoAbertoNaData(item, dataBase));
+}
+
+async function debitosAbertosCarteira(userId: number, dataBase: string): Promise<Debito[]> {
+  return (await debitosCarteiraVigente(userId)).filter((item) => debitoAbertoNaData(item, dataBase));
 }
 
 function dentro(dia: string, inicio: string, fim: string) {
   return dia >= inicio && dia <= fim;
 }
 
-function somarRecuperacaoFinanceiraNoPeriodo(userId: number, inicio: string, fim: string) {
-  const ids = unidadeIdsCarteiraVigente(userId);
+function somarRecuperacaoFinanceiraNoPeriodo(
+  userId: number,
+  inicio: string,
+  fim: string,
+  cadastros: Cadastros = getCadastros(),
+) {
+  const ids = unidadeIdsCarteiraVigente(userId, cadastros);
   let total = 0;
-  for (const debito of debitosCarteiraVigente(userId)) {
+  for (const debito of debitosCarteiraVigenteComCadastros(cadastros, userId)) {
     const dia = debito.dataPagamento?.trim().slice(0, 10);
     if (!dia || !dentro(dia, inicio, fim)) continue;
     total += Number(debito.valorPago) || Number(debito.valorAtualizado) || 0;
   }
-  for (const pagamento of getCadastros().pagamentosAcordo) {
+  for (const pagamento of cadastros.pagamentosAcordo) {
     const dia = pagamento.dataPagamento.slice(0, 10);
     if (!dia || !dentro(dia, inicio, fim)) continue;
     if (!ids.has(pagamento.unidadeId)) continue;
@@ -155,9 +185,9 @@ function somarRecuperacaoFinanceiraNoPeriodo(userId: number, inicio: string, fim
   return total;
 }
 
-function saldoAbertoNaData(userId: number, dataBase: string, limiteDias: number) {
-  const unidadesCarteira = unidadeIdsCarteiraVigente(userId).size;
-  const debitos = debitosCarteiraVigente(userId);
+function saldoAbertoNaData(userId: number, dataBase: string, limiteDias: number, cadastros: Cadastros = getCadastros()) {
+  const unidadesCarteira = unidadeIdsCarteiraVigente(userId, cadastros).size;
+  const debitos = debitosCarteiraVigenteComCadastros(cadastros, userId);
   return calcularIndicadoresInadimplencia({
     debitos,
     dataBase,
@@ -166,20 +196,20 @@ function saldoAbertoNaData(userId: number, dataBase: string, limiteDias: number)
   }).totalAtualizado;
 }
 
-function atendimentosUnidade(unidadeId: number): Atendimento[] {
-  return getCadastros()
-    .atendimentos.filter((item) => Number(item.unidadeId) === unidadeId)
+function atendimentosUnidade(unidadeId: number, cadastros: Cadastros = getCadastros()): Atendimento[] {
+  return cadastros.atendimentos
+    .filter((item) => Number(item.unidadeId) === unidadeId)
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
 }
 
-function atendimentoAbertoMaisRecente(unidadeId: number): Atendimento | undefined {
-  return atendimentosUnidade(unidadeId).find((item) => item.status === "Pendente");
+function atendimentoAbertoMaisRecente(unidadeId: number, cadastros: Cadastros = getCadastros()): Atendimento | undefined {
+  return atendimentosUnidade(unidadeId, cadastros).find((item) => item.status === "Pendente");
 }
 
-function encaminhamentoJuridicoAtivo(userId: number, unidadeId: number): boolean {
-  const perm = permissoesDoUsuarioId(userId);
+function encaminhamentoJuridicoAtivo(userId: number, unidadeId: number, cadastros: Cadastros = getCadastros()): boolean {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "juridico", "ler")) return false;
-  return listarEncaminhamentosJuridicos(userId).some(
+  return cadastros.encaminhamentosJuridicos.some(
     (item) =>
       item.unidadeId === unidadeId &&
       item.status !== "Arquivado" &&
@@ -187,9 +217,9 @@ function encaminhamentoJuridicoAtivo(userId: number, unidadeId: number): boolean
   );
 }
 
-function emNegociacaoAtiva(unidade: Unidade): boolean {
+function emNegociacaoAtiva(unidade: Unidade, cadastros: Cadastros = getCadastros()): boolean {
   if (situacaoCobrancaUnidade(unidade) === "Em acordo") return true;
-  return getCadastros().propostasNegociacao.some(
+  return cadastros.propostasNegociacao.some(
     (item) => item.unidadeId === unidade.id && propostaContaComoNegociacaoCriada(item),
   );
 }
@@ -199,27 +229,28 @@ export function classificarSituacaoCarteiraUnidade(
   userId: number,
   unidade: Unidade,
   hoje = hojeIso(),
+  cadastros: Cadastros = getCadastros(),
 ): SituacaoCarteiraId {
   const situacao = situacaoCobrancaUnidade(unidade);
 
-  if (situacao === "Ajuizada" || encaminhamentoJuridicoAtivo(userId, unidade.id)) {
+  if (situacao === "Ajuizada" || encaminhamentoJuridicoAtivo(userId, unidade.id, cadastros)) {
     return "encaminhado_juridico";
   }
-  if (emNegociacaoAtiva(unidade)) return "em_negociacao";
+  if (emNegociacaoAtiva(unidade, cadastros)) return "em_negociacao";
   if (situacao === "Quitada") return "concluido";
 
-  const aberto = atendimentoAbertoMaisRecente(unidade.id);
+  const aberto = atendimentoAbertoMaisRecente(unidade.id, cadastros);
   if (aberto) {
     if (aguardandoRetornoTerceiro(aberto)) return "aguardando_retorno";
     if (atendimentoPendenteAcao(aberto, hoje)) return "aguardando_atendimento";
     return "em_acompanhamento";
   }
 
-  const ultimo = atendimentosUnidade(unidade.id)[0];
+  const ultimo = atendimentosUnidade(unidade.id, cadastros)[0];
   if (ultimo?.status === "Resolvido") return "concluido";
 
   if (situacao === "Notificada") return "em_acompanhamento";
-  if (atendimentosUnidade(unidade.id).length === 0) return "aguardando_atendimento";
+  if (atendimentosUnidade(unidade.id, cadastros).length === 0) return "aguardando_atendimento";
   return "em_acompanhamento";
 }
 
@@ -240,9 +271,12 @@ function distribuicaoFaixas(debitos: Debito[], dataBase: string, total: number):
   });
 }
 
-function distribuicaoSituacao(userId: number, hoje: string): GraficoDistribuicaoValor[] {
-  const fila = listarFilaCobranca(userId);
-  const cadastros = getCadastros();
+function distribuicaoSituacaoComCadastros(
+  userId: number,
+  hoje: string,
+  cadastros: Cadastros,
+  fila: Awaited<ReturnType<typeof listarFilaCobranca>>,
+): GraficoDistribuicaoValor[] {
   const contagens = new Map<SituacaoCarteiraId, number>();
   for (const id of Object.keys(ROTULOS_SITUACAO) as SituacaoCarteiraId[]) {
     contagens.set(id, 0);
@@ -250,7 +284,7 @@ function distribuicaoSituacao(userId: number, hoje: string): GraficoDistribuicao
   for (const item of fila) {
     const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
     if (!unidade) continue;
-    const cat = classificarSituacaoCarteiraUnidade(userId, unidade, hoje);
+    const cat = classificarSituacaoCarteiraUnidade(userId, unidade, hoje, cadastros);
     contagens.set(cat, (contagens.get(cat) ?? 0) + 1);
   }
   const total = fila.length;
@@ -266,11 +300,14 @@ function distribuicaoSituacao(userId: number, hoje: string): GraficoDistribuicao
   });
 }
 
-function inadimplenciaPorCondominio(userId: number, dataBase: string): GraficoCondominioLinha[] {
-  const cadastros = getCadastros();
-  const debitos = debitosAbertosCarteira(userId, dataBase);
+function inadimplenciaPorCondominioComCadastros(
+  userId: number,
+  dataBase: string,
+  cadastros: Cadastros,
+): GraficoCondominioLinha[] {
+  const debitos = debitosAbertosCarteiraComCadastros(cadastros, userId, dataBase);
   const idsCondominio = new Set(debitos.map((item) => item.condominioId));
-  const idsCarteira = unidadeIdsCarteiraVigente(userId);
+  const idsCarteira = unidadeIdsCarteiraVigente(userId, cadastros);
 
   return [...idsCondominio]
     .map((condominioId) => {
@@ -292,18 +329,25 @@ function inadimplenciaPorCondominio(userId: number, dataBase: string): GraficoCo
     .sort((a, b) => b.valorAtualizado - a.valorAtualizado);
 }
 
-export function evolucaoCarteiraMensal(userId: number, dataBase: string, limiteDias: number): GraficoEvolucaoMes[] {
+export function evolucaoCarteiraMensal(
+  userId: number,
+  dataBase: string,
+  limiteDias: number,
+  cadastros?: Cadastros,
+): GraficoEvolucaoMes[] {
+  const base = cadastros ?? getCadastros();
   const meses = mesesEvolucaoAteDataBase(dataBase);
   let saldoAnterior: number | null = null;
   return meses.map((mes) => {
     const fimMes = ultimoDiaMes(mes);
     const inicioMes = primeiroDiaMes(mes);
     const dataRef = fimMes > dataBase ? dataBase : fimMes;
-    const saldoAberto = saldoAbertoNaData(userId, dataRef, limiteDias);
+    const saldoAberto = saldoAbertoNaData(userId, dataRef, limiteDias, base);
     const recuperacaoFinanceira = somarRecuperacaoFinanceiraNoPeriodo(
       userId,
       inicioMes,
       fimMes > dataBase ? dataBase : fimMes,
+      base,
     );
     const variacaoSaldo = saldoAnterior != null ? saldoAberto - saldoAnterior : null;
     saldoAnterior = saldoAberto;
@@ -318,23 +362,25 @@ export function evolucaoCarteiraMensal(userId: number, dataBase: string, limiteD
   });
 }
 
-export function montarGraficosAtendente(
+export async function montarGraficosAtendente(
   userId: number,
   input: { dataBase: string; limiteDias: number },
-): DashboardGraficosAtendente | null {
-  const perm = permissoesDoUsuarioId(userId);
+  cadastros?: Cadastros,
+): Promise<DashboardGraficosAtendente | null> {
+  const base = cadastros ?? getCadastros();
+  const perm = permissoesDoUsuarioId(userId, base);
   if (!temPermissao(perm, "debitos", "ler")) return null;
 
   const hoje = hojeIso();
-  const debitos = debitosAbertosCarteira(userId, input.dataBase);
+  const debitos = debitosAbertosCarteiraComCadastros(base, userId, input.dataBase);
   const totalAtualizado = somarValorAtualizadoSemDuplicata(debitos);
-  const fila = listarFilaCobranca(userId);
+  const fila = await listarFilaCobranca(userId);
 
   return {
     faixasAtraso: distribuicaoFaixas(debitos, input.dataBase, totalAtualizado),
-    porSituacao: distribuicaoSituacao(userId, hoje),
-    porCondominio: inadimplenciaPorCondominio(userId, input.dataBase),
-    evolucaoMensal: evolucaoCarteiraMensal(userId, input.dataBase, input.limiteDias),
+    porSituacao: distribuicaoSituacaoComCadastros(userId, hoje, base, fila),
+    porCondominio: inadimplenciaPorCondominioComCadastros(userId, input.dataBase, base),
+    evolucaoMensal: evolucaoCarteiraMensal(userId, input.dataBase, input.limiteDias, base),
     totais: {
       debitosConsiderados: debitos.length,
       unidadesNaFila: fila.length,

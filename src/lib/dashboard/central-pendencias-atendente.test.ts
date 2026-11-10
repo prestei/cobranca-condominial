@@ -45,8 +45,8 @@ beforeEach(() => {
 });
 
 describe("T30 — classificação de pendências", () => {
-  test("prioritária por motivo sensível", () => {
-    const filaBase = listarFilaCobranca(ATENDENTE_RAQUEL_ID)[0];
+  test("prioritária por motivo sensível", async () => {
+    const filaBase = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID))[0];
     assert.ok(filaBase, "carteira do atendente precisa de unidade na fila");
     const cadastros = getCadastros();
     cadastros.atendimentos.push(
@@ -57,14 +57,14 @@ describe("T30 — classificação de pendências", () => {
         motivo: "Recusa-se a pagar",
       }),
     );
-    const fila = listarFilaCobranca(ATENDENTE_RAQUEL_ID).find((item) => item.unidadeId === filaBase.unidadeId);
+    const fila = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID)).find((item) => item.unidadeId === filaBase.unidadeId);
     assert.ok(fila);
     const ref = cadastros.atendimentos.find((a) => a.id === "prio-1")!;
     assert.equal(classificarTipoPendenciaUnidade(fila, ref, "2026-03-01"), "prioritarias");
   });
 
-  test("aguardando resposta não é classificado como atrasada", () => {
-    const filaBase = listarFilaCobranca(ATENDENTE_RAQUEL_ID)[0];
+  test("aguardando resposta não é classificado como atrasada", async () => {
+    const filaBase = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID))[0];
     assert.ok(filaBase);
     const cadastros = getCadastros();
     cadastros.atendimentos.push(
@@ -75,15 +75,15 @@ describe("T30 — classificação de pendências", () => {
         dataHora: "2026-01-01T10:00:00",
       }),
     );
-    const fila = listarFilaCobranca(ATENDENTE_RAQUEL_ID).find((item) => item.unidadeId === filaBase.unidadeId);
+    const fila = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID)).find((item) => item.unidadeId === filaBase.unidadeId);
     const ref = cadastros.atendimentos.find((a) => a.id === "ag-1")!;
     const tipo = classificarTipoPendenciaUnidade(fila!, ref, "2026-03-01");
     assert.equal(tipo, "aguardando_resposta");
     assert.notEqual(tipo, "atrasadas");
   });
 
-  test("retorno atrasado vira pendência atrasada", () => {
-    const filaBase = listarFilaCobranca(ATENDENTE_RAQUEL_ID)[0];
+  test("retorno atrasado vira pendência atrasada", async () => {
+    const filaBase = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID))[0];
     assert.ok(filaBase);
     const cadastros = getCadastros();
     cadastros.atendimentos.push(
@@ -95,37 +95,43 @@ describe("T30 — classificação de pendências", () => {
         dataProximaAcao: "2026-02-01",
       }),
     );
-    const fila = listarFilaCobranca(ATENDENTE_RAQUEL_ID).find((item) => item.unidadeId === filaBase.unidadeId);
+    const fila = (await listarFilaCobranca(ATENDENTE_RAQUEL_ID)).find((item) => item.unidadeId === filaBase.unidadeId);
     const ref = cadastros.atendimentos.find((a) => a.id === "atr-1")!;
     assert.equal(classificarTipoPendenciaUnidade(fila!, ref, "2026-03-01"), "atrasadas");
   });
 });
 
 describe("T30 — listagem e paginação", () => {
-  test("resumo bate com registros únicos por unidade", () => {
-    const resumo = contarResumoCentralPendencias(ATENDENTE_RAQUEL_ID);
+  test("resumo bate com registros únicos por unidade", async () => {
+    const cadastros = getCadastros();
+    const resumo = await contarResumoCentralPendencias(ATENDENTE_RAQUEL_ID, cadastros);
     const totalResumo = Object.values(resumo).reduce((s, n) => s + n, 0);
-    const lista = listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, {
-      categoria: "todas",
-      page: 1,
-      pageSize: 100,
-    });
+    const lista = await listarCentralPendenciasAtendente(
+      ATENDENTE_RAQUEL_ID,
+      {
+        categoria: "todas",
+        page: 1,
+        pageSize: 100,
+      },
+      cadastros,
+    );
     assert.equal(lista.total, totalResumo);
     const ids = new Set(lista.itens.map((item) => item.unidadeId));
     assert.equal(ids.size, lista.itens.length);
   });
 
-  test("paginação não duplica registros entre páginas", () => {
-    const page1 = listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, { page: 1, pageSize: 2 });
-    const page2 = listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, { page: 2, pageSize: 2 });
+  test("paginação não duplica registros entre páginas", async () => {
+    const cadastros = getCadastros();
+    const page1 = await listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, { page: 1, pageSize: 2 }, cadastros);
+    const page2 = await listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, { page: 2, pageSize: 2 }, cadastros);
     const ids1 = new Set(page1.itens.map((item) => item.unidadeId));
     for (const item of page2.itens) {
       assert.equal(ids1.has(item.unidadeId), false);
     }
   });
 
-  test("data de referência usa fuso operacional", () => {
-    const resultado = listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID);
+  test("data de referência usa fuso operacional", async () => {
+    const resultado = await listarCentralPendenciasAtendente(ATENDENTE_RAQUEL_ID, undefined, getCadastros());
     assert.equal(resultado.hoje, hojeEmFuso());
     assert.ok(resultado.fuso.length > 0);
   });

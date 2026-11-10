@@ -10,13 +10,14 @@ import {
 import { executarPersistenciaAprovada } from "@/lib/importacao-centro/persistencia";
 import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
 import { comBloqueioConfirmacaoImportacao } from "@/lib/importacao-centro/transacao-confirmacao";
-import type {
-  AdaptadorImportacao,
-  DadosAprovacaoImportacao,
-  EntradaConfirmacaoImportacao,
-  MetaExecucaoImportacao,
-  PreviewImportacaoCentral,
-  ResultadoConfirmacaoCentral,
+import {
+  ImportacaoCentroError,
+  type AdaptadorImportacao,
+  type DadosAprovacaoImportacao,
+  type EntradaConfirmacaoImportacao,
+  type MetaExecucaoImportacao,
+  type PreviewImportacaoCentral,
+  type ResultadoConfirmacaoCentral,
 } from "@/lib/importacao-centro/types";
 import type { RegistroHistoricoCorrecaoPrevia } from "@/lib/importacao-centro/correcao-previa/types";
 import type { EntradaImportacaoResolvida } from "@/lib/importacoes/resolver-entrada-importacao";
@@ -168,7 +169,10 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
     const { saveOperationalState } = await import("@/lib/db/repositories/catalog-persist");
     const gravou = await saveOperationalState(getCadastros());
     if (!gravou) {
-      console.error("[importacao] confirmação gravou no catálogo, mas falhou ao persistir no PostgreSQL.");
+      throw new ImportacaoCentroError(
+        "Não foi possível gravar a importação no banco de dados. Tente novamente ou contate o suporte.",
+        500,
+      );
     }
 
     return resultado;

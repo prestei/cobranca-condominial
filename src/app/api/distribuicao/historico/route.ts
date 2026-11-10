@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const limit = Number(searchParams.get("limit") ?? "50");
 
   try {
-    const historico = listarHistoricoAtribuicoes(session.userId, {
+    const historico = await listarHistoricoAtribuicoes(session.userId, {
       unidadeId: Number.isFinite(unidadeId) && unidadeId > 0 ? unidadeId : undefined,
       limit,
     });

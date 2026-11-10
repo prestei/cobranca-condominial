@@ -74,8 +74,8 @@ export type AtendimentoFiltros = {
   ate?: string;
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+function usuarioVeCarteiraGeral(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "usuarios", "criar");
 }
 
@@ -85,7 +85,7 @@ function atendimentoNaCarteira(cadastros: Cadastros, userId: number, atendimento
   if (!unidade) return false;
   const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
   if (!idsCondominio.has(unidade.condominioId)) return false;
-  if (usuarioVeCarteiraGeral(userId)) return true;
+  if (usuarioVeCarteiraGeral(userId, cadastros)) return true;
   const vigente = cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
   return Boolean(vigente && vigente.atendenteId === userId);
 }
@@ -112,7 +112,8 @@ async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condomin
 }
 
 async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
-  if (usuarioVeCarteiraGeral(userId)) return;
+  const cadastrosEscopo = await loadCadastrosForScope();
+  if (usuarioVeCarteiraGeral(userId, cadastrosEscopo)) return;
   const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new AtendimentoServiceError(
@@ -205,8 +206,9 @@ export async function listarAtendimentos(userId: number, filtros?: AtendimentoFi
       .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   }
 
+  const cadastrosEscopo = await loadCadastrosForScope();
   const idsUnidade = await scopeUnitIds(userId);
-  const geral = usuarioVeCarteiraGeral(userId);
+  const geral = usuarioVeCarteiraGeral(userId, cadastrosEscopo);
   let lista = (await listServiceTickets()).filter((item) => idsUnidade.has(Number(item.unidadeId)));
   if (!geral) {
     lista = lista.filter((item) => item.usuarioId === userId);
@@ -280,7 +282,8 @@ export async function atualizarAtendimento(
   input: AtendimentoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Atendimento> {
-  const perm = permissoesDoUsuarioId(userId);
+  const cadastrosEscopo = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastrosEscopo);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AtendimentoServiceError("Sem permissão para editar atendimentos.", 403);
   }
@@ -292,7 +295,7 @@ export async function atualizarAtendimento(
 
   const dados = await validarEntrada(input);
   await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
-  if (!usuarioVeCarteiraGeral(userId) && anterior.usuarioId !== userId) {
+  if (!usuarioVeCarteiraGeral(userId, cadastrosEscopo) && anterior.usuarioId !== userId) {
     throw new AtendimentoServiceError("Só a administradora pode corrigir atendimento de outro colaborador.", 403);
   }
 
@@ -334,7 +337,8 @@ export async function atualizarAtendimento(
 }
 
 export async function excluirAtendimento(userId: number, id: string, meta?: { ip?: string; userAgent?: string }) {
-  const perm = permissoesDoUsuarioId(userId);
+  const cadastrosEscopo = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastrosEscopo);
   if (!temPermissao(perm, "atendimentos", "excluir")) {
     throw new AtendimentoServiceError("Sem permissão para excluir atendimentos.", 403);
   }
@@ -369,7 +373,8 @@ export async function concluirRetornoAgendado(
   id: string,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Atendimento> {
-  const perm = permissoesDoUsuarioId(userId);
+  const cadastrosEscopo = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastrosEscopo);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AtendimentoServiceError("Sem permissão para concluir retornos.", 403);
   }

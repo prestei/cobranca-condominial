@@ -1,4 +1,11 @@
-import { escopoCondominios, hojeIso, situacaoRetorno, type Atendimento, type AtribuicaoCobranca } from "@/data/catalogo";
+import {
+  escopoCondominios,
+  hojeIso,
+  situacaoRetorno,
+  type Atendimento,
+  type AtribuicaoCobranca,
+  type Cadastros,
+} from "@/data/catalogo";
 import { getCadastros } from "@/data/catalogo-store";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
@@ -27,33 +34,34 @@ export type IndicadoresOperacionaisAtendente = {
   itens: IndicadorOperacionalAtendenteContagem[];
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+function usuarioVeCarteiraGeral(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function unidadeIdsNaCarteira(userId: number): Set<number> | null {
-  if (usuarioVeCarteiraGeral(userId)) return null;
+function unidadeIdsNaCarteira(userId: number, cadastros: Cadastros): Set<number> | null {
+  if (usuarioVeCarteiraGeral(userId, cadastros)) return null;
   const ids = new Set<number>();
-  for (const item of getCadastros().atribuicoesCobranca) {
+  for (const item of cadastros.atribuicoesCobranca) {
     if (!item.encerradoEm && item.atendenteId === userId) ids.add(item.unidadeId);
   }
   return ids;
 }
 
-function atribuicaoVigente(unidadeId: number): AtribuicaoCobranca | undefined {
-  return getCadastros().atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
+function atribuicaoVigente(cadastros: Cadastros, unidadeId: number): AtribuicaoCobranca | undefined {
+  return cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
 }
 
-export function atendimentoNaCarteiraVigente(userId: number, atendimento: Atendimento): boolean {
+export function atendimentoNaCarteiraVigente(userId: number, atendimento: Atendimento, cadastros?: Cadastros): boolean {
+  const base = cadastros ?? getCadastros();
   const unidadeId = Number(atendimento.unidadeId);
-  const unidade = getCadastros().unidades.find((item) => item.id === unidadeId);
+  const unidade = base.unidades.find((item) => item.id === unidadeId);
   if (!unidade) return false;
-  const idsCondominio = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+  const idsCondominio = new Set(escopoCondominios(base, userId).map((item) => item.id));
   if (!idsCondominio.has(unidade.condominioId)) return false;
-  const carteiraIds = unidadeIdsNaCarteira(userId);
+  const carteiraIds = unidadeIdsNaCarteira(userId, base);
   if (carteiraIds === null) return true;
-  const vigente = atribuicaoVigente(unidadeId);
+  const vigente = atribuicaoVigente(base, unidadeId);
   return Boolean(vigente && vigente.atendenteId === userId);
 }
 
@@ -122,8 +130,9 @@ export function classificarAtendimentoOperacional(
   return null;
 }
 
-function atendimentosEscopoCarteira(userId: number): Atendimento[] {
-  return getCadastros().atendimentos.filter((item) => atendimentoNaCarteiraVigente(userId, item));
+function atendimentosEscopoCarteira(userId: number, cadastros?: Cadastros): Atendimento[] {
+  const base = cadastros ?? getCadastros();
+  return base.atendimentos.filter((item) => atendimentoNaCarteiraVigente(userId, item, base));
 }
 
 export function listarAtendimentosIndicadorOperacional(
@@ -142,10 +151,11 @@ export function listarAtendimentosIndicadorOperacional(
 export function contarIndicadoresOperacionaisAtendente(
   userId: number,
   periodo?: { inicio: string; fim: string },
+  cadastros?: Cadastros,
 ): IndicadoresOperacionaisAtendente {
   const hoje = hojeIso();
   const intervalo = periodo ?? periodoUltimos7Dias(hoje);
-  const lista = atendimentosEscopoCarteira(userId);
+  const lista = atendimentosEscopoCarteira(userId, cadastros);
   const totais: Record<IndicadorOperacionalAtendenteId, number> = {
     pendentes: 0,
     aguardando_retorno: 0,

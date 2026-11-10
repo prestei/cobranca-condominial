@@ -8,6 +8,7 @@ import { processarArquivoImportacao } from "@/lib/importacao-centro/processament
 import { obterAdaptadorImportacao } from "@/lib/importacao-centro/registro-adaptadores";
 import { validarEntradaLeitura } from "@/lib/importacao-centro/validacao";
 import { registrarPreviaImportacao } from "@/lib/importacao-centro/historico-auditoria";
+import { upsertImport } from "@/lib/db/repositories/import-repository";
 import { removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { resolverEntradaImportacao } from "@/lib/importacoes/resolver-entrada-importacao";
@@ -70,7 +71,7 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
 
   const sessaoPreviaId = entrada.processoId?.trim() || undefined;
   if (sessaoPreviaId) {
-    registrarPreviaImportacao({
+    const registroPrevia = registrarPreviaImportacao({
       processoId: sessaoPreviaId,
       userId,
       modulo: adapter.modulo,
@@ -81,6 +82,7 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
       contadores: processado.preview.contadores,
       resumoAprovacao: processado.preview.resumoAprovacao,
     });
+    await upsertImport(registroPrevia);
     criarSessaoPreviaAposPreview({
       sessaoPreviaId,
       userId,

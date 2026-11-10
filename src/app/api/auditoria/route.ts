@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   try {
-    const auditoria = listarAuditoria(session.userId, parseFiltros(searchParams));
+    const auditoria = await listarAuditoria(session.userId, parseFiltros(searchParams));
     return Response.json({ auditoria });
   } catch (error) {
     if (error instanceof AuditoriaServiceError) {

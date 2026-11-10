@@ -64,6 +64,17 @@ export async function updateImport(item: Importacao): Promise<Importacao> {
   return mapImportToImportacao(row);
 }
 
+/** Grava ou atualiza rascunho / etapa intermediária do fluxo de importação (fora do save em massa na confirmação). */
+export async function upsertImport(item: Importacao): Promise<Importacao> {
+  const data = importacaoToData(item);
+  const row = await prisma.import.upsert({
+    where: { id: item.id },
+    create: data,
+    update: { ...data, id: undefined },
+  });
+  return mapImportToImportacao(row);
+}
+
 export async function deleteImport(id: number): Promise<void> {
   await prisma.import.delete({ where: { id } });
 }

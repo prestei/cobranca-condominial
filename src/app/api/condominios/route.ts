@@ -48,7 +48,7 @@ export async function GET() {
   if (isErrorResponse(session)) return session;
   const denied = await requirePermissao(session, "condominios", "ler");
   if (denied) return denied;
-  const condominios = listarCondominios(session.userId);
+  const condominios = await listarCondominios(session.userId);
   return Response.json({ condominios });
 }
 
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const condominio = criarCondominio(session.userId, input, requestMeta(request));
+    const condominio = await criarCondominio(session.userId, input, requestMeta(request));
     return Response.json({ condominio }, { status: 201 });
   } catch (error) {
     if (error instanceof CondominioServiceError) {

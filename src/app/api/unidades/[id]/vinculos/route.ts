@@ -62,7 +62,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const vinculo = vincularResponsavel(session.userId, unidadeId, input, requestMeta(request));
+    const vinculo = await vincularResponsavel(session.userId, unidadeId, input, requestMeta(request));
     return Response.json({ vinculo }, { status: 201 });
   } catch (error) {
     if (error instanceof UnidadeServiceError) {

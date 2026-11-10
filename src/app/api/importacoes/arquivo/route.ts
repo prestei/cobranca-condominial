@@ -8,6 +8,9 @@ import {
   type ModuloImportacaoArquivo,
 } from "@/lib/importacoes/limites";
 import { criarImportacaoEmProcessamento } from "@/lib/importacao-centro/historico-auditoria";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { upsertImport } from "@/lib/db/repositories/import-repository";
+import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import { receberUploadImportacao } from "@/lib/importacoes/resolver-entrada-importacao";
 import { registrarErroTecnicoImportacao } from "@/lib/importacoes/log-tecnico";
 
@@ -57,14 +60,18 @@ export async function POST(request: Request) {
       buffer,
       mimeDeclarado,
     });
-    criarImportacaoEmProcessamento({
-      processoId: recebido.processoId,
-      userId: session.userId,
-      modulo: recebido.moduloEfetivo,
-      arquivo: recebido.nomeArquivo,
-      quantidadeRegistros: recebido.quantidadeRegistros,
-      hashArquivo: recebido.hashArquivo,
-    });
+    const catalogoInicial = await loadFullOperationalCadastros();
+    const registro = await runWithCatalogAsync(catalogoInicial, async () =>
+      criarImportacaoEmProcessamento({
+        processoId: recebido.processoId,
+        userId: session.userId,
+        modulo: recebido.moduloEfetivo,
+        arquivo: recebido.nomeArquivo,
+        quantidadeRegistros: recebido.quantidadeRegistros,
+        hashArquivo: recebido.hashArquivo,
+      }),
+    );
+    await upsertImport(registro);
     return Response.json({ recebimento: recebido });
   } catch (error) {
     if (error instanceof ImportacaoCentroError) {

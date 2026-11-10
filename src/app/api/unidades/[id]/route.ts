@@ -42,7 +42,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const detalhe = obterUnidadeDetalhe(session.userId, id);
+    const detalhe = await obterUnidadeDetalhe(session.userId, id);
     return Response.json(detalhe);
   } catch (error) {
     if (error instanceof UnidadeServiceError) {
@@ -77,7 +77,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const unidade = atualizarUnidade(session.userId, id, input, requestMeta(request));
+    const unidade = await atualizarUnidade(session.userId, id, input, requestMeta(request));
     return Response.json({ unidade });
   } catch (error) {
     if (error instanceof UnidadeServiceError) {

@@ -1,7 +1,7 @@
 import { AtribuicaoCobranca, Cadastros, Unidade } from "@/data/catalogo";
 import { debitoEmAberto, diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, hojeIso, retornoPendente, situacaoCobrancaUnidade, situacaoRetorno, unidadeNaFilaCobrancaAtiva } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
-import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
+import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -58,8 +58,8 @@ export type FilaCobrancaFiltros = {
   order?: "asc" | "desc";
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+function usuarioVeCarteiraGeral(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "usuarios", "criar");
 }
 
@@ -152,7 +152,7 @@ function aplicarFiltros(
   userId: number,
 ) {
   let lista = itens;
-  const geral = usuarioVeCarteiraGeral(userId);
+  const geral = usuarioVeCarteiraGeral(userId, cadastros);
   if (!geral) {
     lista = lista.filter((item) => item.atendenteId === userId);
   }

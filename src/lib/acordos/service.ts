@@ -13,7 +13,7 @@ import {
 import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { obterPropostaNegociacao, PropostaNegociacaoServiceError } from "@/lib/negociacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 import { calcularResumoAcordo, type ResumoAcordo } from "@/lib/acordos/resumo";
 
 export class AcordoServiceError extends Error {
@@ -52,13 +52,13 @@ export type PagamentoAcordoCorrecaoInput = {
   confirmacao?: string;
 };
 
-function usuarioVeCarteiraGeral(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+async function usuarioVeCarteiraGeral(userId: number) {
+  const perm = await resolverPermissoesUsuario(userId);
   return temPermissao(perm, "usuarios", "criar");
 }
 
 async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
-  if (usuarioVeCarteiraGeral(userId)) return;
+  if (await usuarioVeCarteiraGeral(userId)) return;
   const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new AcordoServiceError(
@@ -141,7 +141,7 @@ export async function registrarParcelasAcordo(
   parcelasInput: ParcelaAcordoInput[],
   meta?: { ip?: string; userAgent?: string },
 ): Promise<ParcelaAcordo[]> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "atendimentos", "criar")) {
     throw new AcordoServiceError("Sem permissão para registrar parcelas.", 403);
   }
@@ -208,7 +208,7 @@ export async function corrigirParcelaAcordo(
   input: ParcelaAcordoCorrecaoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<ParcelaAcordo> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AcordoServiceError("Sem permissão para corrigir parcelas.", 403);
   }
@@ -255,7 +255,7 @@ export async function registrarPagamentoAcordo(
   input: PagamentoAcordoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PagamentoAcordo> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "atendimentos", "criar")) {
     throw new AcordoServiceError("Sem permissão para registrar pagamentos.", 403);
   }
@@ -314,7 +314,7 @@ export async function corrigirPagamentoAcordo(
   input: PagamentoAcordoCorrecaoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PagamentoAcordo> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "atendimentos", "editar")) {
     throw new AcordoServiceError("Sem permissão para corrigir pagamentos.", 403);
   }

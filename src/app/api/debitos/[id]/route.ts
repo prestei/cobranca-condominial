@@ -52,7 +52,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const debito = obterDebito(session.userId, id);
+    const debito = await obterDebito(session.userId, id);
     return Response.json({ debito });
   } catch (error) {
     if (error instanceof DebitoServiceError) {
@@ -87,7 +87,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const debito = atualizarDebito(session.userId, id, input, requestMeta(request));
+    const debito = await atualizarDebito(session.userId, id, input, requestMeta(request));
     return Response.json({ debito });
   } catch (error) {
     if (error instanceof DebitoServiceError) {

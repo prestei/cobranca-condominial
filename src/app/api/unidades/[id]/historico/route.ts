@@ -23,7 +23,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const historico = obterHistoricoUnidade(session.userId, id);
+    const historico = await obterHistoricoUnidade(session.userId, id);
     return Response.json(historico);
   } catch (error) {
     if (error instanceof HistoricoUnidadeServiceError) {

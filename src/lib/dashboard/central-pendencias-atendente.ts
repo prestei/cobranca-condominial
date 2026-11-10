@@ -1,5 +1,12 @@
-import { nomeCondominio, retornoPendente, situacaoCobrancaUnidade, situacaoRetorno, type Atendimento } from "@/data/catalogo";
-import { getCadastros } from "@/data/catalogo-store";
+import {
+  nomeCondominio,
+  retornoPendente,
+  situacaoCobrancaUnidade,
+  situacaoRetorno,
+  type Atendimento,
+  type Cadastros,
+} from "@/data/catalogo";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { listarFilaCobranca, type FilaCobrancaItem } from "@/lib/fila/service";
 import { hojeEmFuso, dataHoraPartesEmFuso, FUSO_NOTIFICACOES } from "@/lib/notificacoes/timezone";
@@ -83,14 +90,14 @@ function rotuloUnidade(item: FilaCobrancaItem) {
   return item.identificacao;
 }
 
-function atendimentosUnidade(unidadeId: number): Atendimento[] {
-  return getCadastros()
-    .atendimentos.filter((item) => Number(item.unidadeId) === unidadeId)
+function atendimentosUnidade(cadastros: Cadastros, unidadeId: number): Atendimento[] {
+  return cadastros.atendimentos
+    .filter((item) => Number(item.unidadeId) === unidadeId)
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
 }
 
-function atendimentoReferencia(unidadeId: number): Atendimento | null {
-  const lista = atendimentosUnidade(unidadeId);
+function atendimentoReferencia(cadastros: Cadastros, unidadeId: number): Atendimento | null {
+  const lista = atendimentosUnidade(cadastros, unidadeId);
   const pendenteRetorno = lista.find(
     (item) =>
       item.status === "Pendente" &&
@@ -168,13 +175,14 @@ export function classificarTipoPendenciaUnidade(
 }
 
 function montarRegistro(
+  cadastros: Cadastros,
   item: FilaCobrancaItem,
   tipo: TipoPendenciaId,
   atendimento: Atendimento | null,
   hoje: string,
   fuso: string,
 ): CentralPendenciaRegistro {
-  const unidade = getCadastros().unidades.find((u) => u.id === item.unidadeId);
+  const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
   const situacaoAtual = unidade ? situacaoCobrancaUnidade(unidade) : item.situacao;
   const dataUltima = item.ultimoAtendimento;
   const retornoSit = item.proximoRetorno ? situacaoRetorno(item.proximoRetorno, hoje) : "";
@@ -182,7 +190,7 @@ function montarRegistro(
     tipo === "atrasadas" || retornoSit === "atrasado" || (tipo === "prioritarias" && retornoSit === "atrasado");
   let responsavelRe = item.codigoRe;
   if (!responsavelRe && item.atendenteId) {
-    const usuario = getCadastros().usuarios.find((u) => u.id === item.atendenteId);
+    const usuario = cadastros.usuarios.find((u) => u.id === item.atendenteId);
     if (usuario) responsavelRe = codigoReDoUsuario(usuario);
   }
 
@@ -193,7 +201,7 @@ function montarRegistro(
       (item.proximoRetornoAtendimentoId?.trim() ? item.proximoRetornoAtendimentoId : null),
     codigoRe: item.codigoRe,
     condominioId: item.condominioId,
-    condominioNome: nomeCondominio(item.condominioId),
+    condominioNome: nomeCondominio(item.condominioId, cadastros),
     unidadeLabel: rotuloUnidade(item),
     tipoPendencia: tipo,
     situacaoAtual,
@@ -232,25 +240,28 @@ function ordenarRegistros(
   });
 }
 
-function listarBase(userId: number): CentralPendenciaRegistro[] {
+async function listarBase(userId: number, cadastros: Cadastros): Promise<CentralPendenciaRegistro[]> {
   const hoje = hojeEmFuso();
   const fuso = FUSO_NOTIFICACOES;
-  const fila = listarFilaCobranca(userId);
+  const fila = await listarFilaCobranca(userId);
   const registros: CentralPendenciaRegistro[] = [];
 
   for (const item of fila) {
-    const atendimento = atendimentoReferencia(item.unidadeId);
-    if (atendimento && !atendimentoNaCarteiraVigente(userId, atendimento)) continue;
+    const atendimento = atendimentoReferencia(cadastros, item.unidadeId);
+    if (atendimento && !atendimentoNaCarteiraVigente(userId, atendimento, cadastros)) continue;
     const tipo = classificarTipoPendenciaUnidade(item, atendimento, hoje);
     if (!tipo) continue;
-    registros.push(montarRegistro(item, tipo, atendimento, hoje, fuso));
+    registros.push(montarRegistro(cadastros, item, tipo, atendimento, hoje, fuso));
   }
 
   return registros;
 }
 
-export function contarResumoCentralPendencias(userId: number): CentralPendenciasResumo {
-  const base = listarBase(userId);
+export async function contarResumoCentralPendencias(
+  userId: number,
+  cadastros?: Cadastros,
+): Promise<CentralPendenciasResumo> {
+  const base = await listarBase(userId, cadastros ?? (await loadFullOperationalCadastros()));
   const resumo: CentralPendenciasResumo = {
     hoje: 0,
     atrasadas: 0,
@@ -263,10 +274,12 @@ export function contarResumoCentralPendencias(userId: number): CentralPendencias
   return resumo;
 }
 
-export function listarCentralPendenciasAtendente(
+export async function listarCentralPendenciasAtendente(
   userId: number,
   filtros?: CentralPendenciasFiltros,
-): CentralPendenciasResultado {
+  cadastros?: Cadastros,
+): Promise<CentralPendenciasResultado> {
+  const baseCadastros = cadastros ?? (await loadFullOperationalCadastros());
   const hoje = hojeEmFuso();
   const fuso = FUSO_NOTIFICACOES;
   const categoria = filtros?.categoria ?? "todas";
@@ -276,7 +289,7 @@ export function listarCentralPendenciasAtendente(
   const page = Math.max(1, filtros?.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, filtros?.pageSize ?? 10));
 
-  let itens = listarBase(userId);
+  let itens = await listarBase(userId, baseCadastros);
 
   if (categoria !== "todas") {
     itens = itens.filter((item) => item.tipoPendencia === categoria);
@@ -292,7 +305,7 @@ export function listarCentralPendenciasAtendente(
   return {
     hoje,
     fuso,
-    resumo: contarResumoCentralPendencias(userId),
+    resumo: await contarResumoCentralPendencias(userId, baseCadastros),
     itens: ordenados.slice(start, start + pageSize),
     total,
     page,

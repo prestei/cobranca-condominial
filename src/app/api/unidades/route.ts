@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const unidade = criarUnidade(session.userId, input, requestMeta(request));
+    const unidade = await criarUnidade(session.userId, input, requestMeta(request));
     return Response.json({ unidade }, { status: 201 });
   } catch (error) {
     if (error instanceof UnidadeServiceError) {

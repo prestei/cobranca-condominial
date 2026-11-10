@@ -58,10 +58,14 @@ export async function GET(request: Request) {
 
   try {
     const filtros = parseFiltros(searchParams);
+    const [paginado, resumo] = await Promise.all([
+      listarFilaCobrancaPaginada(session.userId, filtros, page, pageSize),
+      resumoFilaCobranca(session.userId),
+    ]);
     return Response.json({
-      ...listarFilaCobrancaPaginada(session.userId, filtros, page, pageSize),
+      ...paginado,
       /** KPIs da carteira — sempre no escopo do usuário, sem filtros da tabela. */
-      resumo: resumoFilaCobranca(session.userId),
+      resumo,
     });
   } catch (error) {
     if (error instanceof FilaServiceError) {

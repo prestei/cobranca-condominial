@@ -157,7 +157,7 @@ describe("T21 — distribuição e redistribuição", () => {
 });
 
 describe("T21 — atendimento, retorno e histórico", () => {
-  test("atendente registra tentativa, agenda retorno e conclui com histórico", () => {
+  test("atendente registra tentativa, agenda retorno e conclui com histórico", async () => {
     const atendimento = criarAtendimento(ATENDENTE_RAQUEL_ID, {
       condominioId: 1,
       unidadeId: 2,
@@ -176,7 +176,7 @@ describe("T21 — atendimento, retorno e histórico", () => {
     const concluido = concluirRetornoAgendado(ATENDENTE_RAQUEL_ID, atendimento.id);
     assert.ok(concluido.retornoConcluidoEm?.trim());
 
-    const historico = obterHistoricoUnidade(ADMIN_ID, 2);
+    const historico = await obterHistoricoUnidade(ADMIN_ID, 2, getCadastros());
     const tipos = new Set(historico.eventos.map((e) => e.tipo));
     assert.ok(tipos.has("tentativa"));
     assert.ok(tipos.has("retorno_concluido"));
@@ -184,11 +184,11 @@ describe("T21 — atendimento, retorno e histórico", () => {
 });
 
 describe("T21 — quitação fora da fila ativa", () => {
-  test("unidade quitada sai da fila operacional", () => {
+  test("unidade quitada sai da fila operacional", async () => {
     assert.ok(listarFilaCobranca(ADMIN_ID).some((item) => item.unidadeId === 2));
     confirmarQuitacaoUnidade(ADMIN_ID, 2, { forcar: true });
     assert.ok(!listarFilaCobranca(ADMIN_ID).some((item) => item.unidadeId === 2));
-    const historico = obterHistoricoUnidade(ADMIN_ID, 2);
+    const historico = await obterHistoricoUnidade(ADMIN_ID, 2, getCadastros());
     assert.ok(historico.eventos.length > 0);
   });
 });

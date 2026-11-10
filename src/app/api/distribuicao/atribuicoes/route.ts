@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const resultado = distribuirUnidades(session.userId, input, requestMeta(request));
+    const resultado = await distribuirUnidades(session.userId, input, requestMeta(request));
     return Response.json({
       ...resultado,
       atribuicoesCobranca: (await loadFullOperationalCadastros()).atribuicoesCobranca,

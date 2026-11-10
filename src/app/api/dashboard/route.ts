@@ -13,12 +13,13 @@ export async function GET(request: Request) {
   const limiteDias = Number.isFinite(limiteRaw) && limiteRaw >= 1 ? limiteRaw : undefined;
 
   try {
-    const dashboard = obterDashboard(session.userId, { dataBase, limiteDias });
+    const dashboard = await obterDashboard(session.userId, { dataBase, limiteDias });
     return Response.json({ dashboard });
   } catch (error) {
     if (error instanceof DashboardServiceError) {
       return Response.json({ error: error.message }, { status: error.status });
     }
+    console.error("[dashboard] obterDashboard falhou:", error);
     return Response.json({ error: "Não foi possível carregar o dashboard." }, { status: 500 });
   }
 }

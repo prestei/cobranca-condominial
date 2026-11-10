@@ -1,6 +1,9 @@
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { requirePermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { registrarAprovacaoPendente } from "@/lib/importacao-centro/historico-auditoria";
+import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { upsertImport } from "@/lib/db/repositories/import-repository";
+import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 
 type RouteContext = { params: Promise<{ processoId: string }> };
 
@@ -15,10 +18,14 @@ export async function POST(_request: Request, context: RouteContext) {
     return Response.json({ error: "Processo inválido." }, { status: 400 });
   }
 
-  const atualizado = registrarAprovacaoPendente(processoId.trim(), session.userId);
+  const catalogoInicial = await loadFullOperationalCadastros();
+  const atualizado = await runWithCatalogAsync(catalogoInicial, () =>
+    registrarAprovacaoPendente(processoId.trim(), session.userId),
+  );
   if (!atualizado) {
     return Response.json({ error: "Importação não encontrada para este envio." }, { status: 404 });
   }
 
+  await upsertImport(atualizado);
   return Response.json({ importacao: atualizado });
 }

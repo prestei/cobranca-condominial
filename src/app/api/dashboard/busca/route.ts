@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const q = searchParams.get("q") ?? searchParams.get("busca") ?? "";
 
   try {
-    const resultado = buscarGlobalDashboard(session.userId, q);
+    const resultado = await buscarGlobalDashboard(session.userId, q);
     return Response.json({ busca: resultado });
   } catch (error) {
     if (error instanceof BuscaGlobalError) {

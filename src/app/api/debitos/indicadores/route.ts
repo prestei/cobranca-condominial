@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   ).length;
 
   try {
-    const indicadores = obterIndicadoresDebitos(session.userId, {
+    const indicadores = await obterIndicadoresDebitos(session.userId, {
       dataBase,
       limiteDias,
       unidadesCarteira,

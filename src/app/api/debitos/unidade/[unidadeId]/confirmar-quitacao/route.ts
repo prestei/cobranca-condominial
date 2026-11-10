@@ -1,5 +1,6 @@
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
 import { DebitoServiceError, confirmarQuitacaoUnidade, requestMeta } from "@/lib/debitos/service";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -9,7 +10,8 @@ export async function POST(request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
 
-  const perm = permissoesDoUsuarioId(session.userId);
+  const cadastrosEscopo = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(session.userId, cadastrosEscopo);
   const deniedDebitos = !temPermissao(perm, "debitos", "editar");
   const deniedUnidades = !temPermissao(perm, "unidades", "editar");
   if (deniedDebitos && deniedUnidades) {
@@ -32,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const resultado = confirmarQuitacaoUnidade(session.userId, unidadeId, { forcar }, requestMeta(request));
+    const resultado = await confirmarQuitacaoUnidade(session.userId, unidadeId, { forcar }, requestMeta(request));
     return Response.json(resultado);
   } catch (error) {
     if (error instanceof DebitoServiceError) {

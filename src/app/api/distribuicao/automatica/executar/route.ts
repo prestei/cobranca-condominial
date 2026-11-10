@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       ignoradasMesmoResponsavel: resultado.ignoradasMesmoResponsavel,
       pendentesAntes: resultado.pendentesAntes,
       atribuicoesCobranca,
-      aguardandoAtribuicao: contarUnidadesAguardandoAtribuicao(session.userId),
+      aguardandoAtribuicao: await contarUnidadesAguardandoAtribuicao(session.userId),
     });
   } catch (error) {
     if (error instanceof DistribuicaoServiceError) {

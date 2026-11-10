@@ -6,6 +6,7 @@ import {
   hojeIso,
   LIMITE_AMIGAVEL_DIAS,
   origensDebito,
+  type Cadastros,
   type Unidade,
 } from "@/data/catalogo";
 import { getCadastros } from "@/data/catalogo-store";
@@ -164,13 +165,17 @@ export function normalizarFiltrosDashboard(
   return norm;
 }
 
-export function validarFiltrosDashboardEscopo(userId: number, filtros: DashboardFiltrosNorm) {
-  const condominios = new Set(escopoCondominios(getCadastros(), userId).map((item) => item.id));
+export function validarFiltrosDashboardEscopo(
+  userId: number,
+  filtros: DashboardFiltrosNorm,
+  cadastros: Cadastros = getCadastros(),
+) {
+  const condominios = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
   if (filtros.condominioId && !condominios.has(filtros.condominioId)) {
     throw new DashboardFiltrosError("Condomínio fora do seu escopo.", 403);
   }
   if (filtros.unidadeId) {
-    const unidade = getCadastros().unidades.find((item) => item.id === filtros.unidadeId);
+    const unidade = cadastros.unidades.find((item) => item.id === filtros.unidadeId);
     if (!unidade || !condominios.has(unidade.condominioId)) {
       throw new DashboardFiltrosError("Unidade fora do seu escopo.", 403);
     }
@@ -267,14 +272,14 @@ function passaRetorno(item: FilaCobrancaItem, de?: string, ate?: string) {
 }
 
 /** Conjunto de unidades da carteira que passam nos filtros de recorte (escopo já aplicado). `null` = sem recorte. */
-export function resolverUnidadesDashboard(
+export async function resolverUnidadesDashboard(
   userId: number,
   filtros: DashboardFiltrosNorm,
-): Set<number> | null {
+): Promise<Set<number> | null> {
   if (!filtrosDashboardTemRecorte(filtros)) return null;
 
   const hoje = hojeEmFuso();
-  let itens = listarFilaCobranca(userId, {
+  let itens = await listarFilaCobranca(userId, {
     condominioId: filtros.condominioId,
     situacao: filtros.situacao,
   });

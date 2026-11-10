@@ -6,7 +6,8 @@ import {
   excluirImportacaoHistorico,
   obterImportacaoHistorico,
 } from "@/lib/importacoes/historico-service";
-import { obterImportacaoPorId } from "@/lib/importacao-centro/historico-auditoria";
+import { findImportById } from "@/lib/db/repositories/import-repository";
+import { tryGetRequestCatalog } from "@/lib/db/request-catalog";
 import { requestMeta } from "@/lib/unidades/service";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -23,7 +24,9 @@ export async function GET(_request: Request, context: RouteContext) {
     return Response.json({ error: "Identificador inválido." }, { status: 400 });
   }
 
-  const bruto = obterImportacaoPorId(id);
+  const bruto =
+    (await findImportById(id)) ??
+    tryGetRequestCatalog()?.importacoes.find((item) => item.id === id);
   if (!bruto) {
     return Response.json({ error: "Importação não encontrada." }, { status: 404 });
   }
