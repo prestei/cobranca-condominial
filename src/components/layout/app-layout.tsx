@@ -79,7 +79,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <AppShellNavLink
             href="/condominios"
             icon={Building}
-            active={isActivePath(pathname, "/condominios")}
+            active={isActivePath(pathname ?? "", "/condominios")}
             count={counts.condominioCount}
           >
             Condomínios
@@ -87,23 +87,23 @@ export function AppLayout({ children }: AppLayoutProps) {
           <AppShellNavLink
             href="/unidades"
             icon={User}
-            active={isActivePath(pathname, "/unidades")}
+            active={isActivePath(pathname ?? "", "/unidades")}
             count={counts.unidadeCount}
           >
             Unidades
           </AppShellNavLink>
         </AppShellNavSection>
         <AppShellNavSection title="Análise">
-          <AppShellNavLink href="/relatorios" icon={FileBarChart} active={isActivePath(pathname, "/relatorios")}>
+          <AppShellNavLink href="/relatorios" icon={FileBarChart} active={isActivePath(pathname ?? "", "/relatorios")}>
             Relatórios
           </AppShellNavLink>
         </AppShellNavSection>
       </AppShellNav>
       <AppShellSidebarFooter>
-        <AppShellNavLink href="/ajuda" icon={HelpCircle} active={isActivePath(pathname, "/ajuda")}>
+        <AppShellNavLink href="/ajuda" icon={HelpCircle} active={isActivePath(pathname ?? "", "/ajuda")}>
           Ajuda e suporte
         </AppShellNavLink>
-        <AppShellNavLink href="/configuracoes" icon={Settings} active={isActivePath(pathname, "/configuracoes")}>
+        <AppShellNavLink href="/configuracoes" icon={Settings} active={isActivePath(pathname ?? "", "/configuracoes")}>
           Configurações
         </AppShellNavLink>
       </AppShellSidebarFooter>

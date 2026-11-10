@@ -140,9 +140,9 @@ export default function MinhaAgendaPage() {
           }
         />
 
-        {!carregando && !erro && user?.name ? (
+        {!carregando && !erro && user?.nome ? (
           <p className="text-body-sm text-on-surface-variant">
-            Agenda de {user.name}: contatos realizados e retornos agendados no mês.
+            Agenda de {user.nome}: contatos realizados e retornos agendados no mês.
           </p>
         ) : null}
       </PageContent>

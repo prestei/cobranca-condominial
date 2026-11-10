@@ -228,7 +228,7 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
                         key={link.href}
                         href={link.href}
                         icon={link.icon}
-                        active={navLinkAtivo(pathname, retornoNaUrl, link)}
+                        active={navLinkAtivo(pathname ?? "", retornoNaUrl, link)}
                         count={
                           link.count === "retornos" && retornos > 0
                             ? retornos

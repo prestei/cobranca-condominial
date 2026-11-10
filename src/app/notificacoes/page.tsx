@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
+import { Icon } from "@/components/icon";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { SkeletonCardList } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
@@ -56,7 +57,11 @@ export default function NotificacoesPage() {
         {carregando && listaCompleta.length === 0 ? (
           <SkeletonCardList rows={6} label="Carregando notificações" />
         ) : listaCompleta.length === 0 ? (
-          <EmptyState icon={Bell} title="Nenhuma notificação" description="Quando houver retornos ou redistribuições, os alertas aparecem aqui." />
+          <EmptyState
+            icon={<Icon icon={Bell} size="lg" />}
+            title="Nenhuma notificação"
+            description="Quando houver retornos ou redistribuições, os alertas aparecem aqui."
+          />
         ) : (
           <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-card">
             {listaCompleta.map((item) => (
