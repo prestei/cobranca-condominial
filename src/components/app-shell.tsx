@@ -20,7 +20,7 @@ import {
   useContext,
 } from "react";
 import { Icon } from "@/components/icon";
-import { SkeletonInlineList } from "@/components/skeleton";
+import { SkeletonAppHeader, SkeletonInlineList } from "@/components/skeleton";
 
 const SIDEBAR_WIDTH = "264px";
 
@@ -56,6 +56,7 @@ type AppShellProps = {
   children: ReactNode;
   user?: AppShellUser;
   headerPage?: AppShellHeaderPage;
+  headerCarregando?: boolean;
   notificationCount?: number;
   notificacoes?: AppShellNotificacao[];
   notificacoesCarregando?: boolean;
@@ -70,6 +71,7 @@ export function AppShell({
   children,
   user,
   headerPage,
+  headerCarregando = false,
   notificationCount = 0,
   notificacoes = [],
   notificacoesCarregando = false,
@@ -156,6 +158,7 @@ export function AppShell({
           <AppShellHeader
             user={user}
             headerPage={headerPage}
+            headerCarregando={headerCarregando}
             notificationCount={notificationCount}
             notificacoes={notificacoes}
             notificacoesCarregando={notificacoesCarregando}
@@ -326,6 +329,7 @@ export function AppShellSidebarFooter({ children, className, ...props }: AppShel
 type AppShellHeaderProps = {
   user?: AppShellUser;
   headerPage?: AppShellHeaderPage;
+  headerCarregando: boolean;
   notificationCount: number;
   notificacoes: AppShellNotificacao[];
   notificacoesCarregando: boolean;
@@ -349,6 +353,7 @@ function corDotNotificacao(evento: string) {
 function AppShellHeader({
   user,
   headerPage,
+  headerCarregando,
   notificationCount,
   notificacoes,
   notificacoesCarregando,
@@ -364,6 +369,15 @@ function AppShellHeader({
 }: AppShellHeaderProps) {
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
+      {headerCarregando ? (
+        <>
+          <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
+            <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
+          </AppShellIconButton>
+          <SkeletonAppHeader />
+        </>
+      ) : (
+      <>
       <div className="flex min-w-0 flex-1 items-center gap-sm">
         <AppShellIconButton label={toggleLabel} onClick={onToggleSidebar} className="min-[961px]:hidden">
           <Menu className="size-[22px]" strokeWidth={1.9} aria-hidden="true" />
@@ -510,6 +524,8 @@ function AppShellHeader({
           </div>
         ) : null}
       </div>
+      </>
+      )}
     </header>
   );
 }

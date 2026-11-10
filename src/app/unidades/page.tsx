@@ -4,6 +4,10 @@ import { useEffect, useId, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
 import {
+  ImportacaoWizardSheet,
+  type ImportacaoWizardHandle,
+} from "@/components/importacao-wizard/importacao-wizard-sheet";
+import {
   Building2,
   CheckCircle2,
   Flag,
@@ -28,7 +32,6 @@ import {
 } from "lucide-react";
 import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
 import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
-import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -159,6 +162,7 @@ function UnidadesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
+  const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
   const userIdEscopo = user?.userId;
   const condominiosVisiveis = useMemo(
@@ -543,10 +547,6 @@ function UnidadesPage() {
     setDeleteTarget(null);
   }
 
-  function celulaCobranca(item: Unidade) {
-    return <BadgeSituacaoCobranca situacao={situacaoCobrancaUnidade(item)} />;
-  }
-
   function contatoResponsavel(unidadeId: number) {
     const vinculosDaUnidade = cadastros.vinculos.filter((item) => item.unidadeId === unidadeId);
     const vinculo = vinculosDaUnidade.find((item) => item.principal) ?? vinculosDaUnidade[0];
@@ -588,9 +588,9 @@ function UnidadesPage() {
         </span>
       );
     }
-    // Em cobrança sem débitos na base = prévia sem confirmação ou sync incompleto — não é "em dia".
+    // Em cobrança sem débitos na base = importação incompleta ou sync — não é quitação/"em dia".
     if (unidadeNaFilaCobrancaAtiva(item)) {
-      return <Badge variant="secondary">Sem débitos</Badge>;
+      return <Badge variant="secondary">Aguardando débitos</Badge>;
     }
     return <Badge variant="success">Em dia</Badge>;
   }
@@ -599,14 +599,13 @@ function UnidadesPage() {
     "Unidade",
     "Condomínio",
     "Cadastro",
-    "Cobrança",
     "Débito",
     "Valor em aberto",
   ] as const;
 
   function textoDebitoExport(item: Unidade) {
     if (emDebitoOperacional(item)) return "Devendo";
-    if (unidadeNaFilaCobrancaAtiva(item)) return "Sem débitos";
+    if (unidadeNaFilaCobrancaAtiva(item)) return "Aguardando débitos";
     return "Em dia";
   }
 
@@ -620,14 +619,13 @@ function UnidadesPage() {
       item.identificacao,
       nomeCondominio(item.condominioId),
       item.status,
-      situacaoCobrancaUnidade(item),
       textoDebitoExport(item),
       valorAbertoExport(item),
     ]);
   }
 
   function abrirImportacao() {
-    router.push("/importacoes?modulo=unidades&abrir=1");
+    importacaoWizardRef.current?.abrir("unidades");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -889,7 +887,6 @@ function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
-          <TableHead>Cobrança</TableHead>
           <TableHead sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
@@ -898,7 +895,7 @@ function UnidadesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -925,7 +922,6 @@ function UnidadesPage() {
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell>{celulaCobranca(item)}</TableCell>
               <TableCell>{celulaDebito(item)}</TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableRow>
@@ -977,7 +973,6 @@ function UnidadesPage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-xs">
                     <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-                    {celulaCobranca(item)}
                   </div>
                 </div>
               </div>
@@ -1456,6 +1451,9 @@ function UnidadesPage() {
         cancelLabel="Cancelar"
         onConfirm={confirmDelete}
       />
+      {podeImportar ? (
+        <ImportacaoWizardSheet ref={importacaoWizardRef} moduloInicial="unidades" moduloTravado />
+      ) : null}
     </WorkspaceShell>
   );
 }

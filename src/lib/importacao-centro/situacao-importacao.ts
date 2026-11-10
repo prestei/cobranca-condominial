@@ -83,8 +83,8 @@ export function rotuloSituacaoImportacao(status: string): string {
   const sit = normalizarSituacaoImportacao(status);
   const rotulos: Record<SituacaoImportacao, string> = {
     "Em processamento": "Em processamento",
-    "Aguardando conferencia": "Aguardando conferência",
-    "Aguardando aprovacao": "Aguardando aprovação",
+    "Aguardando conferencia": "Em conferência",
+    "Aguardando aprovacao": "Em conferência",
     Aprovada: "Aprovada",
     Concluida: "Concluída",
     "Concluida parcialmente": "Concluída parcialmente",

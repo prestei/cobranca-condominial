@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 import { readSessionToken } from "@/lib/auth/jwt";
-import { identityPgDisponivel, permissoesDoUsuarioIdPg } from "@/lib/db/identity-pg";
 import { moduloDaRota } from "@/lib/permissions/modulos";
 import { podeAcessarRota } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { permissoesVazias } from "@/lib/permissions/parse";
 
 const PUBLIC_PREFIXES = ["/login", "/api/auth/", "/design-system", "/acesso-negado"];
 
@@ -63,10 +62,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Permissões no JWT (gravadas no login/refresh a partir do PostgreSQL) — sem importar `pg` no proxy.
   const modulo = moduloDaRota(pathname);
-  const permissoes = identityPgDisponivel()
-    ? ((await permissoesDoUsuarioIdPg(session.userId)) ?? permissoesDoUsuarioId(session.userId))
-    : permissoesDoUsuarioId(session.userId);
+  const permissoes = session.permissoes ?? permissoesVazias();
   if (!podeAcessarRota(permissoes, modulo)) {
     const destino = new URL("/acesso-negado", request.url);
     destino.searchParams.set("modulo", modulo);

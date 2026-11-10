@@ -5,8 +5,14 @@ import {
   PERMISSAO_JSON_ADMIN,
   PERMISSAO_JSON_ADVOGADO,
   PERMISSAO_JSON_ATENDENTE,
+  permissoesPadraoPorNome,
 } from "@/lib/permissions/seeds";
-import { parsePermissoesJson, permissoesVazias } from "@/lib/permissions/parse";
+import {
+  cargoTemAlgumaPermissao,
+  parsePermissoesJson,
+  permissoesVazias,
+  serializarPermissoes,
+} from "@/lib/permissions/parse";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
 import type { PoolClient } from "pg";
 
@@ -215,7 +221,31 @@ export async function excluirUsuarioPg(usuarioId: number): Promise<boolean> {
   return Boolean(res);
 }
 
-/** Garante cargos padrão e admin Prestei quando o banco de identidade está vazio. */
+/**
+ * Repara `role.permissao_json` vazio/inválido dos cargos de fábrica (Administrador, Atendente, Advogado).
+ * Não sobrescreve cargos com ao menos uma permissão já marcada.
+ */
+async function repararPermissoesCargosPadraoPg(cargos: Cargo[]): Promise<Cargo[]> {
+  let reparou = false;
+  for (const cargo of cargos) {
+    const atual = parsePermissoesJson(cargo.permissaoJson);
+    if (cargoTemAlgumaPermissao(atual)) continue;
+    const padrao = permissoesPadraoPorNome(cargo.nome);
+    if (!padrao) continue;
+    const ok = await upsertCargoPg({
+      ...cargo,
+      permissaoJson: serializarPermissoes(padrao),
+    });
+    if (ok) {
+      reparou = true;
+      console.info(`[pg] Cargo "${cargo.nome}" (id=${cargo.id}): permissao_json reparado a partir do padrão.`);
+    }
+  }
+  if (!reparou) return cargos;
+  return (await listarCargosPg()) ?? cargos;
+}
+
+/** Garante cargos padrão e admin Prestei quando o banco de identidade está vazio; repara JSON vazio. */
 export async function garantirIdentidadeInicialPg(): Promise<{ cargos: Cargo[]; usuarios: Usuario[] } | null> {
   if (!identityPgDisponivel()) return null;
 
@@ -226,6 +256,8 @@ export async function garantirIdentidadeInicialPg(): Promise<{ cargos: Cargo[]; 
     }
     cargos = (await listarCargosPg()) ?? [];
     console.info("[pg] Cargos padrão gravados no PostgreSQL.");
+  } else {
+    cargos = await repararPermissoesCargosPadraoPg(cargos);
   }
 
   let usuarios = (await listarUsuariosPg()) ?? [];

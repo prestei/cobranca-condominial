@@ -64,7 +64,7 @@ Cargo do colaborador. As permissões ficam em JSON.
 | id | INT | não | PK, autoincremento | |
 | nome | VARCHAR(255) | sim | | Nome do cargo |
 | descricao | VARCHAR(255) | sim | | |
-| permissao_json | TEXT | sim | | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. |
+| permissao_json | TEXT | sim | | Permissões em JSON: por módulo (`dashboard`, `atendimentos`, `debitos`, `condominios`, `unidades`, `relatorios`, `importacoes`, `usuarios`, `cargos`, `auditoria`) e ação (`ler`, `criar`, `editar`, `excluir`, `exportar` em relatórios). Ver `src/lib/permissions/modulos.ts`. Cargos de fábrica com JSON vazio/`{}` são reparados na subida (`garantirIdentidadeInicialPg`) e pela migration `2026-11-11-reparar-permissao-json-cargos-padrao.sql`. |
 | ativo | BOOLEAN | não | padrão `true` | Cargo inativo não deve ser atribuído a novos colaboradores |
 
 ## user

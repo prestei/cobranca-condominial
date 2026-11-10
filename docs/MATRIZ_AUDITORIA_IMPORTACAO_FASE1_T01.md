@@ -19,7 +19,7 @@ Nenhuma rota de `src/app/**/page.tsx` ficou de fora.
 | Área | Rota | Tela | Subáreas / painéis | Listagem / cadastro | Relacionamentos principais |
 | --- | --- | --- | --- | --- | --- |
 | **Início** | `/` | `page.tsx` → `DashboardHome` | Visão Administradora / Atendente / Advogado; KPIs; busca global; exportação de carteira (dashboard) | Agregados | `user`, `unit`, `debt`, `service_ticket` |
-| **Atendimentos** | `/atendimentos` | `atendimentos/page.tsx` | **Fila de cobranças**; filtro **retorno** (`?retorno=`); painel **operacional** (`?operacional=`); **distribuição automática** (visão geral); sheet **Registrar contato**; sheets de negociação/histórico na fila | Fila paginada; palitagem | `unit` → `condominium`, `responsible_party`, `debt`, `collection_assignment`, `negotiation_proposal` |
+| **Atendimentos** | `/atendimentos` | `atendimentos/page.tsx` | **Fila de cobranças**; filtro **retorno** (`?retorno=`); painel **operacional** (`?operacional=`); **Configurar Distribuição** no header (Administradora); sheet **Registrar contato**; sheets de negociação/histórico na fila | Fila paginada; palitagem | `unit` → `condominium`, `responsible_party`, `debt`, `collection_assignment`, `negotiation_proposal` |
 | **Minha agenda** | `/atendimentos?retorno=hoje` | mesma tela | Recorte da fila por retorno (hoje / atrasado / semana) | Mesma fila | idem |
 | **Inadimplência** | `/debitos` | `debitos/page.tsx` | KPIs, gráfico, tabela de débitos; sheet cadastro/edição (3 etapas); quitação; **Importar** + **Exportar** | `debt` | `debt` → `unit`, `condominium` |
 | **Jurídico** | `/juridico` | `juridico/page.tsx` | Listagem de encaminhamentos; sheet T17 | `legal_case_referral`, `legal_document` | `unit`, `debt`, `user` |

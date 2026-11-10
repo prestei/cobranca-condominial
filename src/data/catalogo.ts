@@ -646,13 +646,14 @@ function montarCadastros(): Cadastros {
   };
 }
 
-/** Referência estável para SSR/hidratação (`useSyncExternalStore`). */
-export const cadastrosServerSnapshot: Cadastros = montarCadastros();
-
+/** Snapshot para SSR/hidratação (`useSyncExternalStore`) — atualizado após hidratação do PostgreSQL. */
+let cadastrosServerSnapshot: Cadastros = montarCadastros();
 let cadastrosClientSnapshot: Cadastros = cadastrosServerSnapshot;
 
 function atualizarCadastrosSnapshot() {
-  cadastrosClientSnapshot = montarCadastros();
+  const montado = montarCadastros();
+  cadastrosClientSnapshot = montado;
+  cadastrosServerSnapshot = montado;
 }
 
 export function getCadastros() {
@@ -680,13 +681,18 @@ export function buscarUsuarioPorCodigoLogin(codigo: string) {
   return usuariosIniciais.find((item) => usuarioCorrespondeAoLogin(item, chave));
 }
 
+/** Registrado em `instrumentation.ts` — evita importar `pg` no grafo do client. */
+type AgendadorPersistenciaCatalogo = (obter: () => Cadastros) => void;
+let agendadorPersistenciaCatalogo: AgendadorPersistenciaCatalogo | null = null;
+
+export function registrarAgendadorPersistenciaCatalogo(fn: AgendadorPersistenciaCatalogo) {
+  agendadorPersistenciaCatalogo = fn;
+}
+
 function sinalizarPersistenciaCatalogo() {
   if (typeof window !== "undefined") return;
   if (pularPersistenciaCatalogo) return;
-  // Persistência durável exclusiva no PostgreSQL.
-  void import("@/lib/db/catalogo-snapshot-pg").then((modulo) => {
-    modulo.agendarPersistenciaCatalogoNoPostgres(exportarEstadoCatalogoParaPersistencia);
-  });
+  agendadorPersistenciaCatalogo?.(exportarEstadoCatalogoParaPersistencia);
 }
 
 /** Substitui o estado operacional (ex.: restauração após reinício do servidor). */

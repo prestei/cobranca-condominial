@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  serverExternalPackages: ["pdfjs-dist"],
+  // `pg` e afins só no servidor (proxy Node + APIs) — não empacotar no bundle do browser.
+  serverExternalPackages: ["pdfjs-dist", "pg", "pg-native", "pg-connection-string", "pgpass"],
 };
 
 export default nextConfig;

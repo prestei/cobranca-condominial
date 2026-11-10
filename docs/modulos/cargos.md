@@ -39,6 +39,8 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 Persistência em PostgreSQL (`role` via `src/lib/db/identity-pg.ts`). Cache de processo só espelha o banco. Modelo lógico em `docs/banco.md` (`role.permissao_json`).
 
+Na subida, `garantirIdentidadeInicialPg` grava cargos padrão se a tabela estiver vazia e **repara** `permissao_json` vazio/`{}` dos cargos de fábrica (Administrador, Atendente, Advogado) a partir de `src/lib/permissions/seeds.ts` — sem sobrescrever cargos que já tenham alguma permissão. Migration `docs/migrations/2026-11-11-reparar-permissao-json-cargos-padrao.sql` aplica o mesmo reparo no banco. Login/sessão e `requirePermissao` leem `role.permissao_json` no PostgreSQL (`src/lib/permissions/resolver.ts`); o proxy usa o snapshot de permissões gravado no JWT (atualizado no login e em `GET /api/auth/session`). O menu no cliente usa apenas o payload da sessão, sem seed local. Sem Docker: deploy via systemd + PostgreSQL local (`npm run vps:push`).
+
 ## API e contratos
 
 | Método | Path | Permissão | Resposta |
@@ -60,7 +62,7 @@ Serviço: `src/lib/cargos/service.ts`. Sessão: `cargoId` no JWT (`SessionUser` 
 
 - Todo cargo deve ter ao menos uma permissão marcada ao salvar.
 - Cargo em uso por colaboradores não pode ser excluído.
-- Menu e ações no cliente usam as permissões da sessão (`GET /api/auth/session`); o proxy revalida no servidor a cada navegação com o catálogo persistido.
+- Menu e ações no cliente usam as permissões da sessão (`GET /api/auth/session`); o proxy revalida no servidor a cada navegação lendo `role.permissao_json` no PostgreSQL (sem fallback para seed em memória).
 
 ## Integrações
 

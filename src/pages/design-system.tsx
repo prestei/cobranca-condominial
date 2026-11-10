@@ -38,11 +38,13 @@ import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon, iconSizes, iconStrokeWidths, type IconSize } from "@/components/icon";
 import {
+  SkeletonAppHeader,
   SkeletonCardList,
   SkeletonDashboard,
   SkeletonForm,
   SkeletonListPage,
   SkeletonMetrics,
+  SkeletonSidebarNav,
   SkeletonTable,
 } from "@/components/skeleton";
 import {
@@ -1315,6 +1317,18 @@ export default function DesignSystemPage() {
               <div>
                 <h3 className="mb-md text-label-lg text-on-surface">Página de listagem</h3>
                 <SkeletonListPage metrics={3} rows={4} cols={4} label="Exemplo de listagem" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Menu lateral</h3>
+                <div className="max-w-[264px] overflow-hidden rounded-xl bg-primary-container py-xs">
+                  <SkeletonSidebarNav label="Exemplo de menu lateral" />
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Header</h3>
+                <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card px-md py-sm">
+                  <SkeletonAppHeader label="Exemplo de cabeçalho" />
+                </div>
               </div>
             </div>
           </Panel>

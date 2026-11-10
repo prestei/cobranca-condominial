@@ -28,8 +28,13 @@ import {
   TableRow,
   type TableSortDirection,
 } from "@/components/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
+import {
+  agruparEncaminhamentosPorCondominio,
+  JuridicoPorCondominioLista,
+} from "@/components/juridico/juridico-por-condominio-lista";
 import {
   escopoCondominios,
   formatarData,
@@ -54,6 +59,7 @@ const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral">
 };
 
 type SortKey = "encaminhado" | "condominio" | "unidade" | "advogado" | "status" | "documentos";
+type VisaoListagem = "geral" | "condominio";
 
 type DetalheAberto = {
   encaminhamentoId: string;
@@ -89,6 +95,7 @@ export default function JuridicoPage() {
   const [appliedCondominio, setAppliedCondominio] = useState("todos");
   const [appliedAdvogado, setAppliedAdvogado] = useState("todos");
 
+  const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sortKey, setSortKey] = useState<SortKey>("encaminhado");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -150,6 +157,11 @@ export default function JuridicoPage() {
       return haystack.includes(query);
     })
     .sort((a, b) => {
+      if (visao === "condominio") {
+        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        if (condo !== 0) return condo;
+        return b.encaminhadoEm.localeCompare(a.encaminhadoEm);
+      }
       const factor = sortDirection === "asc" ? 1 : -1;
       const left =
         sortKey === "condominio"
@@ -178,6 +190,7 @@ export default function JuridicoPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
+  const gruposCondominio = useMemo(() => agruparEncaminhamentosPorCondominio(visible), [visible]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -251,7 +264,7 @@ export default function JuridicoPage() {
     />
   );
 
-  const desktopTable = (
+  const desktopTableGeral = (
     <Table aria-label="Encaminhamentos jurídicos" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -315,7 +328,7 @@ export default function JuridicoPage() {
     </Table>
   );
 
-  const mobileTable =
+  const mobileTableGeral =
     visible.length === 0 ? (
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
@@ -369,6 +382,26 @@ export default function JuridicoPage() {
         ))}
       </TableMobileList>
     );
+
+  const desktopTableCondominio = (
+    <JuridicoPorCondominioLista
+      condominios={gruposCondominio}
+      cadastros={cadastros}
+      emptyState={emptyState}
+      onAbrir={abrirDetalhe}
+      variante="desktop"
+    />
+  );
+
+  const mobileTableCondominio = (
+    <JuridicoPorCondominioLista
+      condominios={gruposCondominio}
+      cadastros={cadastros}
+      emptyState={emptyState}
+      onAbrir={abrirDetalhe}
+      variante="mobile"
+    />
+  );
 
   return (
     <WorkspaceShell>
@@ -477,12 +510,33 @@ export default function JuridicoPage() {
           />
         </FiltrosSection>
 
-        <section className="flex flex-col gap-md">
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} />
-        </section>
-        {visible.length > 0 ? (
-          <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-        ) : null}
+        <Tabs
+          value={visao}
+          onValueChange={(value) => {
+            setVisao(value as VisaoListagem);
+            setPage(1);
+          }}
+          defaultValue="condominio"
+          className="flex flex-col gap-md"
+        >
+          <TabsList>
+            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+          </TabsList>
+          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTableCondominio}
+              mobile={mobileTableCondominio}
+              showExport={false}
+            />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
+          </TabsContent>
+        </Tabs>
           </>
         )}
       </PageContent>

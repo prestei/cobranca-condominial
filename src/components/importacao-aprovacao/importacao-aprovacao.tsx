@@ -45,7 +45,7 @@ export function ImportacaoAprovacao({
       ) : null}
 
       <section className="rounded-lg border border-border-subtle bg-surface-card p-md shadow-card">
-        <h3 className="mb-sm text-headline-sm text-on-surface">Resumo final antes da gravação</h3>
+        <h3 className="mb-sm text-headline-sm text-on-surface">Resumo da conferência nesta importação</h3>
         <dl className="grid gap-sm text-body-sm min-[480px]:grid-cols-2">
           <div>
             <dt className="text-on-surface-variant">Módulo de destino</dt>
@@ -104,8 +104,8 @@ export function ImportacaoAprovacao({
       </p>
 
       <p className="text-body-sm text-on-surface-variant">
-        Responsável pela aprovação: <span className="font-medium text-on-surface">{usuarioResponsavel}</span>. O
-        sistema registrará usuário e horário ao confirmar.
+        Responsável pela conferência: <span className="font-medium text-on-surface">{usuarioResponsavel}</span>. O
+        sistema registrará usuário e horário ao confirmar a gravação.
       </p>
 
       <div className="flex flex-col gap-sm rounded-lg border border-border-subtle p-md">
@@ -119,7 +119,7 @@ export function ImportacaoAprovacao({
             onChange={(event) => onConfirmacaoMarcadaChange(event.target.checked)}
           />
           <span>
-            Confirmo explicitamente que revisei o resumo e autorizo a gravação dos registros indicados acima.
+            Confirmei a conferência dos registros nesta importação e autorizo a gravação.
           </span>
         </label>
 

@@ -13,7 +13,7 @@ Consultar e acompanhar débitos por unidade e condomínio, com valores e situaç
 
 ## Rotas e telas
 
-- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs (original, atualizado, faixas até/acima do limite), gráfico de unidades inadimplentes, filtros e tabela com **Importar** / **Exportar** no mesmo padrão das demais listagens (`showImport` + `onExport` no `ResponsiveTable`; Importar exige `importacoes.criar` e abre `/importacoes?modulo=debitos&abrir=1`), cadastro/edição em sheet (três etapas), confirmação de unidade quitada.
+- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs, filtros, gráficos de percentuais (rosca de unidades + barras de valor por faixa de atraso, sem título de seção) e listagem em **abas** — **Por condomínio** (padrão, à frente: todos os condomínios na tela, painel recolhível, tabela e paginação por condomínio) e **Geral** (tabela plana). Ação do cabeçalho **Nova inadimplência**; **Importar** / **Exportar** no `ResponsiveTable`; cadastro/edição em sheet; confirmação de unidade quitada.
 
 ## Perfis e permissões
 
@@ -55,8 +55,8 @@ Serviço: `src/lib/debitos/service.ts`. Sincronização cliente: `src/lib/debito
 
 ## Fluxos principais
 
-1. **Listagem** — ao abrir, sincroniza condomínios (`/api/condominios`) e unidades (`/api/unidades`) no catálogo do cliente, depois carrega `/api/debitos`; layout: KPIs, **filtros**, bloco de percentuais, tabela; filtros locais (período, data-base, cidade, origem, situação); **Importar** (wizard central em `/importacoes`, módulo débitos) e exportação da tabela filtrada (CSV, XLS, PDF via impressão).
-2. **Indicadores** — totais na data-base usam valores persistidos; soma deduplica registros com o mesmo `identificadorExterno`.
+1. **Listagem** — ao abrir, sincroniza condomínios (`/api/condominios`) e unidades (`/api/unidades`) no catálogo do cliente, depois carrega `/api/debitos`; layout: KPIs, **filtros**, percentuais e abas **Geral** / **Por condomínio**; filtros locais (período, data-base, cidade, origem, situação); **Importar** (wizard in-place) e exportação conforme a aba ativa (CSV, XLS, PDF).
+2. **Indicadores** — totais na data-base usam valores persistidos; soma deduplica registros com o mesmo `identificadorExterno`. Os gráficos de percentuais mostram: (1) % de unidades com débito vencido ÷ total de unidades do recorte (`GraficoRosca`); (2) distribuição do valor atualizado **até** vs **acima** do limite de dias (`GraficoBarras`). Sem título de seção “Percentuais”; cada gráfico mantém o próprio título. O % sobre valor emitido no período continua dependente de dado externo (API/cadastro) e não aparece até existir essa fonte.
 3. **Cadastro/edição manual** — selects de condomínio/unidade usam escopo do usuário; ao editar, recarrega cadastros relacionados e `GET /api/debitos/[id]` antes de preencher o sheet; API + auditoria; `fonteValores` = `manual`.
 4. **Importação** — atualiza `fonteValores` = `origem` e `atualizadoEm`; ver T13.
 5. **Quitação da unidade** — situação `Quitada` (fora da fila); atendimentos e débitos históricos permanecem.

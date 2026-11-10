@@ -11,11 +11,9 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { FileUp } from "lucide-react";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FormSteps } from "@/components/form-steps";
-import { Icon } from "@/components/icon";
 import { FormField, Select } from "@/components/input";
 import {
   Sheet,
@@ -27,11 +25,10 @@ import {
   SheetFooterForm,
   SheetForm,
   SheetHeader,
-  SheetHeaderIcon,
-  SheetHeaderLead,
-  SheetHeaderText,
   SheetTitle,
 } from "@/components/sheet";
+import { ImportacaoArquivoCampo } from "@/components/importacao-wizard/importacao-arquivo-campo";
+import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importacao-wizard-loading";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -39,7 +36,6 @@ import { agoraIso, type Debito, type Condominio, type Unidade, type Responsavel,
 import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
   configWizardImportacao,
-  MODULOS_WIZARD_IMPORTACAO,
   moduloWizardValido,
   type ModuloWizardImportacao,
 } from "@/lib/importacoes/config-wizard-importacao";
@@ -65,11 +61,10 @@ import {
 } from "@/components/importacao-aprovacao/importacao-aprovacao";
 import { ImportacaoResultado } from "@/components/importacao-aprovacao/importacao-resultado";
 import type { DecisaoLinhaImportacao } from "@/lib/importacao-centro/detecao-duplicidades/types";
-import { linhaSeraGravada } from "@/lib/importacao-centro/pre-visualizacao";
 import { normalizarSituacaoImportacao } from "@/lib/importacao-centro/situacao-importacao";
 import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
 
-const etapas = ["Arquivo", "Prévia", "Aprovação", "Resultado"] as const;
+const etapas = ["Arquivo", "Conferência", "Resultado"] as const;
 
 export type ImportacaoWizardHandle = {
   abrir: (modulo?: ModuloWizardImportacao) => void;
@@ -118,12 +113,6 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
 
   const configModulo = useMemo(() => configWizardImportacao(moduloWizard), [moduloWizard]);
 
-  const mapaDecisoesConfirmacao = useMemo(
-    () => new Map(decisoesLinha.map((item) => [item.linha, item.acao])),
-    [decisoesLinha],
-  );
-  const conjuntoIgnoradas = useMemo(() => new Set(linhasIgnoradas), [linhasIgnoradas]);
-
   function resetWizardForModulo(modulo: ModuloWizardImportacao) {
     setModuloWizard(modulo);
     setStep(0);
@@ -150,7 +139,7 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
   }
 
   const closeSheet = useCallback(() => {
-    if (step === 3 && resultado) {
+    if (step === 2 && resultado) {
       setSheetOpen(false);
       resetWizardForModulo(moduloWizard);
       return;
@@ -243,10 +232,15 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
     },
   }));
 
-  async function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    event.target.value = "";
-    if (!arquivo) return;
+  function limparArquivoSelecionado() {
+    setErroArquivo("");
+    setProcessoId("");
+    setHashRecebimento("");
+    setNomeArquivo("");
+    if (arquivoRef.current) arquivoRef.current.value = "";
+  }
+
+  async function processarArquivo(arquivo: File) {
     setErroArquivo("");
     if (arquivo.size > LIMITES_ARQUIVO_IMPORTACAO.tamanhoMaximoBytes) {
       setErroArquivo(mensagemTamanhoMaximoArquivo());
@@ -316,11 +310,12 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
     }
   }
 
-  const gravacaoNaPrevia = useMemo(() => {
-    if (!preview) return 0;
-    return preview.linhas.filter((item) => linhaSeraGravada(item, conjuntoIgnoradas, mapaDecisoesConfirmacao))
-      .length;
-  }, [preview, conjuntoIgnoradas, mapaDecisoesConfirmacao]);
+  async function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!arquivo) return;
+    await processarArquivo(arquivo);
+  }
 
   const avancoPrevia = useMemo(() => {
     if (!preview?.resumoAprovacao) {
@@ -458,7 +453,7 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
       }
       aplicarImportacaoSalva(body.resultado.importacao);
       setResultado(body.resultado);
-      setStep(3);
+      setStep(2);
       onHistoricoAtualizado?.();
       const sitFinal = normalizarSituacaoImportacao(body.resultado.importacao.status);
       const parcialFinal = sitFinal === "Concluida parcialmente";
@@ -492,31 +487,18 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         toast({
           variant: "error",
           title: "Sem permissão",
-          description: "Você não pode aprovar importações. Solicite a permissão de alterar no módulo Importações.",
+          description: "Você não pode confirmar importações. Solicite a permissão de alterar no módulo Importações.",
         });
         return;
       }
       if (!avancoPrevia.pode) {
         toast({
           variant: "error",
-          title: "Não é possível seguir",
-          description: avancoPrevia.motivo ?? "Revise a prévia antes de continuar.",
+          title: "Não é possível gravar",
+          description: avancoPrevia.motivo ?? "Revise a conferência antes de gravar.",
         });
         return;
       }
-      setConfirmacaoMarcada(false);
-      setCienciaParcial(false);
-      setConfirmacaoJaEnviada(false);
-      setStep(2);
-      if (processoId) {
-        void fetch(`/api/importacoes/processo/${encodeURIComponent(processoId)}/aprovacao`, {
-          method: "POST",
-          credentials: "same-origin",
-        }).then(() => onHistoricoAtualizado?.());
-      }
-      return;
-    }
-    if (step === 2) {
       if (
         !preview?.resumoAprovacao ||
         !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
@@ -525,12 +507,23 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           permissaoAprovar: podeAprovarImportacao,
         })
       ) {
+        toast({
+          variant: "error",
+          title: "Confirme a conferência",
+          description: "Marque a confirmação no final desta etapa para gravar a importação.",
+        });
         return;
+      }
+      if (processoId) {
+        void fetch(`/api/importacoes/processo/${encodeURIComponent(processoId)}/aprovacao`, {
+          method: "POST",
+          credentials: "same-origin",
+        }).then(() => onHistoricoAtualizado?.());
       }
       void executarImportacao();
       return;
     }
-    if (step === 3) {
+    if (step === 2) {
       concluirWizardImportacao();
     }
   }
@@ -557,130 +550,108 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           aria-describedby={`${formId}-desc`}
         >
           <SheetForm id={wizardFormId} onSubmit={handleFormSubmit}>
-            <SheetHeader>
-              <SheetHeaderLead>
-                <SheetHeaderIcon>
-                  <Icon icon={FileUp} size="md" />
-                </SheetHeaderIcon>
-                <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>{configModulo.tituloSheet}</SheetTitle>
-                  <SheetDescription id={`${formId}-desc`}>
-                    Formato {configModulo.formato}. Quem executa é o login atual ({sessao?.nome ?? "—"}).
-                  </SheetDescription>
-                </SheetHeaderText>
-              </SheetHeaderLead>
+            <SheetHeader className="items-center">
+              <div className="min-w-0 flex-1 pr-sm">
+                <SheetTitle id={`${formId}-title`} className="sr-only">
+                  {configModulo.tituloSheet}
+                </SheetTitle>
+                <SheetDescription id={`${formId}-desc`} className="sr-only">
+                  Formato {configModulo.formato}. Quem executa é o login atual ({sessao?.nome ?? "—"}).
+                </SheetDescription>
+                <FormSteps steps={etapas} current={step} />
+              </div>
               <SheetClose />
             </SheetHeader>
-            <SheetBody>
-              <FormSteps steps={etapas} current={step} />
-              {step === 0 ? (
-                <>
-                  <FormField label="O que importar" htmlFor={`${formId}-modulo`} required>
-                    <Select
-                      id={`${formId}-modulo`}
-                      value={moduloWizard}
-                      onChange={(event) => {
-                        const valor = event.target.value;
-                        if (moduloWizardValido(valor)) resetWizardForModulo(valor);
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <SheetBody aria-busy={processando || undefined}>
+                {step === 0 ? (
+                  <>
+                    <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
+                      <Select
+                        id={`${formId}-origem`}
+                        value={origem}
+                        invalid={Boolean(erroOrigem)}
+                        onChange={(event) => setOrigem(event.target.value)}
+                      >
+                        <option value="">Selecione</option>
+                        {configModulo.origens.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                    <FormField label="Arquivo" required error={erroArquivo}>
+                      <ImportacaoArquivoCampo
+                        nomeArquivo={nomeArquivo}
+                        descricao={configModulo.descricaoArquivo}
+                        error={erroArquivo}
+                        processando={processando}
+                        onEscolher={() => arquivoRef.current?.click()}
+                        onArquivo={(arquivo) => void processarArquivo(arquivo)}
+                        onRemover={limparArquivoSelecionado}
+                      />
+                    </FormField>
+                  </>
+                ) : null}
+
+                {step === 1 && preview ? (
+                  <div className="flex flex-col gap-lg">
+                    <ImportacaoPreVisualizacao
+                      cabecalho={{
+                        nomeArquivo: preview.arquivo,
+                        moduloDestino: preview.moduloDestino,
+                        moduloRotulo: ROTULO_MODULO_IMPORTACAO[preview.moduloDestino] ?? "Inadimplência",
+                        usuarioResponsavel: sessao?.nome ?? "—",
+                        dataHoraImportacao: dataHoraPrevia,
+                        origem: preview.origem,
+                        quantidadeRegistros: preview.quantidadeRegistros,
+                        contagens: preview.contagensPrevia,
+                        arquivoJaImportado: preview.arquivoJaImportado,
                       }}
-                    >
-                      {MODULOS_WIZARD_IMPORTACAO.map((item) => (
-                        <option key={item} value={item}>
-                          {ROTULO_MODULO_IMPORTACAO[item] ?? item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
-                    <Select
-                      id={`${formId}-origem`}
-                      value={origem}
-                      invalid={Boolean(erroOrigem)}
-                      onChange={(event) => setOrigem(event.target.value)}
-                    >
-                      <option value="">Selecione</option>
-                      {configModulo.origens.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Arquivo" required error={erroArquivo}>
-                    <div className="flex flex-col gap-sm">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => arquivoRef.current?.click()}>
-                        Escolher arquivo
-                      </Button>
-                      <p className="text-body-sm text-on-surface-variant">
-                        {nomeArquivo ? nomeArquivo : configModulo.descricaoArquivo}
-                      </p>
-                    </div>
-                  </FormField>
-                </>
-              ) : null}
+                      linhas={preview.linhas}
+                      sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
+                      hashArquivo={preview.hashArquivo}
+                      onPreviewAtualizado={(proximo) => {
+                        setPreview(proximo);
+                        setDecisoesLinha([]);
+                      }}
+                      onLinhasIgnoradasChange={setLinhasIgnoradas}
+                      permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
+                      podeContinuarAprovacao={avancoPrevia.pode}
+                      motivoBloqueioContinuar={avancoPrevia.motivo}
+                    />
+                    {preview.resumoAprovacao ? (
+                      <ImportacaoAprovacao
+                        resumo={preview.resumoAprovacao}
+                        usuarioResponsavel={sessao?.nome ?? "—"}
+                        confirmacaoMarcada={confirmacaoMarcada}
+                        onConfirmacaoMarcadaChange={setConfirmacaoMarcada}
+                        cienciaParcial={cienciaParcial}
+                        onCienciaParcialChange={setCienciaParcial}
+                        confirmacaoJaEnviada={confirmacaoJaEnviada}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
 
-              {step === 1 && preview ? (
-                <ImportacaoPreVisualizacao
-                  cabecalho={{
-                    nomeArquivo: preview.arquivo,
-                    moduloDestino: preview.moduloDestino,
-                    moduloRotulo: ROTULO_MODULO_IMPORTACAO[preview.moduloDestino] ?? "Inadimplência",
-                    usuarioResponsavel: sessao?.nome ?? "—",
-                    dataHoraImportacao: dataHoraPrevia,
-                    origem: preview.origem,
-                    quantidadeRegistros: preview.quantidadeRegistros,
-                    contagens: preview.contagensPrevia,
-                    arquivoJaImportado: preview.arquivoJaImportado,
-                  }}
-                  linhas={preview.linhas}
-                  sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
-                  hashArquivo={preview.hashArquivo}
-                  onPreviewAtualizado={(proximo) => {
-                    setPreview(proximo);
-                    setDecisoesLinha([]);
-                  }}
-                  onVoltarArquivo={() => {
-                    setStep(0);
-                    setPreview(null);
-                    setDataHoraPrevia("");
-                    setLinhasIgnoradas([]);
-                    setDecisoesLinha([]);
-                  }}
-                  onCancelar={closeSheet}
-                  onLinhasIgnoradasChange={setLinhasIgnoradas}
-                  decisoesLinha={decisoesLinha}
-                  onDecisoesLinhaChange={setDecisoesLinha}
-                  permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
-                  permissaoDecidirConflito={podeAprovarImportacao}
-                  gravacaoPrevista={gravacaoNaPrevia}
-                  podeContinuarAprovacao={avancoPrevia.pode}
-                  motivoBloqueioContinuar={avancoPrevia.motivo}
-                  processandoContinuar={processando}
-                  wizardFormId={wizardFormId}
+                {step === 2 && resultado ? (
+                  <ImportacaoResultado
+                    resultado={resultado}
+                    moduloDestino={moduloWizard}
+                    exibirManualProtegido={moduloWizard === "debitos"}
+                  />
+                ) : null}
+              </SheetBody>
+              {processando ? (
+                <ImportacaoWizardLoading
+                  step={step}
+                  label={step === 1 && confirmacaoJaEnviada ? "Gravando importação" : undefined}
+                  className="absolute inset-0 z-10"
                 />
               ) : null}
-
-              {step === 2 && preview?.resumoAprovacao ? (
-                <ImportacaoAprovacao
-                  resumo={preview.resumoAprovacao}
-                  usuarioResponsavel={sessao?.nome ?? "—"}
-                  confirmacaoMarcada={confirmacaoMarcada}
-                  onConfirmacaoMarcadaChange={setConfirmacaoMarcada}
-                  cienciaParcial={cienciaParcial}
-                  onCienciaParcialChange={setCienciaParcial}
-                  confirmacaoJaEnviada={confirmacaoJaEnviada}
-                />
-              ) : null}
-
-              {step === 3 && resultado ? (
-                <ImportacaoResultado
-                  resultado={resultado}
-                  moduloDestino={moduloWizard}
-                  exibirManualProtegido={moduloWizard === "debitos"}
-                />
-              ) : null}
-            </SheetBody>
-            {step === 3 ? (
+            </div>
+            {step === 2 ? (
               <SheetFooter>
                 <Button type="button" onClick={concluirWizardImportacao}>
                   Fechar
@@ -689,40 +660,27 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
             ) : (
               <SheetFooterForm
                 onClose={closeSheet}
-                onBack={
-                  step === 1
-                    ? () => setStep(0)
-                    : step === 2
-                      ? () => {
-                          setStep(1);
-                          setConfirmacaoMarcada(false);
-                          setCienciaParcial(false);
-                          setConfirmacaoJaEnviada(false);
-                        }
-                      : undefined
-                }
+                onBack={step === 1 ? () => setStep(0) : undefined}
                 saveLabel={
                   step === 0
                     ? processando
                       ? "Validando…"
                       : "Validar arquivo"
-                    : step === 1
-                      ? "Revisar aprovação"
-                      : processando
-                        ? "Gravando…"
-                        : "Confirmar e gravar"
+                    : processando
+                      ? "Gravando…"
+                      : "Confirmar e gravar"
                 }
                 saveDisabled={
                   processando ||
                   confirmacaoJaEnviada ||
-                  (step === 1 && !avancoPrevia.pode) ||
-                  (step === 2 &&
-                    preview?.resumoAprovacao !== undefined &&
-                    !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
-                      processando,
-                      confirmacaoJaEnviada,
-                      permissaoAprovar: podeAprovarImportacao,
-                    }))
+                  (step === 1 &&
+                    (!avancoPrevia.pode ||
+                      !preview?.resumoAprovacao ||
+                      !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
+                        processando,
+                        confirmacaoJaEnviada,
+                        permissaoAprovar: podeAprovarImportacao,
+                      })))
                 }
               />
             )}

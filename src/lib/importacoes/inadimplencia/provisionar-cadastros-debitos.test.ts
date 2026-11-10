@@ -43,7 +43,7 @@ test("provisionarCadastrosImportacaoDebitos cria condomínio, unidades e respons
   assert.equal(vinculosCriados.length, 2);
   assert.equal(getCadastros().condominios.length, antesCondominios + 1);
   assert.ok(getCadastros().unidades.some((item) => item.identificacao === "A-101"));
-  assert.equal(getCadastros().unidades.find((item) => item.identificacao === "A-101")?.situacao, "Em cobrança");
+  assert.equal(getCadastros().unidades.find((item) => item.identificacao === "A-101")?.situacao, "Sem cobrança");
   assert.ok(getCadastros().responsaveis.some((item) => item.nome === "Maria Silva"));
   assert.ok(
     getCadastros().vinculos.some((item) => {
@@ -204,4 +204,52 @@ test("prévia Residencial do Mar (PDF completo) exibe códigos de unidade no res
   assert.equal(processado.linhasInternas.filter((item) => !item.resumo?.unidade || item.resumo.unidade === "—").length, 0);
   assert.ok(processado.linhasInternas.some((item) => item.resumo?.unidade === "MB-0102"));
   assert.ok(processado.linhasInternas.some((item) => item.resumo?.unidade === "ME-0103"));
+  assert.ok(
+    getCadastros().unidades.every((item) => item.situacao === "Sem cobrança"),
+    "prévia não deve colocar unidade em cobrança antes de gravar débitos",
+  );
+});
+
+test("confirmação de débitos promove unidade Sem cobrança para Em cobrança", async () => {
+  resetCadastrosParaTestes();
+  setCondominios([]);
+  setUnidades([]);
+  setResponsaveis([]);
+  setVinculos([]);
+
+  const buffer = readFileSync("src/test/fixtures/relatorio-inadimplencia-solar-das-palmeiras.pdf");
+  const relatorio = await interpretarPdfInadimplencia(buffer);
+  assert.ok(relatorio);
+
+  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+    modo: "preview",
+    userId: 1,
+    origem: "PDF",
+    arquivo: "solar-confirm.pdf",
+    hashArquivo: "teste-promocao-cobranca-solar",
+    conteudo: "",
+    matrizPlanilha: relatorio.matriz,
+    metadadosRelatorio: { tipo: relatorio.formato, inconsistencias: relatorio.inconsistencias ?? [] },
+  });
+
+  assert.ok(getCadastros().unidades.every((item) => item.situacao === "Sem cobrança"));
+
+  const contexto = {
+    ...processado.contexto,
+    unidadeIdsComDebitoImportado: new Set<number>(),
+    debitosMutaveis: [...processado.contexto.debitosMutaveis],
+  };
+  for (const linha of processado.linhasInternas) {
+    if (!linha.payload || linha.situacao !== "novo") continue;
+    adaptadorImportacaoDebitos.persistirLinha(linha.payload, "novo", contexto, { origem: "PDF" });
+  }
+  adaptadorImportacaoDebitos.finalizarPersistencia(contexto);
+
+  const unidadesComDebito = new Set(getCadastros().debitos.map((item) => item.unidadeId));
+  assert.ok(unidadesComDebito.size >= 3);
+  for (const unidade of getCadastros().unidades) {
+    if (!unidadesComDebito.has(unidade.id)) continue;
+    assert.equal(unidade.situacao, "Em cobrança", unidade.identificacao);
+  }
+  assert.ok(getCadastros().debitos.every((item) => item.status === "Vencido"));
 });

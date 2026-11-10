@@ -29,19 +29,39 @@ if (!(await postgresOperacionalDisponivel())) {
 
 const existente = await carregarCatalogoSnapshotDoPostgres();
 const identidade = await carregarIdentidadeDoPostgres();
+if (!identidade) {
+  console.error("Identidade indisponível no PostgreSQL.");
+  process.exit(1);
+}
 if (existente) {
   substituirEstadoCatalogo({
     ...existente,
-    ...(identidade
-      ? {
-          cargos: identidade.cargos.length ? identidade.cargos : existente.cargos,
-          usuarios: identidade.usuarios.length ? identidade.usuarios : existente.usuarios,
-        }
-      : {}),
+    cargos: identidade.cargos,
+    usuarios: identidade.usuarios,
   });
-} else if (identidade) {
+} else {
   const atual = exportarEstadoCatalogoParaPersistencia();
-  substituirEstadoCatalogo({ ...atual, cargos: identidade.cargos, usuarios: identidade.usuarios });
+  substituirEstadoCatalogo({
+    ...atual,
+    condominios: [],
+    unidades: [],
+    responsaveis: [],
+    vinculos: [],
+    debitos: [],
+    atendimentos: [],
+    propostasNegociacao: [],
+    encaminhamentosJuridicos: [],
+    documentosJuridicos: [],
+    parcelasAcordo: [],
+    pagamentosAcordo: [],
+    atribuicoesCobranca: [],
+    importacoes: [],
+    auditoria: [],
+    notificacoesInternas: [],
+    notificacaoFalhas: [],
+    cargos: identidade.cargos,
+    usuarios: identidade.usuarios,
+  });
 }
 
 const ok = await salvarCatalogoSnapshotNoPostgres(exportarEstadoCatalogoParaPersistencia());

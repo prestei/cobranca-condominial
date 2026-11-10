@@ -4,9 +4,8 @@ import {
   proximoNumero,
   registrarAuditoria,
   setResponsaveis,
-  setUnidades,
   setVinculos,
-  situacaoCobrancaUnidade,
+  SITUACAO_COBRANCA_PADRAO,
   type Condominio,
   type Responsavel,
   type Unidade,
@@ -235,7 +234,7 @@ export function provisionarCadastrosImportacaoDebitos(
           continue;
         }
 
-        // Unidade que entra pela inadimplência já tem débito no arquivo → Em cobrança.
+        // Cadastro auxiliar na prévia: fica fora da fila até a confirmação gravar os débitos.
         const nova = criarUnidade(
           userId,
           {
@@ -244,32 +243,13 @@ export function provisionarCadastrosImportacaoDebitos(
             bloco,
             tipo: "Apartamento",
             status: "Ativa",
-            situacao: "Em cobrança",
+            situacao: SITUACAO_COBRANCA_PADRAO,
           },
           meta,
           { ignorarEscopo: true },
         );
         unidadesCriadas.push(nova);
         unidadeId = nova.id;
-      } else {
-        // Unidade já existia fora da fila: ao receber débitos da importação, entra em cobrança.
-        const existente = getCadastros().unidades.find((item) => item.id === unidadeId);
-        if (existente && situacaoCobrancaUnidade(existente) === "Sem cobrança") {
-          const atualizada: Unidade = { ...existente, situacao: "Em cobrança" };
-          setUnidades((current) => current.map((item) => (item.id === existente.id ? atualizada : item)));
-          registrarAuditoria(
-            {
-              entidade: "unit",
-              registroId: String(existente.id),
-              acao: "UPDATE",
-              dadosAnteriores: JSON.stringify({ situacao: existente.situacao }),
-              dadosNovos: JSON.stringify({ situacao: "Em cobrança" }),
-              camposAlterados: "situacao",
-            },
-            userId,
-            meta,
-          );
-        }
       }
 
       const nomeResponsavel = ref.responsavel?.trim() ?? "";

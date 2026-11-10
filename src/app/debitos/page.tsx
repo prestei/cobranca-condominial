@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, Suspense } from "react";
+import { useEffect, useId, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
+import {
+  ImportacaoWizardSheet,
+  type ImportacaoWizardHandle,
+} from "@/components/importacao-wizard/importacao-wizard-sheet";
+import {
+  agruparDebitosPorCondominio,
+  InadimplenciaPorCondominioLista,
+} from "@/components/debitos/inadimplencia-relatorio-table";
 import {
   Building2,
   Calendar,
@@ -23,9 +31,8 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
-import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
-import { GraficoRosca } from "@/components/charts";
+import { GraficoBarras, GraficoRosca } from "@/components/charts";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
@@ -54,6 +61,7 @@ import {
   SheetHeaderText,
   SheetTitle,
 } from "@/components/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   ResponsiveTable,
   Table,
@@ -81,7 +89,6 @@ import {
   type FaixaAtrasoDashboardId,
 } from "@/lib/dashboard/graficos-atendente";
 import {
-  acimaDoLimite,
   dataCorteLimite,
   debitoAbertoNaData,
   diasDeAtraso,
@@ -120,6 +127,8 @@ const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
   Vencido: "error",
   Cancelado: "error",
 };
+type SortKey = "referencia" | "unidade" | "grupo" | "vencimento" | "dias" | "status" | "original" | "atualizado";
+type VisaoListagem = "geral" | "condominio";
 type ErroCampo =
   | "condominioId"
   | "unidadeId"
@@ -133,8 +142,6 @@ type ErroCampo =
   | "correcao"
   | "valorAtualizado"
   | "valorPago";
-type SortKey = "referencia" | "unidade" | "grupo" | "vencimento" | "dias" | "status" | "original" | "atualizado";
-
 function moeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -204,6 +211,7 @@ function DebitosPage() {
   const { pode } = usePermissao();
   const podeImportar = pode("importacoes", "criar");
   const formId = useId();
+  const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
   const debitos = cadastros.debitos;
   const [search, setSearch] = useState("");
@@ -224,6 +232,7 @@ function DebitosPage() {
   const [appliedOrigem, setAppliedOrigem] = useState("todas");
   const [unidadeId, setUnidadeId] = useState("todas");
   const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
+  const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -351,6 +360,13 @@ function DebitosPage() {
       );
     })
     .sort((a, b) => {
+      if (visao === "condominio") {
+        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        if (condo !== 0) return condo;
+        const unidade = nomeUnidade(a.unidadeId).localeCompare(nomeUnidade(b.unidadeId), "pt-BR");
+        if (unidade !== 0) return unidade;
+        return a.dataVencimento.localeCompare(b.dataVencimento);
+      }
       const factor = sortDirection === "asc" ? 1 : -1;
       const diasDe = (item: Debito) =>
         item.dataVencimento && item.dataVencimento <= appliedDataBase
@@ -382,6 +398,10 @@ function DebitosPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
+  const gruposCondominio = useMemo(
+    () => agruparDebitosPorCondominio(visible, cadastros),
+    [visible, cadastros],
+  );
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -409,9 +429,13 @@ function DebitosPage() {
   const unidadesDevedoras = indicadores.unidadesDevedoras;
   const percentualUnidades = indicadores.percentualUnidades;
   const unidadesEmDia = Math.max(0, unidadesCarteira - unidadesDevedoras);
+  const percentualValorAcima =
+    totalAtualizado > 0 ? (acimaLimite / totalAtualizado) * 100 : null;
+  const percentualValorAte =
+    totalAtualizado > 0 ? (ateLimite / totalAtualizado) * 100 : null;
   const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
   const vazioGrafico = (
-    <p className="text-body-md text-on-surface-variant">Sem unidades ou débitos no recorte para exibir o gráfico.</p>
+    <p className="py-lg text-center text-body-sm text-on-surface-variant">Sem dados no recorte.</p>
   );
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -710,11 +734,6 @@ function DebitosPage() {
     setSheetOpen(false);
   }
 
-  function rotuloFonteValores(item: Debito) {
-    if (item.fonteValores === "manual") return "Correção manual";
-    return item.origem ? `Origem: ${item.origem}` : "Valores da origem";
-  }
-
   const unidadesDoCondominio = useMemo(() => {
     const lista = unidadesVisiveis.filter((item) => String(item.condominioId) === form.condominioId);
     if (!form.unidadeId) return lista;
@@ -737,12 +756,17 @@ function DebitosPage() {
         pode("debitos", "criar") ? (
           <Button size="sm" onClick={openCreate}>
             <Icon icon={Plus} size="sm" />
-            Novo
+            Nova inadimplência
           </Button>
         ) : undefined
       }
     />
   );
+
+  function rotuloFonteValores(item: Debito) {
+    if (item.fonteValores === "manual") return "Correção manual";
+    return item.origem ? `Origem: ${item.origem}` : "Valores da origem";
+  }
 
   const diasDaLinha = (item: Debito) =>
     item.dataVencimento && item.dataVencimento <= appliedDataBase
@@ -760,6 +784,24 @@ function DebitosPage() {
   }
 
   function linhasExportacao() {
+    if (visao === "condominio") {
+      return visible.map((item) => {
+        const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
+        return [
+          nomeCondominio(item.condominioId),
+          unidade?.identificacao ?? nomeUnidade(item.unidadeId),
+          grupoDebito(item.descricao) || item.descricao || "—",
+          item.referencia,
+          formatarData(item.dataVencimento),
+          formatarMoeda(item.valorOriginal || item.valor),
+          formatarMoeda(item.juros),
+          formatarMoeda(item.multa),
+          formatarMoeda(item.correcao),
+          formatarMoeda(item.valorAtualizado),
+          item.status,
+        ];
+      });
+    }
     return visible.map((item) => [
       item.referencia,
       nomeUnidade(item.unidadeId),
@@ -775,7 +817,7 @@ function DebitosPage() {
   }
 
   function abrirImportacao() {
-    router.push("/importacoes?modulo=debitos&abrir=1");
+    importacaoWizardRef.current?.abrir("debitos");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -787,18 +829,33 @@ function DebitosPage() {
       });
       return;
     }
-    const colunas = [
-      "Referência",
-      "Unidade",
-      "Tipo",
-      "Vencimento",
-      "Dias",
-      "Original",
-      "Atualizado",
-      "Situação",
-      "Origem",
-      "Atualização",
-    ];
+    const colunas =
+      visao === "condominio"
+        ? [
+            "Condomínio",
+            "Unidade",
+            "Lançamento",
+            "Mês ref.",
+            "Vencimento",
+            "Valor",
+            "Juros",
+            "Multa",
+            "Correção",
+            "Proj. rec.",
+            "Situação",
+          ]
+        : [
+            "Referência",
+            "Unidade",
+            "Tipo",
+            "Vencimento",
+            "Dias",
+            "Original",
+            "Atualizado",
+            "Situação",
+            "Origem",
+            "Atualização",
+          ];
     const linhas = linhasExportacao();
     const arquivoBase = `inadimplencia-${appliedDataBase}`;
     if (formato === "csv") {
@@ -821,8 +878,8 @@ function DebitosPage() {
     }
   }
 
-  const desktopTable = (
-    <Table aria-label="Inadimplência" showExport={false}>
+  const desktopTableGeral = (
+    <Table aria-label="Inadimplência geral" showExport={false}>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("referencia")} onSort={() => handleSort("referencia")}>
@@ -885,11 +942,11 @@ function DebitosPage() {
     </Table>
   );
 
-  const mobileTable =
+  const mobileTableGeral =
     visible.length === 0 ? (
       <TableMobileEmpty>{emptyState}</TableMobileEmpty>
     ) : (
-      <TableMobileList aria-label="Inadimplência">
+      <TableMobileList aria-label="Inadimplência geral">
         {pageRows.map((item, index) => (
           <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
@@ -948,6 +1005,24 @@ function DebitosPage() {
       </TableMobileList>
     );
 
+  const desktopTableCondominio = (
+    <InadimplenciaPorCondominioLista
+      condominios={gruposCondominio}
+      emptyState={emptyState}
+      acoes={acoes}
+      variante="desktop"
+    />
+  );
+
+  const mobileTableCondominio = (
+    <InadimplenciaPorCondominioLista
+      condominios={gruposCondominio}
+      emptyState={emptyState}
+      acoes={acoes}
+      variante="mobile"
+    />
+  );
+
   return (
     <WorkspaceShell>
       <PageHeader
@@ -958,7 +1033,7 @@ function DebitosPage() {
           pode("debitos", "criar") ? (
             <Button size="md" onClick={openCreate}>
               <Icon icon={Plus} size="sm" />
-              Novo
+              Nova inadimplência
             </Button>
           ) : undefined
         }
@@ -1096,27 +1171,39 @@ function DebitosPage() {
         </FiltrosSection>
 
         <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
-          <h2 className="text-headline-sm text-on-surface">Percentuais</h2>
-          <div className="grid grid-cols-1 gap-md min-[768px]:grid-cols-2 min-[768px]:items-center min-[768px]:gap-lg">
-            <div className="flex flex-col items-center gap-sm min-[768px]:items-start">
+          <div className="grid grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[768px]:items-stretch min-[768px]:gap-0">
+            <div className="flex min-w-0 flex-col gap-md min-[768px]:pr-lg">
+              <div>
+                <h3 className="text-label-lg text-on-surface">Inadimplência das unidades</h3>
+                <p className="mt-xs text-body-sm text-on-surface-variant">
+                  {unidadesCarteira > 0
+                    ? `${unidadesDevedoras} de ${unidadesCarteira} unidades com débito vencido na data-base ${formatarData(appliedDataBase)}`
+                    : "Sem unidades no recorte filtrado"}
+                </p>
+              </div>
               {unidadesCarteira > 0 ? (
                 <GraficoRosca
-                  chave={chaveGraficos}
+                  chave={`${chaveGraficos}-unidades`}
                   vazio={vazioGrafico}
-                  semLegenda
                   centro={percentualUnidades === null ? "—" : percentual(percentualUnidades)}
                   legenda="unidades"
                   fatias={[
                     {
                       nome: "Com débito vencido",
                       valor: unidadesDevedoras,
-                      detalhe: String(unidadesDevedoras),
+                      detalhe:
+                        percentualUnidades === null
+                          ? String(unidadesDevedoras)
+                          : `${unidadesDevedoras} · ${percentual(percentualUnidades)}`,
                       tom: "critical",
                     },
                     {
                       nome: "Sem débito vencido",
                       valor: unidadesEmDia,
-                      detalhe: String(unidadesEmDia),
+                      detalhe:
+                        percentualUnidades === null
+                          ? String(unidadesEmDia)
+                          : `${unidadesEmDia} · ${percentual(100 - percentualUnidades)}`,
                       tom: "navy",
                     },
                   ]}
@@ -1124,36 +1211,79 @@ function DebitosPage() {
               ) : (
                 vazioGrafico
               )}
-              <p className="text-body-sm text-on-surface-variant">Inadimplência das unidades</p>
-              {unidadesCarteira > 0 ? (
-                <p className="text-body-sm text-on-surface-variant">
-                  {unidadesDevedoras} de {unidadesCarteira} unidades com débito vencido na data-base
-                </p>
-              ) : null}
             </div>
-            <div className="min-w-0 rounded-lg border border-border-subtle/60 bg-surface-subtle/40 p-md min-[768px]:rounded-none min-[768px]:border-0 min-[768px]:border-l min-[768px]:border-border-subtle min-[768px]:bg-transparent min-[768px]:p-0 min-[768px]:pl-lg">
-              <p className="text-metric text-on-surface tabular-nums">—</p>
-              <p className="mt-sm text-body-sm text-on-surface-variant">Inadimplência do valor emitido</p>
-              <p className="mt-xs text-body-sm text-on-surface-variant">
-                Depende do total emitido no período filtrado (ainda não vem na importação).
-              </p>
+            <div className="flex min-w-0 flex-col gap-md border-t border-border-subtle pt-lg min-[768px]:border-l min-[768px]:border-t-0 min-[768px]:pl-lg min-[768px]:pt-0">
+              <div>
+                <h3 className="text-label-lg text-on-surface">Valor por faixa de atraso</h3>
+                <p className="mt-xs text-body-sm text-on-surface-variant">
+                  {totalAtualizado > 0
+                    ? `Total atualizado em aberto ${moeda(totalAtualizado)} · corte ${formatarData(corte)} (${limiteDias} dias)`
+                    : "Sem valor em aberto no recorte filtrado"}
+                </p>
+              </div>
+              <GraficoBarras
+                chave={`${chaveGraficos}-faixas`}
+                vazio={vazioGrafico}
+                itens={[
+                  {
+                    nome: `Até ${limiteDias} dias`,
+                    valor: ateLimite,
+                    detalhe:
+                      percentualValorAte === null
+                        ? moeda(ateLimite)
+                        : `${moeda(ateLimite)} · ${percentual(percentualValorAte)}`,
+                    tom: "brass",
+                  },
+                  {
+                    nome: `Acima de ${limiteDias} dias`,
+                    valor: acimaLimite,
+                    detalhe:
+                      percentualValorAcima === null
+                        ? moeda(acimaLimite)
+                        : `${moeda(acimaLimite)} · ${percentual(percentualValorAcima)}`,
+                    tom: "critical",
+                  },
+                ]}
+              />
             </div>
           </div>
-          <Alert variant="info" title="Como ler os indicadores" className="text-body-sm min-[768px]:text-body-md">
-            Data-base {formatarData(appliedDataBase)}. Vencimento até {formatarData(corte)} conta como acima de {limiteDias}{" "}
-            dias. O percentual de unidades divide as unidades com débito vencido pelo total de unidades cadastradas no recorte
-            dos filtros.
-          </Alert>
         </section>
 
-        <ResponsiveTable
-          desktop={desktopTable}
-          mobile={mobileTable}
-          onExport={aoExportar}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
-        />
-        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        <Tabs
+          value={visao}
+          onValueChange={(value) => {
+            setVisao(value as VisaoListagem);
+            setPage(1);
+          }}
+          defaultValue="condominio"
+          className="flex flex-col gap-md"
+        >
+          <TabsList>
+            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+          </TabsList>
+          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTableCondominio}
+              mobile={mobileTableCondominio}
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+            />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTableGeral}
+              mobile={mobileTableGeral}
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+            />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
+          </TabsContent>
+        </Tabs>
         </>
         )}
       </PageContent>
@@ -1406,6 +1536,9 @@ function DebitosPage() {
         cancelLabel="Cancelar"
         onConfirm={confirmDelete}
       />
+      {podeImportar ? (
+        <ImportacaoWizardSheet ref={importacaoWizardRef} moduloInicial="debitos" moduloTravado />
+      ) : null}
     </WorkspaceShell>
   );
 }

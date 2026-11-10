@@ -75,7 +75,7 @@ export function TabsTrigger({ value, className, children, type = "button", ...pr
       aria-selected={selected}
       tabIndex={selected ? 0 : -1}
       onClick={() => setActive(value)}
-      className={`-mb-0.5 inline-flex cursor-pointer items-center border-b-2 px-lg py-md text-label-lg transition-colors duration-150 ${
+      className={`-mb-0.5 inline-flex cursor-pointer items-center border-b-2 px-lg py-md text-label-lg transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
         selected
           ? "border-brass text-brass [&_svg]:text-brass"
           : "border-transparent text-on-surface-variant hover:text-primary-container"

@@ -12,14 +12,15 @@ npm run vps:subir
 # ou: ./deploy/scripts/push.sh --assistente
 ```
 
-A tela pede **somente**:
+A tela pede:
 
 1. IP da VPS  
-2. Senha SSH (root)
+2. Senha SSH (root)  
+3. Domínio (padrão: `danieljorgeadv.com`)
 
 O assistente gera segredos, envia o código, instala Node/Caddy/PostgreSQL, abre firewall, roda migrate/build e deixa o serviço no ar.
 
-Depois aponte o DNS `A` de `danieljorgeadv.com` e `www` para esse IP (HTTPS/Let's Encrypt).
+Depois aponte o DNS `A` do domínio e `www` para esse IP (HTTPS/Let's Encrypt).
 
 Atualizações seguintes (já com secrets salvos):
 
@@ -31,7 +32,7 @@ npm run vps:push
 
 ```
 Internet → Caddy :443/:80 → 127.0.0.1:3000 (Next.js / systemd)
-                          → PostgreSQL local (127.0.0.1:5432)
+                          → PostgreSQL local (DATABASE_URL em deploy/.env.production)
 ```
 
 | Peça | Função |

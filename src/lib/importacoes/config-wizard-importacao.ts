@@ -66,7 +66,7 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloBotao: "Importar unidades",
     formato: FORMATO_IMPORTACAO_UNIDADES_V1,
     descricaoArquivo:
-      "CSV (;) ou XLS/XLSX com Unidade, Condomínio e Tipo. PDF/planilha de inadimplência também é aceito e redirecionado automaticamente.",
+      "CSV (;) ou XLS/XLSX com Unidade, Condomínio e Tipo.",
     accept: extensoesPermitidas("unidades")
       .concat([
         "text/csv",
@@ -85,7 +85,7 @@ const CONFIG: Record<ModuloWizardImportacao, ConfigWizardImportacao> = {
     tituloBotao: "Importar responsáveis",
     formato: FORMATO_IMPORTACAO_RESPONSAVEIS_V1,
     descricaoArquivo:
-      "CSV (;) ou XLS/XLSX com Condomínio, Unidade, Nome, CPF/CNPJ e Tipo de vínculo. PDF/planilha de inadimplência também é aceito e redirecionado automaticamente.",
+      "CSV (;) ou XLS/XLSX com Condomínio, Unidade, Nome, CPF/CNPJ e Tipo de vínculo.",
     accept: extensoesPermitidas("responsaveis")
       .concat([
         "text/csv",

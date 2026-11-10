@@ -10,6 +10,7 @@ import {
   ClipboardList,
   DoorOpen,
   FileBarChart,
+  FileUp,
   HelpCircle,
   LayoutDashboard,
   Receipt,
@@ -29,6 +30,7 @@ import {
   AppShellNavSection,
   AppShellSidebar,
 } from "@/components/app-shell";
+import { SkeletonSidebarNav } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
@@ -104,6 +106,7 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
     title: "Análise",
     links: [
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" },
+      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
     ],
   },
   {
@@ -179,6 +182,7 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
   return (
     <AppShell
       onLogout={logout}
+      headerCarregando={sessaoCarregando}
       notificationCount={naoLidas}
       notificacoes={itens.map((item) => ({
         id: item.id,
@@ -195,31 +199,35 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
         <AppShellSidebar>
           <AppShellBrand />
           <AppShellNav>
-            {menuSecoes.map((secao) => {
-              const links = secao.links.filter((link) => pode(link.modulo, "ler"));
-              if (links.length === 0) return null;
-              return (
-                <AppShellNavSection key={secao.title} title={secao.title}>
-                  {links.map((link) => (
-                    <AppShellNavLink
-                      key={link.href}
-                      href={link.href}
-                      icon={link.icon}
-                      active={navLinkAtivo(pathname, retornoNaUrl, link)}
-                      count={
-                        link.count === "retornos" && retornos > 0
-                          ? retornos
-                          : link.count === "notificacoes" && naoLidas > 0
-                            ? naoLidas
-                            : undefined
-                      }
-                    >
-                      {link.label}
-                    </AppShellNavLink>
-                  ))}
-                </AppShellNavSection>
-              );
-            })}
+            {sessaoCarregando ? (
+              <SkeletonSidebarNav />
+            ) : (
+              menuSecoes.map((secao) => {
+                const links = secao.links.filter((link) => pode(link.modulo, "ler"));
+                if (links.length === 0) return null;
+                return (
+                  <AppShellNavSection key={secao.title} title={secao.title}>
+                    {links.map((link) => (
+                      <AppShellNavLink
+                        key={link.href}
+                        href={link.href}
+                        icon={link.icon}
+                        active={navLinkAtivo(pathname, retornoNaUrl, link)}
+                        count={
+                          link.count === "retornos" && retornos > 0
+                            ? retornos
+                            : link.count === "notificacoes" && naoLidas > 0
+                              ? naoLidas
+                              : undefined
+                        }
+                      >
+                        {link.label}
+                      </AppShellNavLink>
+                    ))}
+                  </AppShellNavSection>
+                );
+              })
+            )}
           </AppShellNav>
         </AppShellSidebar>
       }

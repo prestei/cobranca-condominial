@@ -4,6 +4,10 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ImportacaoWizardSheet,
+  type ImportacaoWizardHandle,
+} from "@/components/importacao-wizard/importacao-wizard-sheet";
+import {
   Briefcase,
   Building2,
   CheckCircle2,
@@ -160,6 +164,7 @@ export default function CondominiosPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const formId = useId();
+  const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
   const userIdEscopo = user?.userId;
   const opcoesAdvogados = opcoesAdvogadosResponsaveis(cadastros);
@@ -697,7 +702,7 @@ export default function CondominiosPage() {
   }
 
   function abrirImportacao() {
-    router.push("/importacoes?modulo=condominios&abrir=1");
+    importacaoWizardRef.current?.abrir("condominios");
   }
 
   function aoExportar(formato: TableExportFormat) {
@@ -1330,6 +1335,9 @@ export default function CondominiosPage() {
         confirmVariant="critical"
         onConfirm={confirmDelete}
       />
+      {podeImportar ? (
+        <ImportacaoWizardSheet ref={importacaoWizardRef} moduloInicial="condominios" moduloTravado />
+      ) : null}
     </WorkspaceShell>
   );
 }

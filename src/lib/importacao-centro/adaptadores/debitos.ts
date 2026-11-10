@@ -7,6 +7,8 @@ import {
   proximoNumero,
   registrarAuditoria,
   setDebitos,
+  setUnidades,
+  situacaoCobrancaUnidade,
   type Debito,
   type Importacao,
 } from "@/data/catalogo";
@@ -47,6 +49,8 @@ export type ContextoImportacaoDebitos = {
   }>;
   debitos: Debito[];
   debitosMutaveis: Debito[];
+  /** Unidades que receberam débito novo/atualizado nesta confirmação → entram em cobrança. */
+  unidadeIdsComDebitoImportado: Set<number>;
   formatoDetectado?: string;
   inconsistenciasRelatorio?: InconsistenciaValidacao[];
 };
@@ -76,31 +80,9 @@ export function montarResumoLinhaDebitoImportacao(row: DebitoImportRow): Record<
   };
 }
 
-function celulaDadosOriginais(dados: Record<string, string>, ...chaves: string[]): string {
-  for (const chave of chaves) {
-    const valor = dados[chave]?.trim();
-    if (valor && valor !== "—") return valor;
-  }
-  return "—";
-}
+import { montarResumoDebitoDeDadosOriginais } from "@/lib/importacao-centro/adaptadores/debitos-resumo";
 
-/** Exibe valores do PDF/planilha na prévia mesmo quando o parse ainda não gerou payload. */
-export function montarResumoDebitoDeDadosOriginais(dados: Record<string, string>): Record<string, string> {
-  return {
-    condominio: celulaDadosOriginais(dados, "condominio"),
-    unidade: celulaDadosOriginais(dados, "unidade"),
-    responsavel: celulaDadosOriginais(dados, "responsavel", "responsável"),
-    categoria: celulaDadosOriginais(dados, "categoria", "descricao", "descrição"),
-    referencia: celulaDadosOriginais(dados, "referencia", "referência"),
-    vencimento: celulaDadosOriginais(dados, "vencimento", "data vencimento"),
-    valorOriginal: celulaDadosOriginais(dados, "valor original", "valor"),
-    juros: celulaDadosOriginais(dados, "juros"),
-    multa: celulaDadosOriginais(dados, "multa"),
-    correcao: celulaDadosOriginais(dados, "correcao", "correção"),
-    total: celulaDadosOriginais(dados, "total", "valor atualizado"),
-    valorAtualizado: celulaDadosOriginais(dados, "total", "valor atualizado"),
-  };
-}
+export { montarResumoDebitoDeDadosOriginais };
 
 export function enriquecerLinhasConferenciaDebitos(
   linhas: LinhaConferencia<DebitoImportRow>[],
@@ -210,6 +192,7 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
       unidades,
       debitos,
       debitosMutaveis: [...debitos],
+      unidadeIdsComDebitoImportado: new Set<number>(),
       formatoDetectado: FORMATO_IMPORTACAO_DEBITOS_V1,
       inconsistenciasRelatorio: [],
     };
@@ -259,6 +242,9 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
     if (situacao !== "novo" && situacao !== "atualizacao") return "ignorado";
     const resultado = aplicarRow(contexto.debitosMutaveis, payload, meta.origem);
     contexto.debitosMutaveis = resultado.debitos;
+    if (resultado.acao === "novo" || resultado.acao === "atualizacao") {
+      contexto.unidadeIdsComDebitoImportado.add(payload.unidadeId);
+    }
     return resultado.acao;
   },
 
@@ -270,6 +256,17 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
         (a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id,
       );
     });
+
+    // Só após gravar débitos a unidade entra na fila — evita "Sem débitos" após prévia sem confirmação.
+    const idsPromover = contexto.unidadeIdsComDebitoImportado;
+    if (idsPromover.size === 0) return;
+    setUnidades((current) =>
+      current.map((item) => {
+        if (!idsPromover.has(item.id)) return item;
+        if (situacaoCobrancaUnidade(item) !== "Sem cobrança") return item;
+        return { ...item, situacao: "Em cobrança" };
+      }),
+    );
   },
 
   montarRegistroImportacao(input) {

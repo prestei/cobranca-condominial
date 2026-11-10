@@ -6,7 +6,7 @@
 
 ## Resumo executivo
 
-A rota `/atendimentos` passou a ser a fila operacional única, com KPIs, filtros (incluindo retornos), painel de distribuição automática, tabela com ações consolidadas e atividade recente de atribuições. APIs novas cobrem configuração e execução da distribuição automática; `GET /api/fila` inclui objeto `resumo`.
+A rota `/atendimentos` passou a ser a fila operacional única, com KPIs, filtros (incluindo retornos), botão **Configurar Distribuição** no header (Administradora) e tabela com ações consolidadas. APIs novas cobrem configuração e execução da distribuição automática; `GET /api/fila` inclui objeto `resumo`.
 
 ## Testes executados
 
@@ -22,7 +22,7 @@ A rota `/atendimentos` passou a ser a fila operacional única, com KPIs, filtros
 - Login como Administradora: validar layout vs. mock (KPIs, painel automático, tabela, atividade recente).
 - **Distribuir agora** com unidade 103 sem RE na seed.
 - Filtro `Retorno = Hoje` com atendimento demo da unidade 102.
-- Login como Atendente: painel de distribuição oculto; fila escopada ao RE.
+- Login como Atendente: botão **Configurar Distribuição** oculto; fila escopada ao RE.
 - Concluir retorno pelo menu de ações.
 
 ## Riscos remanescentes

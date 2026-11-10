@@ -2,6 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/constants";
 import { getAuthSecretBytes } from "@/lib/auth/secret";
 import type { SessionUser } from "@/lib/auth/types";
+import type { PermissoesCargo } from "@/lib/permissions/modulos";
+import { parsePermissoesJson, permissoesVazias } from "@/lib/permissions/parse";
+
+function permissoesFromPayload(value: unknown): PermissoesCargo {
+  if (!value || typeof value !== "object") return permissoesVazias();
+  return parsePermissoesJson(JSON.stringify(value));
+}
 
 function claimsFromPayload(payload: Record<string, unknown>): SessionUser | null {
   const userId = payload.userId;
@@ -16,7 +23,13 @@ function claimsFromPayload(payload: Record<string, unknown>): SessionUser | null
   ) {
     return null;
   }
-  return { userId, email, nome, cargoId };
+  return {
+    userId,
+    email,
+    nome,
+    cargoId,
+    permissoes: permissoesFromPayload(payload.permissoes),
+  };
 }
 
 export async function signSessionToken(user: SessionUser) {
@@ -25,6 +38,7 @@ export async function signSessionToken(user: SessionUser) {
     email: user.email,
     nome: user.nome,
     cargoId: user.cargoId,
+    permissoes: user.permissoes ?? permissoesVazias(),
     sub: String(user.userId),
   })
     .setProtectedHeader({ alg: "HS256" })

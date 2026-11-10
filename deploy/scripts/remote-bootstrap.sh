@@ -25,13 +25,20 @@ install_base() {
 }
 
 install_node() {
-  if command -v node >/dev/null 2>&1; then
-    log "Node já instalado: $(node -v)"
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    log "Node já instalado: $(node -v) / npm $(npm -v)"
     return
   fi
-  log "Instalando Node.js 22 (NodeSource)"
+  # Pacote nodejs do Ubuntu costuma vir sem npm; NodeSource traz os dois.
+  log "Instalando Node.js 22 + npm (NodeSource)"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
+  if ! command -v npm >/dev/null 2>&1; then
+    apt-get install -y npm || true
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    die "npm indisponível após instalação do Node"
+  fi
   node -v
   npm -v
 }

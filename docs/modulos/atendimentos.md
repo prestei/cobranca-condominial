@@ -16,13 +16,13 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Fila de cobranças** — tela operacional única: KPIs, filtros, tabela, distribuição automática (Administradora), atividade recente |
+| `/atendimentos` | **Fila de cobranças** — KPIs, filtros e listagem em abas: **Por condomínio** (padrão), **Por atendente** e **Geral**; **Configurar Distribuição** no header (Administradora) |
 | `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (substitui a aba Retornos) |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
 | `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; distribuição automática `src/components/atendimentos/distribuicao-automatica-panel.tsx`. Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
+Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; agrupamentos `src/components/atendimentos/fila-por-grupos-lista.tsx` (painéis recolhíveis por condomínio/atendente, com tabela e paginação por grupo); sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx` (aberto pelo botão **Configurar Distribuição** no `PageHeader`). Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`. Painéis legados `distribuicao-panel.tsx` e `retornos-agenda-panel.tsx` permanecem no repositório para referência/API, mas não são abas da rota principal.
 
 ## Perfis e permissões
 
@@ -68,8 +68,8 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Fluxos
 
-1. Operador abre **Atendimentos** (fila única) → identifica cobranças pelos KPIs e filtros. Seção **Filtros** (`FiltrosSection` + `FilterBar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
-2. **Administradora** — painel **Distribuição automática** (ativar regra, **Distribuir agora**) ou seleção manual na tabela + atribuição por RE.
+1. Operador abre **Atendimentos** → identifica cobranças pelos KPIs e filtros. Listagem em abas **Por condomínio** (padrão — painéis recolhíveis com tabela/paginação por condomínio), **Por atendente** (mesmo padrão agrupado pelo RE vigente; itens sem responsável em painel próprio) e **Geral** (tabela plana paginada). Seção **Filtros** (`FiltrosSection` + `FilterBar`): busca `q`, condomínio, situação, responsável (admin) e retorno; **Filtrar** aplica no servidor (`GET /api/fila`); **Limpar** zera critérios. Filtro de retorno aplicado também atualiza `?retorno=` na URL (atalhos legados `/retornos` continuam válidos).
+2. **Administradora** — botão **Configurar Distribuição** no header abre o sheet (ativar regra e estratégia; ao salvar com opção ativa, executa a distribuição) ou seleção manual na tabela + atribuição por RE.
 3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
 4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).
 5. **Registrar contato** — menu de ações ou `?novo=1&unidade=` → `POST /api/atendimentos`.

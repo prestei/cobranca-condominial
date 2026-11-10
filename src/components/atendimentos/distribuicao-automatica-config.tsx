@@ -205,9 +205,7 @@ export function DistribuicaoAutomaticaConfigForm({
         </Select>
       </FormField>
 
-      <Alert variant="info" title={rotuloEstrategiaDistribuicao[estrategia]}>
-        {descricaoEstrategiaDistribuicaoAutomatica[estrategia]}
-      </Alert>
+      <Alert variant="info">{descricaoEstrategiaDistribuicaoAutomatica[estrategia]}</Alert>
 
       {showInlineSaveButton ? (
         <Button

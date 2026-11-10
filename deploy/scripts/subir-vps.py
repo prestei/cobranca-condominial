@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sobe o sistema numa VPS limpa pedindo só IP e senha SSH.
+Sobe o sistema numa VPS pedindo IP, senha SSH e domínio.
 
 Gera segredos, instala Node/Caddy/PostgreSQL, sincroniza o código,
 roda migrations/build e deixa o app no ar via systemd + Caddy.
@@ -38,10 +38,10 @@ def die(msg: str, code: int = 1) -> None:
 def banner() -> None:
     print()
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║   Cobrança condominial — subir VPS limpa (sem Docker)  ║")
+    print("║        Cobrança condominial — subir VPS               ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()
-    print("Informe apenas o IP e a senha SSH. O restante é automático.")
+    print("Informe o IP, a senha SSH e o domínio. O restante é automático.")
     print()
 
 
@@ -133,8 +133,16 @@ def main() -> int:
 
     host = ask("IP da VPS")
     password = ask("Senha SSH (root)", secret=True)
+    domain_raw = ask("Domínio", default=DEFAULT_DOMAIN).strip().lower()
+    for prefix in ("https://", "http://"):
+        if domain_raw.startswith(prefix):
+            domain_raw = domain_raw[len(prefix) :]
+    domain = domain_raw.split("/")[0].split(":")[0]
+    if domain.startswith("www."):
+        domain = domain[4:]
+    if not domain or "." not in domain:
+        die("Domínio inválido. Ex.: meuescritorio.com.br")
     user = DEFAULT_USER
-    domain = DEFAULT_DOMAIN
     app_dir = DEFAULT_APP_DIR
 
     auth_secret = secrets.token_hex(32)

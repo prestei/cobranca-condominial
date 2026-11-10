@@ -444,6 +444,75 @@ export function SkeletonInlineList({
   );
 }
 
+/** Área do usuário no header do AppShell enquanto a sessão carrega. */
+export function SkeletonAppHeader({
+  className = "",
+  label = "Carregando cabeçalho",
+}: {
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <SkeletonStatus
+      label={label}
+      className={`flex w-full items-center justify-between gap-md ${className}`}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-sm px-xs">
+        <Skeleton className="size-10 shrink-0 rounded-full" />
+        <Skeleton className="h-4 w-36 max-w-full" />
+      </div>
+      <div className="flex shrink-0 items-center gap-sm">
+        <div className="flex items-center gap-0 rounded-xl border border-border-subtle bg-[#F4F7FB] px-0.5">
+          <Skeleton className="m-0.5 size-10 rounded-[10px]" />
+          <Skeleton className="m-0.5 size-10 rounded-[10px]" />
+        </div>
+        <Skeleton className="size-11 rounded-[10px]" />
+      </div>
+    </SkeletonStatus>
+  );
+}
+
+/** Menu lateral do AppShell (fundo navy) enquanto a sessão/permissões carregam. */
+export function SkeletonSidebarNav({
+  sections = [
+    { items: 4 },
+    { items: 2 },
+    { items: 2 },
+    { items: 3 },
+  ],
+  className = "",
+  label = "Carregando menu",
+}: {
+  sections?: Array<{ items: number }>;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <SkeletonStatus label={label} className={`flex flex-col ${className}`}>
+      {sections.map((section, sectionIndex) => (
+        <div key={sectionIndex} className="flex flex-col">
+          <div className="px-[14px] pb-xs pt-[18px]">
+            <Skeleton className="h-3 w-16 bg-[#31496C]" />
+          </div>
+          {Array.from({ length: section.items }, (_, itemIndex) => (
+            <div
+              key={itemIndex}
+              className="flex min-h-11 items-center gap-md rounded-[10px] px-[14px]"
+            >
+              <Skeleton className="size-5 shrink-0 rounded-md bg-[#31496C]" />
+              <Skeleton
+                className={`h-3.5 rounded-md bg-[#31496C] ${
+                  itemIndex % 3 === 0 ? "w-28" : itemIndex % 3 === 1 ? "w-24" : "w-32"
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </SkeletonStatus>
+  );
+}
+
 /** Calendário / grade mensal. */
 export function SkeletonCalendar({
   className = "",

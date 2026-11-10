@@ -28,9 +28,6 @@ import {
   SheetFooterForm,
   SheetForm,
   SheetHeader,
-  SheetHeaderIcon,
-  SheetHeaderLead,
-  SheetHeaderText,
   SheetTitle,
 } from "@/components/sheet";
 import {
@@ -59,13 +56,13 @@ import { usePermissao } from "@/hooks/use-permissao";
 import {
   formatarData,
   nomeUsuario,
+  primeiroNome,
   tiposImportacao,
   type Importacao,
 } from "@/data/catalogo";
 import type { PreviewImportacaoModulo, ResultadoConfirmacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import {
   configWizardImportacao,
-  MODULOS_WIZARD_IMPORTACAO,
   moduloWizardValido,
   type ModuloWizardImportacao,
 } from "@/lib/importacoes/config-wizard-importacao";
@@ -85,8 +82,9 @@ import {
   podeEnviarAprovacaoImportacao,
 } from "@/components/importacao-aprovacao/importacao-aprovacao";
 import { ImportacaoResultado } from "@/components/importacao-aprovacao/importacao-resultado";
-import { linhaSeraGravada } from "@/lib/importacao-centro/pre-visualizacao";
 import { agoraIso } from "@/data/catalogo";
+import { ImportacaoArquivoCampo } from "@/components/importacao-wizard/importacao-arquivo-campo";
+import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importacao-wizard-loading";
 import { ImportacaoHistoricoDetalheSheet } from "@/components/importacao-historico/importacao-historico-detalhe-sheet";
 import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-auditoria";
 import type { RetomadaImportacaoHistorico } from "@/lib/importacoes/historico-service";
@@ -97,7 +95,7 @@ import {
   rotuloSituacaoImportacao,
 } from "@/lib/importacao-centro/situacao-importacao";
 
-const etapas = ["Arquivo", "Prévia", "Aprovação", "Resultado"] as const;
+const etapas = ["Arquivo", "Conferência", "Resultado"] as const;
 const rotuloTipo: Record<string, string> = {
   debitos: "Débitos",
   condominios: "Condomínios",
@@ -277,7 +275,7 @@ function ImportacoesPage() {
   }
 
   function closeSheet() {
-    if (step === 3 && resultado) {
+    if (step === 2 && resultado) {
       setSheetOpen(false);
       resetWizard();
       return;
@@ -442,10 +440,15 @@ function ImportacoesPage() {
     return lista;
   }
 
-  async function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    event.target.value = "";
-    if (!arquivo) return;
+  function limparArquivoSelecionado() {
+    setErroArquivo("");
+    setProcessoId("");
+    setHashRecebimento("");
+    setNomeArquivo("");
+    if (arquivoRef.current) arquivoRef.current.value = "";
+  }
+
+  async function processarArquivo(arquivo: File) {
     setErroArquivo("");
     setProcessando(true);
     try {
@@ -499,6 +502,13 @@ function ImportacoesPage() {
     }
   }
 
+  async function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!arquivo) return;
+    await processarArquivo(arquivo);
+  }
+
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (step === 0) {
@@ -510,31 +520,18 @@ function ImportacoesPage() {
         toast({
           variant: "error",
           title: "Sem permissão",
-          description: "Você não pode aprovar importações. Solicite a permissão de alterar no módulo Importações.",
+          description: "Você não pode confirmar importações. Solicite a permissão de alterar no módulo Importações.",
         });
         return;
       }
       if (!avancoPrevia.pode) {
         toast({
           variant: "error",
-          title: "Não é possível seguir",
-          description: avancoPrevia.motivo ?? "Revise a prévia antes de continuar.",
+          title: "Não é possível gravar",
+          description: avancoPrevia.motivo ?? "Revise a conferência antes de gravar.",
         });
         return;
       }
-      setConfirmacaoMarcada(false);
-      setCienciaParcial(false);
-      setConfirmacaoJaEnviada(false);
-      setStep(2);
-      if (processoId) {
-        void fetch(`/api/importacoes/processo/${encodeURIComponent(processoId)}/aprovacao`, {
-          method: "POST",
-          credentials: "same-origin",
-        }).then(() => recarregarImportacoes());
-      }
-      return;
-    }
-    if (step === 2) {
       if (
         !preview?.resumoAprovacao ||
         !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
@@ -543,12 +540,23 @@ function ImportacoesPage() {
           permissaoAprovar: podeAprovarImportacao,
         })
       ) {
+        toast({
+          variant: "error",
+          title: "Confirme a conferência",
+          description: "Marque a confirmação no final desta etapa para gravar a importação.",
+        });
         return;
+      }
+      if (processoId) {
+        void fetch(`/api/importacoes/processo/${encodeURIComponent(processoId)}/aprovacao`, {
+          method: "POST",
+          credentials: "same-origin",
+        }).then(() => recarregarImportacoes());
       }
       void executarImportacao();
       return;
     }
-    if (step === 3) {
+    if (step === 2) {
       concluirWizardImportacao();
     }
   }
@@ -648,7 +656,7 @@ function ImportacoesPage() {
       }
       aplicarImportacaoSalva(body.resultado.importacao);
       setResultado(body.resultado);
-      setStep(3);
+      setStep(2);
       await recarregarImportacoes();
       const sitFinal = normalizarSituacaoImportacao(body.resultado.importacao.status);
       const parcialFinal = sitFinal === "Concluida parcialmente";
@@ -670,11 +678,6 @@ function ImportacoesPage() {
       setProcessando(false);
     }
   }
-
-  const gravacaoNaPrevia = useMemo(() => {
-    if (!preview) return 0;
-    return preview.linhas.filter((item) => linhaSeraGravada(item)).length;
-  }, [preview]);
 
   const avancoPrevia = useMemo(() => {
     if (!preview?.resumoAprovacao) {
@@ -741,6 +744,7 @@ function ImportacoesPage() {
           <TableHead sortable sortDirection={directionFor("arquivo")} onSort={() => handleSort("arquivo")}>
             Arquivo
           </TableHead>
+          <TableHead>Usuário</TableHead>
           <TableHead>Tipo</TableHead>
           <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Situação
@@ -751,12 +755,15 @@ function ImportacoesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{formatarData(item.dataImportacao)}</TableCell>
-              <TableCell>{item.arquivo || "—"}</TableCell>
+              <TableCell className="max-w-[16rem] truncate" title={item.arquivo || undefined}>
+                {item.arquivo || "—"}
+              </TableCell>
+              <TableCell>{primeiroNome(nomeUsuario(item.usuarioId))}</TableCell>
               <TableCell>{rotuloTipo[item.tipo] ?? item.tipo}</TableCell>
               <TableCell>
                 <Badge variant={variantStatusBadge(item.status)}>{rotuloStatusBadge(item.status)}</Badge>
@@ -804,7 +811,9 @@ function ImportacoesPage() {
                 <div className="min-w-0">
                   <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
                   <p className="text-body-md font-semibold text-on-surface">{rotuloTipo[item.tipo] ?? item.tipo}</p>
-                  <p className="text-body-sm text-on-surface-variant">{nomeUsuario(item.usuarioId)}</p>
+                  <p className="text-body-sm text-on-surface-variant">
+                    {primeiroNome(nomeUsuario(item.usuarioId))}
+                  </p>
                 </div>
                 <Badge variant={variantStatusBadge(item.status)} className="shrink-0">
                   {rotuloStatusBadge(item.status)}
@@ -939,121 +948,104 @@ function ImportacoesPage() {
           aria-describedby={`${formId}-desc`}
         >
           <SheetForm id={wizardFormId} onSubmit={handleFormSubmit}>
-            <SheetHeader>
-              <SheetHeaderLead>
-                <SheetHeaderIcon>
-                  <Icon icon={FileUp} size="md" />
-                </SheetHeaderIcon>
-                <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>{configModulo.tituloSheet}</SheetTitle>
-                  <SheetDescription id={`${formId}-desc`}>
-                    Formato {configModulo.formato}. Quem executa é o login atual ({sessao?.nome ?? "—"}).
-                  </SheetDescription>
-                </SheetHeaderText>
-              </SheetHeaderLead>
+            <SheetHeader className="items-center">
+              <div className="min-w-0 flex-1 pr-sm">
+                <SheetTitle id={`${formId}-title`} className="sr-only">
+                  {configModulo.tituloSheet}
+                </SheetTitle>
+                <SheetDescription id={`${formId}-desc`} className="sr-only">
+                  Formato {configModulo.formato}. Quem executa é o login atual ({sessao?.nome ?? "—"}).
+                </SheetDescription>
+                <FormSteps steps={etapas} current={step} />
+              </div>
               <SheetClose />
             </SheetHeader>
-            <SheetBody>
-              <FormSteps steps={etapas} current={step} />
-              {step === 0 ? (
-                <>
-                  <FormField label="O que importar" htmlFor={`${formId}-modulo`} required>
-                    <Select
-                      id={`${formId}-modulo`}
-                      value={moduloWizard}
-                      onChange={(event) => {
-                        const valor = event.target.value;
-                        if (moduloWizardValido(valor)) resetWizardForModulo(valor);
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <SheetBody aria-busy={processando || undefined}>
+                {step === 0 ? (
+                  <>
+                    <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
+                      <Select
+                        id={`${formId}-origem`}
+                        value={origem}
+                        invalid={Boolean(erroOrigem)}
+                        onChange={(event) => setOrigem(event.target.value)}
+                      >
+                        <option value="">Selecione</option>
+                        {configModulo.origens.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                    <FormField label="Arquivo" required error={erroArquivo}>
+                      <ImportacaoArquivoCampo
+                        nomeArquivo={nomeArquivo}
+                        descricao={configModulo.descricaoArquivo}
+                        error={erroArquivo}
+                        processando={processando}
+                        onEscolher={() => arquivoRef.current?.click()}
+                        onArquivo={(arquivo) => void processarArquivo(arquivo)}
+                        onRemover={limparArquivoSelecionado}
+                      />
+                    </FormField>
+                  </>
+                ) : null}
+
+                {step === 1 && preview ? (
+                  <div className="flex flex-col gap-lg">
+                    <ImportacaoPreVisualizacao
+                      cabecalho={{
+                        nomeArquivo: preview.arquivo,
+                        moduloDestino: preview.moduloDestino,
+                        moduloRotulo: ROTULO_MODULO_IMPORTACAO[preview.moduloDestino] ?? "Inadimplência",
+                        usuarioResponsavel: sessao?.nome ?? "—",
+                        dataHoraImportacao: dataHoraPrevia,
+                        origem: preview.origem,
+                        quantidadeRegistros: preview.quantidadeRegistros,
+                        contagens: preview.contagensPrevia,
+                        arquivoJaImportado: preview.arquivoJaImportado,
                       }}
-                    >
-                      {MODULOS_WIZARD_IMPORTACAO.map((item) => (
-                        <option key={item} value={item}>
-                          {ROTULO_MODULO_IMPORTACAO[item] ?? item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Origem dos dados" htmlFor={`${formId}-origem`} required error={erroOrigem}>
-                    <Select
-                      id={`${formId}-origem`}
-                      value={origem}
-                      invalid={Boolean(erroOrigem)}
-                      onChange={(event) => setOrigem(event.target.value)}
-                    >
-                      <option value="">Selecione</option>
-                      {configModulo.origens.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Arquivo" required error={erroArquivo}>
-                    <div className="flex flex-col gap-sm">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => arquivoRef.current?.click()}>
-                        Escolher arquivo
-                      </Button>
-                      <p className="text-body-sm text-on-surface-variant">
-                        {nomeArquivo ? nomeArquivo : configModulo.descricaoArquivo}
-                      </p>
-                    </div>
-                  </FormField>
-                </>
-              ) : null}
+                      linhas={preview.linhas}
+                      sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
+                      hashArquivo={preview.hashArquivo}
+                      onPreviewAtualizado={setPreview}
+                      permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
+                      podeContinuarAprovacao={avancoPrevia.pode}
+                      motivoBloqueioContinuar={avancoPrevia.motivo}
+                    />
+                    {preview.resumoAprovacao ? (
+                      <ImportacaoAprovacao
+                        resumo={preview.resumoAprovacao}
+                        usuarioResponsavel={sessao?.nome ?? "—"}
+                        confirmacaoMarcada={confirmacaoMarcada}
+                        onConfirmacaoMarcadaChange={setConfirmacaoMarcada}
+                        cienciaParcial={cienciaParcial}
+                        onCienciaParcialChange={setCienciaParcial}
+                        confirmacaoJaEnviada={confirmacaoJaEnviada}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
 
-              {step === 1 && preview ? (
-                <ImportacaoPreVisualizacao
-                  cabecalho={{
-                    nomeArquivo: preview.arquivo,
-                    moduloDestino: preview.moduloDestino,
-                    moduloRotulo: ROTULO_MODULO_IMPORTACAO[preview.moduloDestino] ?? "Inadimplência",
-                    usuarioResponsavel: sessao?.nome ?? "—",
-                    dataHoraImportacao: dataHoraPrevia,
-                    origem: preview.origem,
-                    quantidadeRegistros: preview.quantidadeRegistros,
-                    contagens: preview.contagensPrevia,
-                    arquivoJaImportado: preview.arquivoJaImportado,
-                  }}
-                  linhas={preview.linhas}
-                  sessaoPreviaId={preview.sessaoPreviaId ?? processoId}
-                  hashArquivo={preview.hashArquivo}
-                  onPreviewAtualizado={setPreview}
-                  onVoltarArquivo={() => {
-                    setStep(0);
-                    setPreview(null);
-                    setDataHoraPrevia("");
-                  }}
-                  onCancelar={closeSheet}
-                  permissaoCorrigir={configModulo.suportaCorrecaoPrevia && podeCorrigirPrevia}
-                  gravacaoPrevista={gravacaoNaPrevia}
-                  podeContinuarAprovacao={avancoPrevia.pode}
-                  motivoBloqueioContinuar={avancoPrevia.motivo}
-                  processandoContinuar={processando}
-                  wizardFormId={wizardFormId}
+                {step === 2 && resultado ? (
+                  <ImportacaoResultado
+                    resultado={resultado}
+                    moduloDestino={moduloWizard}
+                    exibirManualProtegido={moduloWizard === "debitos"}
+                  />
+                ) : null}
+              </SheetBody>
+              {processando ? (
+                <ImportacaoWizardLoading
+                  step={step}
+                  label={step === 1 && confirmacaoJaEnviada ? "Gravando importação" : undefined}
+                  className="absolute inset-0 z-10"
                 />
               ) : null}
-
-              {step === 2 && preview?.resumoAprovacao ? (
-                <ImportacaoAprovacao
-                  resumo={preview.resumoAprovacao}
-                  usuarioResponsavel={sessao?.nome ?? "—"}
-                  confirmacaoMarcada={confirmacaoMarcada}
-                  onConfirmacaoMarcadaChange={setConfirmacaoMarcada}
-                  cienciaParcial={cienciaParcial}
-                  onCienciaParcialChange={setCienciaParcial}
-                  confirmacaoJaEnviada={confirmacaoJaEnviada}
-                />
-              ) : null}
-
-              {step === 3 && resultado ? (
-                <ImportacaoResultado
-                  resultado={resultado}
-                  moduloDestino={moduloWizard}
-                  exibirManualProtegido={moduloWizard === "debitos"}
-                />
-              ) : null}
-            </SheetBody>
-            {step === 3 ? (
+            </div>
+            {step === 2 ? (
               <SheetFooter>
                 {resultado && pode("importacoes", "ler") ? (
                   <Button
@@ -1087,40 +1079,27 @@ function ImportacoesPage() {
             ) : (
               <SheetFooterForm
                 onClose={closeSheet}
-                onBack={
-                  step === 1
-                    ? () => setStep(0)
-                    : step === 2
-                      ? () => {
-                          setStep(1);
-                          setConfirmacaoMarcada(false);
-                          setCienciaParcial(false);
-                          setConfirmacaoJaEnviada(false);
-                        }
-                      : undefined
-                }
+                onBack={step === 1 ? () => setStep(0) : undefined}
                 saveLabel={
                   step === 0
                     ? processando
                       ? "Validando…"
                       : "Validar arquivo"
-                    : step === 1
-                      ? "Revisar aprovação"
-                      : processando
-                        ? "Gravando…"
-                        : "Confirmar e gravar"
+                    : processando
+                      ? "Gravando…"
+                      : "Confirmar e gravar"
                 }
                 saveDisabled={
                   processando ||
                   confirmacaoJaEnviada ||
-                  (step === 1 && !avancoPrevia.pode) ||
-                  (step === 2 &&
-                    preview?.resumoAprovacao !== undefined &&
-                    !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
-                      processando,
-                      confirmacaoJaEnviada,
-                      permissaoAprovar: podeAprovarImportacao,
-                    }))
+                  (step === 1 &&
+                    (!avancoPrevia.pode ||
+                      !preview?.resumoAprovacao ||
+                      !podeEnviarAprovacaoImportacao(preview.resumoAprovacao, confirmacaoMarcada, cienciaParcial, {
+                        processando,
+                        confirmacaoJaEnviada,
+                        permissaoAprovar: podeAprovarImportacao,
+                      })))
                 }
               />
             )}

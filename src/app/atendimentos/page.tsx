@@ -14,8 +14,10 @@ import {
   DoorOpen,
   FileText,
   LayoutGrid,
+  Network,
   Phone,
 } from "lucide-react";
+import { DistribuicaoAutomaticaSheet } from "@/components/atendimentos/distribuicao-automatica-sheet";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
 import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
 import { Alert } from "@/components/alert";
@@ -55,6 +57,7 @@ import {
 } from "@/data/catalogo";
 import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
 import { useCadastros } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
 
 const etapas = ["Registro", "Retorno"] as const;
 const formularioVazio = {
@@ -77,7 +80,10 @@ function AtendimentosPage() {
   const searchParams = useSearchParams();
   const formId = useId();
   const cadastros = useCadastros();
+  const { pode } = usePermissao();
+  const podeDistribuir = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [distribuicaoSheetOpen, setDistribuicaoSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(formularioVazio);
@@ -231,11 +237,26 @@ function AtendimentosPage() {
         title="Fila de cobranças"
         description="Acompanhe, distribua e gerencie as cobranças em um só lugar."
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
+        actions={
+          podeDistribuir ? (
+            <Button size="md" onClick={() => setDistribuicaoSheetOpen(true)}>
+              <Icon icon={Network} size="sm" />
+              Configurar Distribuição
+            </Button>
+          ) : undefined
+        }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
         <OperacionalAtendimentosPanel />
         <FilaCobrancasPanel />
       </PageContent>
+
+      {podeDistribuir ? (
+        <DistribuicaoAutomaticaSheet
+          open={distribuicaoSheetOpen}
+          onOpenChange={setDistribuicaoSheetOpen}
+        />
+      ) : null}
 
       <Sheet
         open={sheetOpen}

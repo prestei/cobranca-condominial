@@ -1,7 +1,6 @@
 import { findUsuarioPorCredenciais } from "@/lib/auth/credentials";
 import { createSession } from "@/lib/auth/session";
-import { identityPgDisponivel, permissoesDoUsuarioIdPg } from "@/lib/db/identity-pg";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -24,16 +23,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Código ou senha incorretos." }, { status: 401 });
   }
 
+  const permissoes = await resolverPermissoesUsuario(usuario.id);
+
   await createSession({
     userId: usuario.id,
     email: usuario.email,
     nome: usuario.nome,
     cargoId: usuario.cargoId,
+    permissoes,
   });
-
-  const permissoes = identityPgDisponivel()
-    ? ((await permissoesDoUsuarioIdPg(usuario.id)) ?? permissoesDoUsuarioId(usuario.id))
-    : permissoesDoUsuarioId(usuario.id);
 
   return Response.json({
     user: {

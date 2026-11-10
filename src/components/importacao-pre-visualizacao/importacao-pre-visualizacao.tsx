@@ -1,15 +1,10 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Eye, XCircle } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Alert } from "@/components/alert";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { CardMetricRow } from "@/components/card-metric-row";
-import { CardMetric } from "@/components/card-metric";
-import { FilterBar } from "@/components/filter-bar";
 import { Icon } from "@/components/icon";
-import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
@@ -21,26 +16,20 @@ import {
   TableRow,
 } from "@/components/table";
 import { DetalheLinhaImportacao } from "@/components/importacao-pre-visualizacao/detalhe-linha-importacao";
-import { colunasPreVisualizacaoPorModulo, ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
+import { colunasPreVisualizacaoPorModulo } from "@/components/importacao-pre-visualizacao/config-modulos";
 import type {
   DadosCabecalhoPreVisualizacao,
-  FiltroInconsistenciaPreVisualizacao,
-  FiltroSituacaoPreVisualizacao,
   LinhaPreVisualizacaoImportacaoUi,
 } from "@/components/importacao-pre-visualizacao/types";
 import type { LinhaPreVisualizacaoSerializada } from "@/lib/importacao-centro/pre-visualizacao";
 import {
-  contarPreVisualizacao,
   indicadorLinhaPreVisualizacao,
-  linhaSeraGravada,
   situacaoPermiteIgnorarNaPrevia,
   valoresEditadosDaLinha,
 } from "@/lib/importacao-centro/pre-visualizacao";
 import type { PreviewImportacaoModulo } from "@/lib/importacoes/preview-importacao-modulo";
 import type { PreviewImportacaoDebitos, ResultadoCorrecaoPreviewDebitos } from "@/lib/importacoes/debitos-service";
 import { useToast } from "@/components/toast";
-import { formatarData } from "@/data/catalogo";
-import type { CategoriaValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
 
 function mapLinhasUi(
   linhas: LinhaPreVisualizacaoSerializada[],
@@ -59,24 +48,6 @@ const indicadorDotClass: Record<string, string> = {
   atencao: "bg-brass",
   erro: "bg-status-critical",
 };
-
-const opcoesSituacao: { value: FiltroSituacaoPreVisualizacao; label: string }[] = [
-  { value: "todos", label: "Todas" },
-  { value: "valido", label: "Válidas (verde)" },
-  { value: "atencao", label: "Atenção (amarelo)" },
-  { value: "erro", label: "Erro (vermelho)" },
-  { value: "gravacao", label: "Serão gravadas" },
-  { value: "ignorado", label: "Ignoradas na prévia" },
-];
-
-const opcoesInconsistencia: { value: FiltroInconsistenciaPreVisualizacao; label: string }[] = [
-  { value: "todos", label: "Todas" },
-  { value: "estrutural", label: "Estrutural" },
-  { value: "cadastral", label: "Cadastral" },
-  { value: "relacional", label: "Relacional" },
-  { value: "financeira", label: "Financeira" },
-  { value: "negocio", label: "Negócio" },
-];
 
 /** Código da unidade para agrupamento (aceita legado "Condomínio · MB-0102"). */
 function chaveUnidadeGrupo(linha: LinhaPreVisualizacaoImportacaoUi): string {
@@ -113,17 +84,12 @@ export type ImportacaoPreVisualizacaoProps = {
   sessaoPreviaId?: string;
   hashArquivo: string;
   onPreviewAtualizado?: (preview: PreviewImportacaoModulo) => void;
-  onVoltarArquivo: () => void;
-  onCancelar: () => void;
   /** Linhas que o usuário marcou para ignorar (somente conferência até suporte na confirmação). */
   onLinhasIgnoradasChange?: (linhas: number[]) => void;
   /** Sem `importacoes.editar` o usuário só consulta a prévia. */
   permissaoCorrigir?: boolean;
-  gravacaoPrevista?: number;
   podeContinuarAprovacao?: boolean;
   motivoBloqueioContinuar?: string;
-  processandoContinuar?: boolean;
-  wizardFormId?: string;
 };
 
 export function ImportacaoPreVisualizacao({
@@ -132,24 +98,12 @@ export function ImportacaoPreVisualizacao({
   sessaoPreviaId,
   hashArquivo,
   onPreviewAtualizado,
-  onVoltarArquivo,
-  onCancelar,
   onLinhasIgnoradasChange,
   permissaoCorrigir = true,
-  gravacaoPrevista,
   podeContinuarAprovacao = true,
   motivoBloqueioContinuar,
-  processandoContinuar = false,
-  wizardFormId,
 }: ImportacaoPreVisualizacaoProps) {
   const { toast } = useToast();
-  const [search, setSearch] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [filtroSituacao, setFiltroSituacao] = useState<FiltroSituacaoPreVisualizacao>("todos");
-  const [appliedSituacao, setAppliedSituacao] = useState<FiltroSituacaoPreVisualizacao>("todos");
-  const [filtroInconsistencia, setFiltroInconsistencia] = useState<FiltroInconsistenciaPreVisualizacao>("todos");
-  const [appliedInconsistencia, setAppliedInconsistencia] =
-    useState<FiltroInconsistenciaPreVisualizacao>("todos");
   const [page, setPage] = useState(1);
   const [ignoradas, setIgnoradas] = useState<Set<number>>(() => new Set());
   const [detalheLinha, setDetalheLinha] = useState<LinhaPreVisualizacaoImportacaoUi | null>(null);
@@ -163,83 +117,33 @@ export function ImportacaoPreVisualizacao({
 
   const linhasUi = useMemo(() => mapLinhasUi(linhas, ignoradas), [linhas, ignoradas]);
 
-  const contagensDinamicas = useMemo(() => contarPreVisualizacao(linhas, ignoradas), [linhas, ignoradas]);
-
-  const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
-
-  const filtradas = useMemo(() => {
-    return linhasUi.filter((item) => {
-      if (appliedSituacao === "valido" && item.indicador !== "valido") return false;
-      if (appliedSituacao === "atencao" && item.indicador !== "atencao") return false;
-      if (appliedSituacao === "erro" && item.indicador !== "erro") return false;
-      if (appliedSituacao === "gravacao" && !linhaSeraGravada(item, ignoradas)) return false;
-      if (appliedSituacao === "ignorado" && !item.ignoradoPeloUsuario) return false;
-
-      if (appliedInconsistencia !== "todos") {
-        const cats = item.validacao?.inconsistencias.map((i) => i.categoria) ?? [];
-        if (!cats.includes(appliedInconsistencia as CategoriaValidacaoImportacao)) return false;
-      }
-
-      if (!query) return true;
-      const haystack = [
-        String(item.linha),
-        item.situacao,
-        item.mensagem ?? "",
-        JSON.stringify(item.resumo ?? {}),
-        JSON.stringify(item.validacao?.dadosOriginais ?? {}),
-      ]
-        .join(" ")
-        .toLocaleLowerCase("pt-BR");
-      return haystack.includes(query);
-    });
-  }, [linhasUi, appliedSituacao, appliedInconsistencia, query, ignoradas]);
-
   const agruparPorUnidade = cabecalho.moduloDestino === "debitos";
 
-  const filtradasOrdenadas = useMemo(
-    () => (agruparPorUnidade ? ordenarLinhasAgrupadasPorUnidade(filtradas) : filtradas),
-    [filtradas, agruparPorUnidade],
+  const linhasOrdenadas = useMemo(
+    () => (agruparPorUnidade ? ordenarLinhasAgrupadasPorUnidade(linhasUi) : linhasUi),
+    [linhasUi, agruparPorUnidade],
   );
 
   const contagemPorUnidade = useMemo(() => {
     if (!agruparPorUnidade) return new Map<string, number>();
     const map = new Map<string, number>();
-    for (const item of filtradasOrdenadas) {
+    for (const item of linhasOrdenadas) {
       const chave = chaveUnidadeGrupo(item);
       map.set(chave, (map.get(chave) ?? 0) + 1);
     }
     return map;
-  }, [filtradasOrdenadas, agruparPorUnidade]);
+  }, [linhasOrdenadas, agruparPorUnidade]);
 
-  const pageCount = Math.max(1, Math.ceil(filtradasOrdenadas.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(linhasOrdenadas.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const pageRows = filtradasOrdenadas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageRows = linhasOrdenadas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function unidadeLinhaAnteriorNoIndice(indiceNaPagina: number): string | null {
     if (indiceNaPagina > 0) return chaveUnidadeGrupo(pageRows[indiceNaPagina - 1]!);
     if (currentPage <= 1) return null;
     const indiceGlobal = (currentPage - 1) * PAGE_SIZE - 1;
-    if (indiceGlobal < 0 || indiceGlobal >= filtradasOrdenadas.length) return null;
-    return chaveUnidadeGrupo(filtradasOrdenadas[indiceGlobal]!);
-  }
-
-  const gravacaoCount = linhasUi.filter((item) => linhaSeraGravada(item, ignoradas)).length;
-
-  function handleApplyFilters() {
-    setAppliedSearch(search);
-    setAppliedSituacao(filtroSituacao);
-    setAppliedInconsistencia(filtroInconsistencia);
-    setPage(1);
-  }
-
-  function handleClearFilters() {
-    setSearch("");
-    setFiltroSituacao("todos");
-    setFiltroInconsistencia("todos");
-    setAppliedSearch("");
-    setAppliedSituacao("todos");
-    setAppliedInconsistencia("todos");
-    setPage(1);
+    if (indiceGlobal < 0 || indiceGlobal >= linhasOrdenadas.length) return null;
+    return chaveUnidadeGrupo(linhasOrdenadas[indiceGlobal]!);
   }
 
   function alternarIgnorar(linha: number) {
@@ -324,17 +228,6 @@ export function ImportacaoPreVisualizacao({
     }
   }
 
-  const dataHora =
-    cabecalho.dataHoraImportacao.length >= 10
-      ? formatarData(cabecalho.dataHoraImportacao.slice(0, 10)) +
-        (cabecalho.dataHoraImportacao.includes("T")
-          ? ` ${cabecalho.dataHoraImportacao.slice(11, 16)}`
-          : "")
-      : cabecalho.dataHoraImportacao;
-
-  const moduloRotulo =
-    cabecalho.moduloRotulo || ROTULO_MODULO_IMPORTACAO[cabecalho.moduloDestino] || cabecalho.moduloDestino;
-
   return (
     <div className="flex flex-col gap-lg">
       {cabecalho.arquivoJaImportado ? (
@@ -343,111 +236,8 @@ export function ImportacaoPreVisualizacao({
         </Alert>
       ) : null}
 
-      <section className="rounded-lg border border-border-subtle bg-surface-card p-md shadow-card">
-        <dl className="grid gap-sm text-body-sm min-[640px]:grid-cols-2">
-          <div>
-            <dt className="text-on-surface-variant">Arquivo</dt>
-            <dd className="font-medium text-on-surface">{cabecalho.nomeArquivo}</dd>
-          </div>
-          <div>
-            <dt className="text-on-surface-variant">Módulo de destino</dt>
-            <dd className="font-medium text-on-surface">{moduloRotulo}</dd>
-          </div>
-          <div>
-            <dt className="text-on-surface-variant">Usuário responsável</dt>
-            <dd className="font-medium text-on-surface">{cabecalho.usuarioResponsavel}</dd>
-          </div>
-          <div>
-            <dt className="text-on-surface-variant">Data e hora</dt>
-            <dd className="font-medium text-on-surface">{dataHora}</dd>
-          </div>
-          <div>
-            <dt className="text-on-surface-variant">Origem da informação</dt>
-            <dd className="font-medium text-on-surface">{cabecalho.origem}</dd>
-          </div>
-          <div>
-            <dt className="text-on-surface-variant">Registros na prévia</dt>
-            <dd className="font-medium text-on-surface">{cabecalho.quantidadeRegistros}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <CardMetricRow desktopCols={4}>
-        <CardMetric
-          accent="primary"
-          rotulo="Válidos"
-          valor={String(contagensDinamicas.validos).padStart(2, "0")}
-          detalhe="Prontos para gravação"
-          icon={<Icon icon={CheckCircle2} size="md" className="text-status-success" />}
-          iconClassName="bg-success-subtle text-status-success"
-        />
-        <CardMetric
-          accent="brass"
-          rotulo="Atenção"
-          valor={String(contagensDinamicas.atencao).padStart(2, "0")}
-          detalhe="Exigem conferência"
-          icon={<Icon icon={AlertTriangle} size="md" className="text-brass" />}
-          iconClassName="bg-gold-subtle text-brass"
-        />
-        <CardMetric
-          accent="critical"
-          rotulo="Erros"
-          valor={String(contagensDinamicas.erros).padStart(2, "0")}
-          detalhe="Não serão gravados"
-          icon={<Icon icon={XCircle} size="md" className="text-status-critical" />}
-          iconClassName="bg-error-container text-status-critical"
-        />
-        <CardMetric
-          accent="tertiary"
-          rotulo="Duplicidades"
-          valor={String(contagensDinamicas.duplicidades).padStart(2, "0")}
-          detalhe="Possível repetição no arquivo ou base"
-          icon={<Icon icon={AlertTriangle} size="md" />}
-          iconClassName="bg-surface-dim text-on-surface-variant"
-        />
-      </CardMetricRow>
-
-      <div className="grid grid-cols-2 gap-sm min-[480px]:hidden">
-        <KpiMobileCard rotulo="Serão gravados" valor={String(gravacaoCount)} icon={CheckCircle2} />
-        <KpiMobileCard rotulo="Total lidos" valor={String(cabecalho.quantidadeRegistros)} icon={AlertTriangle} />
-      </div>
-
       <section className="flex flex-col gap-md">
-        <div className="flex flex-wrap items-center justify-between gap-sm">
-          <h3 className="text-headline-sm text-on-surface">Tabela de conferência</h3>
-          <p className="text-body-sm text-on-surface-variant">
-            {gravacaoCount} registro(s) representam o que seguirá para gravação após aprovação.
-          </p>
-        </div>
-
-        <FilterBar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar por linha, unidade, condomínio, mensagem..."
-          onApply={handleApplyFilters}
-          onClear={handleClearFilters}
-          defaultMobile="grid"
-          useFormElement={false}
-          fields={[
-            {
-              id: "situacao",
-              label: "Situação",
-              value: filtroSituacao,
-              onChange: (v) => setFiltroSituacao(v as FiltroSituacaoPreVisualizacao),
-              options: opcoesSituacao,
-            },
-            {
-              id: "inconsistencia",
-              label: "Inconsistência",
-              value: filtroInconsistencia,
-              onChange: (v) => setFiltroInconsistencia(v as FiltroInconsistenciaPreVisualizacao),
-              options: opcoesInconsistencia,
-            },
-          ]}
-        />
-
-        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-card shadow-card">
-          <Table className="min-w-[72rem] text-body-sm">
+        <Table className="min-w-[72rem] text-body-sm" showExport={false}>
             <TableHeader className="sticky top-0 z-[1] bg-surface-card">
               <TableRow className="border-b border-border-subtle">
                 <TableHead className="sticky left-0 z-[2] w-10 bg-surface-card" />
@@ -472,7 +262,7 @@ export function ImportacaoPreVisualizacao({
             <TableBody>
               {pageRows.length === 0 ? (
                 <TableEmpty colSpan={colunas.length + 3}>
-                  Nenhum registro encontrado com os filtros atuais.
+                  Nenhum registro na prévia.
                 </TableEmpty>
               ) : (
                 pageRows.map((item, indiceNaPagina) => {
@@ -579,9 +369,8 @@ export function ImportacaoPreVisualizacao({
               )}
             </TableBody>
           </Table>
-        </div>
-        {filtradas.length > 0 ? (
-          <Pagination page={currentPage} total={filtradas.length} onPageChange={setPage} />
+        {linhasOrdenadas.length > 0 ? (
+          <Pagination page={currentPage} total={linhasOrdenadas.length} onPageChange={setPage} />
         ) : null}
       </section>
 
@@ -590,35 +379,6 @@ export function ImportacaoPreVisualizacao({
           {motivoBloqueioContinuar}
         </Alert>
       ) : null}
-
-      <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
-        <div className="flex flex-wrap items-center justify-between gap-sm">
-          <div className="flex flex-wrap gap-sm">
-            <Button type="button" variant="secondary" size="sm" onClick={onVoltarArquivo}>
-              Voltar e substituir arquivo
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onCancelar}>
-              Cancelar importação
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-sm">
-            {ignoradas.size > 0 ? (
-              <Badge variant="secondary">{ignoradas.size} ignorado(s) só na conferência</Badge>
-            ) : null}
-            <span className="text-body-sm text-on-surface-variant">
-              {gravacaoPrevista ?? gravacaoCount} registro(s) previsto(s) para gravação
-            </span>
-            <Button
-              type="submit"
-              form={wizardFormId}
-              size="sm"
-              disabled={!podeContinuarAprovacao || processandoContinuar || !wizardFormId}
-            >
-              {processandoContinuar ? "Processando…" : "Continuar para aprovação"}
-            </Button>
-          </div>
-        </div>
-      </div>
 
       <DetalheLinhaImportacao
         open={detalheOpen}

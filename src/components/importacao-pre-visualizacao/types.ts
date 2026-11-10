@@ -1,5 +1,5 @@
 import type { SituacaoLinhaImportacao } from "@/lib/importacao-centro/types";
-import type { CategoriaValidacaoImportacao, RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
+import type { RegistroValidadoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
 import type {
   ContagensPreVisualizacaoImportacao,
   CorrecaoPreviaSerializada,
@@ -40,13 +40,3 @@ export type DadosCabecalhoPreVisualizacao = {
   contagens: ContagensPreVisualizacaoImportacao;
   arquivoJaImportado?: boolean;
 };
-
-export type FiltroSituacaoPreVisualizacao =
-  | "todos"
-  | "valido"
-  | "atencao"
-  | "erro"
-  | "gravacao"
-  | "ignorado";
-
-export type FiltroInconsistenciaPreVisualizacao = "todos" | CategoriaValidacaoImportacao;

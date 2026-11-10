@@ -2,20 +2,18 @@
 
 import { useCallback, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
-import { useCadastros } from "@/hooks/use-cadastros";
 import type { AcaoPermissao, ModuloPermissao } from "@/lib/permissions/modulos";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { permissoesVazias } from "@/lib/permissions/parse";
 
+/** Permissões da sessão (PostgreSQL via login/session). Sem fallback para seed/catálogo local. */
 export function usePermissao() {
-  const { user, permissoes: permissoesSessao } = useAuth();
-  const cadastros = useCadastros();
+  const { permissoes: permissoesSessao } = useAuth();
 
-  const permissoes = useMemo(() => {
-    if (permissoesSessao) return permissoesSessao;
-    if (!user) return permissoesDoUsuarioId(-1, cadastros);
-    return permissoesDoUsuarioId(user.userId, cadastros);
-  }, [user, cadastros, permissoesSessao]);
+  const permissoes = useMemo(
+    () => (permissoesSessao && typeof permissoesSessao === "object" ? permissoesSessao : permissoesVazias()),
+    [permissoesSessao],
+  );
 
   const pode = useCallback(
     (modulo: ModuloPermissao, acao: AcaoPermissao) => temPermissao(permissoes, modulo, acao),

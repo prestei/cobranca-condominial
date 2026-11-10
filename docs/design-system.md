@@ -25,7 +25,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`, `TableEmpty`, … | `table.tsx` | Listagens tabulares com scroll horizontal no container. |
 | `Pagination` | `pagination.tsx` | Paginação de listagem. Padrão: 20 registros por página. |
 | `EmptyState` | `empty-state.tsx` | Sem dados: título, descrição, ícone e ação opcionais. |
-| `Skeleton`, `SkeletonListPage`, `SkeletonTable`, `SkeletonMetrics`, `SkeletonDashboard`, … | `skeleton.tsx` | Loading padrão: blocos com pulse (`motion-safe:animate-pulse`). Não usar spinner/`Loader2` nem texto “Carregando…” em tela cheia. |
+| `Skeleton`, `SkeletonListPage`, `SkeletonTable`, `SkeletonMetrics`, `SkeletonDashboard`, `SkeletonSidebarNav`, `SkeletonAppHeader`, … | `skeleton.tsx` | Loading padrão: blocos com pulse (`motion-safe:animate-pulse`). Não usar spinner/`Loader2` nem texto “Carregando…” em tela cheia. Shell usa `SkeletonSidebarNav` + `SkeletonAppHeader` (`headerCarregando`) durante a sessão. |
 | `Icon` | `icon.tsx` | Ícones Lucide com tamanhos `sm`, `md`, `lg` e traço padronizado. |
 | `Alert` | `alert.tsx` | Feedback inline. Variantes: `info`, `success`, `warning`, `error` (ícone Lucide por variante). |
 | `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, … | `dialog.tsx` | Modal controlado (`open`, `onOpenChange`). Elemento nativo `<dialog>`. |
@@ -274,6 +274,8 @@ O texto mostra o intervalo visível (`1–20 de 35`). As setas, sem rótulo, fic
 | `SkeletonLogin` | Login / Suspense. |
 | `SkeletonCalendar` | Agenda em calendário. |
 | `SkeletonInlineList` | Dropdown compacto (header). |
+| `SkeletonSidebarNav` | Menu lateral do `WorkspaceShell` enquanto a sessão/permissões carregam (blocos no tom navy da sidebar). |
+| `SkeletonAppHeader` | Header do `AppShell` (avatar, nome, ações) enquanto a sessão carrega — via `headerCarregando`. |
 
 ```tsx
 {carregando ? (

@@ -1,7 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ImportacaoWizardSheet,
+  type ImportacaoWizardHandle,
+} from "@/components/importacao-wizard/importacao-wizard-sheet";
 import {
   CalendarClock,
   Check,
@@ -16,10 +20,14 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { DistribuicaoAutomaticaPanel } from "@/components/atendimentos/distribuicao-automatica-panel";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
+import {
+  agruparFilaPorAtendente,
+  agruparFilaPorCondominio,
+  FilaPorGruposLista,
+} from "@/components/atendimentos/fila-por-grupos-lista";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -32,6 +40,7 @@ import { Icon } from "@/components/icon";
 import { Checkbox, FormField, Select, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { SkeletonMetrics, SkeletonTable } from "@/components/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   Sheet,
   SheetBody,
@@ -84,11 +93,9 @@ import {
   linhasFilaExport,
 } from "@/lib/atendimentos/exportar-listagem";
 import { aplicarAtendimentoSalvo } from "@/lib/atendimentos/sync-cliente";
-import { formatarMomentoAtividade } from "@/lib/fila/formatar-atividade-recente";
 import { formatarProximoRetorno } from "@/lib/fila/formatar-proximo-retorno";
 import type { FilaCobrancaItem, FilaCobrancaResumo, FilaOrdenacaoCampo } from "@/lib/fila/service";
 import { aplicarSnapshotAtribuicoes } from "@/lib/distribuicao/sync-cliente";
-import type { HistoricoAtribuicaoItem } from "@/lib/distribuicao/service";
 
 const filaMobileDataBarClassName =
   "grid w-full grid-cols-2 gap-sm [&>button]:min-h-11 [&>button]:w-full [&>button]:justify-center [&>button]:text-label-md";
@@ -102,6 +109,9 @@ const retornoOpcoes = [
   { value: "semana", label: "Próximos 7 dias" },
   { value: "sem", label: "Sem retorno" },
 ] as const;
+
+type VisaoListagem = "condominio" | "atendente" | "geral";
+const PAGE_SIZE_AGRUPADO = 10_000;
 
 function rotuloUnidade(item: FilaCobrancaItem) {
   if (item.bloco) return `${item.identificacao} - ${item.bloco}`;
@@ -134,6 +144,7 @@ export function FilaCobrancasPanel() {
   const { pode } = usePermissao();
   const visaoGeral = pode("usuarios", "criar");
   const podeImportar = pode("importacoes", "criar");
+  const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const atribuicoesKey = cadastros.atribuicoesCobranca
     .map((item) => `${item.id}:${item.encerradoEm ?? ""}:${item.atendenteId}`)
     .join("|");
@@ -143,8 +154,8 @@ export function FilaCobrancasPanel() {
   const [itens, setItens] = useState<FilaCobrancaItem[]>([]);
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<FilaCobrancaResumo>({ emCobranca: 0, semResponsavel: 0, retornosHoje: 0 });
-  const [atividade, setAtividade] = useState<HistoricoAtribuicaoItem[]>([]);
   const [page, setPage] = useState(1);
+  const [visao, setVisao] = useState<VisaoListagem>("condominio");
 
   const [search, setSearch] = useState("");
   const [condominioId, setCondominioId] = useState("todos");
@@ -236,9 +247,10 @@ export function FilaCobrancasPanel() {
     setCarregando(true);
     setErro("");
     try {
+      const agrupado = visao !== "geral";
       const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("pageSize", String(PAGE_SIZE));
+      params.set("page", agrupado ? "1" : String(page));
+      params.set("pageSize", String(agrupado ? PAGE_SIZE_AGRUPADO : PAGE_SIZE));
       if (appliedSearch.trim()) params.set("q", appliedSearch.trim());
       if (appliedCondominioId !== "todos") params.set("condominioId", appliedCondominioId);
       if (appliedSituacao !== "todos") params.set("situacao", appliedSituacao);
@@ -254,12 +266,7 @@ export function FilaCobrancasPanel() {
         params.set("order", sortDirection);
       }
 
-      const requests: Promise<Response>[] = [fetch(`/api/fila?${params}`, { credentials: "same-origin" })];
-      if (visaoGeral) {
-        requests.push(fetch("/api/distribuicao/historico?limit=5", { credentials: "same-origin" }));
-      }
-
-      const [filaRes, historicoRes] = await Promise.all(requests);
+      const filaRes = await fetch(`/api/fila?${params}`, { credentials: "same-origin" });
       const payload = (await filaRes.json()) as {
         error?: string;
         itens?: FilaCobrancaItem[];
@@ -270,11 +277,6 @@ export function FilaCobrancasPanel() {
       setItens(payload.itens ?? []);
       setTotal(payload.total ?? 0);
       setResumo(payload.resumo ?? { emCobranca: 0, semResponsavel: 0, retornosHoje: 0 });
-
-      if (historicoRes) {
-        const historicoPayload = (await historicoRes.json()) as { historico?: HistoricoAtribuicaoItem[] };
-        setAtividade(historicoPayload.historico ?? []);
-      }
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao carregar dados.");
       setItens([]);
@@ -293,6 +295,7 @@ export function FilaCobrancasPanel() {
     page,
     sortDirection,
     sortKey,
+    visao,
     visaoGeral,
   ]);
 
@@ -555,8 +558,19 @@ export function FilaCobrancasPanel() {
   }
 
   function abrirImportacao() {
-    router.push("/importacoes");
+    importacaoWizardRef.current?.abrir("debitos");
   }
+
+  const gruposCondominio = useMemo(() => agruparFilaPorCondominio(itens), [itens]);
+  const gruposAtendente = useMemo(() => agruparFilaPorAtendente(itens), [itens]);
+
+  const emptyStateFila = (
+    <EmptyState
+      icon={<Icon icon={ListOrdered} size="lg" className="text-on-surface-variant" />}
+      title="Fila vazia"
+      description="Não há unidades em cobrança ativa com os filtros aplicados."
+    />
+  );
 
   if (erro) {
     return (
@@ -659,35 +673,8 @@ export function FilaCobrancasPanel() {
         />
       </FiltrosSection>
 
-      {visaoGeral ? (
-        <DistribuicaoAutomaticaPanel refreshKey={atribuicoesKey} onDistribuido={() => void recarregar()} />
-      ) : null}
-
       {carregando ? (
         <SkeletonTable rows={8} cols={visaoGeral ? 9 : 8} label="Carregando fila de cobranças" />
-      ) : total === 0 ? (
-        <>
-          <ResponsiveTable
-            onExport={(formato) => void aoExportar(formato)}
-            onImport={abrirImportacao}
-            showImport={podeImportar}
-            mobileDataBarClassName={filaMobileDataBarClassName}
-            desktop={
-              <Table aria-label="Fila de cobranças" showExport={false}>
-                <TableBody>
-                  <TableEmpty colSpan={visaoGeral ? 9 : 8}>
-                    <EmptyState
-                      icon={<Icon icon={ListOrdered} size="lg" className="text-on-surface-variant" />}
-                      title="Fila vazia"
-                      description="Não há unidades em cobrança ativa com os filtros aplicados."
-                    />
-                  </TableEmpty>
-                </TableBody>
-              </Table>
-            }
-            mobile={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
-          />
-        </>
       ) : (
         <>
           {visaoGeral && selecionadas.size > 0 ? (
@@ -698,267 +685,357 @@ export function FilaCobrancasPanel() {
               </Button>
             </div>
           ) : null}
-          <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
-            <ResponsiveTable
-              onExport={(formato) => void aoExportar(formato)}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              mobileDataBarClassName={filaMobileDataBarClassName}
-              desktopDataBarClassName={filaDesktopDataBarClassName}
-              desktop={
-                <Table
-                  aria-label="Fila de cobranças ativas"
-                  showExport={false}
-                  containerClassName="rounded-none border-0 shadow-none"
-                >
-                  <TableHeader className="bg-[#E8EEF7]">
-                    <TableRow className="border-b border-border-subtle hover:bg-transparent">
-                      {visaoGeral ? (
-                        <TableHead
-                          selection
-                          selectionChecked={allSelected}
-                          selectionIndeterminate={someSelected}
-                          selectionLabel="Selecionar todas nesta página"
-                          onSelectionChange={toggleAll}
-                        />
-                      ) : null}
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("condominio")}
-                        onSort={() => alternarOrdenacao("condominio")}
+
+          <Tabs
+            value={visao}
+            onValueChange={(value) => {
+              setVisao(value as VisaoListagem);
+              setPage(1);
+            }}
+            defaultValue="condominio"
+            className="flex flex-col gap-md"
+          >
+            <TabsList>
+              <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+              <TabsTrigger value="atendente">Por atendente</TabsTrigger>
+              <TabsTrigger value="geral">Geral</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+              <ResponsiveTable
+                onExport={(formato) => void aoExportar(formato)}
+                onImport={abrirImportacao}
+                showImport={podeImportar}
+                mobileDataBarClassName={filaMobileDataBarClassName}
+                desktop={
+                  <FilaPorGruposLista
+                    grupos={gruposCondominio}
+                    modo="condominio"
+                    emptyState={emptyStateFila}
+                    variante="desktop"
+                    visaoGeral={visaoGeral}
+                    selecionadas={selecionadas}
+                    destaqueUnidadeId={destaqueUnidadeId}
+                    onToggleUnidade={toggleUnidade}
+                    acoesLinha={acoesLinha}
+                  />
+                }
+                mobile={
+                  <FilaPorGruposLista
+                    grupos={gruposCondominio}
+                    modo="condominio"
+                    emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
+                    variante="mobile"
+                    visaoGeral={visaoGeral}
+                    selecionadas={selecionadas}
+                    destaqueUnidadeId={destaqueUnidadeId}
+                    onToggleUnidade={toggleUnidade}
+                    acoesLinha={acoesLinha}
+                  />
+                }
+              />
+            </TabsContent>
+
+            <TabsContent value="atendente" className="flex flex-col gap-md !bg-transparent !p-0">
+              <ResponsiveTable
+                onExport={(formato) => void aoExportar(formato)}
+                onImport={abrirImportacao}
+                showImport={podeImportar}
+                mobileDataBarClassName={filaMobileDataBarClassName}
+                desktop={
+                  <FilaPorGruposLista
+                    grupos={gruposAtendente}
+                    modo="atendente"
+                    emptyState={emptyStateFila}
+                    variante="desktop"
+                    visaoGeral={visaoGeral}
+                    selecionadas={selecionadas}
+                    destaqueUnidadeId={destaqueUnidadeId}
+                    onToggleUnidade={toggleUnidade}
+                    acoesLinha={acoesLinha}
+                  />
+                }
+                mobile={
+                  <FilaPorGruposLista
+                    grupos={gruposAtendente}
+                    modo="atendente"
+                    emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
+                    variante="mobile"
+                    visaoGeral={visaoGeral}
+                    selecionadas={selecionadas}
+                    destaqueUnidadeId={destaqueUnidadeId}
+                    onToggleUnidade={toggleUnidade}
+                    acoesLinha={acoesLinha}
+                  />
+                }
+              />
+            </TabsContent>
+
+            <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+              {total === 0 ? (
+                <ResponsiveTable
+                  onExport={(formato) => void aoExportar(formato)}
+                  onImport={abrirImportacao}
+                  showImport={podeImportar}
+                  mobileDataBarClassName={filaMobileDataBarClassName}
+                  desktop={
+                    <Table aria-label="Fila de cobranças" showExport={false}>
+                      <TableBody>
+                        <TableEmpty colSpan={visaoGeral ? 9 : 8}>{emptyStateFila}</TableEmpty>
+                      </TableBody>
+                    </Table>
+                  }
+                  mobile={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
+                />
+              ) : (
+                <div className="flex flex-col gap-sm min-[768px]:overflow-hidden min-[768px]:rounded-xl min-[768px]:border min-[768px]:border-border-subtle min-[768px]:bg-surface-card min-[768px]:shadow-card">
+                  <ResponsiveTable
+                    onExport={(formato) => void aoExportar(formato)}
+                    onImport={abrirImportacao}
+                    showImport={podeImportar}
+                    mobileDataBarClassName={filaMobileDataBarClassName}
+                    desktopDataBarClassName={filaDesktopDataBarClassName}
+                    desktop={
+                      <Table
+                        aria-label="Fila de cobranças ativas"
+                        showExport={false}
+                        containerClassName="rounded-none border-0 shadow-none"
                       >
-                        Condomínio
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("unidade")}
-                        onSort={() => alternarOrdenacao("unidade")}
-                      >
-                        Unidade
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("inadimplencia")}
-                        onSort={() => alternarOrdenacao("inadimplencia")}
-                      >
-                        Inadimplência
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("situacao")}
-                        onSort={() => alternarOrdenacao("situacao")}
-                      >
-                        Situação
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("re")}
-                        onSort={() => alternarOrdenacao("re")}
-                      >
-                        RE responsável
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("ultimoAtendimento")}
-                        onSort={() => alternarOrdenacao("ultimoAtendimento")}
-                      >
-                        Último atendimento
-                      </TableHead>
-                      <TableHead
-                        sortable
-                        sortDirection={directionFor("proximoRetorno")}
-                        onSort={() => alternarOrdenacao("proximoRetorno")}
-                      >
-                        Próximo retorno
-                      </TableHead>
-                      <TableHead actions />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itens.map((item) => (
-                      <TableRow
-                        key={item.unidadeId}
-                        id={`fila-unidade-${item.unidadeId}`}
-                        className={destaqueUnidadeId === item.unidadeId ? "bg-[#FFF8E6]" : undefined}
-                      >
-                        {visaoGeral ? (
-                          <TableCell align="center" className="w-12">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                                checked={selecionadas.has(item.unidadeId)}
-                                onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
+                        <TableHeader className="bg-[#E8EEF7]">
+                          <TableRow className="border-b border-border-subtle hover:bg-transparent">
+                            {visaoGeral ? (
+                              <TableHead
+                                selection
+                                selectionChecked={allSelected}
+                                selectionIndeterminate={someSelected}
+                                selectionLabel="Selecionar todas nesta página"
+                                onSelectionChange={toggleAll}
                               />
-                            </div>
-                          </TableCell>
-                        ) : null}
-                        <TableCell className="text-on-surface">{nomeCondominio(item.condominioId)}</TableCell>
-                        <TableCell className="font-medium text-on-surface">{rotuloUnidade(item)}</TableCell>
-                        <TableCell>
-                          {item.valorInadimplencia ? (
-                            <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
-                          ) : (
-                            "—"
-                          )}
-                          {item.diasAtrasoMax > 0 ? (
-                            <span className="mt-xs block text-body-sm text-on-surface-variant">
-                              {item.diasAtrasoMax} dias em atraso
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell>
-                          <BadgeSituacaoCobranca situacao={item.situacao} />
-                        </TableCell>
-                        <TableCell className="text-on-surface">
-                          {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
-                        </TableCell>
-                        <TableCell className="text-on-surface-variant">
-                          {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <CelulaProximoRetorno data={item.proximoRetorno} />
-                        </TableCell>
-                        <TableActionsCell label={`Ações da cobrança ${rotuloUnidade(item)}`} actions={acoesLinha(item)} />
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              }
-              mobile={
-              <TableMobileList aria-label="Fila de cobranças">
-                {itens.map((item, index) => {
-                  const acoes = acoesLinha(item);
-                  const acoesRapidas = acoes.filter((acao) =>
-                    ["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
-                  );
-                  const acoesExtras = acoes.filter(
-                    (acao) => !["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
-                  );
-                  return (
-                    <TableMobileCard key={item.unidadeId}>
-                      <TableMobileCardHeader>
-                        {visaoGeral ? (
-                          <Checkbox
-                            aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                            checked={selecionadas.has(item.unidadeId)}
-                            onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
-                          />
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
-                            <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                              {tituloCobrancaMobile(item)}
-                            </TableMobileTitle>
-                            <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
-                              {index + 1} de {itens.length}
-                            </span>
-                          </div>
-                        </div>
-                        {acoesExtras.length > 0 ? (
-                          <TableActionsButton
-                            label={`Mais ações — ${rotuloUnidade(item)}`}
-                            actions={acoesExtras}
-                          />
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
-                      </TableMobileCardHeader>
-                      <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-                        <div className="flex items-start justify-between gap-md">
-                          <div className="min-w-0">
-                            <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
-                            <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                              {item.valorInadimplencia ?? "—"}
-                            </p>
-                            {item.diasAtrasoMax > 0 ? (
-                              <p className="text-body-sm text-on-surface-variant">{item.diasAtrasoMax} dias em atraso</p>
                             ) : null}
-                          </div>
-                          <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-sm text-body-sm">
-                          <div className="min-w-0">
-                            <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
-                            <p className="text-body-md text-on-surface">{item.codigoRe ?? "Sem responsável"}</p>
-                          </div>
-                          <div className="min-w-0 text-end">
-                            <p className="text-label-sm uppercase text-on-surface-variant">Retorno</p>
-                            <div className="flex justify-end text-body-md">
-                              <CelulaProximoRetorno data={item.proximoRetorno} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {acoesRapidas.length > 0 ? (
-                        <div className="mt-sm flex flex-col gap-xs">
-                          {acoesRapidas.find((a) => a.label === "Registrar contato") ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="min-h-11 w-full"
-                              onClick={() => registrarAtendimento(item.unidadeId)}
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("condominio")}
+                              onSort={() => alternarOrdenacao("condominio")}
                             >
-                              <Icon icon={ClipboardList} size="sm" aria-hidden />
-                              Registrar contato
-                            </Button>
-                          ) : null}
-                          <div className="grid grid-cols-2 gap-xs">
-                            {acoesRapidas
-                              .filter((acao) => acao.label !== "Registrar contato")
-                              .map((acao) => (
-                                <Button
-                                  key={acao.label}
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="min-h-10 w-full px-sm text-body-sm"
-                                  onClick={acao.onSelect}
-                                >
-                                  <Icon icon={acao.icon} size="sm" className="shrink-0" aria-hidden />
-                                  {acao.label}
-                                </Button>
-                              ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </TableMobileCard>
-                  );
-                })}
-              </TableMobileList>
-              }
-            />
-            <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
-              <Pagination page={page} total={total} onPageChange={setPage} />
-            </div>
-          </div>
+                              Condomínio
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("unidade")}
+                              onSort={() => alternarOrdenacao("unidade")}
+                            >
+                              Unidade
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("inadimplencia")}
+                              onSort={() => alternarOrdenacao("inadimplencia")}
+                            >
+                              Inadimplência
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("situacao")}
+                              onSort={() => alternarOrdenacao("situacao")}
+                            >
+                              Situação
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("re")}
+                              onSort={() => alternarOrdenacao("re")}
+                            >
+                              RE responsável
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("ultimoAtendimento")}
+                              onSort={() => alternarOrdenacao("ultimoAtendimento")}
+                            >
+                              Último atendimento
+                            </TableHead>
+                            <TableHead
+                              sortable
+                              sortDirection={directionFor("proximoRetorno")}
+                              onSort={() => alternarOrdenacao("proximoRetorno")}
+                            >
+                              Próximo retorno
+                            </TableHead>
+                            <TableHead actions />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {itens.map((item) => (
+                            <TableRow
+                              key={item.unidadeId}
+                              id={`fila-unidade-${item.unidadeId}`}
+                              className={destaqueUnidadeId === item.unidadeId ? "bg-[#FFF8E6]" : undefined}
+                            >
+                              {visaoGeral ? (
+                                <TableCell align="center" className="w-12">
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      aria-label={`Selecionar ${rotuloUnidade(item)}`}
+                                      checked={selecionadas.has(item.unidadeId)}
+                                      onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
+                                    />
+                                  </div>
+                                </TableCell>
+                              ) : null}
+                              <TableCell className="text-on-surface">{nomeCondominio(item.condominioId)}</TableCell>
+                              <TableCell className="font-medium text-on-surface">{rotuloUnidade(item)}</TableCell>
+                              <TableCell>
+                                {item.valorInadimplencia ? (
+                                  <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
+                                ) : (
+                                  "—"
+                                )}
+                                {item.diasAtrasoMax > 0 ? (
+                                  <span className="mt-xs block text-body-sm text-on-surface-variant">
+                                    {item.diasAtrasoMax} dias em atraso
+                                  </span>
+                                ) : null}
+                              </TableCell>
+                              <TableCell>
+                                <BadgeSituacaoCobranca situacao={item.situacao} />
+                              </TableCell>
+                              <TableCell className="text-on-surface">
+                                {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
+                              </TableCell>
+                              <TableCell className="text-on-surface-variant">
+                                {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
+                              </TableCell>
+                              <TableCell>
+                                <CelulaProximoRetorno data={item.proximoRetorno} />
+                              </TableCell>
+                              <TableActionsCell
+                                label={`Ações da cobrança ${rotuloUnidade(item)}`}
+                                actions={acoesLinha(item)}
+                              />
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    }
+                    mobile={
+                      <TableMobileList aria-label="Fila de cobranças">
+                        {itens.map((item, index) => {
+                          const acoes = acoesLinha(item);
+                          const acoesRapidas = acoes.filter((acao) =>
+                            ["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
+                          );
+                          const acoesExtras = acoes.filter(
+                            (acao) =>
+                              !["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
+                          );
+                          return (
+                            <TableMobileCard key={item.unidadeId}>
+                              <TableMobileCardHeader>
+                                {visaoGeral ? (
+                                  <Checkbox
+                                    aria-label={`Selecionar ${rotuloUnidade(item)}`}
+                                    checked={selecionadas.has(item.unidadeId)}
+                                    onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
+                                  />
+                                ) : (
+                                  <span aria-hidden="true" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                                    <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                                      {tituloCobrancaMobile(item)}
+                                    </TableMobileTitle>
+                                    <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                                      {index + 1} de {itens.length}
+                                    </span>
+                                  </div>
+                                </div>
+                                {acoesExtras.length > 0 ? (
+                                  <TableActionsButton
+                                    label={`Mais ações — ${rotuloUnidade(item)}`}
+                                    actions={acoesExtras}
+                                  />
+                                ) : (
+                                  <span aria-hidden="true" />
+                                )}
+                              </TableMobileCardHeader>
+                              <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+                                <div className="flex items-start justify-between gap-md">
+                                  <div className="min-w-0">
+                                    <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
+                                    <p className="text-body-md font-semibold tabular-nums text-on-surface">
+                                      {item.valorInadimplencia ?? "—"}
+                                    </p>
+                                    {item.diasAtrasoMax > 0 ? (
+                                      <p className="text-body-sm text-on-surface-variant">
+                                        {item.diasAtrasoMax} dias em atraso
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-sm text-body-sm">
+                                  <div className="min-w-0">
+                                    <p className="text-label-sm uppercase text-on-surface-variant">RE</p>
+                                    <p className="text-body-md text-on-surface">
+                                      {item.codigoRe ?? "Sem responsável"}
+                                    </p>
+                                  </div>
+                                  <div className="min-w-0 text-end">
+                                    <p className="text-label-sm uppercase text-on-surface-variant">Retorno</p>
+                                    <div className="flex justify-end text-body-md">
+                                      <CelulaProximoRetorno data={item.proximoRetorno} />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              {acoesRapidas.length > 0 ? (
+                                <div className="mt-sm flex flex-col gap-xs">
+                                  {acoesRapidas.find((a) => a.label === "Registrar contato") ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="min-h-11 w-full"
+                                      onClick={() => registrarAtendimento(item.unidadeId)}
+                                    >
+                                      <Icon icon={ClipboardList} size="sm" aria-hidden />
+                                      Registrar contato
+                                    </Button>
+                                  ) : null}
+                                  <div className="grid grid-cols-2 gap-xs">
+                                    {acoesRapidas
+                                      .filter((acao) => acao.label !== "Registrar contato")
+                                      .map((acao) => (
+                                        <Button
+                                          key={acao.label}
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="min-h-10 w-full px-sm text-body-sm"
+                                          onClick={acao.onSelect}
+                                        >
+                                          <Icon icon={acao.icon} size="sm" className="shrink-0" aria-hidden />
+                                          {acao.label}
+                                        </Button>
+                                      ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </TableMobileCard>
+                          );
+                        })}
+                      </TableMobileList>
+                    }
+                  />
+                  <div className="min-[768px]:border-t min-[768px]:border-border-subtle min-[768px]:px-md min-[768px]:py-md">
+                    <Pagination page={page} total={total} onPageChange={setPage} />
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
-
-      {visaoGeral && atividade.length > 0 ? (
-        <section
-          aria-labelledby="atividade-recente-titulo"
-          className="rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg"
-        >
-          <h2 id="atividade-recente-titulo" className="mb-md flex items-center gap-sm text-title-sm text-on-surface">
-            <Icon icon={Clock} size="sm" className="text-on-surface-variant" />
-            Atividade recente
-          </h2>
-          <ul className="flex flex-col gap-sm">
-            {atividade.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-sm text-body-sm">
-                <span className="text-on-surface">
-                  Unidade {item.identificacaoUnidade} atribuída para {item.codigoReAtual}
-                </span>
-                <time className="shrink-0 text-on-surface-variant" dateTime={item.atribuidoEm}>
-                  {formatarMomentoAtividade(item.atribuidoEm)}
-                </time>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <HistoricoUnidadeSheet
         unidadeId={historicoUnidadeId}
@@ -1037,6 +1114,14 @@ export function FilaCobrancasPanel() {
           </SheetForm>
         </SheetContent>
       </Sheet>
+      {podeImportar ? (
+        <ImportacaoWizardSheet
+          ref={importacaoWizardRef}
+          moduloInicial="debitos"
+          moduloTravado
+          onConcluida={() => void recarregar()}
+        />
+      ) : null}
     </div>
   );
 }

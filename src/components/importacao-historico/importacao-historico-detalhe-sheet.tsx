@@ -27,11 +27,12 @@ import {
   rotuloSituacaoImportacao,
 } from "@/lib/importacao-centro/situacao-importacao";
 import { ROTULO_MODULO_IMPORTACAO } from "@/components/importacao-pre-visualizacao/config-modulos";
+import { ImportacaoWizardLoading } from "@/components/importacao-wizard/importacao-wizard-loading";
 
 const ROTULO_ACAO: Record<string, string> = {
   arquivo_recebido: "Arquivo recebido",
-  previa_gerada: "Prévia gerada",
-  aprovacao_solicitada: "Aguardando aprovação",
+  previa_gerada: "Conferência gerada",
+  aprovacao_solicitada: "Confirmação solicitada",
   confirmacao_gravada: "Confirmação gravada",
   confirmacao_idempotente: "Reconfirmação (idempotente)",
   cancelada: "Cancelada",
@@ -88,7 +89,7 @@ export function ImportacaoHistoricoDetalheSheet({
             <SheetHeaderText>
               <SheetTitle id="importacao-historico-detalhe-title">{titulo}</SheetTitle>
               <SheetDescription>
-                Rastreabilidade do envio, conferência, aprovação e resultado da importação.
+                Rastreabilidade do envio, conferência na importação e resultado da gravação.
               </SheetDescription>
             </SheetHeaderText>
           </SheetHeaderLead>
@@ -96,7 +97,10 @@ export function ImportacaoHistoricoDetalheSheet({
         </SheetHeader>
         <SheetBody>
           {carregando ? (
-            <p className="text-body-sm text-on-surface-variant">Carregando detalhes…</p>
+            <ImportacaoWizardLoading
+              label="Carregando detalhes"
+              className="min-h-[16rem] bg-transparent backdrop-blur-none"
+            />
           ) : !importacao ? (
             <p className="text-body-sm text-on-surface-variant">Nenhum registro selecionado.</p>
           ) : (

@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { SheetPanel } from "@/components/sheet";
 import type { ColunaPreVisualizacaoImportacao, LinhaPreVisualizacaoImportacaoUi } from "@/components/importacao-pre-visualizacao/types";
 import type { CategoriaValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
-import { montarResumoDebitoDeDadosOriginais } from "@/lib/importacao-centro/adaptadores/debitos";
+import { montarResumoDebitoDeDadosOriginais } from "@/lib/importacao-centro/adaptadores/debitos-resumo";
 import { mensagensLinhaPreVisualizacao, situacaoPermiteIgnorarNaPrevia } from "@/lib/importacao-centro/pre-visualizacao";
 
 const rotuloCategoria: Record<CategoriaValidacaoImportacao, string> = {

@@ -13,12 +13,17 @@ export async function register() {
   }
 
   const [
-    { substituirEstadoCatalogo, exportarEstadoCatalogoParaPersistencia },
+    {
+      substituirEstadoCatalogo,
+      exportarEstadoCatalogoParaPersistencia,
+      registrarAgendadorPersistenciaCatalogo,
+    },
     { postgresOperacionalDisponivel },
     { carregarIdentidadeDoPostgres },
     {
       carregarCatalogoSnapshotDoPostgres,
       salvarCatalogoSnapshotNoPostgres,
+      agendarPersistenciaCatalogoNoPostgres,
     },
   ] = await Promise.all([
     import("@/data/catalogo"),
@@ -26,6 +31,8 @@ export async function register() {
     import("@/lib/db/identity-pg"),
     import("@/lib/db/catalogo-snapshot-pg"),
   ]);
+
+  registrarAgendadorPersistenciaCatalogo(agendarPersistenciaCatalogoNoPostgres);
 
   if (!(await postgresOperacionalDisponivel())) {
     throw new Error("[pg] Tabelas indisponíveis. Rode: npm run db:migrate");
@@ -35,12 +42,13 @@ export async function register() {
   const snapshot = await carregarCatalogoSnapshotDoPostgres();
 
   if (snapshot) {
+    // Identidade (role/"user") vem só do PostgreSQL — nunca do snapshot/seed em memória.
     substituirEstadoCatalogo({
       ...snapshot,
       ...(identidade
         ? {
-            cargos: identidade.cargos.length ? identidade.cargos : snapshot.cargos,
-            usuarios: identidade.usuarios.length ? identidade.usuarios : snapshot.usuarios,
+            cargos: identidade.cargos,
+            usuarios: identidade.usuarios,
           }
         : {}),
     });
@@ -48,11 +56,31 @@ export async function register() {
     return;
   }
 
-  // Primeira subida: garante identidade no banco e grava snapshot inicial.
+  // Primeira subida: identidade do banco; operacional vazio (sem seed de demonstração).
+  if (!identidade) {
+    throw new Error("[pg] Identidade indisponível no PostgreSQL na primeira subida.");
+  }
   const atual = exportarEstadoCatalogoParaPersistencia();
   const inicial = {
     ...atual,
-    ...(identidade ? { cargos: identidade.cargos, usuarios: identidade.usuarios } : {}),
+    condominios: [],
+    unidades: [],
+    responsaveis: [],
+    vinculos: [],
+    debitos: [],
+    atendimentos: [],
+    propostasNegociacao: [],
+    encaminhamentosJuridicos: [],
+    documentosJuridicos: [],
+    parcelasAcordo: [],
+    pagamentosAcordo: [],
+    atribuicoesCobranca: [],
+    importacoes: [],
+    auditoria: [],
+    notificacoesInternas: [],
+    notificacaoFalhas: [],
+    cargos: identidade.cargos,
+    usuarios: identidade.usuarios,
   };
   substituirEstadoCatalogo(inicial);
   const gravou = await salvarCatalogoSnapshotNoPostgres(exportarEstadoCatalogoParaPersistencia());

@@ -1,9 +1,8 @@
 import { getSession } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/types";
-import { identityPgDisponivel, permissoesDoUsuarioIdPg } from "@/lib/db/identity-pg";
 import { temPermissao } from "@/lib/permissions/check";
 import type { AcaoPermissao, ModuloPermissao } from "@/lib/permissions/modulos";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export async function requireSession(): Promise<SessionUser | Response> {
   const session = await getSession();
@@ -22,9 +21,7 @@ export async function requirePermissao(
   modulo: ModuloPermissao,
   acao: AcaoPermissao,
 ): Promise<Response | null> {
-  const perm = identityPgDisponivel()
-    ? ((await permissoesDoUsuarioIdPg(session.userId)) ?? permissoesDoUsuarioId(session.userId))
-    : permissoesDoUsuarioId(session.userId);
+  const perm = await resolverPermissoesUsuario(session.userId);
   if (!temPermissao(perm, modulo, acao)) {
     return Response.json({ error: "Sem permissão para esta operação." }, { status: 403 });
   }

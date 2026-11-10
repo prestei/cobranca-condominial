@@ -17,11 +17,11 @@ Registrar encaminhamentos de cobrança para análise jurídica, associar advogad
 
 | Onde | Descrição |
 | --- | --- |
-| `/juridico` | Listagem de encaminhamentos no escopo do perfil |
+| `/juridico` | Listagem em abas: **Por condomínio** (padrão — todos os condomínios na tela, painel recolhível, tabela e paginação por condomínio) e **Geral** (tabela plana) |
 | Fila de cobranças | Ação **Jurídico** por unidade |
 | Histórico da unidade (T12) | Botão **Jurídico** e eventos na linha do tempo |
 
-Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/lib/juridico/service.ts`.
+Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/components/juridico/juridico-por-condominio-lista.tsx`, `src/lib/juridico/service.ts`.
 
 ## Perfis e permissões
 

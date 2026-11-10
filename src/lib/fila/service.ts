@@ -261,7 +261,7 @@ export function listarFilaCobrancaPaginada(
 ) {
   const todos = listarFilaCobranca(userId, filtros);
   const safePage = Math.max(1, page);
-  const safeSize = Math.min(100, Math.max(1, pageSize));
+  const safeSize = Math.min(10_000, Math.max(1, pageSize));
   const start = (safePage - 1) * safeSize;
   return { itens: todos.slice(start, start + safeSize), total: todos.length, page: safePage, pageSize: safeSize };
 }

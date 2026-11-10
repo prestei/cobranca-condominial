@@ -31,6 +31,11 @@ npm ci
 echo "==> Migrations PostgreSQL"
 npm run db:migrate
 
+if [[ -f catalogo-operacional.import.json ]]; then
+  echo "==> Importando catálogo operacional para o PostgreSQL"
+  node deploy/scripts/importar-catalogo-json.mjs catalogo-operacional.import.json
+fi
+
 echo "==> Build Next.js"
 npm run build
 
