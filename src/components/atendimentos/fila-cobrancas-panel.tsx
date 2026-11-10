@@ -559,7 +559,7 @@ export function FilaCobrancasPanel() {
         return;
       }
       const linhas = linhasFilaExport(payload.itens ?? [], nomeCondominio, formatarData);
-      const base = `fila-cobrancas-${new Date..toISOString().slice(0, 10)}`;
+      const base = `fila-cobrancas-${new Date().toISOString().slice(0, 10)}`;
       exportarListagem(toast, formato, "Fila de cobranças", base, colunasFilaExport, linhas);
     } catch {
       toast({ variant: "error", title: "Erro ao exportar", description: "Tente novamente." });

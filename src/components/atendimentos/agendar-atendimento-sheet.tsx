@@ -45,7 +45,7 @@ type Props = {
 function agoraDatetimeLocal() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d..toISOString().slice(0, 16);
+  return d.toISOString().slice(0, 16);
 }
 
 function dataPreferidaParaInput(valor?: string) {

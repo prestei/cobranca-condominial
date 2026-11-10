@@ -230,7 +230,7 @@ export function DistribuicaoPanel() {
         toast,
         formato,
         "Unidades para distribuição",
-        `distribuicao-fila-${new Date..toISOString().slice(0, 10)}`,
+        `distribuicao-fila-${new Date().toISOString().slice(0, 10)}`,
         colunasFilaExport,
         linhas,
       );
@@ -252,7 +252,7 @@ export function DistribuicaoPanel() {
       toast,
       formato,
       "Histórico de atribuições",
-      `distribuicao-historico-${new Date..toISOString().slice(0, 10)}`,
+      `distribuicao-historico-${new Date().toISOString().slice(0, 10)}`,
       colunasHistoricoDistrib,
       linhas,
     );

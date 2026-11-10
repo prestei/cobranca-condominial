@@ -283,7 +283,7 @@ export default function AuditoriaPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `historico-alteracoes-${new Date..toISOString().slice(0, 10)}`;
+    const arquivoBase = `historico-alteracoes-${new Date().toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });

@@ -218,7 +218,7 @@ export function RetornosAgendaPanel() {
         return;
       }
       const linhas = linhasRetornosExport(payload.itens ?? [], formatarData, rotuloSituacao);
-      const base = `retornos-${new Date..toISOString().slice(0, 10)}`;
+      const base = `retornos-${new Date().toISOString().slice(0, 10)}`;
       exportarListagem(toast, formato, "Agenda de retornos", base, colunasRetornosExport, linhas);
       if ((payload.total ?? 0) > linhas.length) {
         toast({

@@ -712,7 +712,7 @@ export default function CondominiosPage() {
     }
     const linhas = linhasExportacao();
     const colunas = [...colunasExportacao];
-    const arquivoBase = `condominios-${new Date..toISOString().slice(0, 10)}`;
+    const arquivoBase = `condominios-${new Date().toISOString().slice(0, 10)}`;
     if (formato === "csv") {
       exportarCsv(`${arquivoBase}.csv`, colunas, linhas);
       toast({ variant: "success", title: "CSV baixado" });
