@@ -113,7 +113,6 @@ import {
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
-import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
 type VisaoListagem = "geral" | "condominio";

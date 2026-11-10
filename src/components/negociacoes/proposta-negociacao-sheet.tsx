@@ -1,6 +1,5 @@
 "use client";
 
-import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { FileText, Handshake, Wallet } from "lucide-react";
