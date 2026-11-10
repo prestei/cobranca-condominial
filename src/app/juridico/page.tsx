@@ -32,9 +32,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import {
-  agruparEncaminhamentosPorCondominio,
-  JuridicoPorCondominioLista,
-} from "@/components/juridico/juridico-por-condominio-lista";
+  agruparEncaminhamentosPorAdvogado,
+  JuridicoPorGruposLista,
+} from "@/components/juridico/juridico-por-grupos-lista";
 import {
   escopoCondominios,
   formatarData,
@@ -59,7 +59,7 @@ const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral">
 };
 
 type SortKey = "encaminhado" | "condominio" | "unidade" | "advogado" | "status" | "documentos";
-type VisaoListagem = "geral" | "condominio";
+type VisaoListagem = "geral" | "advogado";
 
 type DetalheAberto = {
   encaminhamentoId: string;
@@ -95,7 +95,7 @@ export default function JuridicoPage() {
   const [appliedCondominio, setAppliedCondominio] = useState("todos");
   const [appliedAdvogado, setAppliedAdvogado] = useState("todos");
 
-  const [visao, setVisao] = useState<VisaoListagem>("condominio");
+  const [visao, setVisao] = useState<VisaoListagem>("geral");
   const [sortKey, setSortKey] = useState<SortKey>("encaminhado");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -157,7 +157,9 @@ export default function JuridicoPage() {
       return haystack.includes(query);
     })
     .sort((a, b) => {
-      if (visao === "condominio") {
+      if (visao === "advogado") {
+        const adv = a.advogadoResponsavel.localeCompare(b.advogadoResponsavel, "pt-BR");
+        if (adv !== 0) return adv;
         const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
         if (condo !== 0) return condo;
         return b.encaminhadoEm.localeCompare(a.encaminhadoEm);
@@ -190,7 +192,7 @@ export default function JuridicoPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
-  const gruposCondominio = useMemo(() => agruparEncaminhamentosPorCondominio(visible), [visible]);
+  const gruposAdvogado = useMemo(() => agruparEncaminhamentosPorAdvogado(visible), [visible]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -383,9 +385,10 @@ export default function JuridicoPage() {
       </TableMobileList>
     );
 
-  const desktopTableCondominio = (
-    <JuridicoPorCondominioLista
-      condominios={gruposCondominio}
+  const desktopTableAdvogado = (
+    <JuridicoPorGruposLista
+      grupos={gruposAdvogado}
+      modo="advogado"
       cadastros={cadastros}
       emptyState={emptyState}
       onAbrir={abrirDetalhe}
@@ -393,9 +396,10 @@ export default function JuridicoPage() {
     />
   );
 
-  const mobileTableCondominio = (
-    <JuridicoPorCondominioLista
-      condominios={gruposCondominio}
+  const mobileTableAdvogado = (
+    <JuridicoPorGruposLista
+      grupos={gruposAdvogado}
+      modo="advogado"
       cadastros={cadastros}
       emptyState={emptyState}
       onAbrir={abrirDetalhe}
@@ -516,25 +520,25 @@ export default function JuridicoPage() {
             setVisao(value as VisaoListagem);
             setPage(1);
           }}
-          defaultValue="condominio"
+          defaultValue="geral"
           className="flex flex-col gap-md"
         >
           <TabsList>
-            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
             <TabsTrigger value="geral">Geral</TabsTrigger>
+            <TabsTrigger value="advogado">Por advogados</TabsTrigger>
           </TabsList>
-          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTableCondominio}
-              mobile={mobileTableCondominio}
-              showExport={false}
-            />
-          </TabsContent>
           <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
             <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
             {visible.length > 0 ? (
               <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
             ) : null}
+          </TabsContent>
+          <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTableAdvogado}
+              mobile={mobileTableAdvogado}
+              showExport={false}
+            />
           </TabsContent>
         </Tabs>
           </>

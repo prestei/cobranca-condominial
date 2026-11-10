@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { Building2, ChevronDown, Scale } from "lucide-react";
+import { Building2, ChevronDown, DoorOpen } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
+  TableActionsButton,
+  TableActionsCell,
   TableBody,
   TableCell,
   TableEmpty,
@@ -19,29 +21,23 @@ import {
   TableMobileTitle,
   TableRow,
 } from "@/components/table";
-import { formatarData, nomeCondominio, nomeUnidade, type Cadastros } from "@/data/catalogo";
-import type { EncaminhamentoJuridicoDetalhe } from "@/lib/juridico/service";
+import { nomeCondominio, type Unidade } from "@/data/catalogo";
 
-const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral"> = {
-  Encaminhado: "secondary",
-  "Em análise": "secondary",
-  "Documentação pendente": "neutral",
-  "Aguardando decisão": "secondary",
-  "Pronto para ajuizamento": "success",
-  "Retornado à cobrança amigável": "neutral",
-  Arquivado: "neutral",
-};
-
-export type GrupoCondominioJuridico = {
+export type GrupoUnidadesCondominio = {
   condominioId: number;
   nome: string;
-  itens: EncaminhamentoJuridicoDetalhe[];
+  itens: Unidade[];
 };
 
-export function agruparEncaminhamentosPorCondominio(
-  itens: EncaminhamentoJuridicoDetalhe[],
-): GrupoCondominioJuridico[] {
-  const mapa = new Map<number, EncaminhamentoJuridicoDetalhe[]>();
+export type UnidadeLinhaAcao = {
+  label: string;
+  icon: typeof DoorOpen;
+  onSelect: () => void;
+  destructive?: boolean;
+};
+
+export function agruparUnidadesPorCondominio(itens: Unidade[]): GrupoUnidadesCondominio[] {
+  const mapa = new Map<number, Unidade[]>();
   for (const item of itens) {
     const lista = mapa.get(item.condominioId) ?? [];
     lista.push(item);
@@ -52,39 +48,45 @@ export function agruparEncaminhamentosPorCondominio(
     .map(([condominioId, lista]) => ({
       condominioId,
       nome: nomeCondominio(condominioId),
-      itens: [...lista].sort((a, b) => b.encaminhadoEm.localeCompare(a.encaminhadoEm)),
+      itens: [...lista].sort((a, b) => a.identificacao.localeCompare(b.identificacao, "pt-BR")),
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-function identificacaoUnidade(cadastros: Cadastros, unidadeId: number) {
-  return cadastros.unidades.find((item) => item.id === unidadeId)?.identificacao?.trim() || nomeUnidade(unidadeId);
-}
-
 type TabelaProps = {
-  itens: EncaminhamentoJuridicoDetalhe[];
-  cadastros: Cadastros;
+  itens: Unidade[];
   emptyState: ReactNode;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
+  badgeStatus: Record<string, "success" | "error">;
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderDebito: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade) => UnidadeLinhaAcao[];
   embutida?: boolean;
   pageOffset?: number;
   totalItens?: number;
 };
 
-function TabelaDesktop({ itens, cadastros, emptyState, onAbrir, embutida = false }: TabelaProps) {
+function TabelaDesktop({
+  itens,
+  emptyState,
+  badgeStatus,
+  renderResponsavel,
+  renderDebito,
+  acoes,
+  embutida = false,
+}: TabelaProps) {
   return (
     <Table
-      aria-label="Encaminhamentos do condomínio"
+      aria-label="Unidades do condomínio"
       showExport={false}
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead>Encaminhado</TableHead>
           <TableHead>Unidade</TableHead>
-          <TableHead>Advogado</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead align="right">Documentos</TableHead>
+          <TableHead>Responsável</TableHead>
+          <TableHead>Cadastro</TableHead>
+          <TableHead>Débito</TableHead>
+          <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -94,18 +96,29 @@ function TabelaDesktop({ itens, cadastros, emptyState, onAbrir, embutida = false
           itens.map((item) => (
             <TableRow
               key={item.id}
-              className="cursor-pointer border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
-              onClick={() => onAbrir(item)}
+              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
             >
-              <TableCell className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
-              <TableCell>{identificacaoUnidade(cadastros, item.unidadeId)}</TableCell>
-              <TableCell>{item.advogadoResponsavel}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-sm">
+                  <span
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant"
+                    aria-hidden="true"
+                  >
+                    <Icon icon={DoorOpen} size="sm" />
+                  </span>
+                  <span>{item.identificacao}</span>
+                </div>
+              </TableCell>
+              <TableCell>{renderResponsavel(item)}</TableCell>
               <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell align="right" className="tabular-nums">
-                {item.documentos?.length ?? 0}
-              </TableCell>
+              <TableCell>{renderDebito(item)}</TableCell>
+              <TableActionsCell
+                label={`Ações da unidade ${item.identificacao}`}
+                actions={acoes(item)}
+                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
+              />
             </TableRow>
           ))
         )}
@@ -116,9 +129,11 @@ function TabelaDesktop({ itens, cadastros, emptyState, onAbrir, embutida = false
 
 function TabelaMobile({
   itens,
-  cadastros,
   emptyState,
-  onAbrir,
+  badgeStatus,
+  renderResponsavel,
+  renderDebito,
+  acoes,
   pageOffset = 0,
   totalItens = 0,
 }: TabelaProps) {
@@ -127,20 +142,20 @@ function TabelaMobile({
   }
 
   return (
-    <TableMobileList aria-label="Encaminhamentos do condomínio">
+    <TableMobileList aria-label="Unidades do condomínio">
       {itens.map((item, index) => (
-        <TableMobileCard key={item.id} className="cursor-pointer" onClick={() => onAbrir(item)}>
+        <TableMobileCard key={item.id}>
           <TableMobileCardHeader>
             <span
               className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
               aria-hidden="true"
             >
-              <Icon icon={Scale} size="sm" />
+              <Icon icon={DoorOpen} size="sm" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                 <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                  Unidade {identificacaoUnidade(cadastros, item.unidadeId)}
+                  {item.identificacao}
                 </TableMobileTitle>
                 {totalItens > 0 ? (
                   <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
@@ -148,25 +163,22 @@ function TabelaMobile({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-xs text-body-sm text-on-surface-variant">
-                Encaminhado em {formatarData(item.encaminhadoEm)}
-              </p>
             </div>
-            <span aria-hidden="true" />
+            <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
           </TableMobileCardHeader>
           <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-            <div className="flex items-start justify-between gap-md">
-              <div className="min-w-0">
-                <p className="text-label-sm uppercase text-on-surface-variant">Advogado</p>
-                <p className="text-body-md font-semibold text-on-surface">{item.advogadoResponsavel}</p>
-              </div>
-              <Badge variant={badgeStatus[item.status] ?? "secondary"} className="shrink-0">
-                {item.status}
-              </Badge>
-            </div>
             <div className="min-w-0">
-              <p className="text-label-sm uppercase text-on-surface-variant">Documentos</p>
-              <p className="text-body-md tabular-nums text-on-surface">{item.documentos?.length ?? 0}</p>
+              <p className="text-label-sm uppercase text-on-surface-variant">Responsável</p>
+              {renderResponsavel(item)}
+            </div>
+            <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
+              <div className="min-w-0">
+                <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
+                <div className="mt-xs">{renderDebito(item)}</div>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-xs">
+                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+              </div>
             </div>
           </div>
         </TableMobileCard>
@@ -179,16 +191,22 @@ function PainelCondominio({
   grupo,
   aberto,
   onToggle,
-  cadastros,
-  onAbrir,
   variante,
+  emptyState,
+  badgeStatus,
+  renderResponsavel,
+  renderDebito,
+  acoes,
 }: {
-  grupo: GrupoCondominioJuridico;
+  grupo: GrupoUnidadesCondominio;
   aberto: boolean;
   onToggle: () => void;
-  cadastros: Cadastros;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
   variante: "desktop" | "mobile";
+  emptyState: ReactNode;
+  badgeStatus: Record<string, "success" | "error">;
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderDebito: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade) => UnidadeLinhaAcao[];
 }) {
   const painelId = useId();
   const [page, setPage] = useState(1);
@@ -204,7 +222,7 @@ function PainelCondominio({
     setPage(1);
   }, [grupo.condominioId, total]);
 
-  const emAnalise = grupo.itens.filter((item) => item.status === "Em análise").length;
+  const ativas = grupo.itens.filter((item) => item.status === "Ativa").length;
 
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
@@ -223,8 +241,8 @@ function PainelCondominio({
             <span className="min-w-0">
               <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
               <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
-                {total} encaminhamento{total === 1 ? "" : "s"}
-                {emAnalise > 0 ? ` · ${emAnalise} em análise` : ""}
+                {total} unidade{total === 1 ? "" : "s"}
+                {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
               </span>
             </span>
           </span>
@@ -244,23 +262,27 @@ function PainelCondominio({
         <div
           id={painelId}
           role="region"
-          aria-label={`Encaminhamentos de ${grupo.nome}`}
+          aria-label={`Unidades de ${grupo.nome}`}
           className="flex flex-col gap-md border-t border-border-subtle p-md"
         >
           {variante === "desktop" ? (
             <TabelaDesktop
               itens={pageItens}
-              cadastros={cadastros}
               emptyState={null}
-              onAbrir={onAbrir}
+              badgeStatus={badgeStatus}
+              renderResponsavel={renderResponsavel}
+              renderDebito={renderDebito}
+              acoes={acoes}
               embutida
             />
           ) : (
             <TabelaMobile
               itens={pageItens}
-              cadastros={cadastros}
               emptyState={null}
-              onAbrir={onAbrir}
+              badgeStatus={badgeStatus}
+              renderResponsavel={renderResponsavel}
+              renderDebito={renderDebito}
+              acoes={acoes}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
               totalItens={total}
             />
@@ -273,27 +295,31 @@ function PainelCondominio({
 }
 
 type ListaProps = {
-  condominios: GrupoCondominioJuridico[];
-  cadastros: Cadastros;
+  grupos: GrupoUnidadesCondominio[];
   emptyState: ReactNode;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
   variante: "desktop" | "mobile";
+  badgeStatus: Record<string, "success" | "error">;
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderDebito: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade) => UnidadeLinhaAcao[];
 };
 
-export function JuridicoPorCondominioLista({
-  condominios,
-  cadastros,
+export function UnidadesPorCondominioLista({
+  grupos,
   emptyState,
-  onAbrir,
   variante,
+  badgeStatus,
+  renderResponsavel,
+  renderDebito,
+  acoes,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
 
   useEffect(() => {
-    setAbertos(new Set(condominios.map((item) => item.condominioId)));
-  }, [condominios]);
+    setAbertos(new Set(grupos.map((item) => item.condominioId)));
+  }, [grupos]);
 
-  if (condominios.length === 0) {
+  if (grupos.length === 0) {
     return (
       <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
         {emptyState}
@@ -311,16 +337,19 @@ export function JuridicoPorCondominioLista({
   }
 
   return (
-    <div className="flex flex-col gap-lg" aria-label="Jurídico por condomínio">
-      {condominios.map((grupo) => (
+    <div className="flex flex-col gap-lg" aria-label="Unidades por condomínio">
+      {grupos.map((grupo) => (
         <PainelCondominio
           key={grupo.condominioId}
           grupo={grupo}
           aberto={abertos.has(grupo.condominioId)}
           onToggle={() => alternar(grupo.condominioId)}
-          cadastros={cadastros}
-          onAbrir={onAbrir}
           variante={variante}
+          emptyState={emptyState}
+          badgeStatus={badgeStatus}
+          renderResponsavel={renderResponsavel}
+          renderDebito={renderDebito}
+          acoes={acoes}
         />
       ))}
     </div>

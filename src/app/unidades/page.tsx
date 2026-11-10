@@ -80,7 +80,12 @@ import {
   type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { UnidadeDetalheSheet } from "@/components/unidade-detalhe-sheet";
+import {
+  agruparUnidadesPorCondominio,
+  UnidadesPorCondominioLista,
+} from "@/components/unidades/unidades-por-condominio-lista";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useAuth } from "@/context/auth-context";
@@ -117,6 +122,7 @@ import {
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/sync-cliente";
 
 type SortKey = "identificacao" | "condominio" | "tipo" | "status" | "debito";
+type VisaoListagem = "geral" | "condominio";
 const etapasCadastroUnidade = ["Unidade", "Responsável"] as const;
 
 const unidadesMobileDataBarClassName =
@@ -188,6 +194,7 @@ function UnidadesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("identificacao");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
+  const [visao, setVisao] = useState<VisaoListagem>("geral");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Unidade | null>(null);
@@ -301,6 +308,11 @@ function UnidadesPage() {
       );
     })
     .sort((a, b) => {
+      if (visao === "condominio") {
+        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        if (condo !== 0) return condo;
+        return a.identificacao.localeCompare(b.identificacao, "pt-BR");
+      }
       const factor = sortDirection === "asc" ? 1 : -1;
       if (sortKey === "debito") {
         const valorA = emDebitoOperacional(a) ? (debitosAbertos.get(a.id) ?? 0) : 0;
@@ -326,6 +338,7 @@ function UnidadesPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
+  const gruposCondominio = useMemo(() => agruparUnidadesPorCondominio(visible), [visible]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -1100,15 +1113,63 @@ function UnidadesPage() {
           />
         </FiltrosSection>
 
-        <ResponsiveTable
-          desktop={desktopTable}
-          mobile={mobileTable}
-          onExport={aoExportar}
-          onImport={abrirImportacao}
-          showImport={podeImportar}
-          mobileDataBarClassName={unidadesMobileDataBarClassName}
-        />
-        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        <Tabs
+          value={visao}
+          onValueChange={(value) => {
+            setVisao(value as VisaoListagem);
+            setPage(1);
+          }}
+          defaultValue="geral"
+          className="flex flex-col gap-md"
+        >
+          <TabsList>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+          </TabsList>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTable}
+              mobile={mobileTable}
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+              mobileDataBarClassName={unidadesMobileDataBarClassName}
+            />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
+          </TabsContent>
+          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={
+                <UnidadesPorCondominioLista
+                  grupos={gruposCondominio}
+                  emptyState={emptyState}
+                  variante="desktop"
+                  badgeStatus={badgeStatus}
+                  renderResponsavel={celulaResponsavel}
+                  renderDebito={celulaDebito}
+                  acoes={acoes}
+                />
+              }
+              mobile={
+                <UnidadesPorCondominioLista
+                  grupos={gruposCondominio}
+                  emptyState={emptyState}
+                  variante="mobile"
+                  badgeStatus={badgeStatus}
+                  renderResponsavel={celulaResponsavel}
+                  renderDebito={celulaDebito}
+                  acoes={acoes}
+                />
+              }
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+              mobileDataBarClassName={unidadesMobileDataBarClassName}
+            />
+          </TabsContent>
+        </Tabs>
         </>
         )}
       </PageContent>
