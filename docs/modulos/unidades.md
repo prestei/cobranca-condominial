@@ -13,7 +13,7 @@ Cadastro e consulta de unidades por condomínio, com condôminos/responsáveis f
 
 ## Rotas e telas
 
-- `/unidades` — `src/app/unidades/page.tsx` — listagem em abas **Geral** (padrão) e **Por condomínio** (painéis recolhíveis com tabela/paginação por condomínio); filtros; CRUD em `Sheet`; consulta em `UnidadeDetalheSheet`; **Importar** / **Exportar** na tabela (`showImport` + `onExport`; Importar exige `importacoes.criar`)
+- `/unidades` — `src/app/unidades/page.tsx` — listagem em abas **Por condomínio** (padrão) e **Geral** (última); painéis recolhíveis com tabela/paginação por condomínio; filtros; CRUD em `Sheet`; consulta em `UnidadeDetalheSheet`; **Importar** / **Exportar** na tabela (`showImport` + `onExport`; Importar exige `importacoes.criar`)
 - Agrupamento: `src/components/unidades/unidades-por-condominio-lista.tsx`
 - Atalhos: `/debitos?unidade={id}`, `/atendimentos?unidade={id}`, `/atendimentos?novo=1&unidade={id}`
 

@@ -194,7 +194,7 @@ function UnidadesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("identificacao");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
-  const [visao, setVisao] = useState<VisaoListagem>("geral");
+  const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Unidade | null>(null);
@@ -1119,26 +1119,13 @@ function UnidadesPage() {
             setVisao(value as VisaoListagem);
             setPage(1);
           }}
-          defaultValue="geral"
+          defaultValue="condominio"
           className="flex flex-col gap-md"
         >
           <TabsList>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
           </TabsList>
-          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTable}
-              mobile={mobileTable}
-              onExport={aoExportar}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              mobileDataBarClassName={unidadesMobileDataBarClassName}
-            />
-            {visible.length > 0 ? (
-              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-            ) : null}
-          </TabsContent>
           <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
             <ResponsiveTable
               desktop={
@@ -1168,6 +1155,19 @@ function UnidadesPage() {
               showImport={podeImportar}
               mobileDataBarClassName={unidadesMobileDataBarClassName}
             />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTable}
+              mobile={mobileTable}
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+              mobileDataBarClassName={unidadesMobileDataBarClassName}
+            />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
           </TabsContent>
         </Tabs>
         </>

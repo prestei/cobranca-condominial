@@ -95,7 +95,7 @@ export default function JuridicoPage() {
   const [appliedCondominio, setAppliedCondominio] = useState("todos");
   const [appliedAdvogado, setAppliedAdvogado] = useState("todos");
 
-  const [visao, setVisao] = useState<VisaoListagem>("geral");
+  const [visao, setVisao] = useState<VisaoListagem>("advogado");
   const [sortKey, setSortKey] = useState<SortKey>("encaminhado");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -520,25 +520,25 @@ export default function JuridicoPage() {
             setVisao(value as VisaoListagem);
             setPage(1);
           }}
-          defaultValue="geral"
+          defaultValue="advogado"
           className="flex flex-col gap-md"
         >
           <TabsList>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="advogado">Por advogados</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
           </TabsList>
-          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
-            {visible.length > 0 ? (
-              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-            ) : null}
-          </TabsContent>
           <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
             <ResponsiveTable
               desktop={desktopTableAdvogado}
               mobile={mobileTableAdvogado}
               showExport={false}
             />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
           </TabsContent>
         </Tabs>
           </>
