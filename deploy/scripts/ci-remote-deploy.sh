@@ -26,6 +26,8 @@ if [[ -z "${AUTH_SECRET:-}" || ${#AUTH_SECRET} -lt 32 ]]; then
 fi
 
 echo "==> Dependências"
+# Evita ENOTEMPTY residual de installs interrompidos em deploys anteriores.
+rm -rf node_modules
 npm ci
 
 echo "==> Prisma generate + migrate deploy"
