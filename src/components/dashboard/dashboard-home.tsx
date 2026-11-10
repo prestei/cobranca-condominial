@@ -23,7 +23,7 @@ const descricaoPorPerfil = {
 export function DashboardHome() {
   const { user: sessao } = useAuth();
   const cadastros = useCadastros();
-  const usuario = usuarioSessaoApp(cadastros, sessao?.userId);
+  const usuario = usuarioSessaoApp(cadastros, sessao?.userId, sessao);
   const [dados, setDados] = useState<DashboardPayload | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);

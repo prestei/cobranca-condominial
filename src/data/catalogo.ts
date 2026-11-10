@@ -1025,21 +1025,45 @@ export function escopoCondominios(cadastros: Cadastros, usuarioId?: number): Con
   return [];
 }
 
-export function usuarioSessaoApp(cadastros: { usuarios: Usuario[]; cargos: Cargo[] }, userId?: number) {
+/**
+ * Dados de exibição do colaborador logado (header, saudação).
+ * Preferência: cadastro local quando hidratado; senão usa `sessao` (JWT/API),
+ * porque Atendente/Advogado não carregam `/api/usuarios` e o catálogo do browser
+ * em produção não traz a lista de colaboradores.
+ */
+export function usuarioSessaoApp(
+  cadastros: { usuarios: Usuario[]; cargos: Cargo[] },
+  userId?: number,
+  sessao?: { nome?: string; cargoId?: number } | null,
+) {
   if (userId == null) {
     return { name: "", initials: "…", menuSubtitle: "", avatarUrl: null as string | null };
   }
   const usuario = cadastros.usuarios.find((item) => item.id === userId);
-  if (!usuario) {
-    return { name: "—", initials: "—", menuSubtitle: "", avatarUrl: null as string | null };
+  if (usuario) {
+    const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
+    return {
+      name: usuario.nome,
+      initials: iniciaisNome(usuario.nome),
+      menuSubtitle: cargo?.nome ?? "",
+      avatarUrl: usuario.avatar?.trim() ? usuario.avatar : null,
+    };
   }
-  const cargo = cadastros.cargos.find((item) => item.id === usuario.cargoId);
-  return {
-    name: usuario.nome,
-    initials: iniciaisNome(usuario.nome),
-    menuSubtitle: cargo?.nome ?? "",
-    avatarUrl: usuario.avatar?.trim() ? usuario.avatar : null,
-  };
+
+  const nomeSessao = sessao?.nome?.trim() ?? "";
+  if (nomeSessao) {
+    const cargoId = sessao?.cargoId;
+    const cargo =
+      cargoId != null ? cadastros.cargos.find((item) => item.id === cargoId) : undefined;
+    return {
+      name: nomeSessao,
+      initials: iniciaisNome(nomeSessao),
+      menuSubtitle: cargo?.nome ?? "",
+      avatarUrl: null as string | null,
+    };
+  }
+
+  return { name: "—", initials: "—", menuSubtitle: "", avatarUrl: null as string | null };
 }
 
 export function debitoEmAberto(item: { status: string }) {

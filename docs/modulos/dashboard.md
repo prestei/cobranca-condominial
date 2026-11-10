@@ -20,7 +20,7 @@ Rota inicial (`/`) com indicadores operacionais **por perfil** (administradora, 
 | Perfil | Detecção (servidor) | Conteúdo principal |
 | --- | --- | --- |
 | **Administradora** | `usuarios.criar` | Carteira completa, fila de cobranças, inadimplência (KPIs e gráficos), operação dos últimos 7 dias, retornos da equipe (RE) |
-| **Atendente** | demais com `atendimentos.ler` | Home exclusiva (sem `PageHeader` padrão): saudação + online, 4 métricas do dia (**Pendentes / Na fila / Atendimentos hoje / Taxa de resposta**), **Próximos atendimentos** com **Atender** e painel **Ações rápidas**. Sem gráficos, central de pendências nem tabelas extras nesta rota — detalhe fica em `/atendimentos` |
+| **Atendente** | demais com `atendimentos.ler` | Home exclusiva (sem `PageHeader` padrão): saudação + online no mesmo padrão tipográfico do `PageHeader` (`text-headline-lg` + descrição `text-body-sm`), 4 métricas do dia (**Pendentes / Na fila / Atendimentos hoje / Taxa de resposta**), **Próximos atendimentos** com **Atender** e painel **Ações rápidas**. Sem gráficos, central de pendências nem tabelas extras nesta rota — detalhe fica em `/atendimentos`. Nome na saudação e no header vem de `usuarioSessaoApp` com fallback para `session.nome` (JWT), pois o catálogo do browser não lista colaboradores sem `usuarios.ler`. |
 | **Advogado** | `juridico.ler` + `condominios.ler` | Condomínios vinculados, indicadores de débitos no escopo, ranking por condomínio, resumo jurídico |
 
 Requer `dashboard.ler` em todos os casos. Sem permissão → API **403**; frontend exibe erro com retry.

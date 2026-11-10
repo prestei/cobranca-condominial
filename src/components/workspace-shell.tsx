@@ -174,7 +174,9 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
     pode,
   ]);
   const usuario =
-    sessaoCarregando || !sessao?.userId ? undefined : usuarioSessaoApp(cadastros, sessao.userId);
+    sessaoCarregando || !sessao?.userId
+      ? undefined
+      : usuarioSessaoApp(cadastros, sessao.userId, sessao);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
 
   const handleAbrirNotificacao = useCallback(

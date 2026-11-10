@@ -81,10 +81,10 @@ export function DashboardAtendenteView({ dados, nomeUsuario }: Props) {
     <div className="flex flex-col gap-xl">
       <header className="flex flex-wrap items-center justify-between gap-md">
         <div className="min-w-0">
-          <h1 className="text-headline-xl text-on-surface max-md:text-headline-xl-mobile">
+          <h1 className="text-headline-lg font-bold leading-none text-[#12213A]">
             {saudacaoHorario()}, {primeiroNome(nomeUsuario)}!
           </h1>
-          <p className="mt-xs text-body-lg text-on-surface-variant">
+          <p className="mt-xs max-w-2xl text-body-sm leading-snug text-on-surface-variant">
             Aqui está o resumo do seu atendimento hoje.
           </p>
         </div>
