@@ -1,0 +1,389 @@
+"use client";
+
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Briefcase, Building2, ChevronDown, DoorOpen, MapPin } from "lucide-react";
+import { Icon } from "@/components/icon";
+import { PAGE_SIZE, Pagination } from "@/components/pagination";
+import {
+  Table,
+  TableActionsButton,
+  TableActionsCell,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableMobileCard,
+  TableMobileCardHeader,
+  TableMobileEmpty,
+  TableMobileList,
+  TableMobileTitle,
+  TableRow,
+} from "@/components/table";
+import type { Condominio, Unidade } from "@/data/catalogo";
+
+export type GrupoUnidadesCondominioCarteira = {
+  condominioId: number;
+  nome: string;
+  condominio: Condominio;
+  itens: Unidade[];
+};
+
+export type UnidadeCarteiraLinhaAcao = {
+  label: string;
+  icon: typeof DoorOpen;
+  onSelect: () => void;
+  destructive?: boolean;
+};
+
+export function agruparUnidadesPorCondominioCarteira(
+  condominios: Condominio[],
+  unidadesPorCondominio: Map<number, Unidade[]>,
+): GrupoUnidadesCondominioCarteira[] {
+  return condominios.map((condominio) => {
+    const itens = unidadesPorCondominio.get(condominio.id) ?? [];
+    return {
+      condominioId: condominio.id,
+      nome: condominio.nome,
+      condominio,
+      itens: [...itens].sort((a, b) => a.identificacao.localeCompare(b.identificacao, "pt-BR")),
+    };
+  });
+}
+
+type TabelaProps = {
+  grupo: GrupoUnidadesCondominioCarteira;
+  itens: Unidade[];
+  emptyState: ReactNode;
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderAdvogados: (condominio: Condominio) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade, condominio: Condominio) => UnidadeCarteiraLinhaAcao[];
+  embutida?: boolean;
+  pageOffset?: number;
+  totalItens?: number;
+};
+
+function TabelaDesktop({
+  grupo,
+  itens,
+  emptyState,
+  renderResponsavel,
+  renderAdvogados,
+  renderSituacao,
+  acoes,
+  embutida = false,
+}: TabelaProps) {
+  const condominio = grupo.condominio;
+  const cidade = condominio.cidade.trim();
+  const administradora = condominio.administradora.trim();
+
+  return (
+    <Table
+      aria-label={`Unidades de ${grupo.nome}`}
+      showExport={false}
+      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+    >
+      <TableHeader>
+        <TableRow className="border-border-subtle/50 hover:bg-transparent">
+          <TableHead>Unidade</TableHead>
+          <TableHead>Responsável</TableHead>
+          <TableHead>Cidade</TableHead>
+          <TableHead>Administradora</TableHead>
+          <TableHead>Advogado responsável</TableHead>
+          <TableHead>Situação</TableHead>
+          <TableHead actions />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {itens.length === 0 ? (
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
+        ) : (
+          itens.map((item) => (
+            <TableRow
+              key={item.id}
+              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+            >
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-sm">
+                  <span
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant"
+                    aria-hidden="true"
+                  >
+                    <Icon icon={DoorOpen} size="sm" />
+                  </span>
+                  <span>{item.identificacao}</span>
+                </div>
+              </TableCell>
+              <TableCell>{renderResponsavel(item)}</TableCell>
+              <TableCell>
+                {cidade ? (
+                  <div className="flex items-center gap-sm">
+                    <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
+                    <span>{cidade}</span>
+                  </div>
+                ) : (
+                  <span className="text-on-surface-variant">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {administradora ? (
+                  <div className="flex min-w-0 items-center gap-sm">
+                    <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{administradora}</span>
+                  </div>
+                ) : (
+                  <span className="text-on-surface-variant">—</span>
+                )}
+              </TableCell>
+              <TableCell>{renderAdvogados(condominio)}</TableCell>
+              <TableCell>{renderSituacao(item)}</TableCell>
+              <TableActionsCell
+                label={`Ações da unidade ${item.identificacao}`}
+                actions={acoes(item, condominio)}
+                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
+              />
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  );
+}
+
+function TabelaMobile({
+  grupo,
+  itens,
+  emptyState,
+  renderResponsavel,
+  renderAdvogados,
+  renderSituacao,
+  acoes,
+  pageOffset = 0,
+  totalItens = 0,
+}: TabelaProps) {
+  const condominio = grupo.condominio;
+
+  if (itens.length === 0) {
+    return <TableMobileEmpty>{emptyState}</TableMobileEmpty>;
+  }
+
+  return (
+    <TableMobileList aria-label={`Unidades de ${grupo.nome}`}>
+      {itens.map((item, index) => (
+        <TableMobileCard key={item.id}>
+          <TableMobileCardHeader>
+            <span
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+              aria-hidden="true"
+            >
+              <Icon icon={DoorOpen} size="sm" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
+                <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
+                  {item.identificacao}
+                </TableMobileTitle>
+                {totalItens > 0 ? (
+                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
+                    {index + 1 + pageOffset} de {totalItens}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item, condominio)} />
+          </TableMobileCardHeader>
+          <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
+            <div className="min-w-0">
+              <p className="text-label-sm uppercase text-on-surface-variant">Responsável</p>
+              {renderResponsavel(item)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-label-sm uppercase text-on-surface-variant">Advogado responsável</p>
+              {renderAdvogados(condominio)}
+            </div>
+            <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
+              <div className="min-w-0 text-body-sm text-on-surface-variant">
+                {[condominio.cidade.trim(), condominio.administradora.trim()].filter(Boolean).join(" · ") || "—"}
+              </div>
+              <div className="shrink-0">{renderSituacao(item)}</div>
+            </div>
+          </div>
+        </TableMobileCard>
+      ))}
+    </TableMobileList>
+  );
+}
+
+function PainelCondominio({
+  grupo,
+  aberto,
+  onToggle,
+  variante,
+  emptyStateUnidades,
+  renderResponsavel,
+  renderAdvogados,
+  renderSituacao,
+  acoes,
+}: {
+  grupo: GrupoUnidadesCondominioCarteira;
+  aberto: boolean;
+  onToggle: () => void;
+  variante: "desktop" | "mobile";
+  emptyStateUnidades: ReactNode;
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderAdvogados: (condominio: Condominio) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade, condominio: Condominio) => UnidadeCarteiraLinhaAcao[];
+}) {
+  const painelId = useId();
+  const [page, setPage] = useState(1);
+  const total = grupo.itens.length;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageItens = useMemo(
+    () => grupo.itens.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [grupo.itens, currentPage],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [grupo.condominioId, total]);
+
+  const ativas = grupo.itens.filter((item) => item.status === "Ativa").length;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
+      <h3 className="text-label-lg text-on-surface">
+        <button
+          type="button"
+          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          aria-expanded={aberto}
+          aria-controls={painelId}
+          onClick={onToggle}
+        >
+          <span className="flex min-w-0 items-center gap-sm">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+              <Icon icon={Building2} size="sm" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
+              <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+                {total} unidade{total === 1 ? "" : "s"}
+                {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
+              </span>
+            </span>
+          </span>
+          <span
+            className="inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant"
+            aria-hidden
+          >
+            <Icon
+              icon={ChevronDown}
+              size="sm"
+              className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+            />
+          </span>
+        </button>
+      </h3>
+      {aberto ? (
+        <div
+          id={painelId}
+          role="region"
+          aria-label={`Unidades de ${grupo.nome}`}
+          className="flex flex-col gap-md border-t border-border-subtle p-md"
+        >
+          {variante === "desktop" ? (
+            <TabelaDesktop
+              grupo={grupo}
+              itens={pageItens}
+              emptyState={emptyStateUnidades}
+              renderResponsavel={renderResponsavel}
+              renderAdvogados={renderAdvogados}
+              renderSituacao={renderSituacao}
+              acoes={acoes}
+              embutida
+            />
+          ) : (
+            <TabelaMobile
+              grupo={grupo}
+              itens={pageItens}
+              emptyState={emptyStateUnidades}
+              renderResponsavel={renderResponsavel}
+              renderAdvogados={renderAdvogados}
+              renderSituacao={renderSituacao}
+              acoes={acoes}
+              pageOffset={(currentPage - 1) * PAGE_SIZE}
+              totalItens={total}
+            />
+          )}
+          {total > 0 ? <Pagination page={currentPage} total={total} onPageChange={setPage} /> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+type ListaProps = {
+  grupos: GrupoUnidadesCondominioCarteira[];
+  emptyState: ReactNode;
+  emptyStateUnidades: ReactNode;
+  variante: "desktop" | "mobile";
+  renderResponsavel: (item: Unidade) => ReactNode;
+  renderAdvogados: (condominio: Condominio) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
+  acoes: (item: Unidade, condominio: Condominio) => UnidadeCarteiraLinhaAcao[];
+};
+
+export function CondominiosPorCondominioLista({
+  grupos,
+  emptyState,
+  emptyStateUnidades,
+  variante,
+  renderResponsavel,
+  renderAdvogados,
+  renderSituacao,
+  acoes,
+}: ListaProps) {
+  const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
+
+  useEffect(() => {
+    setAbertos(new Set(grupos.map((item) => item.condominioId)));
+  }, [grupos]);
+
+  if (grupos.length === 0) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
+        {emptyState}
+      </div>
+    );
+  }
+
+  function alternar(condominioId: number) {
+    setAbertos((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(condominioId)) proximo.delete(condominioId);
+      else proximo.add(condominioId);
+      return proximo;
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-lg" aria-label="Condomínios por condomínio">
+      {grupos.map((grupo) => (
+        <PainelCondominio
+          key={grupo.condominioId}
+          grupo={grupo}
+          aberto={abertos.has(grupo.condominioId)}
+          onToggle={() => alternar(grupo.condominioId)}
+          variante={variante}
+          emptyStateUnidades={emptyStateUnidades}
+          renderResponsavel={renderResponsavel}
+          renderAdvogados={renderAdvogados}
+          renderSituacao={renderSituacao}
+          acoes={acoes}
+        />
+      ))}
+    </div>
+  );
+}
