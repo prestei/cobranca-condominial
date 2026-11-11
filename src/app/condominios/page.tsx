@@ -56,6 +56,11 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import {
+  agruparUnidadesPorCondominioCarteira,
+  CondominiosPorCondominioLista,
+} from "@/components/condominios/condominios-por-condominio-lista";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import {
   ResponsiveTable,
   Table,
   TableActionsButton,
@@ -77,8 +82,19 @@ import {
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { condominioAtendeAdvogado, escopoCondominios, opcoesAdvogadosResponsaveis, rotuloAdvogadosCondominio, statusCondominio, type Condominio } from "@/data/catalogo";
+import {
+  condominioAtendeAdvogado,
+  escopoCondominios,
+  escopoUnidades,
+  opcoesAdvogadosResponsaveis,
+  rotuloAdvogadosCondominio,
+  statusCondominio,
+  type Condominio,
+  type Unidade,
+} from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
+import { formatarTelefone } from "@/lib/telefone";
+import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
@@ -120,6 +136,7 @@ const estados = [
 ] as const;
 
 type SortKey = "nome" | "administradora" | "cidade" | "advogado" | "unidades" | "status";
+type VisaoListagem = "condominio" | "geral";
 
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
@@ -147,7 +164,7 @@ const formularioVazio: Omit<Condominio, "id"> = {
 
 export default function CondominiosPage() {
   const { toast } = useToast();
-  const { pode } = usePermissao();
+  const { pode, permissoes } = usePermissao();
   const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -161,9 +178,12 @@ export default function CondominiosPage() {
     () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
     [cadastros, userIdEscopo],
   );
-  const unidades = cadastros.unidades;
+  const unidadesEscopo = useMemo(
+    () => (userIdEscopo == null ? [] : escopoUnidades(cadastros, userIdEscopo)),
+    [cadastros, userIdEscopo],
+  );
   const unidadesPorCondominio = new Map<number, number>();
-  for (const unidade of unidades) {
+  for (const unidade of unidadesEscopo) {
     unidadesPorCondominio.set(unidade.condominioId, (unidadesPorCondominio.get(unidade.condominioId) ?? 0) + 1);
   }
   const contarUnidades = (condominioId: number) => unidadesPorCondominio.get(condominioId) ?? 0;
@@ -180,6 +200,7 @@ export default function CondominiosPage() {
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
+  const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Condominio | null>(null);
@@ -304,6 +325,9 @@ export default function CondominiosPage() {
       );
     })
     .sort((a, b) => {
+      if (visao === "condominio") {
+        return a.nome.localeCompare(b.nome, "pt-BR");
+      }
       const factor = sortDirection === "asc" ? 1 : -1;
       if (sortKey === "unidades") {
         return (contarUnidades(a.id) - contarUnidades(b.id)) * factor;
@@ -331,6 +355,21 @@ export default function CondominiosPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
+  const visibleIds = useMemo(() => new Set(visible.map((item) => item.id)), [visible]);
+  const unidadesPorCondominioFiltrado = useMemo(() => {
+    const mapa = new Map<number, Unidade[]>();
+    for (const unidade of unidadesEscopo) {
+      if (!visibleIds.has(unidade.condominioId)) continue;
+      const lista = mapa.get(unidade.condominioId) ?? [];
+      lista.push(unidade);
+      mapa.set(unidade.condominioId, lista);
+    }
+    return mapa;
+  }, [unidadesEscopo, visibleIds]);
+  const gruposCondominio = useMemo(
+    () => agruparUnidadesPorCondominioCarteira(visible, unidadesPorCondominioFiltrado),
+    [visible, unidadesPorCondominioFiltrado],
+  );
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -342,12 +381,73 @@ export default function CondominiosPage() {
       .map((item) => item.unidadeId),
   );
   const inadimplentes = visible.filter((item) =>
-    unidades.some((u) => u.condominioId === item.id && unidadesComDebitoAberto.has(u.id)),
+    unidadesEscopo.some((u) => u.condominioId === item.id && unidadesComDebitoAberto.has(u.id)),
   ).length;
   const comEndereco = visible.filter((item) => item.cidade.trim().length > 0).length;
+
+  function condominioComInadimplencia(item: Condominio) {
+    return unidadesEscopo.some((u) => u.condominioId === item.id && unidadesComDebitoAberto.has(u.id));
+  }
+
+  function contatoResponsavel(unidadeId: number) {
+    const vinculosDaUnidade = cadastros.vinculos.filter((item) => item.unidadeId === unidadeId);
+    const vinculo = vinculosDaUnidade.find((item) => item.principal) ?? vinculosDaUnidade[0];
+    const responsavel = vinculo && cadastros.responsaveis.find((item) => item.id === vinculo.responsavelId);
+    if (!responsavel) return null;
+    if (podeVerDadosPessoaisResponsavel(permissoes)) {
+      return {
+        nome: responsavel.nome,
+        telefone: responsavel.telefone.trim() ? formatarTelefone(responsavel.telefone) : "",
+        email: responsavel.email.trim(),
+      };
+    }
+    return {
+      nome: responsavel.nome,
+      telefone: mascararTelefone(responsavel.telefone),
+      email: mascararEmail(responsavel.email),
+    };
+  }
+
+  function celulaResponsavelUnidade(item: Unidade) {
+    const contato = contatoResponsavel(item.id);
+    if (!contato) return <span className="text-on-surface-variant">—</span>;
+    const detalhe = [contato.telefone, contato.email].filter(Boolean).join(" · ");
+    return (
+      <div className="min-w-0">
+        <p className="text-on-surface">{contato.nome}</p>
+        {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
+      </div>
+    );
+  }
+
+  function celulaSituacaoUnidade(item: Unidade) {
+    if (unidadesComDebitoAberto.has(item.id)) {
+      return <Badge variant="error">Inadimplente</Badge>;
+    }
+    return <Badge variant="success">Ativo</Badge>;
+  }
+
+  function celulaAdvogados(item: Condominio) {
+    if (item.advogados.length === 0) return <span className="text-on-surface-variant">—</span>;
+    const [principal, ...demais] = item.advogados;
+    const detalhe = demais.length > 0 ? demais.join(", ") : "";
+    return (
+      <div className="min-w-0">
+        <p className="text-on-surface">{principal}</p>
+        {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
+      </div>
+    );
+  }
+
+  function celulaInadimplencia(item: Condominio) {
+    if (condominioComInadimplencia(item)) {
+      return <Badge variant="error">Inadimplente</Badge>;
+    }
+    return <Badge variant="success">Em dia</Badge>;
+  }
   const metricValor = (n: number) => String(n).padStart(2, "0");
   const detalhe = detalheId === null ? null : (condominios.find((item) => item.id === detalheId) ?? null);
-  const unidadesDoDetalhe = detalhe ? unidades.filter((item) => item.condominioId === detalhe.id) : [];
+  const unidadesDoDetalhe = detalhe ? unidadesEscopo.filter((item) => item.condominioId === detalhe.id) : [];
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -445,6 +545,7 @@ export default function CondominiosPage() {
 
   function confirmLeave() {
     setLeaveConfirmOpen(false);
+    setStep(0);
     setSheetOpen(false);
   }
 
@@ -518,7 +619,7 @@ export default function CondominiosPage() {
   function acoes(item: Condominio) {
     const lista = [];
     if (pode("condominios", "ler")) {
-      lista.push({ label: "Ver detalhes", icon: Eye, onSelect: () => setDetalheId(item.id) });
+      lista.push({ label: "Consultar", icon: Eye, onSelect: () => setDetalheId(item.id) });
       if (pode("unidades", "ler")) {
         lista.push({ label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) });
       }
@@ -546,6 +647,24 @@ export default function CondominiosPage() {
         destructive: true,
         onSelect: () => setDeleteTarget(item),
       });
+    }
+    return lista;
+  }
+
+  function acoesUnidade(_item: Unidade, condominio: Condominio) {
+    const lista = [];
+    if (pode("unidades", "ler")) {
+      lista.push({
+        label: "Consultar",
+        icon: Eye,
+        onSelect: () => router.push(`/unidades?condominio=${condominio.id}`),
+      });
+    }
+    if (pode("condominios", "ler")) {
+      lista.push({ label: "Consultar condomínio", icon: Building2, onSelect: () => setDetalheId(condominio.id) });
+    }
+    if (pode("unidades", "criar") && condominio.status === "Ativo") {
+      lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(condominio) });
     }
     return lista;
   }
@@ -750,6 +869,10 @@ export default function CondominiosPage() {
     />
   );
 
+  const emptyStateUnidades = (
+    <p className="py-md text-center text-body-md text-on-surface-variant">Nenhuma unidade cadastrada neste condomínio.</p>
+  );
+
   const desktopTable = (
     <Table aria-label="Condomínios" showExport={false}>
       <TableHeader>
@@ -757,17 +880,18 @@ export default function CondominiosPage() {
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Condomínio
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
-            Situação
-          </TableHead>
           <TableHead sortable sortDirection={directionFor("cidade")} onSort={() => handleSort("cidade")}>
             Cidade
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("administradora")} onSort={() => handleSort("administradora")}>
-            Administradora
-          </TableHead>
           <TableHead sortable sortDirection={directionFor("advogado")} onSort={() => handleSort("advogado")}>
             Advogado responsável
+          </TableHead>
+          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+            Situação
+          </TableHead>
+          <TableHead>Inadimplência</TableHead>
+          <TableHead sortable sortDirection={directionFor("administradora")} onSort={() => handleSort("administradora")}>
+            Administradora
           </TableHead>
           <TableHead
             align="right"
@@ -783,14 +907,14 @@ export default function CondominiosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={8}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">
-                <div className="flex items-start gap-sm">
+                <div className="flex items-center gap-sm">
                   <span
-                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
                     aria-hidden="true"
                   >
                     <Icon icon={Building2} size="sm" />
@@ -804,11 +928,30 @@ export default function CondominiosPage() {
                 </div>
               </TableCell>
               <TableCell>
+                {item.cidade.trim() ? (
+                  <div className="flex items-center gap-sm">
+                    <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
+                    <span>{item.cidade}</span>
+                  </div>
+                ) : (
+                  <span className="text-on-surface-variant">—</span>
+                )}
+              </TableCell>
+              <TableCell>{celulaAdvogados(item)}</TableCell>
+              <TableCell>
                 <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell>{item.cidade || "—"}</TableCell>
-              <TableCell>{item.administradora || "—"}</TableCell>
-              <TableCell>{rotuloAdvogadosCondominio(item)}</TableCell>
+              <TableCell>{celulaInadimplencia(item)}</TableCell>
+              <TableCell>
+                {item.administradora.trim() ? (
+                  <div className="flex min-w-0 items-center gap-sm">
+                    <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{item.administradora}</span>
+                  </div>
+                ) : (
+                  <span className="text-on-surface-variant">—</span>
+                )}
+              </TableCell>
               <TableCell align="right" className="tabular-nums">
                 {contarUnidades(item.id)}
               </TableCell>
@@ -843,31 +986,28 @@ export default function CondominiosPage() {
                     {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
                   </span>
                 </div>
-                {item.identificadorExterno ? (
-                  <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.identificadorExterno}</p>
-                ) : null}
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">
+                  {[item.cidade.trim(), item.identificadorExterno.trim()].filter(Boolean).join(" · ") ||
+                    "Sem cidade cadastrada"}
+                </p>
               </div>
               <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-              <div className="flex items-start justify-between gap-md">
-                <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Unidades</p>
-                  <p className="text-body-md font-semibold tabular-nums text-on-surface">{contarUnidades(item.id)}</p>
-                  <p className="text-body-sm text-on-surface-variant">{item.cidade.trim() || "Sem cidade cadastrada"}</p>
-                </div>
-                <Badge variant={item.status === "Ativo" ? "success" : "secondary"} className="shrink-0">
-                  {item.status}
-                </Badge>
+              <div className="min-w-0">
+                <p className="text-label-sm uppercase text-on-surface-variant">Advogado responsável</p>
+                {celulaAdvogados(item)}
               </div>
-              <div className="grid grid-cols-2 gap-sm text-body-sm">
+              <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
                 <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Administradora</p>
-                  <p className="text-body-md text-on-surface">{item.administradora.trim() || "—"}</p>
+                  <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
+                  <div className="mt-xs">{celulaInadimplencia(item)}</div>
                 </div>
-                <div className="min-w-0 text-end">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Advogados</p>
-                  <p className="text-body-md text-on-surface">{rotuloAdvogadosCondominio(item)}</p>
+                <div className="flex shrink-0 flex-col items-end gap-xs">
+                  <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
+                  <span className="text-body-sm tabular-nums text-on-surface-variant">
+                    {contarUnidades(item.id)} unidade{contarUnidades(item.id) === 1 ? "" : "s"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -993,17 +1133,65 @@ export default function CondominiosPage() {
             />
           </FiltrosSection>
 
-        <ResponsiveTable
-            desktop={desktopTable}
-            mobile={mobileTable}
-            onExport={aoExportar}
-            onImport={abrirImportacao}
-            showImport={podeImportar}
-            mobileDataBarClassName={condominiosMobileDataBarClassName}
-          />
-          {visible.length > 0 ? (
-            <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-          ) : null}
+        <Tabs
+          value={visao}
+          onValueChange={(value) => {
+            setVisao(value as VisaoListagem);
+            setPage(1);
+          }}
+          defaultValue="condominio"
+          className="flex flex-col gap-md"
+        >
+          <TabsList>
+            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+          </TabsList>
+          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={
+                <CondominiosPorCondominioLista
+                  grupos={gruposCondominio}
+                  emptyState={emptyState}
+                  emptyStateUnidades={emptyStateUnidades}
+                  variante="desktop"
+                  renderResponsavel={celulaResponsavelUnidade}
+                  renderAdvogados={celulaAdvogados}
+                  renderSituacao={celulaSituacaoUnidade}
+                  acoes={acoesUnidade}
+                />
+              }
+              mobile={
+                <CondominiosPorCondominioLista
+                  grupos={gruposCondominio}
+                  emptyState={emptyState}
+                  emptyStateUnidades={emptyStateUnidades}
+                  variante="mobile"
+                  renderResponsavel={celulaResponsavelUnidade}
+                  renderAdvogados={celulaAdvogados}
+                  renderSituacao={celulaSituacaoUnidade}
+                  acoes={acoesUnidade}
+                />
+              }
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+              mobileDataBarClassName={condominiosMobileDataBarClassName}
+            />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTable}
+              mobile={mobileTable}
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+              mobileDataBarClassName={condominiosMobileDataBarClassName}
+            />
+            {visible.length > 0 ? (
+              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            ) : null}
+          </TabsContent>
+        </Tabs>
           </>
           )}
         </PageContent>
@@ -1187,6 +1375,7 @@ export default function CondominiosPage() {
             </SheetBody>
             <SheetFooterForm
               onClose={closeSheet}
+              saveDisabled={salvando}
               onBack={step > 0 ? () => setStep((current) => current - 1) : undefined}
               saveLabel={step < etapasCondominio.length - 1 ? "Continuar" : "Salvar"}
             />

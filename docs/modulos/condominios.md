@@ -74,7 +74,7 @@ Nenhuma direta neste módulo; importações de inadimplência resolvem condomín
 
 ## Estados de interface
 
-`PageHeader` com descrição; quatro indicadores (`CardMetric`, grid 4 colunas como Inadimplência) sobre o recorte filtrado (total, ativos, inadimplentes com débito pendente/vencido em alguma unidade, com cidade cadastrada); seção **Filtros** + `FilterBar`; tabela responsiva com ícone na coluna Condomínio; exportação/importação; paginação (20 itens); `EmptyState`; toasts de erro da API e da sincronização; confirmações para sair do formulário, inativar e excluir.
+`PageHeader` com descrição; quatro indicadores (`CardMetric`, grid 4 colunas como Unidades) sobre o recorte filtrado (total, ativos, inadimplentes com débito pendente/vencido em alguma unidade, com cidade cadastrada); seção **Filtros** + `FilterBar`; abas **Por condomínio** (painéis expansíveis por condomínio com unidades: colunas Unidade, Responsável, Cidade, Administradora, Advogado responsável, Situação Ativo/Inadimplente por unidade, paginação por painel; padrão) e **Geral** (tabela única de condomínios: colunas com ícone, advogado em duas linhas, situação em badge, inadimplência e paginação de 20); exportação/importação; `EmptyState`; toasts de erro da API e da sincronização; confirmações para sair do formulário, inativar e excluir. Componente `condominios-por-condominio-lista.tsx`.
 
 ## Pendências e decisões
 
