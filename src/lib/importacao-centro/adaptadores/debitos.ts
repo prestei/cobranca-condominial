@@ -16,7 +16,11 @@ import {
 import { montarCamposHistoricoFinal } from "@/lib/importacao-centro/historico-auditoria";
 import { resolverSituacaoFinalImportacao, importacaoConcluidaOuParcial } from "@/lib/importacao-centro/situacao-importacao";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
-import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+import {
+  provisionarCadastrosImportacaoDebitos,
+  reidratarCatalogoCadastralImportacaoDebitos,
+  registrarProvisionamentoPendenteObservacao,
+} from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
 import { dispararDistribuicaoAutomaticaSeAtivada } from "@/lib/distribuicao/service";
 import { assertEscopoGravacaoImportacaoDebitos } from "@/lib/importacoes/permissoes";
 import type {
@@ -325,13 +329,13 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
     };
   },
 
-  antesDeInterpretar(matriz, meta) {
-    provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao);
-    // Espelha provisionamento no snapshot + tabelas normalizadas (não só operacional).
-    void import("@/lib/db/repositories/catalog-persist").then(async ({ saveOperationalState }) => {
-      const { getCadastros } = await import("@/data/catalogo-store");
-      await saveOperationalState(getCadastros());
+  async antesDeInterpretar(matriz, meta) {
+    const persistirNoBanco = meta.modo === "confirmacao";
+    const resultado = await provisionarCadastrosImportacaoDebitos(matriz, meta.userId, meta.origem, meta.execucao, {
+      persistirNoBanco,
     });
+    registrarProvisionamentoPendenteObservacao(resultado, persistirNoBanco);
+    await reidratarCatalogoCadastralImportacaoDebitos();
   },
 
   aplicarMetadadosLeitura(contexto, entrada) {

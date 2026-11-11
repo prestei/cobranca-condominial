@@ -62,7 +62,7 @@ test("aplicarMotorValidacaoImportacao enriquece linhas sem gravar", () => {
     },
   ];
 
-  const { linhas, registros } = aplicarMotorValidacaoImportacao(parseadas, {
+  const { linhas, registros, inconsistenciasArquivo } = aplicarMotorValidacaoImportacao(parseadas, {
     modulo: validadorImportacaoDebitos.modulo,
     matriz,
     contexto,
@@ -70,9 +70,9 @@ test("aplicarMotorValidacaoImportacao enriquece linhas sem gravar", () => {
 
   assert.equal(linhas.length, 1);
   assert.ok(linhas[0].validacao);
-  assert.equal(linhas[0].validacao?.resultado, "atencao");
+  assert.equal(linhas[0].validacao?.resultado, "valido");
   assert.ok(
-    linhas[0].validacao?.inconsistencias.some((item) => item.codigo === "estrutural.coluna_desconhecida"),
+    inconsistenciasArquivo.some((item) => item.codigo === "estrutural.coluna_desconhecida"),
   );
   assert.equal(registros.length, 1);
   assert.equal(registros[0].identificador, "debitos:linha:2");

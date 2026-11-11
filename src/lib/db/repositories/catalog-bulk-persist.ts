@@ -1,27 +1,15 @@
 import { Atendimento, AtribuicaoCobranca, Auditoria, Cadastros, Condominio, Debito, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo, Cargo } from "@/data/catalogo";
 import { dateFromIsoDate, dateFromIsoDateTime, decimalFromString } from "@/lib/db/mappers";
+import {
+  bumpPgAutoIncrementSequence,
+  bumpOperationalAutoIncrementSequences,
+  type OperationalIncrementTable,
+} from "@/lib/db/pg-sequence";
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
 type Tx = Prisma.TransactionClient;
-
-const INCREMENT_TABLES = [
-  "role",
-  "user",
-  "condominium",
-  "unit",
-  "responsible_party",
-  "unit_responsible_party",
-  "debt",
-  "import",
-  "audit_log",
-  "collection_assignment",
-  "internal_notification",
-  "notification_failure",
-] as const;
-
-type IncrementTable = (typeof INCREMENT_TABLES)[number];
 
 function databaseUrlConfigured(): string | null {
   const url = process.env.DATABASE_URL?.trim();
@@ -47,21 +35,11 @@ function requiredDateTime(value: string | null | undefined): Date {
   return dateFromIsoDateTime(value) ?? new Date();
 }
 
-async function bumpAutoIncrementSequence(tx: Tx, table: IncrementTable, column = "id"): Promise<void> {
-  const tableSql = table === "user" ? `"user"` : table;
-  const seqTable = table === "user" ? "user" : table;
-  await tx.$executeRawUnsafe(
-    `SELECT setval(
-       pg_get_serial_sequence($1, $2),
-       GREATEST(COALESCE((SELECT MAX(${column}) FROM ${tableSql}), 1), 1),
-       true
-     )`,
-    seqTable,
-    column,
-  );
+async function bumpAutoIncrementSequence(tx: Tx, table: OperationalIncrementTable, column = "id"): Promise<void> {
+  await bumpPgAutoIncrementSequence(tx, table, column);
 }
 
-async function bumpSequences(tx: Tx, tables: readonly IncrementTable[]): Promise<void> {
+async function bumpSequences(tx: Tx, tables: readonly OperationalIncrementTable[]): Promise<void> {
   for (const table of tables) {
     await bumpAutoIncrementSequence(tx, table);
   }
@@ -866,6 +844,7 @@ async function persistCatalogInTransaction(tx: Tx, cadastros: Cadastros): Promis
   await upsertInternalNotifications(tx, cadastros.notificacoesInternas);
   await upsertNotificationFailures(tx, cadastros.notificacaoFalhas);
   await syncOrphans(tx, cadastros);
+  await bumpOperationalAutoIncrementSequences(tx);
 }
 
 /** Persiste o catálogo completo nas tabelas normalizadas (sem catalogo_snapshot). */

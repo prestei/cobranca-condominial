@@ -89,7 +89,7 @@ export async function updateUnit(item: Unidade): Promise<Unidade> {
 }
 
 export async function deleteUnit(id: number): Promise<void> {
-  await prisma.unit.delete({ where: { id } });
+  await prisma.unit.deleteMany({ where: { id } });
 }
 
 export async function listUnitLinks(): Promise<Vinculo[]> {
@@ -135,7 +135,7 @@ export async function updateUnitLink(item: Vinculo): Promise<Vinculo> {
 }
 
 export async function deleteUnitLink(id: number): Promise<void> {
-  await prisma.unitResponsibleParty.delete({ where: { id } });
+  await prisma.unitResponsibleParty.deleteMany({ where: { id } });
 }
 
 export async function clearPrimaryLinksForUnit(unitId: number): Promise<void> {

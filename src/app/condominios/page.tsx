@@ -411,13 +411,7 @@ export default function CondominiosPage() {
   function celulaResponsavelUnidade(item: Unidade) {
     const contato = contatoResponsavel(item.id);
     if (!contato) return <span className="text-on-surface-variant">—</span>;
-    const detalhe = [contato.telefone, contato.email].filter(Boolean).join(" · ");
-    return (
-      <div className="min-w-0">
-        <p className="text-on-surface">{contato.nome}</p>
-        {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
-      </div>
-    );
+    return <span className="block truncate text-on-surface">{contato.nome}</span>;
   }
 
   function celulaSituacaoUnidade(item: Unidade) {
@@ -433,7 +427,7 @@ export default function CondominiosPage() {
     const detalhe = demais.length > 0 ? demais.join(", ") : "";
     return (
       <div className="min-w-0">
-        <p className="text-on-surface">{principal}</p>
+        <p className="truncate text-on-surface">{principal}</p>
         {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
       </div>
     );

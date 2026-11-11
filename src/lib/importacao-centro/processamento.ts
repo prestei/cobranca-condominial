@@ -58,15 +58,16 @@ function resolverContexto<TPayload, TContexto>(
  * Processamento central: leitura → parse/normalização do adaptador → validação → duplicidades → conferência.
  * Não persiste linhas importadas. A gravação ocorre só em `persistencia.ts` após aprovação.
  */
-export function processarArquivoImportacao<TPayload, TContexto>(
+export async function processarArquivoImportacao<TPayload, TContexto>(
   adapter: AdaptadorImportacao<TPayload, TContexto>,
   opcoes: OpcoesProcessamentoImportacao<TPayload, TContexto>,
-): ResultadoProcessamentoImportacao<TPayload, TContexto> {
+): Promise<ResultadoProcessamentoImportacao<TPayload, TContexto>> {
   const matriz = lerArquivoImportacao(opcoes.conteudo, opcoes.matrizPlanilha);
-  adapter.antesDeInterpretar?.(matriz, {
+  await adapter.antesDeInterpretar?.(matriz, {
     userId: opcoes.userId,
     origem: opcoes.origem,
     execucao: opcoes.metaExecucao,
+    modo: opcoes.modo,
   });
 
   const contexto = resolverContexto(adapter, opcoes);

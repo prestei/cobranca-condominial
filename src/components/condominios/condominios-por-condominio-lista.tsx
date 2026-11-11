@@ -82,8 +82,18 @@ function TabelaDesktop({
     <Table
       aria-label={`Unidades de ${grupo.nome}`}
       showExport={false}
+      fitContainer
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
+      <colgroup>
+        <col className="w-[12%]" />
+        <col className="w-[18%]" />
+        <col className="w-[12%]" />
+        <col className="w-[14%]" />
+        <col className="w-[20%]" />
+        <col className="w-[12%]" />
+        <col className="w-[12%]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Unidade</TableHead>
@@ -104,29 +114,29 @@ function TabelaDesktop({
               key={item.id}
               className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
             >
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-sm">
+              <TableCell className="max-w-0 align-middle font-medium">
+                <div className="flex min-w-0 items-center gap-sm">
                   <span
                     className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant"
                     aria-hidden="true"
                   >
                     <Icon icon={DoorOpen} size="sm" />
                   </span>
-                  <span>{item.identificacao}</span>
+                  <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell>{renderResponsavel(item)}</TableCell>
-              <TableCell>
+              <TableCell className="max-w-0 align-middle">{renderResponsavel(item)}</TableCell>
+              <TableCell className="max-w-0 align-middle">
                 {cidade ? (
-                  <div className="flex items-center gap-sm">
+                  <div className="flex min-w-0 items-center gap-sm">
                     <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
-                    <span>{cidade}</span>
+                    <span className="truncate">{cidade}</span>
                   </div>
                 ) : (
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="max-w-0 align-middle">
                 {administradora ? (
                   <div className="flex min-w-0 items-center gap-sm">
                     <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
@@ -136,8 +146,8 @@ function TabelaDesktop({
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell>{renderAdvogados(condominio)}</TableCell>
-              <TableCell>{renderSituacao(item)}</TableCell>
+              <TableCell className="max-w-0 align-middle">{renderAdvogados(condominio)}</TableCell>
+              <TableCell className="align-middle">{renderSituacao(item)}</TableCell>
               <TableActionsCell
                 label={`Ações da unidade ${item.identificacao}`}
                 actions={acoes(item, condominio)}

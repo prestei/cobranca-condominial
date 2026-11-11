@@ -7,7 +7,8 @@ import {
 import { processarArquivoImportacao } from "@/lib/importacao-centro/processamento";
 import { obterAdaptadorImportacao } from "@/lib/importacao-centro/registro-adaptadores";
 import { validarEntradaLeitura } from "@/lib/importacao-centro/validacao";
-import { registrarPreviaImportacao } from "@/lib/importacao-centro/historico-auditoria";
+import { anexarProvisionamentoPreviaImportacao, registrarPreviaImportacao } from "@/lib/importacao-centro/historico-auditoria";
+import { consumirProvisionamentoPendenteObservacao } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
 import { upsertImport } from "@/lib/db/repositories/import-repository";
 import { removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
@@ -58,7 +59,7 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
   const hashArquivo = entrada.hashArquivo;
   const arquivo = arquivoPadrao(entrada.arquivo, `importacao-${adapter.modulo}.csv`);
 
-  const processado = processarArquivoImportacao(adapter, {
+  const processado = await processarArquivoImportacao(adapter, {
     modo: "preview",
     userId,
     origem,
@@ -71,7 +72,7 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
 
   const sessaoPreviaId = entrada.processoId?.trim() || undefined;
   if (sessaoPreviaId) {
-    const registroPrevia = registrarPreviaImportacao({
+    let registroPrevia = registrarPreviaImportacao({
       processoId: sessaoPreviaId,
       userId,
       modulo: adapter.modulo,
@@ -82,6 +83,12 @@ export async function previewImportacaoCentral<TPayload, TContexto>(
       contadores: processado.preview.contadores,
       resumoAprovacao: processado.preview.resumoAprovacao,
     });
+    if (adapter.modulo === "debitos") {
+      const provisionamento = consumirProvisionamentoPendenteObservacao();
+      if (provisionamento?.persistidoNoBanco) {
+        registroPrevia = anexarProvisionamentoPreviaImportacao(registroPrevia, provisionamento.resultado);
+      }
+    }
     await upsertImport(registroPrevia);
     criarSessaoPreviaAposPreview({
       sessaoPreviaId,

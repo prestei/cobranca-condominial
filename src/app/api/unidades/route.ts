@@ -7,6 +7,7 @@ import {
   UnidadeServiceError,
   type UnidadeInput,
 } from "@/lib/unidades/service";
+import { limparCadastrosProvisionadosPreviaAbandonada } from "@/lib/importacoes/inadimplencia/reverter-provisionamento-previa-debitos";
 
 function parseUnidadeBody(body: unknown): UnidadeInput | null {
   if (!body || typeof body !== "object") return null;
@@ -26,6 +27,7 @@ export async function GET() {
   if (isErrorResponse(session)) return session;
   const denied = await requirePermissao(session, "unidades", "ler");
   if (denied) return denied;
+  await limparCadastrosProvisionadosPreviaAbandonada(session.userId);
   const unidades = await listarUnidades(session.userId);
   const unidadeIds = new Set(unidades.map((item) => item.id));
   const cadastros = (await loadFullOperationalCadastros());

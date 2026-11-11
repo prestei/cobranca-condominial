@@ -24,14 +24,14 @@ const MATRIZ = [
   ["Condomínio Novo Import", "A-102", "João Souza", "09/2026", "06/09/2026", "R$ 200,00"],
 ];
 
-test("provisionarCadastrosImportacaoDebitos cria condomínio, unidades e responsáveis ausentes", () => {
+test("provisionarCadastrosImportacaoDebitos cria condomínio, unidades e responsáveis ausentes", async () => {
   resetCadastrosParaTestes();
   setCondominios(getCadastros().condominios.filter((item) => item.nome !== "Condomínio Novo Import"));
   setUnidades(getCadastros().unidades.filter((item) => item.identificacao !== "A-101" && item.identificacao !== "A-102"));
 
   const antesCondominios = getCadastros().condominios.length;
   const { condominiosCriados, unidadesCriadas, responsaveisCriados, vinculosCriados } =
-    provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
+    await provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
 
   assert.equal(condominiosCriados.length, 1);
   assert.equal(condominiosCriados[0]?.nome, "Condomínio Novo Import");
@@ -50,15 +50,15 @@ test("provisionarCadastrosImportacaoDebitos cria condomínio, unidades e respons
   );
 });
 
-test("provisionamento idempotente não duplica condomínio, unidade, responsável nem vínculo", () => {
+test("provisionamento idempotente não duplica condomínio, unidade, responsável nem vínculo", async () => {
   resetCadastrosParaTestes();
   setCondominios([]);
   setUnidades([]);
   setResponsaveis([]);
   setVinculos([]);
 
-  const primeira = provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
-  const segunda = provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
+  const primeira = await provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
+  const segunda = await provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
 
   assert.equal(primeira.condominiosCriados.length, 1);
   assert.equal(primeira.unidadesCriadas.length, 2);
@@ -74,7 +74,7 @@ test("provisionamento idempotente não duplica condomínio, unidade, responsáve
   assert.equal(getCadastros().vinculos.length, 2);
 });
 
-test("provisionamento reutiliza responsável e vínculo já existentes sem sobrescrever", () => {
+test("provisionamento reutiliza responsável e vínculo já existentes sem sobrescrever", async () => {
   resetCadastrosParaTestes();
   setCondominios([]);
   setUnidades([]);
@@ -93,7 +93,7 @@ test("provisionamento reutiliza responsável e vínculo já existentes sem sobre
   ]);
   setVinculos([]);
 
-  const resultado = provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
+  const resultado = await provisionarCadastrosImportacaoDebitos(MATRIZ, 1, "PDF");
   assert.equal(resultado.responsaveisCriados.filter((item) => item.nome === "Maria Silva").length, 0);
   const maria = getCadastros().responsaveis.find((item) => item.id === 99);
   assert.ok(maria);
@@ -102,7 +102,7 @@ test("provisionamento reutiliza responsável e vínculo já existentes sem sobre
   assert.equal(maria.observacoes, "cadastro manual");
 });
 
-test("atendente na prévia provisiona condomínio fora da carteira sem erro de escopo", () => {
+test("atendente na prévia provisiona condomínio fora da carteira sem erro de escopo", async () => {
   resetCadastrosParaTestes();
   setCondominios([]);
   setUnidades([]);
@@ -110,7 +110,7 @@ test("atendente na prévia provisiona condomínio fora da carteira sem erro de e
   setVinculos([]);
 
   const ATENDENTE_ID = 2;
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: ATENDENTE_ID,
     origem: "PDF",
@@ -140,7 +140,7 @@ test("prévia de inadimplência com PDF cria condomínio, unidades e responsáve
   const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
 
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: 1,
     origem: "PDF",
@@ -177,7 +177,7 @@ test("prévia Solar das Palmeiras provisiona condomínio, unidades, responsávei
   assert.equal(relatorio.linhas.length, 8);
   assert.ok(!relatorio.inconsistencias.some((item) => item.codigo === "financeira.total_geral_divergente"));
 
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: 1,
     origem: "PDF",
@@ -214,7 +214,7 @@ test("prévia Residencial do Mar (PDF completo) exibe códigos de unidade no res
   assert.ok(relatorio);
   assert.ok(relatorio.linhas.length >= 100);
 
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: 1,
     origem: "PDF",
@@ -247,7 +247,7 @@ test("confirmação de débitos promove unidade Sem cobrança para Em cobrança"
   const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
 
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: 1,
     origem: "PDF",
@@ -314,7 +314,7 @@ test("confirmação sem distribuição automática não atribui RE", async () =>
   const relatorio = await interpretarPdfInadimplencia(buffer);
   assert.ok(relatorio);
 
-  const processado = processarArquivoImportacao(adaptadorImportacaoDebitos, {
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
     modo: "preview",
     userId: 1,
     origem: "PDF",

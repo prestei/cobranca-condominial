@@ -30,7 +30,6 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
     linhaPorNumero.set(i + 1, params.matriz[i] ?? []);
   }
 
-  const inconsistenciasArquivo = params.inconsistenciasArquivo ?? [];
   const parcial = validador.validarRegistro({
     linha: item.linha,
     linhaBruta: linhaPorNumero.get(item.linha) ?? [],
@@ -51,12 +50,8 @@ export function revalidarLinhaMotorImportacao<TPayload, TContexto>(
     ...parcial,
     dadosOriginais,
     dadosNormalizados: item.payload ?? parcial.dadosNormalizados,
-    inconsistencias: [...inconsistenciasArquivo, ...inconsistenciasNorm, ...parcial.inconsistencias],
-    regrasAplicadas: [
-      ...parcial.regrasAplicadas,
-      ...(inconsistenciasArquivo.length > 0 ? [CODIGOS_VALIDACAO.motor.validarEstruturaArquivo] : []),
-      CODIGOS_VALIDACAO.motor.revalidarLinha,
-    ],
+    inconsistencias: [...inconsistenciasNorm, ...parcial.inconsistencias],
+    regrasAplicadas: [...parcial.regrasAplicadas, CODIGOS_VALIDACAO.motor.revalidarLinha],
   });
   registro.resultado = classificarResultadoValidacao(registro.inconsistencias);
 

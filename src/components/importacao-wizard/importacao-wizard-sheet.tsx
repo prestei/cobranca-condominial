@@ -78,6 +78,7 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
 ) {
   const { toast } = useToast();
   const { user: sessao } = useAuth();
+  const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const podeAprovarImportacao = pode("importacoes", "editar");
   const podeCorrigirPrevia = pode("importacoes", "editar");
@@ -210,14 +211,12 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
           });
           return;
         }
-        if (body.condominios) void refetch()
-        if (body.unidades) void refetch()
-        if (body.responsaveis || body.vinculos) {
-          void refetch()
-        }
         setPreview(body.preview);
         setDataHoraPrevia(agoraIso());
         setStep(1);
+        if (body.condominios || body.unidades || body.responsaveis || body.vinculos) {
+          void refetch();
+        }
       } catch {
         toast({ variant: "error", title: "Erro de rede", description: "Não foi possível retomar a conferência." });
       } finally {
@@ -384,16 +383,14 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         });
         return;
       }
-      if (body.condominios) void refetch()
-      if (body.unidades) void refetch()
-      if (body.responsaveis || body.vinculos) {
-        void refetch()
-      }
       setPreview(body.preview);
       setLinhasIgnoradas([]);
       setDecisoesLinha([]);
       setDataHoraPrevia(agoraIso());
       setStep(1);
+      if (body.condominios || body.unidades || body.responsaveis || body.vinculos) {
+        void refetch();
+      }
     } catch {
       toast({ variant: "error", title: "Erro de rede", description: "Não foi possível validar o arquivo." });
     } finally {
@@ -440,15 +437,18 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         });
         return;
       }
-      if (body.debitos) void refetch()
-      if (body.condominios) void refetch()
-      if (body.unidades) void refetch()
-      if (body.responsaveis || body.vinculos) {
-        void refetch()
-      }
-      if (body.atribuicoesCobranca) void refetch()
       setResultado(body.resultado);
       setStep(2);
+      if (
+        body.debitos ||
+        body.condominios ||
+        body.unidades ||
+        body.responsaveis ||
+        body.vinculos ||
+        body.atribuicoesCobranca
+      ) {
+        void refetch();
+      }
       onHistoricoAtualizado?.();
       onConcluida?.();
       const sitFinal = normalizarSituacaoImportacao(body.resultado.importacao.status);

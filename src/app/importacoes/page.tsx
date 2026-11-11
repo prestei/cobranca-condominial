@@ -306,11 +306,23 @@ function ImportacoesPage() {
       await excluirImportacaoHistorico(deleteTarget.id);
       toast({ variant: "success", title: "Importação excluída" });
       setDeleteTarget(null);
+      void refetch();
     } catch (error) {
+      const mensagem = error instanceof Error ? error.message : "Tente novamente.";
+      if (mensagem.includes("não encontrada")) {
+        setDeleteTarget(null);
+        void refetch();
+        toast({
+          variant: "success",
+          title: "Importação removida",
+          description: "O registro já não constava no histórico; a lista foi atualizada.",
+        });
+        return;
+      }
       toast({
         variant: "error",
         title: "Não foi possível excluir",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description: mensagem,
       });
     }
   }

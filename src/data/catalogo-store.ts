@@ -59,11 +59,11 @@ export function buscarUsuarioPorCodigoLogin(codigo: string) {
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {
-  mutateRequestCatalog((state) => {
-    const value = typeof next === "function" ? (next as (c: Cadastros[K]) => Cadastros[K])(state[key]) : next;
-    if (value === state[key]) return state;
-    return { ...state, [key]: value };
-  });
+  const store = getRequestCatalog();
+  const value = typeof next === "function" ? (next as (c: Cadastros[K]) => Cadastros[K])(store[key]) : next;
+  if (value !== store[key]) {
+    store[key] = value;
+  }
 }
 
 export function setCondominios(next: Condominio[] | ((current: Condominio[]) => Condominio[])) {
@@ -199,6 +199,6 @@ export function registrarAuditoria(
       dadosNovos: sanitizarTextoAuditoria(entry.dadosNovos),
       camposAlterados: sanitizarCamposAlterados(entry.camposAlterados),
     };
-    return { ...state, auditoria: [registro, ...state.auditoria] };
+    state.auditoria = [registro, ...state.auditoria];
   });
 }
