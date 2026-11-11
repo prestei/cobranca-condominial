@@ -78,8 +78,16 @@ function TabelaDesktop({
     <Table
       aria-label="Unidades do condomínio"
       showExport={false}
+      fitContainer
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
+      <colgroup>
+        <col className="w-[16%]" />
+        <col className="w-[30%]" />
+        <col className="w-[14%]" />
+        <col className="w-[24%]" />
+        <col className="w-[16%]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Unidade</TableHead>
@@ -98,22 +106,22 @@ function TabelaDesktop({
               key={item.id}
               className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
             >
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-sm">
+              <TableCell className="max-w-0 align-middle font-medium">
+                <div className="flex min-w-0 items-center gap-sm">
                   <span
                     className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant"
                     aria-hidden="true"
                   >
                     <Icon icon={DoorOpen} size="sm" />
                   </span>
-                  <span>{item.identificacao}</span>
+                  <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell>{renderResponsavel(item)}</TableCell>
-              <TableCell>
+              <TableCell className="max-w-0 align-middle">{renderResponsavel(item)}</TableCell>
+              <TableCell className="align-middle">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell>{renderDebito(item)}</TableCell>
+              <TableCell className="max-w-0 align-middle">{renderDebito(item)}</TableCell>
               <TableActionsCell
                 label={`Ações da unidade ${item.identificacao}`}
                 actions={acoes(item)}

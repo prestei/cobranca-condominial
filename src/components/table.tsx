@@ -436,7 +436,7 @@ export function TableHead({
     return (
       <th
         scope="col"
-        className={`sticky right-0 z-[2] w-20 shrink-0 whitespace-nowrap bg-surface-subtle px-md py-md text-center text-label-lg text-primary-container shadow-[-6px_0_8px_-6px_rgba(18,33,58,0.12)] ${className ?? ""}`}
+        className={`sticky right-0 z-[2] w-14 shrink-0 whitespace-nowrap bg-surface-subtle px-md py-md text-center text-label-lg text-primary-container shadow-[-6px_0_8px_-6px_rgba(18,33,58,0.12)] ${className ?? ""}`}
         {...props}
       >
         Ação

@@ -101,12 +101,11 @@ export function aplicarMotorValidacaoImportacao<TPayload, TContexto>(
     const registro = finalizarRegistroValidado(params.modulo, item.linha, {
       ...parcial,
       camposNormalizados: item.camposNormalizados ?? parcial.camposNormalizados,
-      inconsistencias: [...inconsistenciasArquivo, ...inconsistenciasNorm, ...parcial.inconsistencias],
+      inconsistencias: [...inconsistenciasNorm, ...parcial.inconsistencias],
       regrasAplicadas: [
         ...regrasBase,
         ...parcial.regrasAplicadas,
         ...(inconsistenciasNorm.length > 0 ? ["normalizacao.antes_validacao"] : []),
-        ...(inconsistenciasArquivo.length > 0 ? [CODIGOS_VALIDACAO.motor.validarEstruturaArquivo] : []),
       ],
     });
     registro.resultado = classificarResultadoValidacao(registro.inconsistencias);

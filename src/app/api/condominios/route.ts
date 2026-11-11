@@ -7,6 +7,7 @@ import {
   type CondominioInput,
 } from "@/lib/condominios/service";
 import { statusCondominio, type StatusCondominio } from "@/data/catalogo";
+import { limparCadastrosProvisionadosPreviaAbandonada } from "@/lib/importacoes/inadimplencia/reverter-provisionamento-previa-debitos";
 
 function parseCondominioBody(body: unknown): CondominioInput | null {
   if (!body || typeof body !== "object") return null;
@@ -48,6 +49,7 @@ export async function GET() {
   if (isErrorResponse(session)) return session;
   const denied = await requirePermissao(session, "condominios", "ler");
   if (denied) return denied;
+  await limparCadastrosProvisionadosPreviaAbandonada(session.userId);
   const condominios = await listarCondominios(session.userId);
   return Response.json({ condominios });
 }

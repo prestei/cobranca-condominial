@@ -73,7 +73,7 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
 
   return comBloqueioConfirmacaoImportacao(chaveBloqueio, async () => {
     return runWithCatalogAsync(catalogoInicial, async () => {
-    const processado = processarArquivoImportacao(adapter, {
+    const processado = await processarArquivoImportacao(adapter, {
       modo: "confirmacao",
       userId,
       origem,

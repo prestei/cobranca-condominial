@@ -1,5 +1,6 @@
 import { type Importacao } from "@/data/catalogo";
 import { setImportacoes } from "@/data/catalogo-store";
+import { tryGetRequestCatalog } from "@/lib/db/request-catalog";
 import { sanitizarImportacaoParaConsulta } from "@/lib/importacao-centro/historico-auditoria";
 import type { ImportacaoConsulta } from "@/lib/importacao-centro/historico-consulta-types";
 import { removerSessaoPreviaImportacao } from "@/lib/importacao-centro/correcao-previa/sessao";
@@ -8,6 +9,7 @@ import { assertPermissaoAcaoImportacao } from "@/lib/importacoes/permissoes";
 import { parseObservacaoImportacao } from "@/lib/importacoes/hash-arquivo";
 import { obterProcessoArquivoTemporario, removerProcessoArquivoTemporario } from "@/lib/importacoes/armazenamento-temporario";
 import type { ModuloImportacaoArquivo } from "@/lib/importacoes/limites";
+import { reverterProvisionamentoOrfaoImportacaoDebitos, reverterProvisionamentoPreviaImportacaoDebitos } from "@/lib/importacoes/inadimplencia/reverter-provisionamento-previa-debitos";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { deleteImport, findImportById, listImports } from "@/lib/db/repositories/import-repository";
 import { temPermissao } from "@/lib/permissions/check";
@@ -130,6 +132,8 @@ export async function excluirImportacaoHistorico(
     throw new HistoricoImportacaoError("Importação não encontrada.", 404);
   }
 
+  await reverterProvisionamentoPreviaImportacaoDebitos(item, userId, meta);
+
   const processoId = item.processoId?.trim();
   if (processoId) {
     removerSessaoPreviaImportacao(userId, processoId);
@@ -137,8 +141,10 @@ export async function excluirImportacaoHistorico(
   }
 
   await deleteImport(id);
-  // Mantém espelho em memória alinhado até remoção total do catálogo em RAM.
-  setImportacoes((current) => current.filter((registro) => registro.id !== id));
+  // Espelho em RAM só existe durante fluxos com `runWithCatalog`; fora disso o cliente usa `/api/catalog`.
+  if (tryGetRequestCatalog()) {
+    setImportacoes((current) => current.filter((registro) => registro.id !== id));
+  }
 
   await writeAuditLog({
     entity: "import",

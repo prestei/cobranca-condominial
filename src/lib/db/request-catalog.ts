@@ -40,10 +40,11 @@ export async function runWithCatalogAsync<T>(
   return requestCatalogStore.run(structuredClone(cadastros), fn);
 }
 
-export function mutateRequestCatalog(mutator: (current: Cadastros) => Cadastros) {
+export function mutateRequestCatalog(mutator: (current: Cadastros) => Cadastros | void) {
   const store = getRequestCatalog();
   const next = mutator(store);
-  if (requestCatalogStore.getStore()) {
+  if (!next || next === store) return;
+  if (requestCatalogStore.getStore() !== undefined) {
     requestCatalogStore.enterWith(next);
   } else if (testCatalogStore) {
     testCatalogStore = next;

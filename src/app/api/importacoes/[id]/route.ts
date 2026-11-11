@@ -8,6 +8,7 @@ import {
 } from "@/lib/importacoes/historico-service";
 import { findImportById } from "@/lib/db/repositories/import-repository";
 import { tryGetRequestCatalog } from "@/lib/db/request-catalog";
+import { ImportacaoCentroError } from "@/lib/importacao-centro/types";
 import { requestMeta } from "@/lib/unidades/service";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -24,20 +25,27 @@ export async function GET(_request: Request, context: RouteContext) {
     return Response.json({ error: "Identificador inválido." }, { status: 400 });
   }
 
-  const bruto =
-    (await findImportById(id)) ??
-    tryGetRequestCatalog()?.importacoes.find((item) => item.id === id);
-  if (!bruto) {
-    return Response.json({ error: "Importação não encontrada." }, { status: 404 });
-  }
+  try {
+    const bruto =
+      (await findImportById(id)) ??
+      tryGetRequestCatalog()?.importacoes.find((item) => item.id === id);
+    if (!bruto) {
+      return Response.json({ error: "Importação não encontrada." }, { status: 404 });
+    }
 
-  const importacao = await obterImportacaoHistorico(session.userId, id);
-  if (!importacao) {
-    return Response.json({ error: "Importação não encontrada." }, { status: 404 });
-  }
+    const importacao = await obterImportacaoHistorico(session.userId, id);
+    if (!importacao) {
+      return Response.json({ error: "Importação não encontrada." }, { status: 404 });
+    }
 
-  const retomada = await avaliarRetomadaImportacao(session.userId, bruto);
-  return Response.json({ importacao, retomada });
+    const retomada = await avaliarRetomadaImportacao(session.userId, bruto);
+    return Response.json({ importacao, retomada });
+  } catch (error) {
+    if (error instanceof ImportacaoCentroError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {

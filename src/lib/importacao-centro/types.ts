@@ -200,8 +200,13 @@ export interface AdaptadorImportacao<TPayload, TContexto> {
    */
   antesDeInterpretar?(
     matriz: string[][],
-    meta: { userId: number; origem: string; execucao?: MetaExecucaoImportacao },
-  ): void;
+    meta: {
+      userId: number;
+      origem: string;
+      execucao?: MetaExecucaoImportacao;
+      modo?: "preview" | "confirmacao";
+    },
+  ): void | Promise<void>;
 
   /** Aplica metadados do arquivo ou da sessão no contexto, sem regras no orquestrador. */
   aplicarMetadadosLeitura?(

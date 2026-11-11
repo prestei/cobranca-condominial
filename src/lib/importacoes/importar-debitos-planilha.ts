@@ -64,6 +64,8 @@ type CampoPlanilha =
   | "condominioNome"
   | "condominioId"
   | "condominioIdentificador"
+  | "condominioCidade"
+  | "condominioEstado"
   | "responsavel"
   | "categoria"
   | "pagina"
@@ -82,6 +84,13 @@ const mapaCabecalho: Record<string, CampoPlanilha> = {
   "identificador condominio": "condominioIdentificador",
   "identificador condomínio": "condominioIdentificador",
   "identificador externo condominio": "condominioIdentificador",
+  "cidade condominio": "condominioCidade",
+  "cidade condomínio": "condominioCidade",
+  cidade: "condominioCidade",
+  "estado condominio": "condominioEstado",
+  "estado condomínio": "condominioEstado",
+  estado: "condominioEstado",
+  uf: "condominioEstado",
   referencia: "referencia",
   referência: "referencia",
   descricao: "descricao",
@@ -143,15 +152,78 @@ export type ReferenciaCadastralMatrizDebito = {
   condominioNome?: string;
   condominioId?: string;
   condominioIdentificador?: string;
+  condominioCidade?: string;
+  condominioEstado?: string;
   unidade: string;
   bloco?: string;
   /** Nome do responsável financeiro extraído do relatório/planilha (quando houver). */
   responsavel?: string;
 };
 
+export type UnidadeResolucaoImportacaoDebitos = {
+  id: number;
+  condominioId: number;
+  identificacao: string;
+  bloco: string;
+  status: string;
+};
+
+export type OpcoesResolverCondominioImportacaoDebitos = {
+  unidades?: UnidadeResolucaoImportacaoDebitos[];
+  identificacaoUnidade?: string;
+  blocoUnidade?: string;
+};
+
+/** Desempate quando há mais de um condomínio com o mesmo nome (ex.: provisionamentos anteriores). */
+function escolherCondominioDuplicadoImportacao(
+  candidatos: Array<{ id: number; nome: string; identificadorExterno: string }>,
+  unidades?: UnidadeResolucaoImportacaoDebitos[],
+): number {
+  if (unidades && unidades.length > 0) {
+    let melhor = candidatos[0]!;
+    let maiorQuantidade = -1;
+    for (const condominio of candidatos) {
+      const quantidade = unidades.filter((item) => item.condominioId === condominio.id).length;
+      if (quantidade > maiorQuantidade) {
+        maiorQuantidade = quantidade;
+        melhor = condominio;
+      }
+    }
+    if (maiorQuantidade > 0) return melhor.id;
+  }
+
+  const cadastrados = candidatos.filter(
+    (item) => !item.identificadorExterno.trim().toLocaleUpperCase("pt-BR").startsWith("IMPORT-"),
+  );
+  const pool = cadastrados.length > 0 ? cadastrados : candidatos;
+  return [...pool].sort((a, b) => b.id - a.id)[0]!.id;
+}
+
+function desempatarCondominioPelaUnidade(
+  candidatos: Array<{ id: number; nome: string; identificadorExterno: string }>,
+  opcoes?: OpcoesResolverCondominioImportacaoDebitos,
+): number | null {
+  if (!opcoes?.unidades?.length || !opcoes.identificacaoUnidade?.trim()) return null;
+  const comUnidadeResolvida = candidatos.filter((condominio) => {
+    const { unidadeId } = resolverUnidadeIdImportacaoDebitos(
+      condominio.id,
+      opcoes.identificacaoUnidade,
+      opcoes.blocoUnidade,
+      opcoes.unidades!,
+    );
+    return unidadeId != null;
+  });
+  if (comUnidadeResolvida.length === 1) return comUnidadeResolvida[0]!.id;
+  if (comUnidadeResolvida.length > 1) {
+    return escolherCondominioDuplicadoImportacao(comUnidadeResolvida, opcoes.unidades);
+  }
+  return null;
+}
+
 export function resolverCondominioIdImportacaoDebitos(
   valores: Partial<Record<CampoPlanilha, string>>,
   condominios: Array<{ id: number; nome: string; identificadorExterno: string }>,
+  opcoes?: OpcoesResolverCondominioImportacaoDebitos,
 ): number | null {
   if (valores.condominioId?.trim()) {
     const id = Number(valores.condominioId.trim());
@@ -169,14 +241,24 @@ export function resolverCondominioIdImportacaoDebitos(
   const nome = nomeNorm.normalizado ?? "";
   if (nome) {
     const alvo = normalizarCabecalhoPlanilha(nome);
-    const porNome = condominios.find((item) => normalizarCabecalhoPlanilha(item.nome) === alvo);
-    if (porNome) return porNome.id;
+    const porNome = condominios.filter((item) => normalizarCabecalhoPlanilha(item.nome) === alvo);
+    if (porNome.length === 1) return porNome[0]!.id;
+    if (porNome.length > 1) {
+      const porUnidade = desempatarCondominioPelaUnidade(porNome, opcoes);
+      if (porUnidade != null) return porUnidade;
+      return escolherCondominioDuplicadoImportacao(porNome, opcoes?.unidades);
+    }
 
     const candidatos = condominios.filter((item) => {
       const norm = normalizarCabecalhoPlanilha(item.nome);
       return norm === alvo || norm.includes(alvo) || alvo.includes(norm);
     });
-    if (candidatos.length === 1) return candidatos[0].id;
+    if (candidatos.length === 1) return candidatos[0]!.id;
+    if (candidatos.length > 1) {
+      const porUnidade = desempatarCondominioPelaUnidade(candidatos, opcoes);
+      if (porUnidade != null) return porUnidade;
+      return escolherCondominioDuplicadoImportacao(candidatos, opcoes?.unidades);
+    }
   }
   return null;
 }
@@ -250,7 +332,11 @@ function montarPayload(
     status: { tipo: "categoria", raw: valores.status },
   });
 
-  const condominioId = resolverCondominioIdImportacaoDebitos(valores, condominios);
+  const condominioId = resolverCondominioIdImportacaoDebitos(valores, condominios, {
+    unidades,
+    identificacaoUnidade: unidadeTexto,
+    blocoUnidade: blocoTexto,
+  });
   if (!condominioId) {
     return { erro: "Condomínio inválido ou fora do escopo.", camposNormalizados };
   }
@@ -388,6 +474,8 @@ export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): R
     if (!unidadeNorm) continue;
 
     const responsavelNome = valores.responsavel?.trim() ?? "";
+    const condominioCidade = valores.condominioCidade?.trim() ?? "";
+    const condominioEstado = valores.condominioEstado?.trim() ?? "";
     const chave = [
       valores.condominioId?.trim() ?? "",
       valores.condominioIdentificador?.trim() ?? "",
@@ -395,6 +483,8 @@ export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): R
       unidadeNorm,
       blocoTexto?.trim() ?? "",
       responsavelNome,
+      condominioCidade,
+      condominioEstado,
     ].join("|");
     if (vistos.has(chave)) continue;
     vistos.add(chave);
@@ -403,6 +493,8 @@ export function extrairReferenciasCadastraisMatrizDebitos(matriz: string[][]): R
       condominioNome: valores.condominioNome,
       condominioId: valores.condominioId,
       condominioIdentificador: valores.condominioIdentificador,
+      condominioCidade: condominioCidade || undefined,
+      condominioEstado: condominioEstado || undefined,
       unidade: unidadeNorm,
       bloco: blocoTexto,
       responsavel: responsavelNome || undefined,

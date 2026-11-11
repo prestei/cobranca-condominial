@@ -8,6 +8,13 @@ export function hashConteudoArquivo(conteudo: string): string {
 import type { RegistroAcaoImportacao } from "@/lib/importacao-centro/historico-types";
 import type { ResumoInconsistenciasImportacao } from "@/lib/importacao-centro/situacao-importacao";
 
+export type ProvisionamentoPreviaImportacao = {
+  condominioIds: number[];
+  unidadeIds: number[];
+  responsavelIds: number[];
+  vinculoIds: number[];
+};
+
 export type MetaObservacaoImportacao = {
   processoId?: string;
   hashArquivo?: string;
@@ -19,6 +26,8 @@ export type MetaObservacaoImportacao = {
   resumoInconsistencias?: ResumoInconsistenciasImportacao;
   resultadoFinanceiro?: { valor: string; moeda: "BRL" };
   acoes?: RegistroAcaoImportacao[];
+  /** Cadastros auxiliares criados na prévia de inadimplência (revertidos se a importação não for confirmada). */
+  provisionamentoPrevia?: ProvisionamentoPreviaImportacao;
   relatorio?: {
     erros?: Array<{ linha: number; mensagem: string }>;
     ignorados?: Array<{ linha: number; mensagem: string }>;

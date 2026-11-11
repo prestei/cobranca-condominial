@@ -15,7 +15,47 @@ import {
   parseObservacaoImportacao,
   serializarObservacaoImportacao,
   type MetaObservacaoImportacao,
+  type ProvisionamentoPreviaImportacao,
 } from "@/lib/importacoes/hash-arquivo";
+import type { ResultadoProvisionamentoCadastrosDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+
+function mesclarIdsProvisionamento(atual: number[], novos: number[]): number[] {
+  return [...new Set([...atual, ...novos])];
+}
+
+function resultadoParaIdsProvisionamento(resultado: ResultadoProvisionamentoCadastrosDebitos): ProvisionamentoPreviaImportacao {
+  return {
+    condominioIds: resultado.condominiosCriados.map((item) => item.id),
+    unidadeIds: resultado.unidadesCriadas.map((item) => item.id),
+    responsavelIds: resultado.responsaveisCriados.map((item) => item.id),
+    vinculoIds: resultado.vinculosCriados.map((item) => item.id),
+  };
+}
+
+/** Acrescenta IDs provisionados na prévia à observação interna do histórico (reversão ao excluir). */
+export function anexarProvisionamentoPreviaImportacao(
+  importacao: Importacao,
+  resultado: ResultadoProvisionamentoCadastrosDebitos,
+): Importacao {
+  const meta = parseObservacaoImportacao(importacao.observacaoInterna);
+  const atual = meta.provisionamentoPrevia ?? {
+    condominioIds: [],
+    unidadeIds: [],
+    responsavelIds: [],
+    vinculoIds: [],
+  };
+  const criados = resultadoParaIdsProvisionamento(resultado);
+  const provisionamentoPrevia: ProvisionamentoPreviaImportacao = {
+    condominioIds: mesclarIdsProvisionamento(atual.condominioIds, criados.condominioIds),
+    unidadeIds: mesclarIdsProvisionamento(atual.unidadeIds, criados.unidadeIds),
+    responsavelIds: mesclarIdsProvisionamento(atual.responsavelIds, criados.responsavelIds),
+    vinculoIds: mesclarIdsProvisionamento(atual.vinculoIds, criados.vinculoIds),
+  };
+  const observacaoInterna = serializarObservacaoImportacao(
+    mergeObservacaoImportacao(meta, { provisionamentoPrevia }),
+  );
+  return atualizarImportacaoPorId(importacao.id, { ...importacao, observacaoInterna }) ?? { ...importacao, observacaoInterna };
+}
 
 export type { AcaoAuditoriaImportacao, RegistroAcaoImportacao } from "@/lib/importacao-centro/historico-types";
 

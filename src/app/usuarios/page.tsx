@@ -72,7 +72,8 @@ import type { UsuarioPublico } from "@/lib/usuarios/apresentacao";
 import { usePermissao } from "@/hooks/use-permissao";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { digitosTelefone, formatarTelefone } from "@/lib/telefone";
-import { idsCondominiosDoAdvogado } from "@/lib/usuarios/advogado-condominios";
+import { idsCondominiosDoAdvogadoNoCadastro } from "@/lib/usuarios/advogado-condominios-client";
+import { garantirUsuariosPersistidosNoServidor } from "@/lib/usuarios/ensure-server-sync";
 
 type SortKey = "nome" | "codigoRe" | "email" | "telefone" | "cargo" | "ativo";
 
@@ -141,7 +142,7 @@ export default function UsuariosPage() {
     } catch {
       /* mantém catálogo local */
     }
-  }, [user]);
+  }, [user, refetch]);
 
   const recarregarUsuarios = useCallback(async () => {
     if (!user) return;
@@ -153,7 +154,7 @@ export default function UsuariosPage() {
     } catch {
       /* mantém catálogo local */
     }
-  }, [user]);
+  }, [user, refetch]);
 
   useEffect(() => {
     void recarregarCargos();
@@ -316,7 +317,9 @@ export default function UsuariosPage() {
       senha: "",
       ativo: item.ativo !== false,
       condominioIds:
-        nomeCargo(item.cargoId) === "Advogado" ? idsCondominiosDoAdvogado(item.nome) : [],
+        nomeCargo(item.cargoId) === "Advogado"
+          ? idsCondominiosDoAdvogadoNoCadastro(cadastros.condominios, item.nome)
+          : [],
     });
     setErrors({});
     setSheetOpen(true);
@@ -356,7 +359,7 @@ export default function UsuariosPage() {
       setDeleteTarget(null);
       return;
     }
-    aplicarUsuarioExcluido(deleteTarget.id);
+    void refetch();
     if (editingId === deleteTarget.id) {
       setSheetOpen(false);
       setLeaveConfirmOpen(false);
@@ -383,7 +386,7 @@ export default function UsuariosPage() {
       });
       return;
     }
-    aplicarUsuarioSalvo(body.usuario, "UPDATE");
+    void refetch();
     toast({
       variant: "success",
       title: ativo ? "Colaborador reativado" : "Colaborador desativado",
@@ -477,7 +480,7 @@ export default function UsuariosPage() {
         else if (msgLower.includes("nome")) setErrors({ nome: msg });
         return;
       }
-      aplicarUsuarioSalvo(body.usuario, editingId === null ? "INSERT" : "UPDATE");
+      void refetch();
       const reGerado = body.usuario.codigoRe;
       toast({
         variant: "success",

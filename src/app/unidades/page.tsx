@@ -560,13 +560,7 @@ function UnidadesPage() {
   function celulaResponsavel(item: Unidade) {
     const contato = contatoResponsavel(item.id);
     if (!contato) return <span className="text-on-surface-variant">—</span>;
-    const detalhe = [contato.telefone, contato.email].filter(Boolean).join(" · ");
-    return (
-      <div className="min-w-0">
-        <p className="text-on-surface">{contato.nome}</p>
-        {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
-      </div>
-    );
+    return <span className="block truncate text-on-surface">{contato.nome}</span>;
   }
 
   function celulaDebito(item: Unidade) {
@@ -877,7 +871,15 @@ function UnidadesPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Unidades" showExport={false}>
+    <Table aria-label="Unidades" showExport={false} fitContainer>
+      <colgroup>
+        <col className="w-[14%]" />
+        <col className="w-[18%]" />
+        <col className="w-[22%]" />
+        <col className="w-[12%]" />
+        <col className="w-[20%]" />
+        <col className="w-[14%]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("identificacao")} onSort={() => handleSort("identificacao")}>
@@ -902,30 +904,28 @@ function UnidadesPage() {
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-sm">
+              <TableCell className="max-w-0 align-middle font-medium">
+                <div className="flex min-w-0 items-center gap-sm">
                   <span
                     className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
                     aria-hidden="true"
                   >
                     <Icon icon={DoorOpen} size="sm" />
                   </span>
-                  <div className="flex min-w-0 flex-col gap-xs">
-                    <span>{item.identificacao}</span>
-                  </div>
+                  <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-sm">
+              <TableCell className="max-w-0 align-middle">
+                <div className="flex min-w-0 items-center gap-sm">
                   <Icon icon={Building2} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
-                  <span>{nomeCondominio(item.condominioId)}</span>
+                  <span className="truncate">{nomeCondominio(item.condominioId)}</span>
                 </div>
               </TableCell>
-              <TableCell>{celulaResponsavel(item)}</TableCell>
-              <TableCell>
+              <TableCell className="max-w-0 align-middle">{celulaResponsavel(item)}</TableCell>
+              <TableCell className="align-middle">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell>{celulaDebito(item)}</TableCell>
+              <TableCell className="max-w-0 align-middle">{celulaDebito(item)}</TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableRow>
           ))
