@@ -7,15 +7,19 @@ import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { PeriodInput, type PeriodValue } from "@/components/period-input";
 import { SkeletonAtendimentosOperacao } from "@/components/skeleton";
-import type { TableAction } from "@/components/table";
 import { hojeIso, nomeCondominio } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { contatoResponsavelDaUnidade } from "@/lib/contato-responsavel";
 import { formatarDataHoraLista } from "@/lib/fila/formatar-data-hora-lista";
 import type { FilaCobrancaItem } from "@/lib/fila/service";
 import { resolverPeriodo } from "@/lib/periodo";
-import { CalendarClock, CalendarX2, ListOrdered, SlidersHorizontal } from "lucide-react";
+import { CalendarClock, CalendarX2, ListOrdered } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+export type FiltroRapidoFila = "nenhum" | "atrasados";
+
+const filaChipBase =
+  "inline-flex h-9 min-w-0 w-full cursor-pointer items-center justify-center gap-xs rounded-full border px-sm text-body-sm font-semibold transition-colors";
 
 type Props = {
   carregando: boolean;
@@ -26,11 +30,13 @@ type Props = {
   onPeriodoChange: (periodo: PeriodValue) => void;
   /** Atalho legado `?retorno=sem`: unidades sem data de retorno. */
   semRetorno?: boolean;
-  onAbrirFiltros: () => void;
-  /** Busca, condomínio, situação ou RE diferentes do padrão. */
-  filtrosExtrasAtivos?: boolean;
+  onSemRetornoChange?: (ativo: boolean) => void;
+  filtroRapido?: FiltroRapidoFila;
+  onFiltroRapidoChange?: (filtro: FiltroRapidoFila) => void;
   onLimparFiltros?: () => void;
-  acoesLinha: (item: FilaCobrancaItem) => TableAction[];
+  onNovaProposta?: (item: FilaCobrancaItem) => void;
+  onEncaminharJuridico?: (item: FilaCobrancaItem) => void;
+  onConcluirRetorno?: (item: FilaCobrancaItem) => void;
   onSalvoAtendimento: () => void;
   onRegistrarCompleto?: (unidadeId: number, canal?: "WhatsApp" | "E-mail" | "Telefone") => void;
 };
@@ -104,10 +110,13 @@ export function AtendimentoOperacaoView({
   periodo,
   onPeriodoChange,
   semRetorno = false,
-  onAbrirFiltros,
-  filtrosExtrasAtivos = false,
+  onSemRetornoChange,
+  filtroRapido = "nenhum",
+  onFiltroRapidoChange,
   onLimparFiltros,
-  acoesLinha,
+  onNovaProposta,
+  onEncaminharJuridico,
+  onConcluirRetorno,
   onSalvoAtendimento,
   onRegistrarCompleto,
 }: Props) {
@@ -128,10 +137,13 @@ export function AtendimentoOperacaoView({
     return () => mq.removeEventListener("change", aoMudar);
   }, []);
 
-  const itensFiltrados = useMemo(
-    () => itens.filter((item) => itemNoPeriodo(item, periodo, semRetorno)),
-    [itens, periodo, semRetorno],
-  );
+  const itensFiltrados = useMemo(() => {
+    let lista = itens.filter((item) => itemNoPeriodo(item, periodo, semRetorno));
+    if (filtroRapido === "atrasados") {
+      lista = lista.filter((item) => item.retornoSituacao === "atrasado");
+    }
+    return lista;
+  }, [itens, periodo, semRetorno, filtroRapido]);
 
   useEffect(() => {
     if (!destaqueUnidadeId) {
@@ -162,8 +174,9 @@ export function AtendimentoOperacaoView({
       ? (itensFiltrados.find((item) => item.unidadeId === selecionadaId) ?? null)
       : null;
 
-  const periodoAberto = periodo.preset !== "todos" || Boolean(periodo.de || periodo.ate) || semRetorno;
-  const filaVazia = !carregando && itens.length === 0 && !filtrosExtrasAtivos && !periodoAberto;
+  const periodoAberto =
+    periodo.preset !== "todos" || Boolean(periodo.de || periodo.ate) || semRetorno || filtroRapido !== "nenhum";
+  const filaVazia = !carregando && itens.length === 0 && !periodoAberto;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-card">
@@ -189,28 +202,44 @@ export function AtendimentoOperacaoView({
             }`}
           >
             <div className="relative z-20 flex shrink-0 items-center gap-2 border-b border-border-subtle px-2 py-2">
-              <div className="min-w-0 flex-1">
+              <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 overflow-hidden">
                 <PeriodInput
                   id="fila-data-retorno"
                   appearance="chip"
+                  chipFill
                   value={periodo}
-                  labelOverride={semRetorno ? "Sem retorno" : undefined}
                   onChange={onPeriodoChange}
+                  className="justify-center"
                 />
+                <button
+                  type="button"
+                  aria-pressed={semRetorno}
+                  className={`${filaChipBase} ${
+                    semRetorno
+                      ? "border-primary-container bg-primary-container text-on-primary"
+                      : "border-border-subtle bg-surface-card text-on-surface hover:bg-surface-subtle"
+                  }`}
+                  onClick={() => onSemRetornoChange?.(!semRetorno)}
+                >
+                  <Icon icon={CalendarX2} size="sm" className="shrink-0" aria-hidden />
+                  <span className="truncate">Sem retorno</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={filtroRapido === "atrasados"}
+                  className={`${filaChipBase} ${
+                    filtroRapido === "atrasados"
+                      ? "border-error bg-error-container text-on-error-container"
+                      : "border-border-subtle bg-surface-card text-on-surface hover:bg-surface-subtle"
+                  }`}
+                  onClick={() =>
+                    onFiltroRapidoChange?.(filtroRapido === "atrasados" ? "nenhum" : "atrasados")
+                  }
+                >
+                  <Icon icon={CalendarClock} size="sm" className="shrink-0" aria-hidden />
+                  <span className="truncate">Atrasados</span>
+                </button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="relative !size-9 shrink-0 !p-0"
-                aria-label="Mais filtros"
-                onClick={onAbrirFiltros}
-              >
-                <Icon icon={SlidersHorizontal} size="sm" aria-hidden />
-                {filtrosExtrasAtivos ? (
-                  <span className="absolute top-1 right-1 size-2 rounded-full bg-brass" aria-hidden />
-                ) : null}
-              </Button>
               {headerActions ? <div className="flex shrink-0 items-center gap-sm">{headerActions}</div> : null}
             </div>
             <div
@@ -221,9 +250,9 @@ export function AtendimentoOperacaoView({
               {itensFiltrados.length === 0 ? (
                 <div className="flex h-full min-h-40 items-center justify-center p-lg">
                   <EmptyState
-                    icon={<Icon icon={SlidersHorizontal} size="lg" className="text-on-surface-variant" />}
+                    icon={<Icon icon={CalendarClock} size="lg" className="text-on-surface-variant" />}
                     title="Nenhuma unidade neste filtro"
-                    description="Ajuste o período ou limpe os filtros para ver a fila."
+                    description="Ajuste o período ou os chips Sem retorno e Atrasados para ver a fila."
                     action={
                       onLimparFiltros ? (
                         <Button type="button" variant="outline" size="sm" onClick={onLimparFiltros}>
@@ -300,7 +329,20 @@ export function AtendimentoOperacaoView({
           >
             <AtendimentoPainelCaso
               item={selecionada}
-              acoesExtras={selecionada ? acoesLinha(selecionada) : []}
+              onNovaProposta={
+                selecionada && onNovaProposta ? () => onNovaProposta(selecionada) : undefined
+              }
+              onEncaminharJuridico={
+                selecionada && onEncaminharJuridico ? () => onEncaminharJuridico(selecionada) : undefined
+              }
+              onConcluirRetorno={
+                selecionada &&
+                onConcluirRetorno &&
+                selecionada.proximoRetornoAtendimentoId &&
+                selecionada.retornoSituacao !== "concluido"
+                  ? () => onConcluirRetorno(selecionada)
+                  : undefined
+              }
               onSalvo={onSalvoAtendimento}
               onRegistrarCompleto={onRegistrarCompleto}
               onVoltar={() => setDetalheMobileAberto(false)}

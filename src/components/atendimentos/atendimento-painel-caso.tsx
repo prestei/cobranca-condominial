@@ -1,29 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, MessageCircle } from "lucide-react";
+import { Check, ChevronLeft, ClipboardList, Handshake, Scale } from "lucide-react";
 import { AtendimentoLinhaTempoOperacao } from "@/components/atendimentos/atendimento-linha-tempo-operacao";
 import { UnidadeIdentificacaoCirculo } from "@/components/atendimentos/unidade-identificacao-circulo";
 import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-contato-atendente";
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
-import { type TableAction } from "@/components/table";
 import { nomeCondominio } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import {
-  contatoResponsavelDaUnidade,
-  hrefWhatsApp,
-  numeroWhatsAppPreferido,
-} from "@/lib/contato-responsavel";
+import { contatoResponsavelDaUnidade } from "@/lib/contato-responsavel";
 import { formatarProximoRetorno } from "@/lib/fila/formatar-proximo-retorno";
 import type { FilaCobrancaItem } from "@/lib/fila/service";
-import { formatarTelefone } from "@/lib/telefone";
 
 type Props = {
   item: FilaCobrancaItem | null;
-  acoesExtras?: TableAction[];
+  onNovaProposta?: () => void;
+  onEncaminharJuridico?: () => void;
+  onConcluirRetorno?: () => void;
   onSalvo?: () => void;
   onRegistrarCompleto?: (unidadeId: number, canal?: "WhatsApp" | "E-mail" | "Telefone") => void;
   /** Volta para a fila no layout mobile (estilo conversa). */
@@ -50,10 +46,20 @@ function ChipSituacao({ situacao }: { situacao: string }) {
   );
 }
 
-export function AtendimentoPainelCaso({ item, acoesExtras, onSalvo, onRegistrarCompleto, onVoltar }: Props) {
+export function AtendimentoPainelCaso({
+  item,
+  onNovaProposta,
+  onEncaminharJuridico,
+  onConcluirRetorno,
+  onSalvo,
+  onRegistrarCompleto,
+  onVoltar,
+}: Props) {
   const cadastros = useCadastros();
   const { pode } = usePermissao();
+  const podeProposta = pode("atendimentos", "criar");
   const podeRegistrar = pode("atendimentos", "criar");
+  const podeJuridico = pode("juridico", "ler");
   const [canalPreferido, setCanalPreferido] = useState<"WhatsApp" | "E-mail" | "Telefone">("WhatsApp");
   const [refreshLinhaTempo, setRefreshLinhaTempo] = useState(0);
 
@@ -94,11 +100,6 @@ export function AtendimentoPainelCaso({ item, acoesExtras, onSalvo, onRegistrarC
   const nomeResponsavel = contato.nome.trim();
   const proximoRetorno = formatarProximoRetorno(item.proximoRetorno);
   const temRetorno = proximoRetorno !== "—" && item.retornoSituacao !== "concluido";
-  const whatsappNumero = numeroWhatsAppPreferido(contato);
-  const whatsappFormatado = whatsappNumero ? formatarTelefone(whatsappNumero) : "";
-  const linkWhatsApp = hrefWhatsApp(whatsappNumero);
-
-  const menuAcoes: TableAction[] = acoesExtras ?? [];
 
   const condominioVisivel = condominio.trim() && condominio !== "—" ? condominio : null;
   const partesContexto = [
@@ -143,60 +144,79 @@ export function AtendimentoPainelCaso({ item, acoesExtras, onSalvo, onRegistrarC
             <span className="hidden min-[1024px]:inline">{partesSubtitulo.join(" · ")}</span>
           </p>
         </div>
-        {linkWhatsApp && whatsappFormatado ? (
-          <span className="hidden text-body-sm text-on-surface-variant min-[720px]:inline">
-            <Icon icon={MessageCircle} size="sm" className="mr-1 inline text-status-settled" aria-hidden />
-            {whatsappFormatado}
-          </span>
+        {podeRegistrar ? (
+          <AtalhosContatoAtendente
+            operacao
+            unidadeId={item.unidadeId}
+            condominioId={item.condominioId}
+            identificacao={item.identificacao}
+            bloco={item.bloco}
+            onIniciar={(canal) => {
+              setCanalPreferido(canal);
+            }}
+          />
         ) : null}
       </header>
 
-      <AtendimentoLinhaTempoOperacao unidadeId={item.unidadeId} refreshNonce={refreshLinhaTempo} />
-
-      <footer className="shrink-0 border-t border-border-subtle bg-surface-card px-md py-md">
-        {podeRegistrar || menuAcoes.length > 0 ? (
-          <div className="flex w-full min-w-0 items-center gap-2">
-            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto">
-              {podeRegistrar ? (
-                <AtalhosContatoAtendente
-                  operacao
-                  unidadeId={item.unidadeId}
-                  condominioId={item.condominioId}
-                  identificacao={item.identificacao}
-                  bloco={item.bloco}
-                  onIniciar={(canal) => {
-                    setCanalPreferido(canal);
-                  }}
-                />
-              ) : null}
-              {menuAcoes.map((acao) => (
-                <Button
-                  key={acao.label}
-                  type="button"
-                  size="md"
-                  variant={acao.destructive ? "critical" : "outline"}
-                  className="!h-11 shrink-0 !px-3"
-                  onClick={acao.onSelect}
-                >
-                  {acao.icon ? <Icon icon={acao.icon} size="sm" aria-hidden /> : null}
-                  {acao.label}
-                </Button>
-              ))}
+      <AtendimentoLinhaTempoOperacao
+        unidadeId={item.unidadeId}
+        refreshNonce={refreshLinhaTempo}
+        acaoTopo={
+          onConcluirRetorno ? (
+            <div className="mb-md flex justify-end">
+              <Button type="button" size="sm" variant="outline" onClick={onConcluirRetorno}>
+                <Icon icon={Check} size="sm" aria-hidden />
+                Concluir retorno
+              </Button>
             </div>
+          ) : null
+        }
+      />
+
+      <footer className="shrink-0 border-t border-border-subtle bg-surface-card px-md py-sm">
+        {podeProposta || podeJuridico || podeRegistrar ? (
+          <div className="flex flex-col gap-1.5 min-[480px]:flex-row min-[480px]:items-stretch">
+            {podeProposta ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="!h-10 min-w-0 w-full min-[480px]:flex-1 !px-2"
+                disabled={!onNovaProposta}
+                onClick={onNovaProposta}
+              >
+                <Icon icon={Handshake} size="sm" className="shrink-0" aria-hidden />
+                <span className="truncate">Nova proposta</span>
+              </Button>
+            ) : null}
+            {podeJuridico ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="!h-10 min-w-0 w-full min-[480px]:flex-1 !px-2"
+                disabled={!onEncaminharJuridico}
+                onClick={onEncaminharJuridico}
+              >
+                <Icon icon={Scale} size="sm" className="shrink-0" aria-hidden />
+                <span className="truncate">Encaminhar p/ jurídico</span>
+              </Button>
+            ) : null}
             {podeRegistrar ? (
               <Button
                 type="button"
-                size="md"
+                size="sm"
                 variant="primary"
-                className="!h-11 shrink-0 !px-4"
+                className="!h-10 min-w-0 w-full min-[480px]:flex-1 !px-2"
                 onClick={() => onRegistrarCompleto?.(item.unidadeId, canalPreferido)}
               >
-                Registrar contato
+                <Icon icon={ClipboardList} size="sm" className="shrink-0" aria-hidden />
+                <span className="truncate">Registrar contato</span>
               </Button>
             ) : null}
           </div>
         ) : (
-          <p className="text-body-sm text-on-surface-variant">Sem permissão para registrar contatos.</p>
+          <p className="text-body-sm text-on-surface-variant">Sem permissão para ações nesta unidade.</p>
         )}
       </footer>
     </article>

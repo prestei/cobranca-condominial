@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/badge";
 import { SkeletonTimeline } from "@/components/skeleton";
 import { formatarData } from "@/data/catalogo";
@@ -41,6 +41,7 @@ type Props = {
   unidadeId: number | null;
   /** Incrementar após salvar atendimento para recarregar. */
   refreshNonce?: number;
+  acaoTopo?: ReactNode;
 };
 
 function EventoLinhaTempo({ evento }: { evento: EventoHistoricoUnidade }) {
@@ -86,7 +87,7 @@ function EventoLinhaTempo({ evento }: { evento: EventoHistoricoUnidade }) {
   );
 }
 
-export function AtendimentoLinhaTempoOperacao({ unidadeId, refreshNonce = 0 }: Props) {
+export function AtendimentoLinhaTempoOperacao({ unidadeId, refreshNonce = 0, acaoTopo }: Props) {
   const [eventos, setEventos] = useState<EventoHistoricoUnidade[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -142,6 +143,7 @@ export function AtendimentoLinhaTempoOperacao({ unidadeId, refreshNonce = 0 }: P
       className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface-subtle px-md py-md"
       aria-label="Linha do tempo da cobrança"
     >
+      {acaoTopo}
       {carregando ? (
         <SkeletonTimeline items={4} label="Carregando linha do tempo" />
       ) : erro ? (

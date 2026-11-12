@@ -102,30 +102,33 @@ export function AtalhosContatoAtendente({
   }
 
   if (operacao) {
+    if (!linkWhats && !linkEmail) return null;
     return (
-      <div className="flex shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="!size-11 shrink-0 !p-0"
-          disabled={!linkWhats}
-          onClick={iniciarWhatsApp}
-          aria-label={`Abrir WhatsApp — ${unidade}`}
-        >
-          <WhatsappIcon className="size-5 shrink-0 text-[#25D366]" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="!size-11 shrink-0 !p-0"
-          disabled={!linkEmail}
-          onClick={iniciarEmail}
-          aria-label={`Enviar e-mail — ${unidade}`}
-        >
-          <Icon icon={Mail} size="md" aria-hidden />
-        </Button>
+      <div className="flex shrink-0 items-center gap-0">
+        {linkWhats ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            className="!size-9 shrink-0 !p-0 hover:bg-surface-subtle"
+            onClick={iniciarWhatsApp}
+            aria-label={`Abrir WhatsApp — ${unidade}`}
+          >
+            <WhatsappIcon className="size-5 shrink-0 text-[#25D366]" />
+          </Button>
+        ) : null}
+        {linkEmail ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            className="!size-9 shrink-0 !p-0 hover:bg-surface-subtle"
+            onClick={iniciarEmail}
+            aria-label={`Enviar e-mail — ${unidade}`}
+          >
+            <Icon icon={Mail} size="md" className="text-on-surface-variant" aria-hidden />
+          </Button>
+        ) : null}
       </div>
     );
   }

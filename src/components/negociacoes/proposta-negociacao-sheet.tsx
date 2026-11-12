@@ -6,7 +6,7 @@ import { FileText, Handshake, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Textarea } from "@/components/input";
+import { FormField, Input, Switch, Textarea } from "@/components/input";
 import { SkeletonCardList } from "@/components/skeleton";
 import {
   Sheet,
@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/components/toast";
 import { debitoEmAberto, formatarData, formatarMoeda, type PropostaNegociacao } from "@/data/catalogo";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
+import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -331,15 +332,15 @@ export function PropostaNegociacaoSheet({
 
           {podeCriar ? (
             <SheetForm onSubmit={(event) => void handleSubmit(event)}>
-              <SheetPanel className="flex flex-col gap-md">
+              <div className="flex flex-col gap-md">
                 <h3 className="text-label-lg text-on-surface">Nova proposta</h3>
                 <FormField label="Valor proposto (R$)" required>
                   <Input
                     icon={Wallet}
                     value={valorProposto}
-                    onChange={(event) => setValorProposto(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="Ex.: 1200,00"
+                    onChange={(event) => setValorProposto(aplicarMascaraMoedaPtBr(event.target.value))}
+                    inputMode="numeric"
+                    placeholder="0,00"
                     required
                   />
                 </FormField>
@@ -352,30 +353,42 @@ export function PropostaNegociacaoSheet({
                     placeholder="Contexto da tratativa com o condômino."
                   />
                 </FormField>
-                <fieldset className="flex flex-col gap-xs">
-                  <legend className="text-label-md text-on-surface">Débitos vinculados</legend>
-                  {debitosSelecionaveis.length === 0 ? (
-                    <p className="text-body-sm text-on-surface-variant">
-                      Não há débitos em aberto nesta unidade. A proposta exige ao menos um débito pertinente.
-                    </p>
-                  ) : (
-                    debitosSelecionaveis.map((debito) => (
-                      <label key={debito.id} className="flex cursor-pointer items-start gap-sm text-body-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5"
-                          checked={debitoIds.includes(debito.id)}
-                          onChange={() => toggleDebito(debito.id)}
-                        />
-                        <span>
-                          {debito.referencia} · {debito.descricao} · {formatarMoeda(debito.valorAtualizado)} · venc.{" "}
-                          {formatarData(debito.dataVencimento)}
-                        </span>
-                      </label>
-                    ))
-                  )}
-                </fieldset>
-              </SheetPanel>
+                <FormField label="Débitos vinculados" labelId={`${formId}-debitos-vinculados`} required>
+                  <div
+                    className="flex flex-col gap-sm"
+                    role="group"
+                    aria-labelledby={`${formId}-debitos-vinculados`}
+                  >
+                    {debitosSelecionaveis.length === 0 ? (
+                      <p className="text-body-sm text-on-surface-variant">
+                        Não há débitos em aberto nesta unidade. A proposta exige ao menos um débito pertinente.
+                      </p>
+                    ) : (
+                      debitosSelecionaveis.map((debito) => {
+                        const debitoInputId = `${formId}-debito-${debito.id}`;
+                        return (
+                          <label
+                            key={debito.id}
+                            htmlFor={debitoInputId}
+                            className="flex cursor-pointer items-start gap-sm"
+                          >
+                            <Switch
+                              id={debitoInputId}
+                              className="mt-0.5 shrink-0"
+                              checked={debitoIds.includes(debito.id)}
+                              onChange={() => toggleDebito(debito.id)}
+                            />
+                            <span className="min-w-0 flex-1 text-body-sm text-on-surface">
+                              {debito.referencia} · {debito.descricao} · {formatarMoeda(debito.valorAtualizado)} ·
+                              venc. {formatarData(debito.dataVencimento)}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </FormField>
+              </div>
               <SheetFooterForm onClose={onClose} saveLabel={salvando ? "Salvando…" : "Registrar proposta"} saveDisabled={salvando || debitosSelecionaveis.length === 0 || debitoIds.length === 0} />
             </SheetForm>
           ) : (

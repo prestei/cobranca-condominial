@@ -124,15 +124,9 @@ export function RegistrarContatoSheet({
   const debitosDaUnidade = cadastros.debitos.filter(
     (item) => String(item.unidadeId) === form.unidadeId && debitoEmAberto(item),
   );
-  const linhaDebitos =
-    debitosDaUnidade.length === 0
-      ? "Esta unidade não tem débito em aberto."
-      : debitosDaUnidade
-          .map(
-            (item) =>
-              `${item.descricao || item.referencia}: ${formatarMoeda(item.valorAtualizado)} · ${diasDeAtraso(item.dataVencimento)} dias`,
-          )
-          .join(" · ");
+  function rotuloDebitoAberto(item: (typeof debitosDaUnidade)[number]) {
+    return `${item.descricao || item.referencia}: ${formatarMoeda(item.valorAtualizado)} · ${diasDeAtraso(item.dataVencimento)} dias`;
+  }
   const condominiosOrdenados = [...cadastros.condominios]
     .filter((item) => condominioAtivo(item))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -268,10 +262,18 @@ export function RegistrarContatoSheet({
                     debitosDaUnidade.length > 0 ? "shrink-0 text-status-pending" : "shrink-0 text-status-settled",
                   ].join(" ")}
                 />
-                <p className="min-w-0 flex-1 text-[11px] leading-snug text-on-surface-variant">
-                  <span className="font-semibold text-on-surface">Débitos em aberto: </span>
-                  {linhaDebitos}
-                </p>
+                <div className="min-w-0 flex-1 text-[11px] leading-snug text-on-surface-variant">
+                  <p className="font-semibold text-on-surface">Débitos em aberto</p>
+                  {debitosDaUnidade.length === 0 ? (
+                    <p className="mt-xs">Esta unidade não tem débito em aberto.</p>
+                  ) : (
+                    <ul className="mt-xs flex flex-col gap-xs">
+                      {debitosDaUnidade.map((item) => (
+                        <li key={item.id}>{rotuloDebitoAberto(item)}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             ) : null}
 

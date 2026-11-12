@@ -34,6 +34,8 @@ type PeriodInputProps = {
   appearance?: "field" | "chip";
   /** Substitui o rótulo fechado, por exemplo ao chegar de um atalho legado. */
   labelOverride?: string;
+  /** Chip ocupa toda a largura do contêiner (barra em grid na fila). */
+  chipFill?: boolean;
 };
 
 function isoData(data: Date) {
@@ -91,6 +93,7 @@ export function PeriodInput({
   className,
   appearance = "field",
   labelOverride,
+  chipFill = false,
 }: PeriodInputProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -127,7 +130,14 @@ export function PeriodInput({
   const chipAtivo = Boolean(labelOverride?.trim()) || value.preset !== "todos" || Boolean(value.de || value.ate);
 
   return (
-    <span ref={rootRef} className={chip ? "relative inline-flex min-w-0 max-w-full" : "relative block w-full"}>
+    <span
+      ref={rootRef}
+      className={
+        chip
+          ? `relative min-w-0 ${chipFill ? "flex w-full" : "inline-flex max-w-full"}`
+          : "relative block w-full"
+      }
+    >
       <button
         type="button"
         id={fieldId}
@@ -138,7 +148,9 @@ export function PeriodInput({
         aria-invalid={invalid || undefined}
         className={
           chip
-            ? `inline-flex h-9 min-w-0 max-w-full cursor-pointer items-center gap-xs rounded-full border px-md text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            ? `inline-flex h-9 min-w-0 cursor-pointer items-center gap-xs rounded-full border text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                chipFill ? "w-full max-w-none px-sm" : "max-w-full px-md"
+              } ${
                 chipAtivo
                   ? "border-primary-container bg-primary-container text-on-primary"
                   : "border-border-subtle bg-surface-card text-on-surface hover:bg-surface-subtle"
@@ -183,22 +195,24 @@ export function PeriodInput({
           </div>
           <div className="flex flex-col gap-sm border-t border-border-subtle p-md">
             <p className="text-label-sm uppercase text-on-surface-variant">Período personalizado</p>
-            <FormField label="De" htmlFor={`${fieldId}-de`}>
-              <Input
-                id={`${fieldId}-de`}
-                type="date"
-                value={value.de}
-                onChange={(event) => onChange({ preset: "personalizado", de: event.target.value, ate: value.ate })}
-              />
-            </FormField>
-            <FormField label="Até" htmlFor={`${fieldId}-ate`}>
-              <Input
-                id={`${fieldId}-ate`}
-                type="date"
-                value={value.ate}
-                onChange={(event) => onChange({ preset: "personalizado", de: value.de, ate: event.target.value })}
-              />
-            </FormField>
+            <div className="grid grid-cols-2 gap-sm">
+              <FormField label="De" htmlFor={`${fieldId}-de`}>
+                <Input
+                  id={`${fieldId}-de`}
+                  type="date"
+                  value={value.de}
+                  onChange={(event) => onChange({ preset: "personalizado", de: event.target.value, ate: value.ate })}
+                />
+              </FormField>
+              <FormField label="Até" htmlFor={`${fieldId}-ate`}>
+                <Input
+                  id={`${fieldId}-ate`}
+                  type="date"
+                  value={value.ate}
+                  onChange={(event) => onChange({ preset: "personalizado", de: value.de, ate: event.target.value })}
+                />
+              </FormField>
+            </div>
           </div>
         </div>
       ) : null}

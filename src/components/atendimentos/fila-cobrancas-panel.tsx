@@ -1,41 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ImportacaoWizardSheet,
   type ImportacaoWizardHandle,
 } from "@/components/importacao-wizard/importacao-wizard-sheet";
-import { Check, Handshake, Scale, SlidersHorizontal } from "lucide-react";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { PropostaNegociacaoSheet } from "@/components/negociacoes/proposta-negociacao-sheet";
 import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
-import { AtendimentoOperacaoView } from "@/components/atendimentos/atendimento-operacao-view";
+import {
+  AtendimentoOperacaoView,
+  type FiltroRapidoFila,
+} from "@/components/atendimentos/atendimento-operacao-view";
 import { type PeriodValue } from "@/components/period-input";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
-import { FilterBar } from "@/components/filter-bar";
-import { Icon } from "@/components/icon";
-import {
-  Sheet,
-  SheetBody,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetHeaderIcon,
-  SheetHeaderLead,
-  SheetHeaderText,
-  SheetTitle,
-} from "@/components/sheet";
 import { type TableSortDirection } from "@/components/table";
 import { useToast } from "@/components/toast";
-import { escopoCondominios, hojeIso, nomeCondominio, situacoesUnidade, SITUACAO_COBRANCA_PRESCRITA } from "@/data/catalogo";
+import { hojeIso, nomeCondominio } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
 import type { FilaCobrancaItem, FilaCobrancaResumo, FilaOrdenacaoCampo } from "@/lib/fila/service";
 
 const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
@@ -81,7 +68,6 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
   const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
-  const visaoGeral = pode("usuarios", "criar");
   const podeImportar = pode("importacoes", "criar");
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const atribuicoesKey = cadastros.atribuicoesCobranca
@@ -94,19 +80,9 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<FilaCobrancaResumo>({ emCobranca: 0, semResponsavel: 0, retornosHoje: 0 });
 
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [appliedCondominioId, setAppliedCondominioId] = useState("todos");
-  const [appliedSituacao, setAppliedSituacao] = useState("todos");
-  const [appliedFiltroRe, setAppliedFiltroRe] = useState("todos");
   const [appliedPeriodo, setAppliedPeriodo] = useState<PeriodValue>(periodoTodos);
   const [appliedSemRetorno, setAppliedSemRetorno] = useState(false);
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
-  const [search, setSearch] = useState("");
-  const [condominioId, setCondominioId] = useState("todos");
-  const [situacao, setSituacao] = useState("todos");
-  const [filtroRe, setFiltroRe] = useState("todos");
-  const [periodo, setPeriodo] = useState<PeriodValue>(periodoTodos);
-  const [semRetorno, setSemRetorno] = useState(false);
+  const [filtroRapido, setFiltroRapido] = useState<FiltroRapidoFila>("nenhum");
 
   const [sortKey, setSortKey] = useState<FilaOrdenacaoCampo | null>(null);
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
@@ -128,28 +104,6 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
   const [concluirAtendimentoId, setConcluirAtendimentoId] = useState<string | null>(null);
   const [destaqueUnidadeId, setDestaqueUnidadeId] = useState<number | null>(null);
 
-  const atendentesKey = snapshotAtendentesComRe(cadastros);
-  const atendentes = useMemo(() => listarAtendentesComRe(cadastros), [atendentesKey, cadastros]);
-  const condominiosEscopo = useMemo(
-    () =>
-      escopoCondominios(cadastros, user?.userId)
-        .filter((item) => item.status === "Ativo")
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
-    [cadastros, user?.userId],
-  );
-  const situacoesFila = useMemo(
-    () =>
-      situacoesUnidade.filter(
-        (item) => item !== "Sem cobrança" && item !== "Quitada" && item !== SITUACAO_COBRANCA_PRESCRITA,
-      ),
-    [],
-  );
-  const filtrosExtrasAtivos =
-    appliedSearch.trim() !== "" ||
-    appliedCondominioId !== "todos" ||
-    appliedSituacao !== "todos" ||
-    appliedFiltroRe !== "todos";
-
   const aplicarQueryInicial = useCallback(() => {
     const retornoQuery = searchParams?.get("retorno");
     const periodoQuery = periodoDaQuery(retornoQuery);
@@ -157,10 +111,14 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
       setAppliedPeriodo(periodoQuery.periodo);
       setAppliedSemRetorno(periodoQuery.semRetorno);
     }
+    if (retornoQuery === "atrasado") {
+      setFiltroRapido("atrasados");
+    }
     const abaLegada = searchParams?.get("aba");
     if (abaLegada === "retornos") {
       setAppliedPeriodo({ preset: "hoje", de: "", ate: "" });
       setAppliedSemRetorno(false);
+      setFiltroRapido("nenhum");
     }
     const unidadeQuery = searchParams?.get("unidade");
     const unidadeNum = Number(unidadeQuery);
@@ -195,15 +153,6 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
       const params = new URLSearchParams();
       params.set("page", "1");
       params.set("pageSize", String(PAGE_SIZE_AGRUPADO));
-      if (appliedSearch.trim()) params.set("q", appliedSearch.trim());
-      if (appliedCondominioId !== "todos") params.set("condominioId", appliedCondominioId);
-      if (appliedSituacao !== "todos") params.set("situacao", appliedSituacao);
-      if (visaoGeral && appliedFiltroRe === "sem") {
-        params.set("semResponsavel", "1");
-      } else if (visaoGeral && appliedFiltroRe !== "todos") {
-        const atendente = atendentes.find((item) => item.codigoRe === appliedFiltroRe);
-        if (atendente) params.set("atendente", String(atendente.id));
-      }
       if (sortKey) {
         params.set("sort", sortKey);
         params.set("order", sortDirection);
@@ -227,81 +176,34 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
     } finally {
       setCarregando(false);
     }
-  }, [
-    appliedCondominioId,
-    appliedFiltroRe,
-    appliedSearch,
-    appliedSituacao,
-    atendentesKey,
-    atribuicoesKey,
-    sortDirection,
-    sortKey,
-    visaoGeral,
-  ]);
-
-  function directionFor(key: FilaOrdenacaoCampo): TableSortDirection {
-    return sortKey === key ? sortDirection : "none";
-  }
-
-  function alternarOrdenacao(key: FilaOrdenacaoCampo) {
-    if (sortKey !== key) {
-      setSortKey(key);
-      setSortDirection("asc");
-      return;
-    }
-    if (sortDirection === "asc") {
-      setSortDirection("desc");
-      return;
-    }
-    setSortKey(null);
-    setSortDirection("asc");
-  }
+  }, [atribuicoesKey, sortDirection, sortKey]);
 
   useEffect(() => {
     void recarregar();
   }, [recarregar, user?.userId]);
 
-  function abrirFiltros() {
-    setSearch(appliedSearch);
-    setCondominioId(appliedCondominioId);
-    setSituacao(appliedSituacao);
-    setFiltroRe(appliedFiltroRe);
-    setPeriodo(appliedPeriodo);
-    setSemRetorno(appliedSemRetorno);
-    setFiltrosAbertos(true);
-  }
-
-  function aplicarFiltros() {
-    setAppliedSearch(search);
-    setAppliedCondominioId(condominioId);
-    setAppliedSituacao(situacao);
-    setAppliedFiltroRe(filtroRe);
-    setAppliedPeriodo(periodo);
-    setAppliedSemRetorno(semRetorno);
-    setFiltrosAbertos(false);
-  }
-
   function limparFiltros() {
-    setSearch("");
-    setCondominioId("todos");
-    setSituacao("todos");
-    setFiltroRe("todos");
-    setPeriodo(periodoTodos);
-    setSemRetorno(false);
-    setAppliedSearch("");
-    setAppliedCondominioId("todos");
-    setAppliedSituacao("todos");
-    setAppliedFiltroRe("todos");
     setAppliedPeriodo(periodoTodos);
     setAppliedSemRetorno(false);
-    setFiltrosAbertos(false);
+    setFiltroRapido("nenhum");
   }
 
   function escolherPeriodo(proximo: PeriodValue) {
     setAppliedPeriodo(proximo);
     setAppliedSemRetorno(false);
-    setPeriodo(proximo);
-    setSemRetorno(false);
+  }
+
+  function alternarSemRetorno(ativo: boolean) {
+    setAppliedSemRetorno(ativo);
+    if (ativo) {
+      setAppliedPeriodo(periodoTodos);
+      setFiltroRapido("nenhum");
+    }
+  }
+
+  function alternarFiltroRapido(filtro: FiltroRapidoFila) {
+    setFiltroRapido(filtro);
+    if (filtro !== "nenhum") setAppliedSemRetorno(false);
   }
 
   function registrarAtendimento(unidadeId: number, canal?: "WhatsApp" | "E-mail" | "Telefone") {
@@ -328,31 +230,9 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
     });
   }
 
-  function acoesLinha(item: FilaCobrancaItem) {
-    const lista: Array<{
-      label: string;
-      icon: typeof Handshake;
-      onSelect: () => void;
-      destructive?: boolean;
-    }> = [];
-    if (pode("atendimentos", "criar")) {
-      lista.push({ label: "Proposta", icon: Handshake, onSelect: () => abrirProposta(item) });
-    }
-    if (pode("juridico", "ler")) {
-      lista.push({ label: "Jurídico", icon: Scale, onSelect: () => abrirJuridico(item) });
-    }
-    if (
-      pode("atendimentos", "editar") &&
-      item.proximoRetornoAtendimentoId &&
-      item.retornoSituacao !== "concluido"
-    ) {
-      lista.push({
-        label: "Concluir retorno",
-        icon: Check,
-        onSelect: () => setConcluirAtendimentoId(item.proximoRetornoAtendimentoId),
-      });
-    }
-    return lista;
+  function solicitarConcluirRetorno(item: FilaCobrancaItem) {
+    if (!pode("atendimentos", "editar") || !item.proximoRetornoAtendimentoId) return;
+    setConcluirAtendimentoId(item.proximoRetornoAtendimentoId);
   }
 
   async function confirmarConcluirRetorno() {
@@ -403,90 +283,16 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
         periodo={appliedPeriodo}
         onPeriodoChange={escolherPeriodo}
         semRetorno={appliedSemRetorno}
-        onAbrirFiltros={abrirFiltros}
-        filtrosExtrasAtivos={filtrosExtrasAtivos}
+        onSemRetornoChange={alternarSemRetorno}
+        filtroRapido={filtroRapido}
+        onFiltroRapidoChange={alternarFiltroRapido}
         onLimparFiltros={limparFiltros}
-        acoesLinha={acoesLinha}
+        onNovaProposta={pode("atendimentos", "criar") ? abrirProposta : undefined}
+        onEncaminharJuridico={pode("juridico", "ler") ? abrirJuridico : undefined}
+        onConcluirRetorno={pode("atendimentos", "editar") ? solicitarConcluirRetorno : undefined}
         onSalvoAtendimento={() => void recarregar()}
         onRegistrarCompleto={registrarAtendimento}
       />
-
-      <Sheet open={filtrosAbertos} onOpenChange={setFiltrosAbertos}>
-        <SheetContent aria-labelledby="fila-filtros-title" aria-describedby="fila-filtros-desc">
-          <SheetHeader>
-            <SheetHeaderLead>
-              <SheetHeaderIcon>
-                <Icon icon={SlidersHorizontal} size="md" />
-              </SheetHeaderIcon>
-              <SheetHeaderText>
-                <SheetTitle id="fila-filtros-title">Filtros</SheetTitle>
-                <SheetDescription id="fila-filtros-desc">
-                  Período do retorno, condomínio, situação e responsável.
-                </SheetDescription>
-              </SheetHeaderText>
-            </SheetHeaderLead>
-            <SheetClose />
-          </SheetHeader>
-          <SheetBody>
-            <FilterBar
-              searchId="fila-filtro-busca"
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Condomínio, unidade ou RE"
-              desktopCols={2}
-              onApply={aplicarFiltros}
-              onClear={limparFiltros}
-              fields={[
-                {
-                  id: "fila-filtro-retorno",
-                  label: "Período do retorno",
-                  type: "period",
-                  value: periodo,
-                  onChange: (value) => {
-                    setPeriodo(value);
-                    setSemRetorno(false);
-                  },
-                },
-                {
-                  id: "fila-filtro-condominio",
-                  label: "Condomínio",
-                  value: condominioId,
-                  onChange: setCondominioId,
-                  options: [
-                    { value: "todos", label: "Todos" },
-                    ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome })),
-                  ],
-                },
-                {
-                  id: "fila-filtro-situacao",
-                  label: "Situação",
-                  value: situacao,
-                  onChange: setSituacao,
-                  options: [
-                    { value: "todos", label: "Todas" },
-                    ...situacoesFila.map((item) => ({ value: item, label: item })),
-                  ],
-                },
-                ...(visaoGeral
-                  ? [
-                      {
-                        id: "fila-filtro-re",
-                        label: "RE responsável",
-                        value: filtroRe,
-                        onChange: setFiltroRe,
-                        options: [
-                          { value: "todos", label: "Todos" },
-                          { value: "sem", label: "Sem responsável" },
-                          ...atendentes.map((item) => ({ value: item.codigoRe, label: item.codigoRe })),
-                        ],
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-          </SheetBody>
-        </SheetContent>
-      </Sheet>
 
       <HistoricoUnidadeSheet
         unidadeId={historicoUnidadeId}

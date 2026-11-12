@@ -536,10 +536,10 @@ export function SkeletonAtendimentosOperacao({
           aria-hidden="true"
         >
           <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-2 py-2">
-            <div className="flex min-w-0 flex-1 gap-1 overflow-hidden">
-              <Skeleton className="h-8 w-[4.5rem] shrink-0 rounded-full" />
-              <Skeleton className="h-8 w-[5.5rem] shrink-0 rounded-full" />
-              <Skeleton className="h-8 w-[6.5rem] shrink-0 rounded-full" />
+            <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 overflow-hidden">
+              <Skeleton className="h-9 min-w-0 rounded-full" />
+              <Skeleton className="h-9 min-w-0 rounded-full" />
+              <Skeleton className="h-9 min-w-0 rounded-full" />
             </div>
             {showHeaderAction ? <Skeleton className="h-9 w-44 shrink-0 rounded-md" /> : null}
           </div>
