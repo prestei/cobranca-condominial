@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Clock, FileText, Scale } from "lucide-react";
+import { Clock, FileText, Pencil, Scale, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { EmptyState } from "@/components/empty-state";
@@ -15,6 +16,8 @@ import { SkeletonListPage } from "@/components/skeleton";
 import {
   ResponsiveTable,
   Table,
+  TableActionsButton,
+  TableActionsCell,
   TableBody,
   TableCell,
   TableEmpty,
@@ -28,14 +31,24 @@ import {
   TableRow,
   type TableSortDirection,
 } from "@/components/table";
+import { useToast } from "@/components/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import {
   agruparEncaminhamentosPorAdvogado,
   JuridicoPorGruposLista,
+  type JuridicoLinhaAcao,
 } from "@/components/juridico/juridico-por-grupos-lista";
-import { escopoCondominios, formatarData, nomeCondominio, nomeUnidade, opcoesAdvogadosResponsaveis, statusEncaminhamentoJuridico } from "@/data/catalogo";
+import {
+  escopoCondominios,
+  formatarData,
+  nomeCondominio,
+  nomeUnidade,
+  opcoesAdvogadosResponsaveis,
+  statusEncaminhamentoJuridico,
+  type Cadastros,
+} from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -66,14 +79,17 @@ function metricValor(valor: number) {
   return String(valor).padStart(2, "0");
 }
 
-function tituloEncaminhamentoMobile(item: EncaminhamentoJuridicoDetalhe) {
-  return `${nomeCondominio(item.condominioId)} - ${nomeUnidade(item.unidadeId)}`;
+function tituloEncaminhamentoMobile(item: EncaminhamentoJuridicoDetalhe, cadastros: Cadastros) {
+  return `${nomeCondominio(item.condominioId, cadastros)} - ${nomeUnidade(item.unidadeId, cadastros)}`;
 }
+
 
 export default function JuridicoPage() {
   const { user: sessao } = useAuth();
   const cadastros = useCadastros();
   const { pode } = usePermissao();
+  const { toast } = useToast();
+  const podeEditarJuridico = pode("juridico", "editar");
 
   const [encaminhamentos, setEncaminhamentos] = useState<EncaminhamentoJuridicoDetalhe[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -93,6 +109,7 @@ export default function JuridicoPage() {
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
   const [detalhe, setDetalhe] = useState<DetalheAberto | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EncaminhamentoJuridicoDetalhe | null>(null);
 
   const condominiosEscopo = useMemo(
     () => escopoCondominios(cadastros, sessao?.userId),
@@ -142,8 +159,8 @@ export default function JuridicoPage() {
   const visible = encaminhamentos
     .filter((item) => {
       if (!query) return true;
-      const unidade = nomeUnidade(item.unidadeId).toLocaleLowerCase("pt-BR");
-      const condominioNome = nomeCondominio(item.condominioId).toLocaleLowerCase("pt-BR");
+      const unidade = nomeUnidade(item.unidadeId, cadastros).toLocaleLowerCase("pt-BR");
+      const condominioNome = nomeCondominio(item.condominioId, cadastros).toLocaleLowerCase("pt-BR");
       const haystack = `${unidade} ${condominioNome} ${item.advogadoResponsavel} ${item.status}`.toLocaleLowerCase(
         "pt-BR",
       );
@@ -153,16 +170,19 @@ export default function JuridicoPage() {
       if (visao === "advogado") {
         const adv = a.advogadoResponsavel.localeCompare(b.advogadoResponsavel, "pt-BR");
         if (adv !== 0) return adv;
-        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(
+          nomeCondominio(b.condominioId, cadastros),
+          "pt-BR",
+        );
         if (condo !== 0) return condo;
         return b.encaminhadoEm.localeCompare(a.encaminhadoEm);
       }
       const factor = sortDirection === "asc" ? 1 : -1;
       const left =
         sortKey === "condominio"
-          ? nomeCondominio(a.condominioId)
+          ? nomeCondominio(a.condominioId, cadastros)
           : sortKey === "unidade"
-            ? nomeUnidade(a.unidadeId)
+            ? nomeUnidade(a.unidadeId, cadastros)
             : sortKey === "advogado"
               ? a.advogadoResponsavel
               : sortKey === "status"
@@ -172,9 +192,9 @@ export default function JuridicoPage() {
                   : a.encaminhadoEm;
       const right =
         sortKey === "condominio"
-          ? nomeCondominio(b.condominioId)
+          ? nomeCondominio(b.condominioId, cadastros)
           : sortKey === "unidade"
-            ? nomeUnidade(b.unidadeId)
+            ? nomeUnidade(b.unidadeId, cadastros)
             : sortKey === "advogado"
               ? b.advogadoResponsavel
               : sortKey === "status"
@@ -185,7 +205,10 @@ export default function JuridicoPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
-  const gruposAdvogado = useMemo(() => agruparEncaminhamentosPorAdvogado(visible), [visible]);
+  const gruposAdvogado = useMemo(
+    () => agruparEncaminhamentosPorAdvogado(visible, cadastros),
+    [visible, cadastros],
+  );
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -236,9 +259,53 @@ export default function JuridicoPage() {
       encaminhamentoId: item.id,
       unidadeId: item.unidadeId,
       condominioId: item.condominioId,
-      unidade: nomeUnidade(item.unidadeId),
-      condominio: nomeCondominio(item.condominioId),
+      unidade: nomeUnidade(item.unidadeId, cadastros),
+      condominio: nomeCondominio(item.condominioId, cadastros),
     });
+  }
+
+  function solicitarExclusao(item: EncaminhamentoJuridicoDetalhe) {
+    setDeleteTarget(item);
+  }
+
+  function acoesEncaminhamento(item: EncaminhamentoJuridicoDetalhe): JuridicoLinhaAcao[] {
+    const lista: JuridicoLinhaAcao[] = [];
+    if (pode("juridico", "ler")) {
+      lista.push({ label: "Ver detalhes", icon: Scale, onSelect: () => abrirDetalhe(item) });
+    }
+    if (podeEditarJuridico) {
+      lista.push({ label: "Editar", icon: Pencil, onSelect: () => abrirDetalhe(item) });
+      lista.push({
+        label: "Excluir",
+        icon: Trash2,
+        destructive: true,
+        onSelect: () => solicitarExclusao(item),
+      });
+    }
+    return lista;
+  }
+
+  async function confirmarExclusao() {
+    if (!deleteTarget || !podeEditarJuridico) return;
+    try {
+      const response = await fetch(`/api/juridico/encaminhamentos/${deleteTarget.id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        toast({ variant: "error", title: body?.error ?? "Não foi possível excluir o encaminhamento." });
+        return;
+      }
+      if (detalhe?.encaminhamentoId === deleteTarget.id) {
+        setDetalhe(null);
+      }
+      setDeleteTarget(null);
+      toast({ variant: "success", title: "Encaminhamento excluído." });
+      await carregar();
+    } catch {
+      toast({ variant: "error", title: "Não foi possível excluir o encaminhamento." });
+    }
   }
 
   const emptyState = (
@@ -260,7 +327,7 @@ export default function JuridicoPage() {
   );
 
   const desktopTableGeral = (
-    <Table aria-label="Encaminhamentos jurídicos" showExport={false}>
+    <Table aria-label="Encaminhamentos jurídicos" showExport={false} fitContainer>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead
@@ -290,34 +357,44 @@ export default function JuridicoPage() {
             sortable
             sortDirection={directionFor("documentos")}
             onSort={() => handleSort("documentos")}
-            align="right"
+            align="center"
           >
             Documentos
           </TableHead>
+          <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
-          pageRows.map((item) => (
-            <TableRow
-              key={item.id}
-              className="cursor-pointer"
-              onClick={() => abrirDetalhe(item)}
-            >
-              <TableCell className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
-              <TableCell>{nomeCondominio(item.condominioId)}</TableCell>
-              <TableCell>{nomeUnidade(item.unidadeId)}</TableCell>
-              <TableCell>{item.advogadoResponsavel}</TableCell>
-              <TableCell>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+          pageRows.map((item) => {
+            const identificacaoUnidade =
+              cadastros.unidades.find((unidade) => unidade.id === item.unidadeId)?.identificacao?.trim() ||
+              nomeUnidade(item.unidadeId, cadastros);
+            const rotuloAcoes = `${nomeCondominio(item.condominioId, cadastros)} · ${identificacaoUnidade}`;
+            return (
+            <TableRow key={item.id} className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle">
+              <TableCell align="center" className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
+              <TableCell align="center">{nomeCondominio(item.condominioId, cadastros)}</TableCell>
+              <TableCell align="center">{identificacaoUnidade}</TableCell>
+              <TableCell align="center">{item.advogadoResponsavel}</TableCell>
+              <TableCell align="center">
+                <div className="flex justify-center">
+                  <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+                </div>
               </TableCell>
-              <TableCell align="right" className="tabular-nums">
+              <TableCell align="center" className="tabular-nums">
                 {item.documentos?.length ?? 0}
               </TableCell>
+              <TableActionsCell
+                label={`Ações do encaminhamento — ${rotuloAcoes}`}
+                actions={acoesEncaminhamento(item)}
+                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
+              />
             </TableRow>
-          ))
+            );
+          })
         )}
       </TableBody>
     </Table>
@@ -329,7 +406,7 @@ export default function JuridicoPage() {
     ) : (
       <TableMobileList aria-label="Encaminhamentos jurídicos">
         {pageRows.map((item, index) => (
-          <TableMobileCard key={item.id} className="cursor-pointer" onClick={() => abrirDetalhe(item)}>
+          <TableMobileCard key={item.id}>
             <TableMobileCardHeader>
               <span
                 className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
@@ -340,7 +417,7 @@ export default function JuridicoPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                   <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                    {tituloEncaminhamentoMobile(item)}
+                    {tituloEncaminhamentoMobile(item, cadastros)}
                   </TableMobileTitle>
                   <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
                     {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
@@ -350,7 +427,10 @@ export default function JuridicoPage() {
                   Encaminhado em {formatarData(item.encaminhadoEm)}
                 </p>
               </div>
-              <span aria-hidden="true" />
+              <TableActionsButton
+                label={`Ações do encaminhamento — ${tituloEncaminhamentoMobile(item, cadastros)}`}
+                actions={acoesEncaminhamento(item)}
+              />
             </TableMobileCardHeader>
             <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
               <div className="flex items-start justify-between gap-md">
@@ -369,7 +449,7 @@ export default function JuridicoPage() {
                 </div>
                 <div className="min-w-0 text-end">
                   <p className="text-label-sm uppercase text-on-surface-variant">Condomínio</p>
-                  <p className="truncate text-body-md text-on-surface">{nomeCondominio(item.condominioId)}</p>
+                  <p className="truncate text-body-md text-on-surface">{nomeCondominio(item.condominioId, cadastros)}</p>
                 </div>
               </div>
             </div>
@@ -384,7 +464,7 @@ export default function JuridicoPage() {
       modo="advogado"
       cadastros={cadastros}
       emptyState={emptyState}
-      onAbrir={abrirDetalhe}
+      acoesLinha={acoesEncaminhamento}
       variante="desktop"
     />
   );
@@ -395,7 +475,7 @@ export default function JuridicoPage() {
       modo="advogado"
       cadastros={cadastros}
       emptyState={emptyState}
-      onAbrir={abrirDetalhe}
+      acoesLinha={acoesEncaminhamento}
       variante="mobile"
     />
   );
@@ -546,6 +626,22 @@ export default function JuridicoPage() {
         tituloCondominio={detalhe?.condominio}
         onClose={() => setDetalhe(null)}
         onSalvo={() => void carregar()}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Excluir encaminhamento?"
+        description={
+          deleteTarget
+            ? `O encaminhamento de ${nomeUnidade(deleteTarget.unidadeId, cadastros)} (${nomeCondominio(deleteTarget.condominioId, cadastros)}) será removido permanentemente.`
+            : undefined
+        }
+        confirmLabel="Excluir"
+        confirmVariant="critical"
+        onConfirm={() => void confirmarExclusao()}
       />
     </WorkspaceShell>
   );

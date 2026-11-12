@@ -98,7 +98,10 @@ export function EncaminhamentoJuridicoSheet({
       .sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento));
   }, [cadastros.debitos, unidadeId]);
 
-  const debitosSelecionaveis = debitosUnidade.filter(debitoEmAberto);
+  const debitosSelecionaveis = useMemo(
+    () => debitosUnidade.filter(debitoEmAberto),
+    [debitosUnidade],
+  );
 
   const carregar = useCallback(async () => {
     if (encaminhamentoId) {
@@ -156,7 +159,16 @@ export function EncaminhamentoJuridicoSheet({
 
   useEffect(() => {
     if (unidadeId === null || encaminhamentoId) return;
-    setDebitoIds(debitosSelecionaveis.map((item) => item.id));
+    const proximosIds = debitosSelecionaveis.map((item) => item.id);
+    setDebitoIds((atual) => {
+      if (
+        atual.length === proximosIds.length &&
+        atual.every((id, indice) => id === proximosIds[indice])
+      ) {
+        return atual;
+      }
+      return proximosIds;
+    });
   }, [debitosSelecionaveis, encaminhamentoId, unidadeId]);
 
   const aberto = encaminhamentoId ? true : unidadeId !== null;
@@ -378,9 +390,9 @@ export function EncaminhamentoJuridicoSheet({
           </SheetHeaderLead>
           <SheetClose />
         </SheetHeader>
-        <SheetBody>
+        <SheetBody className="flex flex-col gap-md">
           {podeCriar && !encaminhamentoId ? (
-            <SheetForm id={`${formId}-novo`} onSubmit={enviarNovo}>
+            <SheetForm id={`${formId}-novo`} className="!flex-none" onSubmit={enviarNovo}>
               <SheetPanel className="mb-md">
                 <p className="text-label-md text-on-surface">Novo encaminhamento</p>
                 <SheetHelpText>
@@ -438,7 +450,7 @@ export function EncaminhamentoJuridicoSheet({
             </SheetForm>
           ) : null}
 
-          <SheetPanel className="max-h-[min(28rem,60vh)] overflow-y-auto">
+          <SheetPanel>
             {loading ? (
               <SkeletonCardList rows={3} label="Carregando encaminhamentos" />
             ) : itens.length === 0 ? (

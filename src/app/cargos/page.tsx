@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound } from "lucide-react";
+import { LayoutGrid, Pencil, Plus, Shield, Trash2, UserRound, Users } from "lucide-react";
 import { CargoIconeListagem } from "@/components/cargo-icone-listagem";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
@@ -16,6 +16,7 @@ import { MatrizPermissoesCargo } from "@/components/matriz-permissoes-cargo";
 import { FormField, Input, Switch } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
+import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   Sheet,
   SheetBody,
@@ -47,7 +48,7 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
-  TableExport,
+  TableDataBar,
   type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
@@ -68,9 +69,32 @@ import {
 import { MODULOS_PERMISSAO } from "@/lib/permissions/modulos";
 import { permissoesPadraoPorNome } from "@/lib/permissions/seeds";
 
-const colunasExportacao = ["Cargo", "Descrição", "Colaboradores"] as const;
+const colunasExportacao = ["Cargo", "Descrição", "Colaboradores", "Situação"] as const;
 
-type SortKey = "nome" | "descricao";
+type SortKey = "nome" | "descricao" | "ativo";
+
+function rotuloSituacaoCargo(item: Cargo) {
+  return item.ativo === false ? "Inativo" : "Ativo";
+}
+
+function SituacaoCargoBadge({ ativo }: { ativo: boolean }) {
+  const inativo = ativo === false;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body-sm font-medium ${
+        inativo
+          ? "bg-primary-fixed/45 text-primary-container"
+          : "bg-[color-mix(in_srgb,var(--color-status-settled)_18%,var(--color-surface-card))] text-status-settled"
+      }`}
+    >
+      <span
+        className={`size-2 shrink-0 rounded-full ${inativo ? "bg-primary-container/80" : "bg-status-settled"}`}
+        aria-hidden
+      />
+      {inativo ? "Inativo" : "Ativo"}
+    </span>
+  );
+}
 
 const formularioVazio = { nome: "", descricao: "", ativo: true, permissoes: permissoesVazias() };
 
@@ -97,6 +121,8 @@ export default function CargosPage() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedDescricaoFiltro, setAppliedDescricaoFiltro] = useState("todos");
   const [appliedAreaFiltro, setAppliedAreaFiltro] = useState("todas");
+  const [situacao, setSituacao] = useState("todos");
+  const [appliedSituacao, setAppliedSituacao] = useState("todos");
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
@@ -145,13 +171,22 @@ export default function CargosPage() {
       const modulos = listarModulosPermitidos(parsePermissoesJson(item.permissaoJson));
       const matchesArea =
         appliedAreaFiltro === "todas" || modulos.some((modulo) => modulo.modulo === appliedAreaFiltro);
+      const matchesSituacao =
+        appliedSituacao === "todos" ||
+        (appliedSituacao === "ativos" && item.ativo !== false) ||
+        (appliedSituacao === "inativos" && item.ativo === false);
       const haystack = `${item.nome} ${item.descricao}`.toLocaleLowerCase("pt-BR");
-      return matchesDescricao && matchesArea && (query.length === 0 || haystack.includes(query));
+      return matchesDescricao && matchesArea && matchesSituacao && (query.length === 0 || haystack.includes(query));
     })
     .sort((a, b) => {
       const factor = sortDirection === "asc" ? 1 : -1;
-      const left = sortKey === "descricao" ? a.descricao : a.nome;
-      const right = sortKey === "descricao" ? b.descricao : b.nome;
+      const valorOrdenacao = (item: Cargo, key: SortKey) => {
+        if (key === "descricao") return item.descricao;
+        if (key === "ativo") return rotuloSituacaoCargo(item);
+        return item.nome;
+      };
+      const left = valorOrdenacao(a, sortKey);
+      const right = valorOrdenacao(b, sortKey);
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
@@ -181,6 +216,7 @@ export default function CargosPage() {
     setAppliedSearch(search);
     setAppliedDescricaoFiltro(descricaoFiltro);
     setAppliedAreaFiltro(areaFiltro);
+    setAppliedSituacao(situacao);
     setPage(1);
   }
 
@@ -188,10 +224,26 @@ export default function CargosPage() {
     setSearch("");
     setDescricaoFiltro("todos");
     setAreaFiltro("todas");
+    setSituacao("todos");
     setAppliedSearch("");
     setAppliedDescricaoFiltro("todos");
     setAppliedAreaFiltro("todas");
+    setAppliedSituacao("todos");
     setPage(1);
+  }
+
+  function handleTabSituacao(value: string) {
+    setSituacao(value);
+    setAppliedSituacao(value);
+    setPage(1);
+  }
+
+  function aoImportar() {
+    toast({
+      variant: "info",
+      title: "Importar",
+      description: "Importação em lote de cargos ainda não está disponível.",
+    });
   }
 
   function linhasExportacao() {
@@ -199,6 +251,7 @@ export default function CargosPage() {
       item.nome,
       item.descricao.trim() || "—",
       String(contagemColaboradores(item.id)),
+      rotuloSituacaoCargo(item),
     ]);
   }
 
@@ -310,7 +363,7 @@ export default function CargosPage() {
         });
         return;
       }
-      aplicarCargoExcluido(deleteTarget.id);
+      void refetch();
       if (editingId === deleteTarget.id) {
         setSheetOpen(false);
         setLeaveConfirmOpen(false);
@@ -381,7 +434,7 @@ export default function CargosPage() {
         });
         return;
       }
-      aplicarCargoSalvo(body.cargo);
+      void refetch();
       toast({ variant: "success", title: editingId === null ? "Cargo cadastrado" : "Cargo atualizado" });
       setSheetOpen(false);
     } catch {
@@ -420,9 +473,10 @@ export default function CargosPage() {
     >
       <colgroup>
         <col className="w-[28%]" />
-        <col className="w-[46%]" />
-        <col className="w-[16%]" />
-        <col className="w-[10%]" />
+        <col className="w-[38%]" />
+        <col className="w-[12%]" />
+        <col className="w-[14%]" />
+        <col className="w-[4.5rem]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -435,34 +489,47 @@ export default function CargosPage() {
           <TableHead align="center" className="w-[6.5rem]">
             Colaboradores
           </TableHead>
+          <TableHead
+            align="center"
+            sortable
+            sortDirection={directionFor("ativo")}
+            onSort={() => handleSort("ativo")}
+          >
+            Status
+          </TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={4}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="max-w-0 align-middle py-md">
+              <TableCell className="max-w-0 !align-middle py-md">
                 <div className="flex min-w-0 items-center gap-sm">
                   <CargoIconeListagem nome={item.nome} />
                   <span className="min-w-0 truncate font-semibold text-on-surface">{item.nome}</span>
                 </div>
               </TableCell>
-              <TableCell className="max-w-0 align-middle py-md text-body-sm leading-snug break-words text-on-surface">
+              <TableCell className="max-w-0 !align-middle py-md text-body-sm leading-snug break-words text-on-surface">
                 {item.descricao || "—"}
               </TableCell>
               <TableCell
                 align="center"
-                className="max-w-0 align-middle py-sm text-body-md font-medium tabular-nums text-on-surface min-[768px]:py-md"
+                className="max-w-0 !align-middle py-sm text-body-md font-medium tabular-nums text-on-surface min-[768px]:py-md"
               >
                 {contagemColaboradores(item.id)}
+              </TableCell>
+              <TableCell align="center" className="!align-middle py-md">
+                <div className="flex justify-center">
+                  <SituacaoCargoBadge ativo={item.ativo !== false} />
+                </div>
               </TableCell>
               <TableActionsCell
                 label={`Ações de ${item.nome}`}
                 actions={acoes(item)}
-                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
+                className="!align-middle py-md size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
               />
             </TableRow>
           ))
@@ -492,6 +559,9 @@ export default function CargosPage() {
                 <p className="mt-xs line-clamp-2 text-body-sm text-on-surface-variant">
                   {item.descricao.trim() || "Sem descrição"}
                 </p>
+                <div className="mt-xs">
+                  <SituacaoCargoBadge ativo={item.ativo !== false} />
+                </div>
               </div>
               <TableActionsButton
                 label={`Ações de ${item.nome}`}
@@ -598,11 +668,35 @@ export default function CargosPage() {
           />
         </FiltrosSection>
 
-        <section className="flex min-w-0 flex-col gap-sm">
-          <div className="flex justify-end">
-            <TableExport onExport={aoExportar} />
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
+          <div className="flex flex-col gap-sm border-b border-border-subtle px-md pt-sm min-[768px]:flex-row min-[768px]:items-center min-[768px]:justify-between">
+            <Tabs value={appliedSituacao} onValueChange={handleTabSituacao} className="min-w-0 flex-1">
+              <TabsList className="w-full border-b-0 min-[768px]:w-auto">
+                <TabsTrigger value="todos" className="gap-sm">
+                  <Icon icon={Users} size="sm" />
+                  Todos
+                </TabsTrigger>
+                <TabsTrigger value="ativos" className="gap-sm">
+                  <span className="size-2.5 shrink-0 rounded-full bg-status-settled" aria-hidden />
+                  Ativos
+                </TabsTrigger>
+                <TabsTrigger value="inativos" className="gap-sm">
+                  <span className="size-2.5 shrink-0 rounded-full bg-on-surface-variant/50" aria-hidden />
+                  Inativos
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <TableDataBar className="shrink-0 pb-sm" onExport={aoExportar} onImport={aoImportar} showImport />
           </div>
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} showExport={false} onExport={aoExportar} />
+          <ResponsiveTable
+            className="min-w-0"
+            desktop={desktopTable}
+            mobile={mobileTable}
+            showExport={false}
+            onExport={aoExportar}
+            onImport={aoImportar}
+            showImport
+          />
         </section>
         {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
       </PageContent>

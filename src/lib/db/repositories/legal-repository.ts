@@ -62,6 +62,10 @@ export async function updateLegalReferral(item: EncaminhamentoJuridico): Promise
   return mapReferralToEncaminhamento(row);
 }
 
+export async function deleteLegalReferralById(id: string): Promise<void> {
+  await prisma.legalCaseReferral.delete({ where: { id } });
+}
+
 export async function listLegalDocuments(): Promise<DocumentoJuridico[]> {
   const rows = await prisma.legalDocument.findMany({
     orderBy: [{ registeredAt: "asc" }, { id: "asc" }],

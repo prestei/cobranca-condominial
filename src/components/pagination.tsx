@@ -10,6 +10,8 @@ type PaginationProps = {
   total: number;
   onPageChange: (page: number) => void;
   pageSize?: number;
+  /** Texto após o total (ex.: «colaboradores» → «1–6 de 6 colaboradores»). */
+  itemLabel?: string;
 };
 
 function itemClass(current: boolean) {
@@ -23,7 +25,7 @@ function itemClass(current: boolean) {
   ].join(" ");
 }
 
-export function Pagination({ page, total, onPageChange, pageSize = PAGE_SIZE }: PaginationProps) {
+export function Pagination({ page, total, onPageChange, pageSize = PAGE_SIZE, itemLabel }: PaginationProps) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const current = Math.min(Math.max(page, 1), pageCount);
   const from = total === 0 ? 0 : (current - 1) * pageSize + 1;
@@ -49,6 +51,7 @@ export function Pagination({ page, total, onPageChange, pageSize = PAGE_SIZE }: 
     >
       <p className="text-body-sm text-on-surface-variant tabular-nums">
         {from}–{to} de {total}
+        {itemLabel ? ` ${itemLabel}` : null}
       </p>
       <div className="flex items-center gap-xs">
         <button

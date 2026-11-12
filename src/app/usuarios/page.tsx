@@ -4,21 +4,19 @@ import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Briefcase,
-  Power,
-  KeyRound,
+  Calendar,
   Lock,
   Mail,
   Pencil,
   Phone,
   Plus,
+  Power,
   Trash2,
   UserRound,
+  Users,
   UserX,
 } from "lucide-react";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { CardMetric } from "@/components/card-metric";
-import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
@@ -28,6 +26,7 @@ import { FormField, Input, Select } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { SkeletonListPage } from "@/components/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   Sheet,
   SheetBody,
@@ -59,6 +58,7 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
+  TableDataBar,
   type TableExportFormat,
   type TableSortDirection,
 } from "@/components/table";
@@ -105,6 +105,31 @@ function identificacaoListagem(item: Usuario) {
 
 function rotuloSituacao(item: Usuario) {
   return item.ativo === false ? "Inativo" : "Ativo";
+}
+
+function rotuloReListagem(item: Usuario): string {
+  const re = codigoReDoUsuario(item);
+  if (!re) return "—";
+  return re.replace(/^RE-/i, "RE - ");
+}
+
+function SituacaoColaboradorBadge({ ativo }: { ativo: boolean }) {
+  const inativo = ativo === false;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body-sm font-medium ${
+        inativo
+          ? "bg-primary-fixed/45 text-primary-container"
+          : "bg-[color-mix(in_srgb,var(--color-status-settled)_18%,var(--color-surface-card))] text-status-settled"
+      }`}
+    >
+      <span
+        className={`size-2 shrink-0 rounded-full ${inativo ? "bg-primary-container/80" : "bg-status-settled"}`}
+        aria-hidden
+      />
+      {inativo ? "Inativo" : "Ativo"}
+    </span>
+  );
 }
 
 export default function UsuariosPage() {
@@ -191,7 +216,7 @@ export default function UsuariosPage() {
       const valorOrdenacao = (item: Usuario, key: SortKey) => {
         switch (key) {
           case "cargo":
-            return nomeCargo(item.cargoId);
+            return nomeCargo(item.cargoId, cadastros);
           case "codigoRe":
             return codigoReDoUsuario(item) ?? "";
           case "email":
@@ -212,9 +237,6 @@ export default function UsuariosPage() {
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const comAcesso = visible.filter((item) => item.ativo !== false).length;
-  const cargosNoRecorte = new Set(visible.map((item) => item.cargoId)).size;
-  const metricValor = (n: number) => String(n).padStart(2, "0");
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -251,6 +273,20 @@ export default function UsuariosPage() {
     setPage(1);
   }
 
+  function handleTabSituacao(value: string) {
+    setSituacao(value);
+    setAppliedSituacao(value);
+    setPage(1);
+  }
+
+  function aoImportar() {
+    toast({
+      variant: "info",
+      title: "Importar",
+      description: "Importação em lote de colaboradores ainda não está disponível.",
+    });
+  }
+
   function linhasExportacao() {
     return visible.map((item) => [
       item.nome,
@@ -258,7 +294,7 @@ export default function UsuariosPage() {
       item.codigo,
       item.email || "—",
       item.telefone.trim() ? formatarTelefone(item.telefone) : "—",
-      nomeCargo(item.cargoId),
+      nomeCargo(item.cargoId, cadastros),
       rotuloSituacao(item),
     ]);
   }
@@ -317,7 +353,7 @@ export default function UsuariosPage() {
       senha: "",
       ativo: item.ativo !== false,
       condominioIds:
-        nomeCargo(item.cargoId) === "Advogado"
+        nomeCargo(item.cargoId, cadastros) === "Advogado"
           ? idsCondominiosDoAdvogadoNoCadastro(cadastros.condominios, item.nome)
           : [],
     });
@@ -517,22 +553,50 @@ export default function UsuariosPage() {
   );
 
   const desktopTable = (
-    <Table aria-label="Colaboradores" showExport={false}>
+    <Table
+      aria-label="Colaboradores"
+      showExport={false}
+      fitContainer
+      containerClassName="border-0 shadow-none rounded-none"
+    >
+      <colgroup>
+        <col className="min-w-[12rem] w-[26%]" />
+        <col className="w-[14%]" />
+        <col className="w-[14%]" />
+        <col className="w-[24%]" />
+        <col className="w-[18%]" />
+        <col className="w-[4.5rem]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Nome
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("cargo")} onSort={() => handleSort("cargo")}>
+          <TableHead
+            align="center"
+            sortable
+            sortDirection={directionFor("cargo")}
+            onSort={() => handleSort("cargo")}
+          >
             Cargo
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("ativo")} onSort={() => handleSort("ativo")}>
+          <TableHead
+            align="center"
+            sortable
+            sortDirection={directionFor("ativo")}
+            onSort={() => handleSort("ativo")}
+          >
             Situação
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("telefone")} onSort={() => handleSort("telefone")}>
+          <TableHead
+            align="center"
+            sortable
+            sortDirection={directionFor("email")}
+            onSort={() => handleSort("email")}
+          >
             Contato
           </TableHead>
-          <TableHead>Último acesso</TableHead>
+          <TableHead align="center">Último acesso</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -542,7 +606,7 @@ export default function UsuariosPage() {
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
-              <TableCell>
+              <TableCell className="!align-middle py-md">
                 <div className="flex min-w-0 items-center gap-sm">
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed/45 text-label-md font-semibold text-primary-container"
@@ -551,27 +615,36 @@ export default function UsuariosPage() {
                     {iniciaisNome(item.nome)}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-on-surface">{item.nome}</p>
-                    <p className="truncate font-mono text-body-sm text-on-surface-variant">
-                      {codigoReDoUsuario(item) ?? "—"}
-                    </p>
+                    <p className="truncate font-semibold text-on-surface">{item.nome}</p>
+                    <p className="truncate text-body-sm text-on-surface-variant">{rotuloReListagem(item)}</p>
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="text-on-surface">{nomeCargo(item.cargoId)}</TableCell>
-              <TableCell>
-                <Badge variant={item.ativo === false ? "neutral" : "success"}>{rotuloSituacao(item)}</Badge>
+              <TableCell align="center" className="!align-middle py-md text-on-surface">
+                {nomeCargo(item.cargoId, cadastros)}
               </TableCell>
-              <TableCell>
-                <div className="min-w-0">
-                  <p className="text-on-surface">
-                    {item.telefone.trim() ? formatarTelefone(item.telefone) : "—"}
-                  </p>
-                  <p className="truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
+              <TableCell align="center" className="!align-middle py-md">
+                <div className="flex justify-center">
+                  <SituacaoColaboradorBadge ativo={item.ativo !== false} />
                 </div>
               </TableCell>
-              <TableCell className="text-on-surface-variant">—</TableCell>
-              <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
+              <TableCell align="center" className="!align-middle py-md">
+                <div className="flex min-w-0 items-center justify-center gap-sm text-on-surface">
+                  <Icon icon={Mail} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
+                  <span className="min-w-0 max-w-full truncate">{item.email.trim() || "—"}</span>
+                </div>
+              </TableCell>
+              <TableCell align="center" className="!align-middle py-md text-on-surface-variant">
+                <span className="inline-flex items-center justify-center gap-sm">
+                  <Icon icon={Calendar} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
+                  —
+                </span>
+              </TableCell>
+              <TableActionsCell
+                label={`Ações de ${item.nome}`}
+                actions={acoes(item)}
+                className="!align-middle py-md size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
+              />
             </TableRow>
           ))
         )}
@@ -602,28 +675,26 @@ export default function UsuariosPage() {
                     {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
                   </span>
                 </div>
-                <p className="mt-xs truncate font-mono text-body-sm text-on-surface-variant">
-                  {codigoReDoUsuario(item) ?? "—"}
-                </p>
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{rotuloReListagem(item)}</p>
               </div>
-              <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
+              <TableActionsButton
+                label={`Ações de ${item.nome}`}
+                actions={acoes(item)}
+                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
+              />
             </TableMobileCardHeader>
-            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-              <div className="grid grid-cols-2 gap-sm text-body-sm">
-                <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Cargo</p>
-                  <p className="text-body-md text-on-surface">{nomeCargo(item.cargoId)}</p>
-                  <Badge variant={item.ativo === false ? "neutral" : "success"} className="mt-xs">
-                    {rotuloSituacao(item)}
-                  </Badge>
-                </div>
-                <div className="min-w-0 text-end">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Contato</p>
-                  <p className="text-body-md text-on-surface">
-                    {item.telefone.trim() ? formatarTelefone(item.telefone) : "—"}
-                  </p>
-                  <p className="mt-xs truncate text-body-sm text-on-surface-variant">{item.email || "—"}</p>
-                </div>
+            <div className="mt-sm flex flex-col items-center gap-sm border-t border-border-subtle/30 pt-sm text-center">
+              <div className="flex w-full flex-col items-center gap-xs text-body-sm">
+                <p className="text-label-sm uppercase text-on-surface-variant">Cargo</p>
+                <p className="text-body-md text-on-surface">{nomeCargo(item.cargoId, cadastros)}</p>
+                <SituacaoColaboradorBadge ativo={item.ativo !== false} />
+              </div>
+              <div className="flex w-full flex-col items-center gap-xs">
+                <p className="text-label-sm uppercase text-on-surface-variant">Contato</p>
+                <p className="flex max-w-full items-center justify-center gap-xs text-body-md text-on-surface">
+                  <Icon icon={Mail} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
+                  <span className="truncate">{item.email.trim() || "—"}</span>
+                </p>
               </div>
             </div>
           </TableMobileCard>
@@ -642,59 +713,21 @@ export default function UsuariosPage() {
           pode("usuarios", "criar") ? (
             <Button size="md" onClick={openCreate}>
               <Icon icon={Plus} size="sm" />
-              Novo colaborador
+              Novo
             </Button>
           ) : undefined
         }
       />
       <PageContent className="max-md:gap-md max-md:py-md">
         {authLoading ? (
-          <SkeletonListPage metrics={3} rows={8} cols={5} label="Carregando colaboradores" />
+          <SkeletonListPage
+            showMetrics={false}
+            rows={8}
+            cols={6}
+            label="Carregando colaboradores"
+          />
         ) : (
         <>
-        <section aria-label="Resumo de colaboradores">
-          <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
-            <KpiMobileCard
-              rotulo="Total de colaboradores"
-              valor={metricValor(visible.length)}
-              icon={UserRound}
-              destaque
-            />
-            <KpiMobileCard rotulo="Cargos cadastrados" valor={metricValor(cargosNoRecorte)} icon={Briefcase} />
-            <KpiMobileCard
-              rotulo="Com acesso ao sistema"
-              valor={metricValor(comAcesso)}
-              icon={KeyRound}
-            />
-          </div>
-          <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
-            <CardMetric
-              accent="primary"
-              rotulo="Total de colaboradores"
-              valor={metricValor(visible.length)}
-              detalhe="Com os filtros aplicados"
-              iconClassName="bg-primary-fixed/50 text-primary-container"
-              icon={<Icon icon={UserRound} size="md" className="text-primary-container" />}
-            />
-            <CardMetric
-              accent="tertiary"
-              rotulo="Cargos cadastrados"
-              valor={metricValor(cargosNoRecorte)}
-              detalhe="Cargos distintos no recorte"
-              iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
-              icon={<Icon icon={Briefcase} size="md" className="text-tertiary-container" />}
-            />
-            <CardMetric
-              accent="brass"
-              rotulo="Com acesso ao sistema"
-              valor={metricValor(comAcesso)}
-              detalhe="Com login ativo"
-              iconClassName="bg-gold-subtle text-brass"
-              icon={<Icon icon={KeyRound} size="md" className="text-brass" />}
-            />
-          </div>
-        </section>
-
         <FiltrosSection>
           <FilterBar
             searchValue={search}
@@ -713,25 +746,48 @@ export default function UsuariosPage() {
                   ...cadastros.cargos.map((item) => ({ value: String(item.id), label: item.nome })),
                 ],
               },
-              {
-                id: "situacao",
-                label: "Situação",
-                value: situacao,
-                onChange: setSituacao,
-                options: [
-                  { value: "todos", label: "Todas" },
-                  { value: "ativos", label: "Ativos" },
-                  { value: "inativos", label: "Inativos" },
-                ],
-              },
             ]}
           />
         </FiltrosSection>
 
-        <section className="flex flex-col gap-md">
-          <ResponsiveTable desktop={desktopTable} mobile={mobileTable} onExport={aoExportar} />
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
+          <div className="flex flex-col gap-sm border-b border-border-subtle px-md pt-sm min-[768px]:flex-row min-[768px]:items-center min-[768px]:justify-between">
+            <Tabs value={appliedSituacao} onValueChange={handleTabSituacao} className="min-w-0 flex-1">
+              <TabsList className="w-full border-b-0 min-[768px]:w-auto">
+                <TabsTrigger value="todos" className="gap-sm">
+                  <Icon icon={Users} size="sm" />
+                  Todos
+                </TabsTrigger>
+                <TabsTrigger value="ativos" className="gap-sm">
+                  <span className="size-2.5 shrink-0 rounded-full bg-status-settled" aria-hidden />
+                  Ativos
+                </TabsTrigger>
+                <TabsTrigger value="inativos" className="gap-sm">
+                  <span className="size-2.5 shrink-0 rounded-full bg-on-surface-variant/50" aria-hidden />
+                  Inativos
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <TableDataBar className="shrink-0 pb-sm" onExport={aoExportar} onImport={aoImportar} showImport />
+          </div>
+          <ResponsiveTable
+            className="min-w-0"
+            desktop={desktopTable}
+            mobile={mobileTable}
+            showExport={false}
+            onExport={aoExportar}
+            onImport={aoImportar}
+            showImport
+          />
         </section>
-        {visible.length > 0 ? <Pagination page={currentPage} total={visible.length} onPageChange={setPage} /> : null}
+        {visible.length > 0 ? (
+          <Pagination
+            page={currentPage}
+            total={visible.length}
+            onPageChange={setPage}
+            itemLabel="colaboradores"
+          />
+        ) : null}
         </>
         )}
       </PageContent>
