@@ -287,7 +287,7 @@ export function Table({
   );
 }
 
-export { TableExport, TableImport };
+export { TableDataBar, TableExport, TableImport };
 
 export function TableCaption({ className, ...props }: HTMLAttributes<HTMLTableCaptionElement>) {
   return (
@@ -637,6 +637,7 @@ export function TableActionsButton({
         aria-controls={hasMenu && open ? menuId : undefined}
         className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
         onClick={(event) => {
+          event.stopPropagation();
           if (hasMenu) {
             setOpen((current) => !current);
             return;
@@ -703,6 +704,7 @@ export function TableActionsCell({
     <TableCell
       align="center"
       className={`sticky right-0 z-[1] w-14 shrink-0 whitespace-nowrap bg-surface-card px-sm shadow-[-6px_0_8px_-6px_rgba(18,33,58,0.12)] group-hover/row:bg-gold-subtle/25 ${className ?? ""}`}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex justify-center">
         <TableActionsButton label={label} actions={actions} {...props} />

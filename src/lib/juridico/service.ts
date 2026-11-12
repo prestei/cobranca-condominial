@@ -6,6 +6,7 @@ import { listDebts } from "@/lib/db/repositories/debt-repository";
 import {
   createLegalDocument,
   createLegalReferral,
+  deleteLegalReferralById,
   findLegalReferralById,
   listLegalDocumentsByReferral,
   listLegalReferrals,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/db/repositories/legal-repository";
 import { requireUnitInScope, scopeCondominiumIds } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class JuridicoServiceError extends Error {
   constructor(
@@ -78,7 +79,7 @@ const TRANSICOES_STATUS: Record<string, Set<string>> = {
 };
 
 async function assertPermissaoJuridico(userId: number, acao: "ler" | "criar" | "editar") {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "juridico", acao)) {
     throw new JuridicoServiceError(`Sem permissão para ${acao === "ler" ? "consultar" : acao} encaminhamentos jurídicos.`, 403);
   }
@@ -147,7 +148,7 @@ function validarTransicaoStatus(anterior: string, proximo: string) {
 }
 
 async function incluirDocumentos(userId: number, encaminhamento: EncaminhamentoJuridico): Promise<EncaminhamentoJuridicoDetalhe> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "juridico", "ler")) {
     return encaminhamento;
   }
@@ -396,6 +397,39 @@ export async function registrarDocumentoJuridico(
     userAgent: meta?.userAgent,
   });
   return criado;
+}
+
+export async function excluirEncaminhamentoJuridico(
+  userId: number,
+  id: string,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<void> {
+  await assertPermissaoJuridico(userId, "editar");
+  const anterior = await findLegalReferralById(id);
+  if (!anterior) {
+    throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
+  }
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(anterior.condominioId)) {
+    throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
+  }
+
+  await deleteLegalReferralById(id);
+  await writeAuditLog({
+    entity: "legal_case_referral",
+    recordId: id,
+    action: "DELETE",
+    previousData: JSON.stringify({
+      unidadeId: anterior.unidadeId,
+      status: anterior.status,
+      advogadoResponsavel: anterior.advogadoResponsavel,
+    }),
+    newData: "",
+    changedFields: "unidade_id, status, advogado_responsavel",
+    userId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
 }
 
 export function requestMeta(request: Request) {

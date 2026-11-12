@@ -70,8 +70,8 @@ Nenhuma.
 
 ## Estados de interface
 
-- Listagem: indicadores **Cargos no sistema** / **Áreas de acesso** / **Colaboradores vinculados** (com detalhe no desktop), **Filtros** (busca, descrição, área), **Exportar**, tabela (`fitContainer`, sem scroll horizontal) e paginação; colunas **Cargo**, **Descrição**, **Colaboradores**, **Ação**; sheet wide para cadastro/edição (matriz + switch `ativo`).
-- Mobile: cards em **grid** (`grid-cols-1` → `2` → `3`), mesmo padrão de [Colaboradores](usuarios.md); filtros; lista vazia / filtro sem resultado; sheet **wide** com cabeçalho em destaque (`primary-fixed`), título dinâmico (nome do cargo), bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e `MatrizPermissoesCargo` (barra de progresso `módulos com acesso`, atalhos **Restaurar padrão** — seeds Administrador/Atendente/Advogado ou estado ao abrir — e **Desmarcar tudo**; um cartão por área, checkboxes Consultar, Cadastrar, Alterar, Excluir, Exportar dados); rodapé **Cancelar** + **Salvar**; confirmação de exclusão e de saída com dados preenchidos.
+- Listagem: **Filtros** (busca por perfil); painel com abas **Todos** / **Ativos** / **Inativos**, **Exportar** e **Importar** (importação ainda informativa); tabela (`fitContainer`, sem scroll horizontal) e paginação; colunas **Cargo** (ícone + nome), **Descrição**, **Colaboradores**, **Status**, **Ações**; sheet wide para cadastro/edição (matriz + switch `ativo`).
+- Mobile: lista em cartões (mesmo padrão de [Colaboradores](usuarios.md)), com badge de status; filtros; lista vazia / filtro sem resultado; sheet **wide** com cabeçalho em destaque (`primary-fixed`), título dinâmico (nome do cargo), bloco **Nome do cargo** / **Para que serve** em `SheetPanel` e `MatrizPermissoesCargo` (barra de progresso `módulos com acesso`, atalhos **Restaurar padrão** — seeds Administrador/Atendente/Advogado ou estado ao abrir — e **Desmarcar tudo**; um cartão por área, checkboxes Consultar, Cadastrar, Alterar, Excluir, Exportar dados); rodapé **Cancelar** + **Salvar**; confirmação de exclusão e de saída com dados preenchidos.
 
 ## Pendências e decisões
 

@@ -7,6 +7,8 @@ import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
+  TableActionsButton,
+  TableActionsCell,
   TableBody,
   TableCell,
   TableEmpty,
@@ -18,6 +20,7 @@ import {
   TableMobileList,
   TableMobileTitle,
   TableRow,
+  type TableAction,
 } from "@/components/table";
 import { formatarData, nomeCondominio, nomeUnidade, type Cadastros } from "@/data/catalogo";
 import type { EncaminhamentoJuridicoDetalhe } from "@/lib/juridico/service";
@@ -38,8 +41,11 @@ export type GrupoJuridico = {
   itens: EncaminhamentoJuridicoDetalhe[];
 };
 
+export type JuridicoLinhaAcao = TableAction;
+
 export function agruparEncaminhamentosPorCondominio(
   itens: EncaminhamentoJuridicoDetalhe[],
+  cadastros: Cadastros,
 ): GrupoJuridico[] {
   const mapa = new Map<number, EncaminhamentoJuridicoDetalhe[]>();
   for (const item of itens) {
@@ -51,7 +57,7 @@ export function agruparEncaminhamentosPorCondominio(
   return [...mapa.entries()]
     .map(([condominioId, lista]) => ({
       id: String(condominioId),
-      nome: nomeCondominio(condominioId),
+      nome: nomeCondominio(condominioId, cadastros),
       itens: [...lista].sort((a, b) => b.encaminhadoEm.localeCompare(a.encaminhadoEm)),
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -59,6 +65,7 @@ export function agruparEncaminhamentosPorCondominio(
 
 export function agruparEncaminhamentosPorAdvogado(
   itens: EncaminhamentoJuridicoDetalhe[],
+  cadastros: Cadastros,
 ): GrupoJuridico[] {
   const mapa = new Map<string, EncaminhamentoJuridicoDetalhe[]>();
   for (const item of itens) {
@@ -73,7 +80,10 @@ export function agruparEncaminhamentosPorAdvogado(
       id: nome,
       nome,
       itens: [...lista].sort((a, b) => {
-        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(
+          nomeCondominio(b.condominioId, cadastros),
+          "pt-BR",
+        );
         if (condo !== 0) return condo;
         return b.encaminhadoEm.localeCompare(a.encaminhadoEm);
       }),
@@ -89,12 +99,19 @@ function identificacaoUnidade(cadastros: Cadastros, unidadeId: number) {
   return cadastros.unidades.find((item) => item.id === unidadeId)?.identificacao?.trim() || nomeUnidade(unidadeId);
 }
 
+function rotuloEncaminhamento(
+  item: EncaminhamentoJuridicoDetalhe,
+  cadastros: Cadastros,
+) {
+  return `Unidade ${identificacaoUnidade(cadastros, item.unidadeId)} — ${nomeCondominio(item.condominioId, cadastros)}`;
+}
+
 type TabelaProps = {
   itens: EncaminhamentoJuridicoDetalhe[];
   modo: "condominio" | "advogado";
   cadastros: Cadastros;
   emptyState: ReactNode;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
+  acoesLinha: (item: EncaminhamentoJuridicoDetalhe) => JuridicoLinhaAcao[];
   embutida?: boolean;
   pageOffset?: number;
   totalItens?: number;
@@ -105,47 +122,79 @@ function TabelaDesktop({
   modo,
   cadastros,
   emptyState,
-  onAbrir,
+  acoesLinha,
   embutida = false,
 }: TabelaProps) {
+  const colSpan = 6;
+
   return (
     <Table
       aria-label={modo === "advogado" ? "Encaminhamentos do advogado" : "Encaminhamentos do condomínio"}
       showExport={false}
+      fitContainer
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
+      <colgroup>
+        <col className="w-[17%]" />
+        {modo === "advogado" ? <col className="w-[22%]" /> : null}
+        <col className="w-[12%]" />
+        {modo === "condominio" ? <col className="w-[20%]" /> : null}
+        <col className="w-[20%]" />
+        <col className="w-[10%]" />
+      </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead>Encaminhado</TableHead>
-          {modo === "advogado" ? <TableHead>Condomínio</TableHead> : null}
-          <TableHead>Unidade</TableHead>
-          {modo === "condominio" ? <TableHead>Advogado</TableHead> : null}
-          <TableHead>Status</TableHead>
-          <TableHead align="right">Documentos</TableHead>
+          <TableHead align="center">Encaminhado</TableHead>
+          {modo === "advogado" ? (
+            <TableHead align="center" className="min-w-[7rem]">
+              Condomínio
+            </TableHead>
+          ) : null}
+          <TableHead align="center">Unidade</TableHead>
+          {modo === "condominio" ? <TableHead align="center">Advogado</TableHead> : null}
+          <TableHead align="center">Status</TableHead>
+          <TableHead align="center">Documentos</TableHead>
+          <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {itens.length === 0 ? (
-          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={colSpan}>{emptyState}</TableEmpty>
         ) : (
           itens.map((item) => (
             <TableRow
               key={item.id}
-              className="cursor-pointer border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
-              onClick={() => onAbrir(item)}
+              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
             >
-              <TableCell className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
-              {modo === "advogado" ? (
-                <TableCell>{nomeCondominio(item.condominioId)}</TableCell>
-              ) : null}
-              <TableCell>{identificacaoUnidade(cadastros, item.unidadeId)}</TableCell>
-              {modo === "condominio" ? <TableCell>{item.advogadoResponsavel}</TableCell> : null}
-              <TableCell>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+              <TableCell align="center" className="align-middle font-medium whitespace-nowrap">
+                {formatarData(item.encaminhadoEm)}
               </TableCell>
-              <TableCell align="right" className="tabular-nums">
+              {modo === "advogado" ? (
+                <TableCell align="center" className="max-w-0 align-middle">
+                  <span className="block truncate">{nomeCondominio(item.condominioId, cadastros)}</span>
+                </TableCell>
+              ) : null}
+              <TableCell align="center" className="align-middle font-medium">
+                {identificacaoUnidade(cadastros, item.unidadeId)}
+              </TableCell>
+              {modo === "condominio" ? (
+                <TableCell align="center" className="max-w-0 align-middle">
+                  <span className="block truncate">{item.advogadoResponsavel}</span>
+                </TableCell>
+              ) : null}
+              <TableCell align="center" className="align-middle">
+                <div className="flex justify-center">
+                  <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+                </div>
+              </TableCell>
+              <TableCell align="center" className="align-middle tabular-nums">
                 {item.documentos?.length ?? 0}
               </TableCell>
+              <TableActionsCell
+                label={`Ações do encaminhamento — ${rotuloEncaminhamento(item, cadastros)}`}
+                actions={acoesLinha(item)}
+                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
+              />
             </TableRow>
           ))
         )}
@@ -159,7 +208,7 @@ function TabelaMobile({
   modo,
   cadastros,
   emptyState,
-  onAbrir,
+  acoesLinha,
   pageOffset = 0,
   totalItens = 0,
 }: TabelaProps) {
@@ -172,7 +221,7 @@ function TabelaMobile({
       aria-label={modo === "advogado" ? "Encaminhamentos do advogado" : "Encaminhamentos do condomínio"}
     >
       {itens.map((item, index) => (
-        <TableMobileCard key={item.id} className="cursor-pointer" onClick={() => onAbrir(item)}>
+        <TableMobileCard key={item.id}>
           <TableMobileCardHeader>
             <span
               className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
@@ -184,7 +233,7 @@ function TabelaMobile({
               <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                 <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
                   {modo === "advogado"
-                    ? `${nomeCondominio(item.condominioId)} · Unidade ${identificacaoUnidade(cadastros, item.unidadeId)}`
+                    ? `${nomeCondominio(item.condominioId, cadastros)} · Unidade ${identificacaoUnidade(cadastros, item.unidadeId)}`
                     : `Unidade ${identificacaoUnidade(cadastros, item.unidadeId)}`}
                 </TableMobileTitle>
                 {totalItens > 0 ? (
@@ -197,7 +246,10 @@ function TabelaMobile({
                 Encaminhado em {formatarData(item.encaminhadoEm)}
               </p>
             </div>
-            <span aria-hidden="true" />
+            <TableActionsButton
+              label={`Ações do encaminhamento — ${rotuloEncaminhamento(item, cadastros)}`}
+              actions={acoesLinha(item)}
+            />
           </TableMobileCardHeader>
           <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
             <div className="flex items-start justify-between gap-md">
@@ -206,7 +258,7 @@ function TabelaMobile({
                   {modo === "advogado" ? "Condomínio" : "Advogado"}
                 </p>
                 <p className="text-body-md font-semibold text-on-surface">
-                  {modo === "advogado" ? nomeCondominio(item.condominioId) : item.advogadoResponsavel}
+                  {modo === "advogado" ? nomeCondominio(item.condominioId, cadastros) : item.advogadoResponsavel}
                 </p>
               </div>
               <Badge variant={badgeStatus[item.status] ?? "secondary"} className="shrink-0">
@@ -230,7 +282,7 @@ function PainelGrupo({
   aberto,
   onToggle,
   cadastros,
-  onAbrir,
+  acoesLinha,
   variante,
 }: {
   grupo: GrupoJuridico;
@@ -238,7 +290,7 @@ function PainelGrupo({
   aberto: boolean;
   onToggle: () => void;
   cadastros: Cadastros;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
+  acoesLinha: (item: EncaminhamentoJuridicoDetalhe) => JuridicoLinhaAcao[];
   variante: "desktop" | "mobile";
 }) {
   const painelId = useId();
@@ -305,7 +357,7 @@ function PainelGrupo({
               modo={modo}
               cadastros={cadastros}
               emptyState={null}
-              onAbrir={onAbrir}
+              acoesLinha={acoesLinha}
               embutida
             />
           ) : (
@@ -314,7 +366,7 @@ function PainelGrupo({
               modo={modo}
               cadastros={cadastros}
               emptyState={null}
-              onAbrir={onAbrir}
+              acoesLinha={acoesLinha}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
               totalItens={total}
             />
@@ -331,7 +383,7 @@ type ListaProps = {
   modo: "condominio" | "advogado";
   cadastros: Cadastros;
   emptyState: ReactNode;
-  onAbrir: (item: EncaminhamentoJuridicoDetalhe) => void;
+  acoesLinha: (item: EncaminhamentoJuridicoDetalhe) => JuridicoLinhaAcao[];
   variante: "desktop" | "mobile";
 };
 
@@ -340,7 +392,7 @@ export function JuridicoPorGruposLista({
   modo,
   cadastros,
   emptyState,
-  onAbrir,
+  acoesLinha,
   variante,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<string>>(() => new Set());
@@ -379,7 +431,7 @@ export function JuridicoPorGruposLista({
           aberto={abertos.has(grupo.id)}
           onToggle={() => alternar(grupo.id)}
           cadastros={cadastros}
-          onAbrir={onAbrir}
+          acoesLinha={acoesLinha}
           variante={variante}
         />
       ))}
