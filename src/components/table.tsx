@@ -454,12 +454,11 @@ export function TableHead({
     );
   }
 
-  return (
-    <th scope="col" className={headClass} {...props}>
-      <button
+  const sortControl = (
+    <button
         type="button"
         onClick={onSort}
-        className="inline-flex max-w-full cursor-pointer items-center gap-0.5 whitespace-nowrap rounded-sm text-label-lg text-primary-container transition-colors hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+        className={`inline-flex max-w-full cursor-pointer items-center gap-0.5 whitespace-nowrap rounded-sm text-label-lg text-primary-container transition-colors hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${align === "center" ? "mx-auto" : ""}`}
         aria-label={
           sortDirection === "asc"
             ? `Ordenar ${children} decrescente`
@@ -470,7 +469,12 @@ export function TableHead({
       >
         <span>{children}</span>
         <SortIcon direction={sortDirection} />
-      </button>
+    </button>
+  );
+
+  return (
+    <th scope="col" className={headClass} {...props}>
+      {align === "center" ? <div className="flex justify-center">{sortControl}</div> : sortControl}
     </th>
   );
 }

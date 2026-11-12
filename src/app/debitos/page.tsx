@@ -328,7 +328,7 @@ function DebitosPage() {
         (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
         (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
       const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
-      const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId)} ${nomeCondominio(item.condominioId)}`.toLocaleLowerCase("pt-BR");
+      const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId, cadastros)} ${nomeCondominio(item.condominioId, cadastros)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesStatus &&
         matchesOrigem &&
@@ -341,9 +341,9 @@ function DebitosPage() {
     })
     .sort((a, b) => {
       if (visao === "condominio") {
-        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(nomeCondominio(b.condominioId, cadastros), "pt-BR");
         if (condo !== 0) return condo;
-        const unidade = nomeUnidade(a.unidadeId).localeCompare(nomeUnidade(b.unidadeId), "pt-BR");
+        const unidade = nomeUnidade(a.unidadeId, cadastros).localeCompare(nomeUnidade(b.unidadeId, cadastros), "pt-BR");
         if (unidade !== 0) return unidade;
         return a.dataVencimento.localeCompare(b.dataVencimento);
       }
@@ -357,7 +357,7 @@ function DebitosPage() {
       if (sortKey === "dias") return (diasDe(a) - diasDe(b)) * factor;
       const left =
         sortKey === "unidade"
-          ? nomeUnidade(a.unidadeId)
+          ? nomeUnidade(a.unidadeId, cadastros)
           : sortKey === "grupo"
             ? grupoDebito(a.descricao)
             : sortKey === "vencimento"
@@ -367,7 +367,7 @@ function DebitosPage() {
                 : a.referencia;
       const right =
         sortKey === "unidade"
-          ? nomeUnidade(b.unidadeId)
+          ? nomeUnidade(b.unidadeId, cadastros)
           : sortKey === "grupo"
             ? grupoDebito(b.descricao)
             : sortKey === "vencimento"
@@ -598,7 +598,7 @@ function DebitosPage() {
           abrirAgendar({
             unidadeId: item.unidadeId,
             condominioId: item.condominioId,
-            tituloUnidade: nomeUnidade(item.unidadeId),
+            tituloUnidade: nomeUnidade(item.unidadeId, cadastros),
           }),
       });
     }
@@ -778,8 +778,8 @@ function DebitosPage() {
       return visible.map((item) => {
         const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
         return [
-          nomeCondominio(item.condominioId),
-          unidade?.identificacao ?? nomeUnidade(item.unidadeId),
+          nomeCondominio(item.condominioId, cadastros),
+          unidade?.identificacao ?? nomeUnidade(item.unidadeId, cadastros),
           grupoDebito(item.descricao) || item.descricao || "—",
           item.referencia,
           formatarData(item.dataVencimento),
@@ -794,7 +794,7 @@ function DebitosPage() {
     }
     return visible.map((item) => [
       item.referencia,
-      nomeUnidade(item.unidadeId),
+      nomeUnidade(item.unidadeId, cadastros),
       grupoDebito(item.descricao),
       formatarData(item.dataVencimento),
       diasDaLinha(item),
@@ -875,28 +875,28 @@ function DebitosPage() {
           <TableHead sortable sortDirection={directionFor("referencia")} onSort={() => handleSort("referencia")}>
             Referência
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("unidade")} onSort={() => handleSort("unidade")}>
+          <TableHead align="center" sortable sortDirection={directionFor("unidade")} onSort={() => handleSort("unidade")}>
             Unidade
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("grupo")} onSort={() => handleSort("grupo")}>
+          <TableHead align="center" sortable sortDirection={directionFor("grupo")} onSort={() => handleSort("grupo")}>
             Tipo
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("vencimento")} onSort={() => handleSort("vencimento")}>
+          <TableHead align="center" sortable sortDirection={directionFor("vencimento")} onSort={() => handleSort("vencimento")}>
             Vencimento
           </TableHead>
-          <TableHead align="right" sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
+          <TableHead align="center" sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
             Dias
           </TableHead>
-          <TableHead align="right" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
+          <TableHead align="center" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
             Original
           </TableHead>
-          <TableHead align="right" sortable sortDirection={directionFor("atualizado")} onSort={() => handleSort("atualizado")}>
+          <TableHead align="center" sortable sortDirection={directionFor("atualizado")} onSort={() => handleSort("atualizado")}>
             Atualizado
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+          <TableHead align="center" sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Situação
           </TableHead>
-          <TableHead>Origem / atualização</TableHead>
+          <TableHead align="center">Origem / atualização</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -907,20 +907,20 @@ function DebitosPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{item.referencia}</TableCell>
-              <TableCell>{nomeUnidade(item.unidadeId)}</TableCell>
-              <TableCell>{grupoDebito(item.descricao)}</TableCell>
-              <TableCell>{formatarData(item.dataVencimento)}</TableCell>
-              <TableCell align="right">{celulaDias(item)}</TableCell>
-              <TableCell align="right" className="tabular-nums">
+              <TableCell align="center">{nomeUnidade(item.unidadeId, cadastros)}</TableCell>
+              <TableCell align="center">{grupoDebito(item.descricao)}</TableCell>
+              <TableCell align="center">{formatarData(item.dataVencimento)}</TableCell>
+              <TableCell align="center">{celulaDias(item)}</TableCell>
+              <TableCell align="center" className="tabular-nums">
                 {formatarMoeda(item.valorOriginal)}
               </TableCell>
-              <TableCell align="right" className="tabular-nums">
+              <TableCell align="center" className="tabular-nums">
                 {formatarMoeda(item.valorAtualizado)}
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell className="text-body-sm text-on-surface-variant">
+              <TableCell align="center" className="text-body-sm text-on-surface-variant">
                 <span className="block">{rotuloFonteValores(item)}</span>
                 <span className="block tabular-nums">{formatarData(item.atualizadoEm)}</span>
               </TableCell>
@@ -955,7 +955,7 @@ function DebitosPage() {
                     {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
                   </span>
                 </div>
-                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{nomeUnidade(item.unidadeId)}</p>
+                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{nomeUnidade(item.unidadeId, cadastros)}</p>
               </div>
               <TableActionsButton label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
             </TableMobileCardHeader>
@@ -1122,7 +1122,7 @@ function DebitosPage() {
                 { value: "todas", label: "Todas" },
                 ...cadastros.unidades.map((item) => ({
                   value: String(item.id),
-                  label: `${nomeUnidade(item.id)}`,
+                  label: `${nomeUnidade(item.id, cadastros)}`,
                 })),
               ],
             },
@@ -1527,7 +1527,12 @@ function DebitosPage() {
         onConfirm={confirmDelete}
       />
       {podeImportar ? (
-        <ImportacaoWizardSheet ref={importacaoWizardRef} moduloInicial="debitos" moduloTravado />
+        <ImportacaoWizardSheet
+          ref={importacaoWizardRef}
+          moduloInicial="debitos"
+          moduloTravado
+          onConcluida={() => void recarregarDebitosDoServidor()}
+        />
       ) : null}
     </WorkspaceShell>
   );

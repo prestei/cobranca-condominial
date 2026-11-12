@@ -24,6 +24,29 @@ test("PDF Daniel Jorge Advocacia — detecta layout e extrai débitos da amostra
   assert.equal(mb0102[0]?.responsavel, "Gleide Nunes Rocha");
 });
 
+test("layout Daniel Jorge — torres T1/T2 e lançamento com descrição quebrada em duas linhas", () => {
+  const texto = `
+UNIDADES INADIMPLENTES
+Condomínio Residencial Grand Park Data Base: 11/11/2026
+Unidade: T1-0402 — Eduardo Vasconcelos Rios
+TAXA CONDOMINIAL 05/2026 10/05/2026 1.420,00 85,20 28,40 35,50 1.569,10
+CHAMADA DE CAPA (PINTURA
+01/05) 06/2026 20/06/2026 400,00 19,60 8,00 8,40 436,00
+Total 'T1-0402': 1.820,00 104,80 36,40 44,00 2.005,10
+TOTAL GERAL ACUMULADO 1.820,00 104,80 36,40 44,00 2.005,10
+Proj. Rec.
+`;
+
+  const relatorio = interpretarTextoRelatorioInadimplenciaGestao(texto);
+  assert.equal(relatorio.condominioNome, "Residencial Grand Park");
+  assert.equal(relatorio.linhas.length, 2);
+  assert.deepEqual(
+    relatorio.linhas.map((l) => l.unidade),
+    ["T1-0402", "T1-0402"],
+  );
+  assert.match(relatorio.linhas[1]?.categoria ?? "", /CHAMADA DE CAPA/i);
+});
+
 test("layout Daniel Jorge — unidades com bloco A/B e categorias OBRA/RESERVA", () => {
   const texto = `
 UNIDADES INADIMPLENTES

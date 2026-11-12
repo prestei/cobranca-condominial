@@ -713,25 +713,37 @@ export async function provisionarCadastrosImportacaoDebitos(
   return { condominiosCriados, unidadesCriadas, responsaveisCriados, vinculosCriados };
 }
 
+/** Na prévia, cadastros provisionados ficam só na memória — não podem ser descartados ao sincronizar com o PG. */
+function mesclarCadastroPorId<T extends { id: number }>(banco: T[], memoria: T[]): T[] {
+  const porId = new Map<number, T>();
+  for (const item of banco) porId.set(item.id, item);
+  for (const item of memoria) {
+    if (!porId.has(item.id)) porId.set(item.id, item);
+  }
+  return [...porId.values()];
+}
+
 /**
  * Sincroniza condomínio/unidade/responsável do PostgreSQL para o catálogo em memória da requisição.
  * Necessário quando a unidade já existe no banco (409) mas ainda não estava no snapshot inicial.
+ * Mantém registros provisionados na prévia que ainda não foram persistidos.
  */
 export async function reidratarCatalogoCadastralImportacaoDebitos(): Promise<void> {
   if (!process.env.DATABASE_URL?.trim()) return;
+  const memoria = getCadastros();
   const { listCondominiums } = await import("@/lib/db/repositories/condominium-repository");
   const { listUnits, listUnitLinks } = await import("@/lib/db/repositories/unit-repository");
   const { listResponsibleParties } = await import("@/lib/db/repositories/responsible-party-repository");
-  const [condominios, unidades, responsaveis, vinculos] = await Promise.all([
+  const [condominiosDb, unidadesDb, responsaveisDb, vinculosDb] = await Promise.all([
     listCondominiums(),
     listUnits(),
     listResponsibleParties(),
     listUnitLinks(),
   ]);
-  setCondominios(condominios);
-  setUnidades(unidades);
-  setResponsaveis(responsaveis);
-  setVinculos(vinculos);
+  setCondominios(mesclarCadastroPorId(condominiosDb, memoria.condominios));
+  setUnidades(mesclarCadastroPorId(unidadesDb, memoria.unidades));
+  setResponsaveis(mesclarCadastroPorId(responsaveisDb, memoria.responsaveis));
+  setVinculos(mesclarCadastroPorId(vinculosDb, memoria.vinculos));
 }
 
 export type ProvisionamentoPendenteObservacao = {

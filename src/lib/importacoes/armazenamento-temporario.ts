@@ -1,5 +1,5 @@
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { mkdir, rm, writeFile, chmod, readdir, stat } from "node:fs/promises";
-import { rmSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -22,7 +22,21 @@ export type ProcessoArquivoImportacao = {
   metadadosRelatorio?: MetadadosRelatorioInadimplenciaLido;
 };
 
-const processos = new Map<string, ProcessoArquivoImportacao>();
+type ProcessoArquivoImportacaoSerializado = Omit<ProcessoArquivoImportacao, "caminhoAbsoluto">;
+
+const CHAVE_MAPA_PROCESSOS_GLOBAL = "__lcImportacaoProcessosTemporarios";
+
+function mapaProcessos(): Map<string, ProcessoArquivoImportacao> {
+  const globalComMapa = globalThis as typeof globalThis & {
+    [CHAVE_MAPA_PROCESSOS_GLOBAL]?: Map<string, ProcessoArquivoImportacao>;
+  };
+  if (!globalComMapa[CHAVE_MAPA_PROCESSOS_GLOBAL]) {
+    globalComMapa[CHAVE_MAPA_PROCESSOS_GLOBAL] = new Map();
+  }
+  return globalComMapa[CHAVE_MAPA_PROCESSOS_GLOBAL]!;
+}
+
+const processos = mapaProcessos();
 let limpezaAgendada = false;
 
 function diretorioBaseImportacoes() {
@@ -37,6 +51,41 @@ function caminhoTemporarioSeguro(id: string): string {
     throw new Error("caminho_temporario_invalido");
   }
   return caminhoAbsoluto;
+}
+
+function caminhoMetaProcesso(id: string): string {
+  const base = diretorioBaseImportacoes();
+  const caminhoMeta = path.resolve(base, `${id}.meta.json`);
+  const relativo = path.relative(base, caminhoMeta);
+  if (relativo.startsWith("..") || path.isAbsolute(relativo)) {
+    throw new Error("caminho_meta_invalido");
+  }
+  return caminhoMeta;
+}
+
+function carregarProcessoDoDisco(processoId: string): ProcessoArquivoImportacao | null {
+  const caminhoBin = caminhoTemporarioSeguro(processoId);
+  const caminhoMeta = caminhoMetaProcesso(processoId);
+  if (!existsSync(caminhoBin) || !existsSync(caminhoMeta)) return null;
+  try {
+    const bruto = readFileSync(caminhoMeta, "utf8");
+    const meta = JSON.parse(bruto) as ProcessoArquivoImportacaoSerializado;
+    if (meta.id !== processoId) return null;
+    return { ...meta, caminhoAbsoluto: caminhoBin };
+  } catch {
+    return null;
+  }
+}
+
+async function persistirMetaProcesso(processo: ProcessoArquivoImportacao): Promise<void> {
+  const { caminhoAbsoluto: _caminho, ...meta } = processo;
+  const caminhoMeta = caminhoMetaProcesso(processo.id);
+  await writeFile(caminhoMeta, JSON.stringify(meta), { mode: 0o600 });
+  await chmod(caminhoMeta, 0o600).catch(() => undefined);
+}
+
+function processoExpirado(processo: ProcessoArquivoImportacao): boolean {
+  return Date.now() - processo.criadoEm > LIMITES_ARQUIVO_IMPORTACAO.retencaoTemporariaMs;
 }
 
 export function hashBufferArquivo(buffer: Buffer): string {
@@ -80,29 +129,47 @@ export async function criarProcessoArquivoTemporario(input: {
     metadadosRelatorio: input.metadadosRelatorio,
   };
   processos.set(id, processo);
+  try {
+    await persistirMetaProcesso(processo);
+  } catch {
+    processos.delete(id);
+    await rm(caminhoAbsoluto, { force: true }).catch(() => undefined);
+    throw new Error("falha_persistir_meta_processo");
+  }
   agendarLimpezaPeriodica();
   return processo;
 }
 
 export function obterProcessoArquivoTemporario(processoId: string, userId: number): ProcessoArquivoImportacao | null {
-  const processo = processos.get(processoId);
+  let processo = processos.get(processoId);
+  if (!processo) {
+    const recuperado = carregarProcessoDoDisco(processoId);
+    if (recuperado) {
+      processos.set(processoId, recuperado);
+      processo = recuperado;
+    }
+  }
   if (!processo || processo.userId !== userId) return null;
-  if (Date.now() - processo.criadoEm > LIMITES_ARQUIVO_IMPORTACAO.retencaoTemporariaMs) {
+  if (processoExpirado(processo)) {
     void removerProcessoArquivoTemporario(processoId);
     return null;
   }
   return processo;
 }
 
+async function removerArquivosProcessoNoDisco(processoId: string, caminhoBin?: string) {
+  const bin = caminhoBin ?? caminhoTemporarioSeguro(processoId);
+  const meta = caminhoMetaProcesso(processoId);
+  await Promise.all([
+    rm(bin, { force: true }).catch(() => undefined),
+    rm(meta, { force: true }).catch(() => undefined),
+  ]);
+}
+
 export async function removerProcessoArquivoTemporario(processoId: string) {
-  const processo = processos.get(processoId);
-  if (!processo) return;
+  const processo = processos.get(processoId) ?? carregarProcessoDoDisco(processoId);
   processos.delete(processoId);
-  try {
-    await rm(processo.caminhoAbsoluto, { force: true });
-  } catch {
-    // falha de limpeza não impede o fluxo principal
-  }
+  await removerArquivosProcessoNoDisco(processoId, processo?.caminhoAbsoluto);
 }
 
 function agendarLimpezaPeriodica() {
@@ -130,11 +197,14 @@ async function limparArquivosOrfaosNoDisco() {
   } catch {
     return;
   }
-  const vivos = new Set([...processos.values()].map((item) => path.basename(item.caminhoAbsoluto)));
+  const vivosBin = new Set([...processos.values()].map((item) => path.basename(item.caminhoAbsoluto)));
+  const vivosMeta = new Set([...processos.values()].map((item) => `${item.id}.meta.json`));
   const agora = Date.now();
   await Promise.all(
     nomes.map(async (nome) => {
-      if (!/^[0-9a-f-]{36}\.bin$/i.test(nome) || vivos.has(nome)) return;
+      const bin = /^[0-9a-f-]{36}\.bin$/i.test(nome) && !vivosBin.has(nome);
+      const meta = /^[0-9a-f-]{36}\.meta\.json$/i.test(nome) && !vivosMeta.has(nome);
+      if (!bin && !meta) return;
       const caminho = path.resolve(base, nome);
       if (!caminho.startsWith(base + path.sep)) return;
       try {
@@ -150,14 +220,36 @@ async function limparArquivosOrfaosNoDisco() {
 }
 
 /** Apenas para testes. */
-export function _limparTodosProcessosTemporariosParaTeste() {
-  const caminhos = [...processos.values()].map((item) => item.caminhoAbsoluto);
+export function _esvaziarMapaProcessosTemporariosParaTeste() {
   processos.clear();
-  for (const caminho of caminhos) {
+}
+
+/** Apenas para testes. */
+export function _limparTodosProcessosTemporariosParaTeste() {
+  const ids = new Set([...processos.keys()]);
+  for (const processo of processos.values()) {
+    ids.add(processo.id);
     try {
-      rmSync(caminho, { force: true });
+      rmSync(processo.caminhoAbsoluto, { force: true });
+      rmSync(caminhoMetaProcesso(processo.id), { force: true });
     } catch {
       // ignora falha de limpeza em teste
+    }
+  }
+  processos.clear();
+  const base = diretorioBaseImportacoes();
+  let nomes: string[] = [];
+  try {
+    nomes = readdirSync(base);
+  } catch {
+    return;
+  }
+  for (const nome of nomes) {
+    if (!/^[0-9a-f-]{36}\.(bin|meta\.json)$/i.test(nome)) continue;
+    try {
+      rmSync(path.resolve(base, nome), { force: true });
+    } catch {
+      // ignora
     }
   }
 }

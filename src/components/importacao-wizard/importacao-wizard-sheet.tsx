@@ -279,11 +279,21 @@ export const ImportacaoWizardSheet = forwardRef<ImportacaoWizardHandle, Props>(f
         return;
       }
       const efetivo = body.recebimento.moduloEfetivo;
-      // O conteúdo manda: mesmo com módulo “travado” na UI, processamos no destino certo.
       if (efetivo && moduloWizardValido(efetivo) && efetivo !== moduloWizard) {
-        setModuloWizard(efetivo);
+        if (moduloTravado && efetivo !== moduloInicial) {
+          setErroArquivo(
+            "Este arquivo não é de inadimplência. Envie planilha ou PDF do relatório de inadimplência (Gestão Condominial / Daniel Jorge).",
+          );
+          setProcessoId("");
+          setHashRecebimento("");
+          setNomeArquivo("");
+          return;
+        }
+        if (!moduloTravado) {
+          setModuloWizard(efetivo);
+        }
       }
-      if (body.recebimento.moduloCorrigido && body.recebimento.mensagemModulo) {
+      if (body.recebimento.moduloCorrigido && body.recebimento.mensagemModulo && !moduloTravado) {
         toast({
           variant: "warning",
           title: "Destino ajustado pelo arquivo",

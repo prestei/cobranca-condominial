@@ -4,7 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { deflateRawSync } from "node:zlib";
-import { _limparTodosProcessosTemporariosParaTeste } from "@/lib/importacoes/armazenamento-temporario";
+import {
+  _esvaziarMapaProcessosTemporariosParaTeste,
+  _limparTodosProcessosTemporariosParaTeste,
+  obterProcessoArquivoTemporario,
+} from "@/lib/importacoes/armazenamento-temporario";
 import { LIMITES_ARQUIVO_IMPORTACAO } from "@/lib/importacoes/limites";
 import { RecebimentoArquivoError, receberArquivoImportacao } from "@/lib/importacoes/receber-arquivo";
 
@@ -264,6 +268,24 @@ test("aceita CSV válido, gera processoId único e não persiste o arquivo fora 
   const caminhoTemp = path.join(os.tmpdir(), "lc-importacoes", `${primeiro.processoId}.bin`);
   assert.equal(existsSync(caminhoTemp), true);
   assert.equal(caminhoTemp.includes(`${path.sep}public${path.sep}`), false);
+  const metaPath = path.join(os.tmpdir(), "lc-importacoes", `${primeiro.processoId}.meta.json`);
+  assert.equal(existsSync(metaPath), true);
+});
+
+test("reidrata processo de importação do disco quando o mapa em memória é perdido", async () => {
+  const buffer = Buffer.from(`${CABECALHO_DEBITOS}${LINHA_DEBITO}`, "utf8");
+  const recebido = await receberArquivoImportacao({
+    userId: 7,
+    modulo: "debitos",
+    nomeArquivo: "inadimplencia.csv",
+    buffer,
+    mimeDeclarado: "text/csv",
+  });
+  _esvaziarMapaProcessosTemporariosParaTeste();
+  const recuperado = obterProcessoArquivoTemporario(recebido.processoId, 7);
+  assert.ok(recuperado);
+  assert.equal(recuperado.hashArquivo, recebido.hashArquivo);
+  assert.equal(recuperado.matrizPlanilha?.length, 2);
 });
 
 test("aceita XLSX mínimo válido", async () => {

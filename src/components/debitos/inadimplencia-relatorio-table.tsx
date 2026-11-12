@@ -63,7 +63,7 @@ export function somarTotaisDebitos(itens: Debito[]): TotaisDebitoRelatorio {
 function responsavelDaUnidade(cadastros: Cadastros, unidadeId: number) {
   const vinculos = cadastros.vinculos.filter((item) => item.unidadeId === unidadeId);
   const principal = vinculos.find((item) => item.principal) ?? vinculos[0];
-  return principal ? nomeResponsavel(principal.responsavelId) : "—";
+  return principal ? nomeResponsavel(principal.responsavelId, cadastros) : "—";
 }
 
 export function agruparDebitosPorUnidade(
@@ -97,7 +97,7 @@ export function agruparDebitosPorUnidade(
   });
 
   return grupos.sort((a, b) => {
-    const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+    const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(nomeCondominio(b.condominioId, cadastros), "pt-BR");
     if (condo !== 0) return condo;
     return a.identificacao.localeCompare(b.identificacao, "pt-BR");
   });
@@ -127,7 +127,7 @@ export function agruparDebitosPorCondominio(
   return [...mapa.entries()]
     .map(([condominioId, unidadesDoCondo]) => ({
       condominioId,
-      nome: nomeCondominio(condominioId),
+      nome: nomeCondominio(condominioId, cadastros),
       unidades: unidadesDoCondo,
       totais: somarTotaisDebitos(unidadesDoCondo.flatMap((item) => item.debitos)),
     }))
@@ -147,7 +147,7 @@ function CelulaMoeda({
 }) {
   const texto = typeof valor === "number" ? moedaTotais(valor) : formatarMoeda(valor);
   return (
-    <TableCell align="right" className={`tabular-nums whitespace-nowrap ${destaque ? "font-semibold" : ""}`}>
+    <TableCell align="center" className={`tabular-nums whitespace-nowrap ${destaque ? "font-semibold" : ""}`}>
       {texto}
     </TableCell>
   );
@@ -184,13 +184,13 @@ export function InadimplenciaRelatorioDesktop({
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Lançamento</TableHead>
-          <TableHead>Mês ref.</TableHead>
-          <TableHead>Vencimento</TableHead>
-          <TableHead align="right">Valor</TableHead>
-          <TableHead align="right">Juros</TableHead>
-          <TableHead align="right">Multa</TableHead>
-          <TableHead align="right">Correção</TableHead>
-          <TableHead align="right">Proj. rec.</TableHead>
+          <TableHead align="center">Mês ref.</TableHead>
+          <TableHead align="center">Vencimento</TableHead>
+          <TableHead align="center">Valor</TableHead>
+          <TableHead align="center">Juros</TableHead>
+          <TableHead align="center">Multa</TableHead>
+          <TableHead align="center">Correção</TableHead>
+          <TableHead align="center">Proj. rec.</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -241,8 +241,12 @@ export function InadimplenciaRelatorioDesktop({
                   <TableCell className="pl-lg">
                     {grupoDebito(item.descricao) || item.descricao || "—"}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{item.referencia || "—"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{formatarData(item.dataVencimento)}</TableCell>
+                  <TableCell align="center" className="whitespace-nowrap">
+                    {item.referencia || "—"}
+                  </TableCell>
+                  <TableCell align="center" className="whitespace-nowrap">
+                    {formatarData(item.dataVencimento)}
+                  </TableCell>
                   <CelulaMoeda valor={item.valorOriginal || item.valor} />
                   <CelulaMoeda valor={item.juros} />
                   <CelulaMoeda valor={item.multa} />
