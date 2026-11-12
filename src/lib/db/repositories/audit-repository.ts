@@ -40,13 +40,25 @@ function isAuditLogIdUniqueViolation(error: unknown): boolean {
   );
 }
 
+function isAuditLogIdNullViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.message.includes("Null constraint violation") &&
+    error.message.includes("`id`")
+  );
+}
+
+function shouldRetryAuditLogInsert(error: unknown): boolean {
+  return isAuditLogIdUniqueViolation(error) || isAuditLogIdNullViolation(error);
+}
+
 /** Grava auditoria direto no PostgreSQL via Prisma. */
 export async function writeAuditLog(input: AuditWriteInput): Promise<void> {
   const data = auditLogCreateData(input);
   try {
     await prisma.auditLog.create({ data });
   } catch (error) {
-    if (!isAuditLogIdUniqueViolation(error)) throw error;
+    if (!shouldRetryAuditLogInsert(error)) throw error;
     await bumpPgAutoIncrementSequence(prisma, "audit_log");
     await prisma.auditLog.create({ data });
   }

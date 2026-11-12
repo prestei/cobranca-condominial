@@ -137,6 +137,14 @@ function parseMoeda(raw: string | undefined, obrigatorio: boolean): { valor?: st
   return { valor: resultado.normalizado };
 }
 
+/** Mesma regra do provisionamento na inadimplência (ex.: T1 em T1-0402). */
+function blocoInferidoImportacaoDebitos(identificacao: string | undefined, blocoInformado?: string): string | undefined {
+  const bloco = blocoInformado?.trim().replace(/^—$/, "") ?? "";
+  if (bloco) return bloco;
+  const prefixo = identificacao?.split("-")[0]?.trim();
+  return prefixo || undefined;
+}
+
 function parseData(raw: string | undefined): { data?: string; erro?: string } {
   const resultado = normalizarDataImportacao(raw, {
     obrigatorio: true,
@@ -332,10 +340,12 @@ function montarPayload(
     status: { tipo: "categoria", raw: valores.status },
   });
 
+  const blocoResolucao = blocoInferidoImportacaoDebitos(unidadeTexto, blocoTexto);
+
   const condominioId = resolverCondominioIdImportacaoDebitos(valores, condominios, {
     unidades,
     identificacaoUnidade: unidadeTexto,
-    blocoUnidade: blocoTexto,
+    blocoUnidade: blocoResolucao,
   });
   if (!condominioId) {
     return { erro: "Condomínio inválido ou fora do escopo.", camposNormalizados };
@@ -344,7 +354,7 @@ function montarPayload(
   const { unidadeId, erro: erroUnidade } = resolverUnidadeIdImportacaoDebitos(
     condominioId,
     unidadeTexto,
-    blocoTexto,
+    blocoResolucao,
     unidades,
   );
   if (erroUnidade || !unidadeId) {

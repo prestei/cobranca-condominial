@@ -209,6 +209,14 @@ export async function receberArquivoImportacao(input: {
     matriz: leitura.matriz,
     metadadosRelatorio: leitura.metadadosRelatorio,
   });
+  if (input.modulo === "debitos" && moduloEfetivo !== "debitos") {
+    rejeitar(
+      "modulo_incompativel",
+      "Este arquivo não é de inadimplência. Envie planilha ou PDF do relatório de inadimplência (Gestão Condominial / Daniel Jorge).",
+      400,
+      contextoErro,
+    );
+  }
   const moduloCorrigido = moduloEfetivo !== input.modulo;
   const avisoModulo = mensagemModuloCorrigido(input.modulo, moduloEfetivo);
 

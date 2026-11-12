@@ -66,8 +66,8 @@ export type ResultadoInterpretacaoRelatorioInadimplencia = {
 
 const REGEX_PAGINA = /Pág:\s*(\d+)\s*\/\s*(\d+)/i;
 const REGEX_CONDOMINIO = /Condomínio\s+(.+?)(?:\s+Data Base:.*)?$/i;
-/** Código de unidade no relatório Daniel Jorge / Gestão (ex.: MB-0102, A-0104, B-0501). */
-const REGEX_CODIGO_UNIDADE_RELATORIO = "[A-Z]{1,3}-\\d{3,5}";
+/** Código de unidade no relatório Daniel Jorge / Gestão (ex.: MB-0102, A-0104, T1-0402). */
+const REGEX_CODIGO_UNIDADE_RELATORIO = "[A-Z][A-Z0-9]{0,3}-\\d{3,5}";
 const REGEX_UNIDADE = new RegExp(`^\\s*(${REGEX_CODIGO_UNIDADE_RELATORIO})\\s*$`, "i");
 const REGEX_UNIDADE_COM_RESPONSAVEL = new RegExp(
   `^Unidade:\\s*(${REGEX_CODIGO_UNIDADE_RELATORIO})\\s*(?:[—–-]\\s*(.+)|\\s*-\\s*(.+))?`,
@@ -94,7 +94,8 @@ function categoriaDebitoReconhecida(categoria: string): boolean {
     c.startsWith("RESERVA") ||
     c.startsWith("FUNDO") ||
     c.startsWith("CONSUMO") ||
-    c.startsWith("RATEIO")
+    c.startsWith("RATEIO") ||
+    c.startsWith("CHAMADA")
   );
 }
 
@@ -130,8 +131,40 @@ function divergenciaMonetaria(a: number, b: number, tolerancia = 0.05): boolean 
   return Math.abs(a - b) > tolerancia;
 }
 
+/** PDFs do Daniel Jorge às vezes quebram a descrição do lançamento em duas linhas antes dos valores. */
+function unirLinhasDebitoQuebradas(linhasTexto: string[]): string[] {
+  const resultado: string[] = [];
+  for (let i = 0; i < linhasTexto.length; i += 1) {
+    let atual = linhasTexto[i];
+    while (i + 1 < linhasTexto.length) {
+      const compacta = normalizarLinhaLayout(atual);
+      if (REGEX_DEBITO.test(compacta)) break;
+      if (
+        /^Unidade:/i.test(compacta) ||
+        /^Total\b/i.test(compacta) ||
+        REGEX_PAGINA.test(compacta) ||
+        compacta.includes("UNIDADES INADIMPLENTES") ||
+        compacta.includes("Condomínio") ||
+        compacta.includes("TOTAL GERAL")
+      ) {
+        break;
+      }
+      const proxima = normalizarLinhaLayout(linhasTexto[i + 1]);
+      const proximaPareceContinuacaoDebito =
+        /\d{2}\/\d{4}\s+\d{2}\/\d{2}\/\d{4}\s+[\d.]+,\d{2}/.test(proxima) &&
+        !REGEX_DEBITO.test(compacta) &&
+        !/^Unidade:/i.test(proxima);
+      if (!proximaPareceContinuacaoDebito) break;
+      atual = `${atual.trimEnd()} ${linhasTexto[i + 1].trimStart()}`;
+      i += 1;
+    }
+    resultado.push(atual);
+  }
+  return resultado;
+}
+
 export function interpretarTextoRelatorioInadimplenciaGestao(textoBruto: string): ResultadoInterpretacaoRelatorioInadimplencia {
-  const linhasTexto = textoBruto.split(/\r?\n/);
+  const linhasTexto = unirLinhasDebitoQuebradas(textoBruto.split(/\r?\n/));
   const inconsistencias: InconsistenciaValidacao[] = [];
   const registros: LinhaRelatorioInadimplencia[] = [];
   const subtotais: SubtotalUnidadeRelatorio[] = [];

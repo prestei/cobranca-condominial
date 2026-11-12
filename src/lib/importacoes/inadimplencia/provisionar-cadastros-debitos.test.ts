@@ -163,6 +163,36 @@ test("prévia de inadimplência com PDF cria condomínio, unidades e responsáve
   assert.ok(processado.linhasInternas.some((item) => item.resumo?.unidade === "MB-0102"));
 });
 
+test("prévia Residencial Grand Park (torres T1/T2) — linhas válidas após provisionamento", async () => {
+  resetCadastrosParaTestes();
+  setCondominios([]);
+  setUnidades([]);
+  setResponsaveis([]);
+  setVinculos([]);
+
+  const buffer = readFileSync("src/test/fixtures/relatorio-inadimplencia-residencial-grand-park.pdf");
+  const relatorio = await interpretarPdfInadimplencia(buffer);
+  assert.ok(relatorio);
+  assert.equal(relatorio.linhas.length, 8);
+
+  const processado = await processarArquivoImportacao(adaptadorImportacaoDebitos, {
+    modo: "preview",
+    userId: 1,
+    origem: "PDF",
+    arquivo: "grand-park.pdf",
+    hashArquivo: "teste-grand-park-previa",
+    conteudo: "",
+    matrizPlanilha: relatorio.matriz,
+    metadadosRelatorio: { tipo: relatorio.formato, inconsistencias: relatorio.inconsistencias ?? [] },
+  });
+
+  assert.ok(getCadastros().condominios.some((item) => item.nome === "Residencial Grand Park"));
+  assert.equal(processado.linhasInternas.filter((item) => item.situacao === "erro").length, 0);
+  assert.ok(processado.linhasInternas.every((item) => item.situacao === "novo" || item.situacao === "atualizacao"));
+  assert.ok(processado.preview.resumoAprovacao?.podeConfirmar);
+  assert.equal(processado.preview.resumoAprovacao?.seraoGravados, 8);
+});
+
 test("prévia Solar das Palmeiras provisiona condomínio, unidades, responsáveis e valores", async () => {
   resetCadastrosParaTestes();
   setCondominios([]);

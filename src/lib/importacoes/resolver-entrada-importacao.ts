@@ -35,8 +35,20 @@ export async function resolverEntradaImportacao(
 
   if (input.processoId?.trim()) {
     const processo = obterProcessoArquivoTemporario(input.processoId.trim(), userId);
-    if (!processo || processo.modulo !== modulo || !moduloComRecebimentoSeguro(modulo)) {
-      throw new ImportacaoCentroError("Processo de importação inválido ou expirado. Envie o arquivo novamente.", 400);
+    if (!processo) {
+      throw new ImportacaoCentroError(
+        "Processo de importação inválido ou expirado. Envie o arquivo novamente.",
+        400,
+      );
+    }
+    if (!moduloComRecebimentoSeguro(modulo)) {
+      throw new ImportacaoCentroError("Módulo de importação não suportado.", 400);
+    }
+    if (processo.modulo !== modulo) {
+      throw new ImportacaoCentroError(
+        "O destino da conferência não corresponde ao arquivo enviado. Volte à etapa Arquivo e valide novamente.",
+        400,
+      );
     }
     if (input.hashArquivo && input.hashArquivo !== processo.hashArquivo) {
       throw new ImportacaoCentroError("O arquivo não confere com a validação anterior.", 409);

@@ -21,7 +21,7 @@ import {
   TableMobileTitle,
   TableRow,
 } from "@/components/table";
-import { nomeCondominio, type Unidade } from "@/data/catalogo";
+import { nomeCondominio, type Cadastros, type Unidade } from "@/data/catalogo";
 
 export type GrupoUnidadesCondominio = {
   condominioId: number;
@@ -36,7 +36,7 @@ export type UnidadeLinhaAcao = {
   destructive?: boolean;
 };
 
-export function agruparUnidadesPorCondominio(itens: Unidade[]): GrupoUnidadesCondominio[] {
+export function agruparUnidadesPorCondominio(itens: Unidade[], cadastros: Cadastros): GrupoUnidadesCondominio[] {
   const mapa = new Map<number, Unidade[]>();
   for (const item of itens) {
     const lista = mapa.get(item.condominioId) ?? [];
@@ -47,7 +47,7 @@ export function agruparUnidadesPorCondominio(itens: Unidade[]): GrupoUnidadesCon
   return [...mapa.entries()]
     .map(([condominioId, lista]) => ({
       condominioId,
-      nome: nomeCondominio(condominioId),
+      nome: nomeCondominio(condominioId, cadastros),
       itens: [...lista].sort((a, b) => a.identificacao.localeCompare(b.identificacao, "pt-BR")),
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -58,6 +58,7 @@ type TabelaProps = {
   emptyState: ReactNode;
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
+  renderDiasAtraso: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
   embutida?: boolean;
@@ -70,6 +71,7 @@ function TabelaDesktop({
   emptyState,
   badgeStatus,
   renderResponsavel,
+  renderDiasAtraso,
   renderDebito,
   acoes,
   embutida = false,
@@ -82,24 +84,28 @@ function TabelaDesktop({
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
       <colgroup>
-        <col className="w-[16%]" />
-        <col className="w-[30%]" />
         <col className="w-[14%]" />
         <col className="w-[24%]" />
-        <col className="w-[16%]" />
+        <col className="w-[11%]" />
+        <col className="w-[13%]" />
+        <col className="w-[22%]" />
+        <col className="w-[14%]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Unidade</TableHead>
-          <TableHead>Responsável</TableHead>
-          <TableHead>Cadastro</TableHead>
-          <TableHead>Débito</TableHead>
+          <TableHead align="center">Responsável</TableHead>
+          <TableHead align="center">Cadastro</TableHead>
+          <TableHead align="center" className="min-w-[7rem] whitespace-nowrap">
+            Dias em atraso
+          </TableHead>
+          <TableHead align="center">Débito</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {itens.length === 0 ? (
-          <TableEmpty colSpan={5}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
         ) : (
           itens.map((item) => (
             <TableRow
@@ -117,11 +123,18 @@ function TabelaDesktop({
                   <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{renderResponsavel(item)}</TableCell>
-              <TableCell className="align-middle">
+              <TableCell align="center" className="max-w-0 align-middle">
+                {renderResponsavel(item)}
+              </TableCell>
+              <TableCell align="center" className="align-middle">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{renderDebito(item)}</TableCell>
+              <TableCell align="center" className="align-middle whitespace-nowrap">
+                {renderDiasAtraso(item)}
+              </TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
+                {renderDebito(item)}
+              </TableCell>
               <TableActionsCell
                 label={`Ações da unidade ${item.identificacao}`}
                 actions={acoes(item)}
@@ -140,6 +153,7 @@ function TabelaMobile({
   emptyState,
   badgeStatus,
   renderResponsavel,
+  renderDiasAtraso,
   renderDebito,
   acoes,
   pageOffset = 0,
@@ -179,6 +193,10 @@ function TabelaMobile({
               <p className="text-label-sm uppercase text-on-surface-variant">Responsável</p>
               {renderResponsavel(item)}
             </div>
+            <div className="min-w-0 border-t border-border-subtle/30 pt-sm">
+              <p className="text-label-sm uppercase text-on-surface-variant">Dias em atraso</p>
+              <div className="mt-xs">{renderDiasAtraso(item)}</div>
+            </div>
             <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
               <div className="min-w-0">
                 <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
@@ -203,6 +221,7 @@ function PainelCondominio({
   emptyState,
   badgeStatus,
   renderResponsavel,
+  renderDiasAtraso,
   renderDebito,
   acoes,
 }: {
@@ -213,6 +232,7 @@ function PainelCondominio({
   emptyState: ReactNode;
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
+  renderDiasAtraso: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
 }) {
@@ -279,6 +299,7 @@ function PainelCondominio({
               emptyState={null}
               badgeStatus={badgeStatus}
               renderResponsavel={renderResponsavel}
+              renderDiasAtraso={renderDiasAtraso}
               renderDebito={renderDebito}
               acoes={acoes}
               embutida
@@ -289,6 +310,7 @@ function PainelCondominio({
               emptyState={null}
               badgeStatus={badgeStatus}
               renderResponsavel={renderResponsavel}
+              renderDiasAtraso={renderDiasAtraso}
               renderDebito={renderDebito}
               acoes={acoes}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
@@ -308,6 +330,7 @@ type ListaProps = {
   variante: "desktop" | "mobile";
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
+  renderDiasAtraso: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
 };
@@ -318,6 +341,7 @@ export function UnidadesPorCondominioLista({
   variante,
   badgeStatus,
   renderResponsavel,
+  renderDiasAtraso,
   renderDebito,
   acoes,
 }: ListaProps) {
@@ -356,6 +380,7 @@ export function UnidadesPorCondominioLista({
           emptyState={emptyState}
           badgeStatus={badgeStatus}
           renderResponsavel={renderResponsavel}
+          renderDiasAtraso={renderDiasAtraso}
           renderDebito={renderDebito}
           acoes={acoes}
         />

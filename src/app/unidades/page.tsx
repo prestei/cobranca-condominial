@@ -92,7 +92,7 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import { escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
@@ -258,9 +258,12 @@ function UnidadesPage() {
   }, [router, searchParams, user?.userId]);
 
   const debitosAbertos = new Map<number, number>();
+  const diasAtrasoMax = new Map<number, number>();
   for (const item of cadastros.debitos) {
     if (item.status !== "Pendente" && item.status !== "Vencido") continue;
     debitosAbertos.set(item.unidadeId, (debitosAbertos.get(item.unidadeId) ?? 0) + Number(item.valorAtualizado || 0));
+    const dias = diasDeAtraso(item.dataVencimento);
+    diasAtrasoMax.set(item.unidadeId, Math.max(diasAtrasoMax.get(item.unidadeId) ?? 0, dias));
   }
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
@@ -276,7 +279,7 @@ function UnidadesPage() {
       const situacaoCobranca = situacaoCobrancaUnidade(item);
       const matchesCobranca = appliedCobranca === "todos" || situacaoCobranca === appliedCobranca;
       const matchesDebito = appliedDebito === "todos" || (appliedDebito === "devendo" ? emDebito : !emDebito);
-      const haystack = `${item.identificacao} ${item.bloco} ${nomeCondominio(item.condominioId)}`.toLocaleLowerCase("pt-BR");
+      const haystack = `${item.identificacao} ${item.bloco} ${nomeCondominio(item.condominioId, cadastros)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesCondominio &&
         matchesStatus &&
@@ -287,7 +290,7 @@ function UnidadesPage() {
     })
     .sort((a, b) => {
       if (visao === "condominio") {
-        const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+        const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(nomeCondominio(b.condominioId, cadastros), "pt-BR");
         if (condo !== 0) return condo;
         return a.identificacao.localeCompare(b.identificacao, "pt-BR");
       }
@@ -299,7 +302,7 @@ function UnidadesPage() {
       }
       const left =
         sortKey === "condominio"
-          ? nomeCondominio(a.condominioId)
+          ? nomeCondominio(a.condominioId, cadastros)
           : sortKey === "tipo"
             ? a.tipo
             : sortKey === "status"
@@ -307,7 +310,7 @@ function UnidadesPage() {
               : a.identificacao;
       const right =
         sortKey === "condominio"
-          ? nomeCondominio(b.condominioId)
+          ? nomeCondominio(b.condominioId, cadastros)
           : sortKey === "tipo"
             ? b.tipo
             : sortKey === "status"
@@ -316,7 +319,7 @@ function UnidadesPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
-  const gruposCondominio = useMemo(() => agruparUnidadesPorCondominio(visible), [visible]);
+  const gruposCondominio = useMemo(() => agruparUnidadesPorCondominio(visible, cadastros), [visible, cadastros]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -560,14 +563,14 @@ function UnidadesPage() {
   function celulaResponsavel(item: Unidade) {
     const contato = contatoResponsavel(item.id);
     if (!contato) return <span className="text-on-surface-variant">—</span>;
-    return <span className="block truncate text-on-surface">{contato.nome}</span>;
+    return <span className="block truncate text-center text-on-surface">{contato.nome}</span>;
   }
 
   function celulaDebito(item: Unidade) {
     if (emDebitoOperacional(item)) {
       const valor = debitosAbertos.get(item.id) ?? 0;
       return (
-        <span className="inline-flex flex-col items-start gap-xs">
+        <span className="inline-flex flex-col items-center gap-xs">
           <Badge variant="error">Devendo</Badge>
           <span className="tabular-nums">{formatarMoeda(String(valor))}</span>
         </span>
@@ -580,10 +583,32 @@ function UnidadesPage() {
     return <Badge variant="success">Em dia</Badge>;
   }
 
+  function celulaDiasAtraso(item: Unidade) {
+    if (!emDebitoOperacional(item)) {
+      return <span className="text-on-surface-variant">—</span>;
+    }
+    const dias = diasAtrasoMax.get(item.id) ?? 0;
+    if (dias <= 0) {
+      return <span className="text-on-surface-variant">—</span>;
+    }
+    return (
+      <Badge variant="error" className="min-w-[2.25rem] justify-center tabular-nums">
+        {dias}
+      </Badge>
+    );
+  }
+
+  function textoDiasAtrasoExport(item: Unidade) {
+    if (!emDebitoOperacional(item)) return "";
+    const dias = diasAtrasoMax.get(item.id) ?? 0;
+    return dias > 0 ? String(dias) : "";
+  }
+
   const colunasExportacao = [
     "Unidade",
     "Condomínio",
     "Cadastro",
+    "Dias em atraso",
     "Débito",
     "Valor em aberto",
   ] as const;
@@ -602,8 +627,9 @@ function UnidadesPage() {
   function linhasExportacao() {
     return visible.map((item) => [
       item.identificacao,
-      nomeCondominio(item.condominioId),
+      nomeCondominio(item.condominioId, cadastros),
       item.status,
+      textoDiasAtrasoExport(item),
       textoDebitoExport(item),
       valorAbertoExport(item),
     ]);
@@ -873,12 +899,13 @@ function UnidadesPage() {
   const desktopTable = (
     <Table aria-label="Unidades" showExport={false} fitContainer>
       <colgroup>
-        <col className="w-[14%]" />
-        <col className="w-[18%]" />
-        <col className="w-[22%]" />
         <col className="w-[12%]" />
-        <col className="w-[20%]" />
-        <col className="w-[14%]" />
+        <col className="w-[16%]" />
+        <col className="w-[18%]" />
+        <col className="w-[11%]" />
+        <col className="w-[13%]" />
+        <col className="w-[18%]" />
+        <col className="w-[12%]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -888,11 +915,14 @@ function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("condominio")} onSort={() => handleSort("condominio")}>
             Condomínio
           </TableHead>
-          <TableHead>Responsável</TableHead>
-          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+          <TableHead align="center">Responsável</TableHead>
+          <TableHead align="center" sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
-          <TableHead sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
+          <TableHead align="center" className="min-w-[7rem] whitespace-nowrap">
+            Dias em atraso
+          </TableHead>
+          <TableHead align="center" sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
           <TableHead actions />
@@ -900,7 +930,7 @@ function UnidadesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -918,14 +948,21 @@ function UnidadesPage() {
               <TableCell className="max-w-0 align-middle">
                 <div className="flex min-w-0 items-center gap-sm">
                   <Icon icon={Building2} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
-                  <span className="truncate">{nomeCondominio(item.condominioId)}</span>
+                  <span className="truncate">{nomeCondominio(item.condominioId, cadastros)}</span>
                 </div>
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{celulaResponsavel(item)}</TableCell>
-              <TableCell className="align-middle">
+              <TableCell align="center" className="max-w-0 align-middle">
+                {celulaResponsavel(item)}
+              </TableCell>
+              <TableCell align="center" className="align-middle">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{celulaDebito(item)}</TableCell>
+              <TableCell align="center" className="align-middle whitespace-nowrap">
+                {celulaDiasAtraso(item)}
+              </TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
+                {celulaDebito(item)}
+              </TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
             </TableRow>
           ))
@@ -959,7 +996,7 @@ function UnidadesPage() {
                     </span>
                   </div>
                   <p className="mt-xs truncate text-body-sm text-on-surface-variant">
-                    {nomeCondominio(item.condominioId)}
+                    {nomeCondominio(item.condominioId, cadastros)}
                   </p>
                 </div>
                 <TableActionsButton label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />
@@ -968,6 +1005,10 @@ function UnidadesPage() {
                 <div className="min-w-0">
                   <p className="text-label-sm uppercase text-on-surface-variant">Responsável</p>
                   {celulaResponsavel(item)}
+                </div>
+                <div className="min-w-0 border-t border-border-subtle/30 pt-sm">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Dias em atraso</p>
+                  <div className="mt-xs">{celulaDiasAtraso(item)}</div>
                 </div>
                 <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
                   <div className="min-w-0">
@@ -1003,7 +1044,7 @@ function UnidadesPage() {
       />
       <PageContent className="max-md:gap-md max-md:py-md">
         {authLoading ? (
-          <SkeletonListPage metrics={4} rows={8} cols={6} label="Carregando unidades" />
+          <SkeletonListPage metrics={4} rows={8} cols={7} label="Carregando unidades" />
         ) : (
         <>
         <section aria-label="Resumo de unidades">
@@ -1125,6 +1166,7 @@ function UnidadesPage() {
                   variante="desktop"
                   badgeStatus={badgeStatus}
                   renderResponsavel={celulaResponsavel}
+                  renderDiasAtraso={celulaDiasAtraso}
                   renderDebito={celulaDebito}
                   acoes={acoes}
                 />
@@ -1136,6 +1178,7 @@ function UnidadesPage() {
                   variante="mobile"
                   badgeStatus={badgeStatus}
                   renderResponsavel={celulaResponsavel}
+                  renderDiasAtraso={celulaDiasAtraso}
                   renderDebito={celulaDebito}
                   acoes={acoes}
                 />

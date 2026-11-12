@@ -40,7 +40,7 @@ export function AtalhosContatoAtendente({
   const { toast } = useToast();
   const cadastros = useCadastros();
   const contato = contatoResponsavelDaUnidade(cadastros, unidadeId);
-  const condominio = nomeCondominio(condominioId);
+  const condominio = nomeCondominio(condominioId, cadastros);
   const unidade = rotuloUnidade(identificacao, bloco);
   const numeroWhats = numeroWhatsAppPreferido(contato);
   const linkWhats = numeroWhats

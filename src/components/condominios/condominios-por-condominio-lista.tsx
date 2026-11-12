@@ -97,11 +97,11 @@ function TabelaDesktop({
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Unidade</TableHead>
-          <TableHead>Responsável</TableHead>
-          <TableHead>Cidade</TableHead>
-          <TableHead>Administradora</TableHead>
-          <TableHead>Advogado responsável</TableHead>
-          <TableHead>Situação</TableHead>
+          <TableHead align="center">Responsável</TableHead>
+          <TableHead align="center">Cidade</TableHead>
+          <TableHead align="center">Administradora</TableHead>
+          <TableHead align="center">Advogado responsável</TableHead>
+          <TableHead align="center">Situação</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -125,10 +125,12 @@ function TabelaDesktop({
                   <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{renderResponsavel(item)}</TableCell>
-              <TableCell className="max-w-0 align-middle">
+              <TableCell align="center" className="max-w-0 align-middle">
+                {renderResponsavel(item)}
+              </TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
                 {cidade ? (
-                  <div className="flex min-w-0 items-center gap-sm">
+                  <div className="flex min-w-0 items-center justify-center gap-sm">
                     <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span className="truncate">{cidade}</span>
                   </div>
@@ -136,9 +138,9 @@ function TabelaDesktop({
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell className="max-w-0 align-middle">
+              <TableCell align="center" className="max-w-0 align-middle">
                 {administradora ? (
-                  <div className="flex min-w-0 items-center gap-sm">
+                  <div className="flex min-w-0 items-center justify-center gap-sm">
                     <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span className="min-w-0 truncate">{administradora}</span>
                   </div>
@@ -146,8 +148,12 @@ function TabelaDesktop({
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell className="max-w-0 align-middle">{renderAdvogados(condominio)}</TableCell>
-              <TableCell className="align-middle">{renderSituacao(item)}</TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
+                {renderAdvogados(condominio)}
+              </TableCell>
+              <TableCell align="center" className="align-middle">
+                {renderSituacao(item)}
+              </TableCell>
               <TableActionsCell
                 label={`Ações da unidade ${item.identificacao}`}
                 actions={acoes(item, condominio)}

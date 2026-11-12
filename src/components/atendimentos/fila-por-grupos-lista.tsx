@@ -24,7 +24,7 @@ import {
   TableMobileTitle,
   TableRow,
 } from "@/components/table";
-import { formatarData, nomeCondominio } from "@/data/catalogo";
+import { formatarData, nomeCondominio, type Cadastros } from "@/data/catalogo";
 import type { CanalAtalhoContato } from "@/lib/contato-responsavel";
 import { formatarProximoRetorno } from "@/lib/fila/formatar-proximo-retorno";
 import type { FilaCobrancaItem } from "@/lib/fila/service";
@@ -47,9 +47,9 @@ function rotuloUnidade(item: FilaCobrancaItem) {
   return item.identificacao;
 }
 
-function tituloCobrancaMobile(item: FilaCobrancaItem, modo: "condominio" | "atendente") {
+function tituloCobrancaMobile(item: FilaCobrancaItem, modo: "condominio" | "atendente", cadastros: Cadastros) {
   if (modo === "condominio") return rotuloUnidade(item);
-  return `${nomeCondominio(item.condominioId)} - ${rotuloUnidade(item)}`;
+  return `${nomeCondominio(item.condominioId, cadastros)} - ${rotuloUnidade(item)}`;
 }
 
 function CelulaProximoRetorno({ data }: { data: string | null }) {
@@ -65,7 +65,7 @@ function CelulaProximoRetorno({ data }: { data: string | null }) {
   );
 }
 
-export function agruparFilaPorCondominio(itens: FilaCobrancaItem[]): GrupoFila[] {
+export function agruparFilaPorCondominio(itens: FilaCobrancaItem[], cadastros: Cadastros): GrupoFila[] {
   const mapa = new Map<number, FilaCobrancaItem[]>();
   for (const item of itens) {
     const lista = mapa.get(item.condominioId) ?? [];
@@ -76,13 +76,13 @@ export function agruparFilaPorCondominio(itens: FilaCobrancaItem[]): GrupoFila[]
   return [...mapa.entries()]
     .map(([condominioId, lista]) => ({
       id: condominioId,
-      nome: nomeCondominio(condominioId),
+      nome: nomeCondominio(condominioId, cadastros),
       itens: [...lista].sort((a, b) => rotuloUnidade(a).localeCompare(rotuloUnidade(b), "pt-BR")),
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-export function agruparFilaPorAtendente(itens: FilaCobrancaItem[]): GrupoFila[] {
+export function agruparFilaPorAtendente(itens: FilaCobrancaItem[], cadastros: Cadastros): GrupoFila[] {
   const mapa = new Map<number, FilaCobrancaItem[]>();
   for (const item of itens) {
     const key = item.atendenteId ?? 0;
@@ -104,7 +104,10 @@ export function agruparFilaPorAtendente(itens: FilaCobrancaItem[]): GrupoFila[] 
         id: atendenteId,
         nome,
         itens: [...lista].sort((a, b) => {
-          const condo = nomeCondominio(a.condominioId).localeCompare(nomeCondominio(b.condominioId), "pt-BR");
+          const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(
+            nomeCondominio(b.condominioId, cadastros),
+            "pt-BR",
+          );
           if (condo !== 0) return condo;
           return rotuloUnidade(a).localeCompare(rotuloUnidade(b), "pt-BR");
         }),
@@ -117,9 +120,88 @@ export function agruparFilaPorAtendente(itens: FilaCobrancaItem[]): GrupoFila[] 
     });
 }
 
+/** Larguras fixas iguais em todos os painéis por condomínio para alinhar colunas na vertical. */
+function ColgroupFilaDesktop({
+  modo,
+  visaoGeral,
+  mostraContato,
+}: {
+  modo: "condominio" | "atendente";
+  visaoGeral: boolean;
+  mostraContato: boolean;
+}) {
+  if (visaoGeral && modo === "condominio") {
+    return (
+      <colgroup>
+        <col className="w-[4%]" />
+        <col className="w-[11%]" />
+        <col className="w-[15%]" />
+        <col className="w-[13%]" />
+        <col className="w-[12%]" />
+        <col className="w-[16%]" />
+        <col className="w-[14%]" />
+        <col className="w-[15%]" />
+      </colgroup>
+    );
+  }
+  if (visaoGeral && modo === "atendente") {
+    return (
+      <colgroup>
+        <col className="w-[4%]" />
+        <col className="w-[14%]" />
+        <col className="w-[11%]" />
+        <col className="w-[15%]" />
+        <col className="w-[13%]" />
+        <col className="w-[16%]" />
+        <col className="w-[14%]" />
+        <col className="w-[13%]" />
+      </colgroup>
+    );
+  }
+  if (!visaoGeral && modo === "condominio") {
+    return (
+      <colgroup>
+        <col className="w-[12%]" />
+        <col className="w-[16%]" />
+        <col className="w-[14%]" />
+        <col className="w-[18%]" />
+        <col className="w-[16%]" />
+        <col className="w-[14%]" />
+        <col className="w-[10%]" />
+      </colgroup>
+    );
+  }
+  if (mostraContato) {
+    return (
+      <colgroup>
+        <col className="w-[13%]" />
+        <col className="w-[11%]" />
+        <col className="w-[14%]" />
+        <col className="w-[12%]" />
+        <col className="w-[18%]" />
+        <col className="w-[14%]" />
+        <col className="w-[13%]" />
+        <col className="w-[5%]" />
+      </colgroup>
+    );
+  }
+  return (
+    <colgroup>
+      <col className="w-[14%]" />
+      <col className="w-[12%]" />
+      <col className="w-[16%]" />
+      <col className="w-[14%]" />
+      <col className="w-[16%]" />
+      <col className="w-[14%]" />
+      <col className="w-[14%]" />
+    </colgroup>
+  );
+}
+
 type TabelaProps = {
   itens: FilaCobrancaItem[];
   modo: "condominio" | "atendente";
+  cadastros: Cadastros;
   emptyState: ReactNode;
   visaoGeral: boolean;
   selecionadas: Set<number>;
@@ -135,6 +217,7 @@ type TabelaProps = {
 function TabelaDesktop({
   itens,
   modo,
+  cadastros,
   emptyState,
   visaoGeral,
   selecionadas,
@@ -155,21 +238,23 @@ function TabelaDesktop({
     <Table
       aria-label={modo === "condominio" ? "Fila do condomínio" : "Fila do atendente"}
       showExport={false}
+      fitContainer
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
+      <ColgroupFilaDesktop modo={modo} visaoGeral={visaoGeral} mostraContato={mostraContato} />
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           {visaoGeral ? <TableHead className="w-12" /> : null}
-          {modo === "atendente" ? <TableHead>Condomínio</TableHead> : null}
-          <TableHead>Unidade</TableHead>
-          <TableHead>Inadimplência</TableHead>
-          <TableHead>Situação</TableHead>
+          {modo === "atendente" ? <TableHead align="center">Condomínio</TableHead> : null}
+          <TableHead align="center">Unidade</TableHead>
+          <TableHead align="center">Inadimplência</TableHead>
+          <TableHead align="center">Situação</TableHead>
           {modo === "condominio" ? (
-            visaoGeral ? <TableHead>RE responsável</TableHead> : <TableHead>Iniciar contato</TableHead>
+            visaoGeral ? <TableHead align="center">RE responsável</TableHead> : <TableHead align="center">Iniciar contato</TableHead>
           ) : null}
-          {mostraContato && modo === "atendente" ? <TableHead>Iniciar contato</TableHead> : null}
-          <TableHead>Último atendimento</TableHead>
-          <TableHead>Próximo retorno</TableHead>
+          {mostraContato && modo === "atendente" ? <TableHead align="center">Iniciar contato</TableHead> : null}
+          <TableHead align="center">Último atendimento</TableHead>
+          <TableHead align="center">Próximo retorno</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -199,10 +284,14 @@ function TabelaDesktop({
                 </TableCell>
               ) : null}
               {modo === "atendente" ? (
-                <TableCell className="text-on-surface">{nomeCondominio(item.condominioId)}</TableCell>
+                <TableCell align="center" className="text-on-surface">
+                  {nomeCondominio(item.condominioId, cadastros)}
+                </TableCell>
               ) : null}
-              <TableCell className="font-medium text-on-surface">{rotuloUnidade(item)}</TableCell>
-              <TableCell>
+              <TableCell align="center" className="font-medium text-on-surface">
+                {rotuloUnidade(item)}
+              </TableCell>
+              <TableCell align="center">
                 {item.valorInadimplencia ? (
                   <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
                 ) : (
@@ -214,16 +303,34 @@ function TabelaDesktop({
                   </span>
                 ) : null}
               </TableCell>
-              <TableCell>
-                <BadgeSituacaoCobranca situacao={item.situacao} />
+              <TableCell align="center" className="align-middle">
+                <div className="flex justify-center">
+                  <BadgeSituacaoCobranca situacao={item.situacao} />
+                </div>
               </TableCell>
               {modo === "condominio" ? (
                 visaoGeral ? (
-                  <TableCell className="text-on-surface">
+                  <TableCell align="center" className="text-on-surface">
                     {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
                   </TableCell>
                 ) : (
-                  <TableCell>
+                  <TableCell align="center">
+                    <div className="flex justify-center">
+                      <AtalhosContatoAtendente
+                        compacto
+                        unidadeId={item.unidadeId}
+                        condominioId={item.condominioId}
+                        identificacao={item.identificacao}
+                        bloco={item.bloco}
+                        onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                      />
+                    </div>
+                  </TableCell>
+                )
+              ) : null}
+              {mostraContato && modo === "atendente" ? (
+                <TableCell align="center">
+                  <div className="flex justify-center">
                     <AtalhosContatoAtendente
                       compacto
                       unidadeId={item.unidadeId}
@@ -232,26 +339,16 @@ function TabelaDesktop({
                       bloco={item.bloco}
                       onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
                     />
-                  </TableCell>
-                )
-              ) : null}
-              {mostraContato && modo === "atendente" ? (
-                <TableCell>
-                  <AtalhosContatoAtendente
-                    compacto
-                    unidadeId={item.unidadeId}
-                    condominioId={item.condominioId}
-                    identificacao={item.identificacao}
-                    bloco={item.bloco}
-                    onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
-                  />
+                  </div>
                 </TableCell>
               ) : null}
-              <TableCell className="text-on-surface-variant">
+              <TableCell align="center" className="text-on-surface-variant">
                 {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
               </TableCell>
-              <TableCell>
-                <CelulaProximoRetorno data={item.proximoRetorno} />
+              <TableCell align="center" className="align-middle">
+                <div className="flex justify-center">
+                  <CelulaProximoRetorno data={item.proximoRetorno} />
+                </div>
               </TableCell>
               <TableActionsCell
                 label={`Ações da cobrança ${rotuloUnidade(item)}`}
@@ -269,6 +366,7 @@ function TabelaDesktop({
 function TabelaMobile({
   itens,
   modo,
+  cadastros,
   emptyState,
   visaoGeral,
   selecionadas,
@@ -324,7 +422,7 @@ function TabelaMobile({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                   <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                    {tituloCobrancaMobile(item, modo)}
+                    {tituloCobrancaMobile(item, modo, cadastros)}
                   </TableMobileTitle>
                   {totalItens > 0 ? (
                     <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
@@ -365,7 +463,7 @@ function TabelaMobile({
                     </p>
                     <p className="truncate text-body-md text-on-surface">
                       {modo === "atendente"
-                        ? nomeCondominio(item.condominioId)
+                        ? nomeCondominio(item.condominioId, cadastros)
                         : item.ultimoAtendimento
                           ? formatarData(item.ultimoAtendimento)
                           : "—"}
@@ -438,6 +536,7 @@ function TabelaMobile({
 function PainelGrupo({
   grupo,
   modo,
+  cadastros,
   aberto,
   onToggle,
   variante,
@@ -450,6 +549,7 @@ function PainelGrupo({
 }: {
   grupo: GrupoFila;
   modo: "condominio" | "atendente";
+  cadastros: Cadastros;
   aberto: boolean;
   onToggle: () => void;
   variante: "desktop" | "mobile";
@@ -524,6 +624,7 @@ function PainelGrupo({
             <TabelaDesktop
               itens={pageItens}
               modo={modo}
+              cadastros={cadastros}
               emptyState={null}
               visaoGeral={visaoGeral}
               selecionadas={selecionadas}
@@ -537,6 +638,7 @@ function PainelGrupo({
             <TabelaMobile
               itens={pageItens}
               modo={modo}
+              cadastros={cadastros}
               emptyState={null}
               visaoGeral={visaoGeral}
               selecionadas={selecionadas}
@@ -558,6 +660,7 @@ function PainelGrupo({
 type ListaProps = {
   grupos: GrupoFila[];
   modo: "condominio" | "atendente";
+  cadastros: Cadastros;
   emptyState: ReactNode;
   variante: "desktop" | "mobile";
   visaoGeral: boolean;
@@ -571,6 +674,7 @@ type ListaProps = {
 export function FilaPorGruposLista({
   grupos,
   modo,
+  cadastros,
   emptyState,
   variante,
   visaoGeral,
@@ -613,6 +717,7 @@ export function FilaPorGruposLista({
           key={grupo.id}
           grupo={grupo}
           modo={modo}
+          cadastros={cadastros}
           aberto={abertos.has(grupo.id)}
           onToggle={() => alternar(grupo.id)}
           variante={variante}

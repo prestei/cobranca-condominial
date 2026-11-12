@@ -76,7 +76,15 @@ import {
   type TableSortDirection,
 } from "@/components/table";
 import { useToast } from "@/components/toast";
-import { escopoCondominios, formatarData, nomeCondominio, situacoesUnidade, type Atendimento, type AtribuicaoCobranca } from "@/data/catalogo";
+import {
+  escopoCondominios,
+  formatarData,
+  nomeCondominio,
+  situacoesUnidade,
+  type Atendimento,
+  type AtribuicaoCobranca,
+  type Cadastros,
+} from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -110,8 +118,8 @@ function rotuloUnidade(item: FilaCobrancaItem) {
   return item.identificacao;
 }
 
-function tituloCobrancaMobile(item: FilaCobrancaItem) {
-  return `${nomeCondominio(item.condominioId)} - ${rotuloUnidade(item)}`;
+function tituloCobrancaMobile(item: FilaCobrancaItem, cadastros: Cadastros) {
+  return `${nomeCondominio(item.condominioId, cadastros)} - ${rotuloUnidade(item)}`;
 }
 
 function CelulaProximoRetorno({ data }: { data: string | null }) {
@@ -389,7 +397,7 @@ export function FilaCobrancasPanel() {
   function abrirHistorico(item: FilaCobrancaItem) {
     setHistoricoRotulo({
       unidade: rotuloUnidade(item),
-      condominio: nomeCondominio(item.condominioId),
+      condominio: nomeCondominio(item.condominioId, cadastros),
     });
     setHistoricoUnidadeId(item.unidadeId);
   }
@@ -399,7 +407,7 @@ export function FilaCobrancasPanel() {
       unidadeId: item.unidadeId,
       condominioId: item.condominioId,
       unidade: rotuloUnidade(item),
-      condominio: nomeCondominio(item.condominioId),
+      condominio: nomeCondominio(item.condominioId, cadastros),
     });
   }
 
@@ -408,7 +416,7 @@ export function FilaCobrancasPanel() {
       unidadeId: item.unidadeId,
       condominioId: item.condominioId,
       unidade: rotuloUnidade(item),
-      condominio: nomeCondominio(item.condominioId),
+      condominio: nomeCondominio(item.condominioId, cadastros),
     });
   }
 
@@ -551,7 +559,11 @@ export function FilaCobrancasPanel() {
         toast({ variant: "error", title: "Exportação falhou", description: payload.error });
         return;
       }
-      const linhas = linhasFilaExport(payload.itens ?? [], nomeCondominio, formatarData);
+      const linhas = linhasFilaExport(
+        payload.itens ?? [],
+        (id) => nomeCondominio(id, cadastros),
+        formatarData,
+      );
       const base = `fila-cobrancas-${new Date().toISOString().slice(0, 10)}`;
       exportarListagem(toast, formato, "Fila de cobranças", base, colunasFilaExport, linhas);
     } catch {
@@ -563,8 +575,8 @@ export function FilaCobrancasPanel() {
     importacaoWizardRef.current?.abrir("debitos");
   }
 
-  const gruposCondominio = useMemo(() => agruparFilaPorCondominio(itens), [itens]);
-  const gruposAtendente = useMemo(() => agruparFilaPorAtendente(itens), [itens]);
+  const gruposCondominio = useMemo(() => agruparFilaPorCondominio(itens, cadastros), [itens, cadastros]);
+  const gruposAtendente = useMemo(() => agruparFilaPorAtendente(itens, cadastros), [itens, cadastros]);
 
   const emptyStateFila = (
     <EmptyState
@@ -717,6 +729,7 @@ export function FilaCobrancasPanel() {
                   <FilaPorGruposLista
                     grupos={gruposCondominio}
                     modo="condominio"
+                    cadastros={cadastros}
                     emptyState={emptyStateFila}
                     variante="desktop"
                     visaoGeral={visaoGeral}
@@ -735,6 +748,7 @@ export function FilaCobrancasPanel() {
                   <FilaPorGruposLista
                     grupos={gruposCondominio}
                     modo="condominio"
+                    cadastros={cadastros}
                     emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
                     variante="mobile"
                     visaoGeral={visaoGeral}
@@ -763,6 +777,7 @@ export function FilaCobrancasPanel() {
                     <FilaPorGruposLista
                       grupos={gruposAtendente}
                       modo="atendente"
+                      cadastros={cadastros}
                       emptyState={emptyStateFila}
                       variante="desktop"
                       visaoGeral={visaoGeral}
@@ -776,6 +791,7 @@ export function FilaCobrancasPanel() {
                     <FilaPorGruposLista
                       grupos={gruposAtendente}
                       modo="atendente"
+                      cadastros={cadastros}
                       emptyState={<TableMobileEmpty>Nenhuma cobrança na fila.</TableMobileEmpty>}
                       variante="mobile"
                       visaoGeral={visaoGeral}
@@ -817,8 +833,33 @@ export function FilaCobrancasPanel() {
                       <Table
                         aria-label="Fila de cobranças ativas"
                         showExport={false}
+                        fitContainer
                         containerClassName="rounded-none border-0 shadow-none"
                       >
+                        {visaoGeral ? (
+                          <colgroup>
+                            <col className="w-[4%]" />
+                            <col className="w-[13%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[12%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[13%]" />
+                            <col className="w-[9%]" />
+                          </colgroup>
+                        ) : (
+                          <colgroup>
+                            <col className="w-[14%]" />
+                            <col className="w-[11%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[12%]" />
+                            <col className="w-[18%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[12%]" />
+                            <col className="w-[5%]" />
+                          </colgroup>
+                        )}
                         <TableHeader className="bg-[#E8EEF7]">
                           <TableRow className="border-b border-border-subtle hover:bg-transparent">
                             {visaoGeral ? (
@@ -831,6 +872,7 @@ export function FilaCobrancasPanel() {
                               />
                             ) : null}
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("condominio")}
                               onSort={() => alternarOrdenacao("condominio")}
@@ -838,6 +880,7 @@ export function FilaCobrancasPanel() {
                               Condomínio
                             </TableHead>
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("unidade")}
                               onSort={() => alternarOrdenacao("unidade")}
@@ -845,6 +888,7 @@ export function FilaCobrancasPanel() {
                               Unidade
                             </TableHead>
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("inadimplencia")}
                               onSort={() => alternarOrdenacao("inadimplencia")}
@@ -852,6 +896,7 @@ export function FilaCobrancasPanel() {
                               Inadimplência
                             </TableHead>
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("situacao")}
                               onSort={() => alternarOrdenacao("situacao")}
@@ -860,6 +905,7 @@ export function FilaCobrancasPanel() {
                             </TableHead>
                             {visaoGeral ? (
                               <TableHead
+                                align="center"
                                 sortable
                                 sortDirection={directionFor("re")}
                                 onSort={() => alternarOrdenacao("re")}
@@ -867,9 +913,10 @@ export function FilaCobrancasPanel() {
                                 RE responsável
                               </TableHead>
                             ) : (
-                              <TableHead>Iniciar contato</TableHead>
+                              <TableHead align="center">Iniciar contato</TableHead>
                             )}
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("ultimoAtendimento")}
                               onSort={() => alternarOrdenacao("ultimoAtendimento")}
@@ -877,6 +924,7 @@ export function FilaCobrancasPanel() {
                               Último atendimento
                             </TableHead>
                             <TableHead
+                              align="center"
                               sortable
                               sortDirection={directionFor("proximoRetorno")}
                               onSort={() => alternarOrdenacao("proximoRetorno")}
@@ -904,9 +952,13 @@ export function FilaCobrancasPanel() {
                                   </div>
                                 </TableCell>
                               ) : null}
-                              <TableCell className="text-on-surface">{nomeCondominio(item.condominioId)}</TableCell>
-                              <TableCell className="font-medium text-on-surface">{rotuloUnidade(item)}</TableCell>
-                              <TableCell>
+                              <TableCell align="center" className="text-on-surface">
+                                {nomeCondominio(item.condominioId, cadastros)}
+                              </TableCell>
+                              <TableCell align="center" className="font-medium text-on-surface">
+                                {rotuloUnidade(item)}
+                              </TableCell>
+                              <TableCell align="center">
                                 {item.valorInadimplencia ? (
                                   <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
                                 ) : (
@@ -918,32 +970,38 @@ export function FilaCobrancasPanel() {
                                   </span>
                                 ) : null}
                               </TableCell>
-                              <TableCell>
-                                <BadgeSituacaoCobranca situacao={item.situacao} />
+                              <TableCell align="center" className="align-middle">
+                                <div className="flex justify-center">
+                                  <BadgeSituacaoCobranca situacao={item.situacao} />
+                                </div>
                               </TableCell>
                               {visaoGeral ? (
-                                <TableCell className="text-on-surface">
+                                <TableCell align="center" className="text-on-surface">
                                   {item.codigoRe ?? (
                                     <span className="text-on-surface-variant">Sem responsável</span>
                                   )}
                                 </TableCell>
                               ) : (
-                                <TableCell>
-                                  <AtalhosContatoAtendente
-                                    compacto
-                                    unidadeId={item.unidadeId}
-                                    condominioId={item.condominioId}
-                                    identificacao={item.identificacao}
-                                    bloco={item.bloco}
-                                    onIniciar={(canal) => registrarAtendimento(item.unidadeId, canal)}
-                                  />
+                                <TableCell align="center">
+                                  <div className="flex justify-center">
+                                    <AtalhosContatoAtendente
+                                      compacto
+                                      unidadeId={item.unidadeId}
+                                      condominioId={item.condominioId}
+                                      identificacao={item.identificacao}
+                                      bloco={item.bloco}
+                                      onIniciar={(canal) => registrarAtendimento(item.unidadeId, canal)}
+                                    />
+                                  </div>
                                 </TableCell>
                               )}
-                              <TableCell className="text-on-surface-variant">
+                              <TableCell align="center" className="text-on-surface-variant">
                                 {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
                               </TableCell>
-                              <TableCell>
-                                <CelulaProximoRetorno data={item.proximoRetorno} />
+                              <TableCell align="center" className="align-middle">
+                                <div className="flex justify-center">
+                                  <CelulaProximoRetorno data={item.proximoRetorno} />
+                                </div>
                               </TableCell>
                               <TableActionsCell
                                 label={`Ações da cobrança ${rotuloUnidade(item)}`}
@@ -992,7 +1050,7 @@ export function FilaCobrancasPanel() {
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                                     <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                                      {tituloCobrancaMobile(item)}
+                                      {tituloCobrancaMobile(item, cadastros)}
                                     </TableMobileTitle>
                                     <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
                                       {index + 1} de {itens.length}
