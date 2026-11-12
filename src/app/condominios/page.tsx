@@ -59,6 +59,7 @@ import {
   agruparUnidadesPorCondominioCarteira,
   CondominiosPorCondominioLista,
 } from "@/components/condominios/condominios-por-condominio-lista";
+import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   ResponsiveTable,
@@ -415,10 +416,12 @@ export default function CondominiosPage() {
   }
 
   function celulaSituacaoUnidade(item: Unidade) {
-    if (unidadesComDebitoAberto.has(item.id)) {
-      return <Badge variant="error">Inadimplente</Badge>;
-    }
-    return <Badge variant="success">Ativo</Badge>;
+    return (
+      <UnidadeSituacaoListagemBadge
+        unidade={item}
+        temDebitoVencidoAberto={unidadesComDebitoAberto.has(item.id)}
+      />
+    );
   }
 
   function celulaAdvogados(item: Condominio) {

@@ -59,6 +59,7 @@ type TabelaProps = {
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
   renderDiasAtraso: (item: Unidade) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
   embutida?: boolean;
@@ -72,6 +73,7 @@ function TabelaDesktop({
   badgeStatus,
   renderResponsavel,
   renderDiasAtraso,
+  renderSituacao,
   renderDebito,
   acoes,
   embutida = false,
@@ -84,12 +86,13 @@ function TabelaDesktop({
       containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
     >
       <colgroup>
-        <col className="w-[14%]" />
-        <col className="w-[24%]" />
-        <col className="w-[11%]" />
         <col className="w-[13%]" />
-        <col className="w-[22%]" />
-        <col className="w-[14%]" />
+        <col className="w-[21%]" />
+        <col className="w-[10%]" />
+        <col className="w-[12%]" />
+        <col className="w-[19%]" />
+        <col className="w-[12%]" />
+        <col className="w-[13%]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -99,13 +102,14 @@ function TabelaDesktop({
           <TableHead align="center" className="min-w-[7rem] whitespace-nowrap">
             Dias em atraso
           </TableHead>
+          <TableHead align="center">Situações</TableHead>
           <TableHead align="center">Débito</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
       <TableBody>
         {itens.length === 0 ? (
-          <TableEmpty colSpan={6}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
         ) : (
           itens.map((item) => (
             <TableRow
@@ -133,6 +137,9 @@ function TabelaDesktop({
                 {renderDiasAtraso(item)}
               </TableCell>
               <TableCell align="center" className="max-w-0 align-middle">
+                {renderSituacao(item)}
+              </TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
                 {renderDebito(item)}
               </TableCell>
               <TableActionsCell
@@ -154,6 +161,7 @@ function TabelaMobile({
   badgeStatus,
   renderResponsavel,
   renderDiasAtraso,
+  renderSituacao,
   renderDebito,
   acoes,
   pageOffset = 0,
@@ -197,6 +205,10 @@ function TabelaMobile({
               <p className="text-label-sm uppercase text-on-surface-variant">Dias em atraso</p>
               <div className="mt-xs">{renderDiasAtraso(item)}</div>
             </div>
+            <div className="min-w-0 border-t border-border-subtle/30 pt-sm">
+              <p className="text-label-sm uppercase text-on-surface-variant">Situações</p>
+              <div className="mt-xs">{renderSituacao(item)}</div>
+            </div>
             <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
               <div className="min-w-0">
                 <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
@@ -222,6 +234,7 @@ function PainelCondominio({
   badgeStatus,
   renderResponsavel,
   renderDiasAtraso,
+  renderSituacao,
   renderDebito,
   acoes,
 }: {
@@ -233,6 +246,7 @@ function PainelCondominio({
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
   renderDiasAtraso: (item: Unidade) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
 }) {
@@ -300,6 +314,7 @@ function PainelCondominio({
               badgeStatus={badgeStatus}
               renderResponsavel={renderResponsavel}
               renderDiasAtraso={renderDiasAtraso}
+              renderSituacao={renderSituacao}
               renderDebito={renderDebito}
               acoes={acoes}
               embutida
@@ -311,6 +326,7 @@ function PainelCondominio({
               badgeStatus={badgeStatus}
               renderResponsavel={renderResponsavel}
               renderDiasAtraso={renderDiasAtraso}
+              renderSituacao={renderSituacao}
               renderDebito={renderDebito}
               acoes={acoes}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
@@ -331,6 +347,7 @@ type ListaProps = {
   badgeStatus: Record<string, "success" | "error">;
   renderResponsavel: (item: Unidade) => ReactNode;
   renderDiasAtraso: (item: Unidade) => ReactNode;
+  renderSituacao: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
 };
@@ -342,6 +359,7 @@ export function UnidadesPorCondominioLista({
   badgeStatus,
   renderResponsavel,
   renderDiasAtraso,
+  renderSituacao,
   renderDebito,
   acoes,
 }: ListaProps) {
@@ -381,6 +399,7 @@ export function UnidadesPorCondominioLista({
           badgeStatus={badgeStatus}
           renderResponsavel={renderResponsavel}
           renderDiasAtraso={renderDiasAtraso}
+          renderSituacao={renderSituacao}
           renderDebito={renderDebito}
           acoes={acoes}
         />

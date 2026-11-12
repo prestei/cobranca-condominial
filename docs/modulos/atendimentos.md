@@ -61,7 +61,7 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Regras de negócio (fila)
 
-- Unidade na fila: situação `Em cobrança`, `Em acordo`, `Notificada` ou `Ajuizada`; cadastro **Inativa** ou **Quitada** fora da fila.
+- Unidade na fila: situação `Em cobrança`, `Em acordo`, `Notificada` ou `Ajuizada`; cadastro **Inativa**, **Quitada** ou **Unidade prescrita** fora da fila.
 - Inadimplência exibida a partir de débitos `Pendente`/`Vencido` da unidade.
 - RE responsável: vigência em `AtribuicaoCobranca` / `collection_assignment` (`encerrado_em` nulo = vigente).
 - Redistribuição encerra a vigência anterior, grava `anterior_atendente_id`, autor (`atribuido_por_id`), data/hora e motivo opcional; **não altera** `usuario_id` dos atendimentos já registrados.

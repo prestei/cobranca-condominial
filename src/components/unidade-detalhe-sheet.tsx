@@ -19,6 +19,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Icon } from "@/components/icon";
@@ -295,7 +296,10 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                     <DetalheCampo label="Bloco" value={detalhe.unidade.bloco} />
                     <DetalheCampo label="Tipo" value={detalhe.unidade.tipo} />
                     <DetalheCampo label="Situação cadastral" value={detalhe.unidade.status} />
-                    <DetalheCampo label="Cobrança" value={detalhe.unidade.situacao} />
+                    <div className="flex flex-col gap-xs">
+                      <span className="text-label-sm text-on-surface-variant">Cobrança</span>
+                      <BadgeSituacaoCobranca situacao={detalhe.unidade.situacao} />
+                    </div>
                   </div>
                 </SheetPanel>
 

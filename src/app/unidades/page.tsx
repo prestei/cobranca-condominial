@@ -93,6 +93,8 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
+import { rotuloSituacaoListagemUnidade } from "@/lib/unidades/situacao-listagem";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
@@ -325,9 +327,7 @@ function UnidadesPage() {
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const ativas = visible.filter((item) => item.status === "Ativa").length;
   const devendo = visible.filter((item) => emDebitoOperacional(item)).length;
-  const emCobranca = visible.filter(
-    (item) => situacaoCobrancaUnidade(item) !== "Sem cobrança",
-  ).length;
+  const emCobranca = visible.filter((item) => unidadeNaFilaCobrancaAtiva(item)).length;
   const metricValor = (n: number) => String(n).padStart(2, "0");
 
   function directionFor(key: SortKey): TableSortDirection {
@@ -566,21 +566,18 @@ function UnidadesPage() {
     return <span className="block truncate text-center text-on-surface">{contato.nome}</span>;
   }
 
+  function celulaSituacao(item: Unidade) {
+    return (
+      <UnidadeSituacaoListagemBadge unidade={item} temDebitoVencidoAberto={debitosAbertos.has(item.id)} />
+    );
+  }
+
   function celulaDebito(item: Unidade) {
-    if (emDebitoOperacional(item)) {
-      const valor = debitosAbertos.get(item.id) ?? 0;
-      return (
-        <span className="inline-flex flex-col items-center gap-xs">
-          <Badge variant="error">Devendo</Badge>
-          <span className="tabular-nums">{formatarMoeda(String(valor))}</span>
-        </span>
-      );
+    const valor = debitosAbertos.get(item.id);
+    if (valor == null || valor <= 0) {
+      return <span className="text-on-surface-variant">—</span>;
     }
-    // Em cobrança sem débitos na base = importação incompleta ou sync — não é quitação/"em dia".
-    if (unidadeNaFilaCobrancaAtiva(item)) {
-      return <Badge variant="secondary">Aguardando débitos</Badge>;
-    }
-    return <Badge variant="success">Em dia</Badge>;
+    return <span className="tabular-nums">{formatarMoeda(String(valor))}</span>;
   }
 
   function celulaDiasAtraso(item: Unidade) {
@@ -609,19 +606,18 @@ function UnidadesPage() {
     "Condomínio",
     "Cadastro",
     "Dias em atraso",
+    "Situações",
     "Débito",
-    "Valor em aberto",
   ] as const;
 
-  function textoDebitoExport(item: Unidade) {
-    if (emDebitoOperacional(item)) return "Devendo";
-    if (unidadeNaFilaCobrancaAtiva(item)) return "Aguardando débitos";
-    return "Em dia";
+  function textoSituacaoExport(item: Unidade) {
+    return rotuloSituacaoListagemUnidade(item, debitosAbertos.has(item.id));
   }
 
-  function valorAbertoExport(item: Unidade) {
-    if (!emDebitoOperacional(item)) return "";
-    return formatarMoeda(String(debitosAbertos.get(item.id) ?? 0));
+  function valorDebitoExport(item: Unidade) {
+    const valor = debitosAbertos.get(item.id);
+    if (valor == null || valor <= 0) return "";
+    return formatarMoeda(String(valor));
   }
 
   function linhasExportacao() {
@@ -630,8 +626,8 @@ function UnidadesPage() {
       nomeCondominio(item.condominioId, cadastros),
       item.status,
       textoDiasAtrasoExport(item),
-      textoDebitoExport(item),
-      valorAbertoExport(item),
+      textoSituacaoExport(item),
+      valorDebitoExport(item),
     ]);
   }
 
@@ -899,13 +895,14 @@ function UnidadesPage() {
   const desktopTable = (
     <Table aria-label="Unidades" showExport={false} fitContainer>
       <colgroup>
-        <col className="w-[12%]" />
-        <col className="w-[16%]" />
-        <col className="w-[18%]" />
         <col className="w-[11%]" />
-        <col className="w-[13%]" />
-        <col className="w-[18%]" />
+        <col className="w-[14%]" />
+        <col className="w-[16%]" />
+        <col className="w-[10%]" />
         <col className="w-[12%]" />
+        <col className="w-[17%]" />
+        <col className="w-[11%]" />
+        <col className="w-[9%]" />
       </colgroup>
       <TableHeader>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
@@ -922,6 +919,7 @@ function UnidadesPage() {
           <TableHead align="center" className="min-w-[7rem] whitespace-nowrap">
             Dias em atraso
           </TableHead>
+          <TableHead align="center">Situações</TableHead>
           <TableHead align="center" sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
@@ -930,7 +928,7 @@ function UnidadesPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={7}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={8}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -959,6 +957,9 @@ function UnidadesPage() {
               </TableCell>
               <TableCell align="center" className="align-middle whitespace-nowrap">
                 {celulaDiasAtraso(item)}
+              </TableCell>
+              <TableCell align="center" className="max-w-0 align-middle">
+                {celulaSituacao(item)}
               </TableCell>
               <TableCell align="center" className="max-w-0 align-middle">
                 {celulaDebito(item)}
@@ -1010,6 +1011,10 @@ function UnidadesPage() {
                   <p className="text-label-sm uppercase text-on-surface-variant">Dias em atraso</p>
                   <div className="mt-xs">{celulaDiasAtraso(item)}</div>
                 </div>
+                <div className="min-w-0 border-t border-border-subtle/30 pt-sm">
+                  <p className="text-label-sm uppercase text-on-surface-variant">Situações</p>
+                  <div className="mt-xs">{celulaSituacao(item)}</div>
+                </div>
                 <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
                   <div className="min-w-0">
                     <p className="text-label-sm uppercase text-on-surface-variant">Débito</p>
@@ -1044,7 +1049,7 @@ function UnidadesPage() {
       />
       <PageContent className="max-md:gap-md max-md:py-md">
         {authLoading ? (
-          <SkeletonListPage metrics={4} rows={8} cols={7} label="Carregando unidades" />
+          <SkeletonListPage metrics={4} rows={8} cols={8} label="Carregando unidades" />
         ) : (
         <>
         <section aria-label="Resumo de unidades">
@@ -1136,7 +1141,7 @@ function UnidadesPage() {
                 onChange: setDebito,
                 options: [
                   { value: "todos", label: "Todos" },
-                  { value: "devendo", label: "Devendo" },
+                  { value: "devendo", label: "Inadimplente" },
                   { value: "em-dia", label: "Em dia" },
                 ],
               },
@@ -1167,6 +1172,7 @@ function UnidadesPage() {
                   badgeStatus={badgeStatus}
                   renderResponsavel={celulaResponsavel}
                   renderDiasAtraso={celulaDiasAtraso}
+                  renderSituacao={celulaSituacao}
                   renderDebito={celulaDebito}
                   acoes={acoes}
                 />
@@ -1179,6 +1185,7 @@ function UnidadesPage() {
                   badgeStatus={badgeStatus}
                   renderResponsavel={celulaResponsavel}
                   renderDiasAtraso={celulaDiasAtraso}
+                  renderSituacao={celulaSituacao}
                   renderDebito={celulaDebito}
                   acoes={acoes}
                 />
@@ -1324,7 +1331,8 @@ function UnidadesPage() {
                   ))}
                 </Select>
                 <SheetHelpText>
-                  Sem cobrança: fora da fila de inadimplência. Em cobrança e demais: operação ativa.
+                  Sem cobrança: fora da fila. Em cobrança, em acordo, notificada e ajuizada: operação ativa. Unidade
+                  prescrita: fora da fila; débitos permanecem apenas para consulta.
                 </SheetHelpText>
               </FormField>
                 </>

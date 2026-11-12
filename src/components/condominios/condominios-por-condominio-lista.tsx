@@ -101,7 +101,7 @@ function TabelaDesktop({
           <TableHead align="center">Cidade</TableHead>
           <TableHead align="center">Administradora</TableHead>
           <TableHead align="center">Advogado responsável</TableHead>
-          <TableHead align="center">Situação</TableHead>
+          <TableHead align="center">Situações</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -218,11 +218,14 @@ function TabelaMobile({
               <p className="text-label-sm uppercase text-on-surface-variant">Advogado responsável</p>
               {renderAdvogados(condominio)}
             </div>
-            <div className="flex items-start justify-between gap-md border-t border-border-subtle/30 pt-sm">
+            <div className="flex flex-col gap-xs border-t border-border-subtle/30 pt-sm">
               <div className="min-w-0 text-body-sm text-on-surface-variant">
                 {[condominio.cidade.trim(), condominio.administradora.trim()].filter(Boolean).join(" · ") || "—"}
               </div>
-              <div className="shrink-0">{renderSituacao(item)}</div>
+              <div>
+                <p className="text-label-sm uppercase text-on-surface-variant">Situações</p>
+                <div className="mt-xs">{renderSituacao(item)}</div>
+              </div>
             </div>
           </div>
         </TableMobileCard>

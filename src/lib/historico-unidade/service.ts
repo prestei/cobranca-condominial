@@ -339,6 +339,19 @@ function eventoPagamento(debito: Debito): EventoHistoricoUnidade | null {
   };
 }
 
+function observacaoAlteracaoSituacaoCobranca(registro: { dadosAnteriores: string; dadosNovos: string }): string | null {
+  try {
+    const anterior = JSON.parse(registro.dadosAnteriores) as { situacao?: string };
+    const novo = JSON.parse(registro.dadosNovos) as { situacao?: string };
+    const de = anterior.situacao?.trim() || "—";
+    const para = novo.situacao?.trim() || "—";
+    if (de === para) return null;
+    return `Situação de cobrança: ${de} → ${para}`;
+  } catch {
+    return null;
+  }
+}
+
 function eventosAuditoriaUnidade(
   unidadeId: number,
   idsAtendimento: Set<string>,
@@ -420,6 +433,9 @@ function eventosAuditoriaUnidade(
       const { ator, atorPerfil } = Number.isFinite(userId)
         ? rotuloAutor(userId, cadastros)
         : { ator: "—", atorPerfil: "outro" as const };
+      const alteracaoSituacao = registro.camposAlterados.includes("situacao")
+        ? observacaoAlteracaoSituacaoCobranca(registro)
+        : null;
       eventos.push({
         id: `audit-unit-${registro.id}`,
         tipo: "correcao_unidade",
@@ -427,8 +443,8 @@ function eventosAuditoriaUnidade(
         dataHora: registro.dataHora,
         ator,
         atorPerfil,
-        titulo: "Correção cadastral da unidade",
-        observacao: registro.camposAlterados.replaceAll("_", " "),
+        titulo: alteracaoSituacao ? "Alteração da situação de cobrança" : "Correção cadastral da unidade",
+        observacao: alteracaoSituacao ?? registro.camposAlterados.replaceAll("_", " "),
         registroOrigemId: registro.registroId,
       });
     }
