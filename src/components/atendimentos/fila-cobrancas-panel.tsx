@@ -212,7 +212,10 @@ export function FilaCobrancasPanel() {
   );
 
   const situacoesFila = useMemo(
-    () => situacoesUnidade.filter((item) => item !== "Sem cobrança" && item !== "Quitada"),
+    () =>
+      situacoesUnidade.filter(
+        (item) => item !== "Sem cobrança" && item !== "Quitada" && item !== "Unidade prescrita",
+      ),
     [],
   );
 

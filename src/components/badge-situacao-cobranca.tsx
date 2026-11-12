@@ -8,6 +8,8 @@ const estiloSituacao: Record<(typeof situacoesUnidade)[number], string> = {
     "bg-[color-mix(in_srgb,var(--color-status-settled)_16%,var(--color-surface-card))] text-status-settled",
   Notificada: "bg-primary-fixed text-on-primary-fixed-variant",
   Ajuizada: "bg-error-container text-on-error-container",
+  "Unidade prescrita":
+    "border border-border-subtle bg-surface-card text-on-surface-variant",
   Quitada: "bg-status-settled text-on-primary",
 };
 

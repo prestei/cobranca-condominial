@@ -90,7 +90,27 @@ import {
   vencimentoParaFaixaDashboard,
   type FaixaAtrasoDashboardId,
 } from "@/lib/dashboard/faixas-atraso";
-import { dataCorteLimite, debitoAbertoNaData, diasDeAtraso, formatarData, formatarMoeda, grupoDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, escopoCondominios, escopoUnidades, nomeCondominio, nomeUnidade, origensDebito, statusDebito, type Debito, type Unidade } from "@/data/catalogo";
+import {
+  dataCorteLimite,
+  debitoAbertoNaData,
+  diasDeAtraso,
+  formatarData,
+  formatarMoeda,
+  grupoDebito,
+  hojeIso,
+  LIMITE_AMIGAVEL_DIAS,
+  escopoCondominios,
+  escopoUnidades,
+  nomeCondominio,
+  nomeUnidade,
+  origensDebito,
+  situacaoCobrancaUnidade,
+  situacoesUnidade,
+  statusDebito,
+  unidadePrescrita,
+  type Debito,
+  type Unidade,
+} from "@/data/catalogo";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
@@ -212,6 +232,8 @@ function DebitosPage() {
   const [appliedOrigem, setAppliedOrigem] = useState("todas");
   const [unidadeId, setUnidadeId] = useState("todas");
   const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
+  const [situacaoCobranca, setSituacaoCobranca] = useState("todas");
+  const [appliedSituacaoCobranca, setAppliedSituacaoCobranca] = useState("todas");
   const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
@@ -328,6 +350,10 @@ function DebitosPage() {
         (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
         (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
       const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
+      const unidadeDebito = cadastros.unidades.find((u) => u.id === item.unidadeId);
+      const cobrancaUnidade = unidadeDebito ? situacaoCobrancaUnidade(unidadeDebito) : "";
+      const matchesSituacaoCobranca =
+        appliedSituacaoCobranca === "todas" || cobrancaUnidade === appliedSituacaoCobranca;
       const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId, cadastros)} ${nomeCondominio(item.condominioId, cadastros)}`.toLocaleLowerCase("pt-BR");
       return (
         matchesStatus &&
@@ -336,6 +362,7 @@ function DebitosPage() {
         matchesCidade &&
         matchesPeriodo &&
         matchesUnidade &&
+        matchesSituacaoCobranca &&
         (query.length === 0 || haystack.includes(query))
       );
     })
@@ -393,9 +420,11 @@ function DebitosPage() {
     const matchesCidade = appliedCidade === "todas" || item.cidade.trim() === appliedCidade;
     return matchesCondominio && matchesCidade;
   });
-  const unidadesCarteira = cadastros.unidades.filter((item) =>
+  const unidadesNoRecorte = cadastros.unidades.filter((item) =>
     condominiosNoFiltro.some((condominio) => condominio.id === item.condominioId),
-  ).length;
+  );
+  const unidadesCarteira = unidadesNoRecorte.length;
+  const unidadesPrescritasRecorte = unidadesNoRecorte.filter((item) => unidadePrescrita(item)).length;
   const indicadores = calcularIndicadoresInadimplencia({
     debitos: emAbertoNaData,
     dataBase: appliedDataBase,
@@ -413,7 +442,7 @@ function DebitosPage() {
     totalAtualizado > 0 ? (acimaLimite / totalAtualizado) * 100 : null;
   const percentualValorAte =
     totalAtualizado > 0 ? (ateLimite / totalAtualizado) * 100 : null;
-  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
+  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedSituacaoCobranca}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
   const vazioGrafico = (
     <p className="py-lg text-center text-body-sm text-on-surface-variant">Sem dados no recorte.</p>
   );
@@ -446,6 +475,7 @@ function DebitosPage() {
     setAppliedStatus(status);
     setAppliedOrigem(origem);
     setAppliedUnidadeId(unidadeId);
+    setAppliedSituacaoCobranca(situacaoCobranca);
     setPage(1);
   }
 
@@ -469,6 +499,8 @@ function DebitosPage() {
     setAppliedOrigem("todas");
     setUnidadeId("todas");
     setAppliedUnidadeId("todas");
+    setSituacaoCobranca("todas");
+    setAppliedSituacaoCobranca("todas");
     setPage(1);
   }
 
@@ -1138,12 +1170,22 @@ function DebitosPage() {
             },
             {
               id: "situacao",
-              label: "Situação",
+              label: "Situação do débito",
               value: status,
               onChange: setStatus,
               options: [
                 { value: "todos", label: "Todas" },
                 ...statusDebito.map((item) => ({ value: item, label: item })),
+              ],
+            },
+            {
+              id: "situacao-cobranca",
+              label: "Situação de cobrança",
+              value: situacaoCobranca,
+              onChange: setSituacaoCobranca,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...situacoesUnidade.map((item) => ({ value: item, label: item })),
               ],
             },
             {
@@ -1167,7 +1209,11 @@ function DebitosPage() {
                 <h3 className="text-label-lg text-on-surface">Inadimplência das unidades</h3>
                 <p className="mt-xs text-body-sm text-on-surface-variant">
                   {unidadesCarteira > 0
-                    ? `${unidadesDevedoras} de ${unidadesCarteira} unidades com débito vencido na data-base ${formatarData(appliedDataBase)}`
+                    ? `${unidadesDevedoras} de ${unidadesCarteira} unidades com débito vencido na data-base ${formatarData(appliedDataBase)}${
+                        unidadesPrescritasRecorte > 0
+                          ? ` · ${unidadesPrescritasRecorte} unidade(s) prescrita(s) no recorte`
+                          : ""
+                      }`
                     : "Sem unidades no recorte filtrado"}
                 </p>
               </div>

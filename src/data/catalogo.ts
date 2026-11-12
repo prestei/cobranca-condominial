@@ -291,7 +291,18 @@ export type NotificacaoFalha = {
 export const tiposUnidade = ["Apartamento", "Casa", "Sala", "Loja"] as const;
 export const statusUnidade = ["Ativa", "Inativa"] as const;
 /** Sem cobrança = fora da fila de inadimplência; demais estados entram com débito/importação ou movimentação operacional. */
-export const situacoesUnidade = ["Sem cobrança", "Em cobrança", "Em acordo", "Notificada", "Ajuizada", "Quitada"] as const;
+export const SITUACAO_COBRANCA_PRESCRITA = "Unidade prescrita" as const;
+/** Código interno e alias de importação para {@link SITUACAO_COBRANCA_PRESCRITA}. */
+export const CODIGO_SITUACAO_COBRANCA_PRESCRITA = "PRESCRITA" as const;
+export const situacoesUnidade = [
+  "Sem cobrança",
+  "Em cobrança",
+  "Em acordo",
+  "Notificada",
+  "Ajuizada",
+  SITUACAO_COBRANCA_PRESCRITA,
+  "Quitada",
+] as const;
 export const SITUACAO_COBRANCA_PADRAO: (typeof situacoesUnidade)[number] = "Sem cobrança";
 export const tiposPessoa = ["Fisica", "Juridica"] as const;
 export const tiposVinculo = ["Proprietario", "Inquilino", "Administrador", "Sindico"] as const;
@@ -766,10 +777,19 @@ export function unidadeComDebitoOperacional(item: { situacao?: string }, temDebi
   return temDebitoVencidoAberto;
 }
 
+const ALIASES_SITUACAO_COBRANCA: Record<string, (typeof situacoesUnidade)[number]> = {
+  [CODIGO_SITUACAO_COBRANCA_PRESCRITA]: SITUACAO_COBRANCA_PRESCRITA,
+  Prescrita: SITUACAO_COBRANCA_PRESCRITA,
+};
+
 export function situacaoCobrancaUnidade(item: { situacao?: string }) {
   const raw = item.situacao?.trim();
   if (!raw || raw === "Regular") return SITUACAO_COBRANCA_PADRAO;
-  return raw;
+  return ALIASES_SITUACAO_COBRANCA[raw] ?? raw;
+}
+
+export function unidadePrescrita(item: { situacao?: string }) {
+  return situacaoCobrancaUnidade(item) === SITUACAO_COBRANCA_PRESCRITA;
 }
 
 export function debitoAbertoNaData(

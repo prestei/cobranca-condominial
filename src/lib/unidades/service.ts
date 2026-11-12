@@ -27,7 +27,7 @@ import {
   updateUnit,
 } from "@/lib/db/repositories/unit-repository";
 import { responsavelParaResposta } from "@/lib/privacidade/dados-pessoais";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export type UnidadeInput = {
   condominioId: number;
@@ -117,7 +117,7 @@ export async function obterUnidadeDetalhe(userId: number, unidadeId: number) {
   }
   await unidadeNoEscopo(userId, unidade);
 
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   const vinculosRaw = await listUnitLinksByUnit(unidadeId);
   const vinculos = await Promise.all(
     vinculosRaw.map(async (vinculo) => {
