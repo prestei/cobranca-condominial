@@ -64,6 +64,8 @@ type AppShellProps = {
   onAbrirNotificacao?: (id: number) => void;
   onLogout?: () => void;
   className?: string;
+  /** Trava a altura da viewport (inbox estilo WhatsApp) — só usar em rotas dedicadas. */
+  viewportLocked?: boolean;
 };
 
 export function AppShell({
@@ -79,6 +81,7 @@ export function AppShell({
   onAbrirNotificacao,
   onLogout,
   className,
+  viewportLocked = false,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -125,7 +128,9 @@ export function AppShell({
 
   return (
     <AppShellContext.Provider value={shellContext}>
-      <div className={`app-layout flex min-h-screen bg-[#F6F8FB] ${className ?? ""}`}>
+      <div
+        className={`app-layout flex bg-[#F6F8FB] ${viewportLocked ? "h-dvh overflow-hidden" : "min-h-screen"} ${className ?? ""}`}
+      >
         {(notifOpen || userOpen) && (
           <button
             type="button"
@@ -154,7 +159,11 @@ export function AppShell({
           <div className="h-full">{sidebar}</div>
         </div>
 
-        <div className="app-main flex min-w-0 flex-1 flex-col">
+        <div
+          className={`app-main flex min-w-0 flex-1 flex-col ${
+            viewportLocked ? "h-dvh min-h-0 w-full overflow-hidden" : ""
+          }`}
+        >
           <AppShellHeader
             user={user}
             headerPage={headerPage}

@@ -469,19 +469,24 @@ export function SwitchField({ label, htmlFor, description, children, className }
 type FormFieldProps = {
   label: string;
   htmlFor?: string;
+  /** Id do rótulo para `aria-labelledby` em grupos (ex.: IconChoiceGroup). */
+  labelId?: string;
   required?: boolean;
   error?: string;
   children: ReactNode;
   className?: string;
 };
 
-export function FormField({ label, htmlFor, required, error, children, className }: FormFieldProps) {
+export function FormField({ label, htmlFor, labelId, required, error, children, className }: FormFieldProps) {
   const invalid = Boolean(error);
+  const generatedLabelId = useId();
+  const resolvedLabelId = labelId ?? (htmlFor ? undefined : generatedLabelId);
 
   return (
     <div className={`flex flex-col gap-xs ${className ?? ""}`}>
       <label
         htmlFor={htmlFor}
+        id={resolvedLabelId}
         className={`text-label-lg ${invalid ? "text-status-critical" : "text-primary-container"}`}
       >
         {label}

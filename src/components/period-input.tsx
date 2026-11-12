@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { Icon } from "@/components/icon";
 import { FormField, Input, formControlClassName } from "@/components/input";
 
@@ -30,6 +30,10 @@ type PeriodInputProps = {
   invalid?: boolean;
   disabled?: boolean;
   className?: string;
+  /** `field` no formulário; `chip` na barra compacta da fila. */
+  appearance?: "field" | "chip";
+  /** Substitui o rótulo fechado, por exemplo ao chegar de um atalho legado. */
+  labelOverride?: string;
 };
 
 function isoData(data: Date) {
@@ -78,7 +82,16 @@ export function resolverPeriodo(value: PeriodValue, hoje: string) {
   return { inicio: value.de, fim: value.ate };
 }
 
-export function PeriodInput({ id, value, onChange, invalid, disabled, className }: PeriodInputProps) {
+export function PeriodInput({
+  id,
+  value,
+  onChange,
+  invalid,
+  disabled,
+  className,
+  appearance = "field",
+  labelOverride,
+}: PeriodInputProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const panelId = `${fieldId}-painel`;
@@ -109,8 +122,12 @@ export function PeriodInput({ id, value, onChange, invalid, disabled, className 
     setOpen(false);
   }
 
+  const chip = appearance === "chip";
+  const rotulo = labelOverride?.trim() || rotuloPeriodo(value);
+  const chipAtivo = Boolean(labelOverride?.trim()) || value.preset !== "todos" || Boolean(value.de || value.ate);
+
   return (
-    <span ref={rootRef} className="relative block w-full">
+    <span ref={rootRef} className={chip ? "relative inline-flex min-w-0 max-w-full" : "relative block w-full"}>
       <button
         type="button"
         id={fieldId}
@@ -119,22 +136,36 @@ export function PeriodInput({ id, value, onChange, invalid, disabled, className 
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-invalid={invalid || undefined}
-        className={`${formControlClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${borda} ${className ?? ""}`}
+        className={
+          chip
+            ? `inline-flex h-9 min-w-0 max-w-full cursor-pointer items-center gap-xs rounded-full border px-md text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                chipAtivo
+                  ? "border-primary-container bg-primary-container text-on-primary"
+                  : "border-border-subtle bg-surface-card text-on-surface hover:bg-surface-subtle"
+              } ${className ?? ""}`
+            : `${formControlClassName} peer flex cursor-pointer items-center pr-[calc(var(--spacing-md)+1rem+var(--spacing-sm))] text-left ${borda} ${className ?? ""}`
+        }
         onClick={() => setOpen((atual) => !atual)}
       >
-        <span className="truncate">{rotuloPeriodo(value)}</span>
+        {chip ? <Icon icon={Calendar} size="sm" className="shrink-0" aria-hidden /> : null}
+        <span className="truncate">{rotulo}</span>
+        {chip ? <Icon icon={ChevronDown} size="sm" className="shrink-0" aria-hidden /> : null}
       </button>
-      <Icon
-        icon={ChevronDown}
-        size="sm"
-        className="pointer-events-none absolute top-1/2 right-md -translate-y-1/2 text-on-surface-variant peer-disabled:opacity-60"
-      />
+      {chip ? null : (
+        <Icon
+          icon={ChevronDown}
+          size="sm"
+          className="pointer-events-none absolute top-1/2 right-md -translate-y-1/2 text-on-surface-variant peer-disabled:opacity-60"
+        />
+      )}
       {open ? (
         <div
           id={panelId}
           role="dialog"
           aria-label="Período"
-          className="absolute top-[calc(100%+var(--spacing-xs))] z-40 w-full overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-popover"
+          className={`absolute top-[calc(100%+var(--spacing-xs))] z-40 overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-popover ${
+            chip ? "left-0 w-72 max-w-[calc(100vw-1.5rem)]" : "w-full"
+          }`}
         >
           <div className="flex flex-col py-xs" role="listbox" aria-label="Atalhos">
             {periodPresets.map((item) => (

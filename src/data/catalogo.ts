@@ -326,6 +326,29 @@ export const motivosPendencia = [
   "Não informou o motivo",
   "Outro",
 ] as const;
+
+const PREFIXO_MOTIVO_PENDENCIA_OUTRO = "Outro — ";
+
+/** Valida valor persistido em `service_ticket.motivo` (catálogo ou texto livre após "Outro — "). */
+export function motivoPendenciaAceito(motivo: string): boolean {
+  const texto = motivo.trim();
+  if (!texto) return false;
+  if ((motivosPendencia as readonly string[]).includes(texto)) return true;
+  if (texto.startsWith(PREFIXO_MOTIVO_PENDENCIA_OUTRO)) {
+    return texto.slice(PREFIXO_MOTIVO_PENDENCIA_OUTRO.length).trim().length >= 2;
+  }
+  return false;
+}
+
+/** Monta o motivo gravado quando a categoria é "Outro" e há detalhe digitado. */
+export function montarMotivoPendencia(categoria: string, detalheOutro?: string): string {
+  if (categoria === "Outro") {
+    const detalhe = detalheOutro?.trim() ?? "";
+    return detalhe ? `${PREFIXO_MOTIVO_PENDENCIA_OUTRO}${detalhe}` : "Outro";
+  }
+  return categoria;
+}
+
 export const gruposDebito = ["Cota ordinária", "Taxa extra", "Acordo", "Multa por infração", "Outros"] as const;
 export const faixasAtraso = [
   { label: "Até 30 dias", min: 0, max: 30 },

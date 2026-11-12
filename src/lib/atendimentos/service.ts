@@ -1,4 +1,14 @@
-import { agoraIso, canaisAtendimento, escopoCondominios, escopoUnidades, hojeIso, motivosPendencia, statusAtendimento, type Atendimento, type Cadastros } from "@/data/catalogo";
+import {
+  agoraIso,
+  canaisAtendimento,
+  escopoCondominios,
+  escopoUnidades,
+  hojeIso,
+  motivoPendenciaAceito,
+  statusAtendimento,
+  type Atendimento,
+  type Cadastros,
+} from "@/data/catalogo";
 import {
   classificarAtendimentoOperacional,
   periodoUltimos7Dias,
@@ -143,7 +153,7 @@ async function validarEntrada(input: AtendimentoInput) {
     if (!motivo) {
       throw new AtendimentoServiceError("Selecione o motivo da pendência.", 400);
     }
-    if (!motivosPendencia.includes(motivo as (typeof motivosPendencia)[number])) {
+    if (!motivoPendenciaAceito(motivo)) {
       throw new AtendimentoServiceError("Motivo da pendência inválido.", 400);
     }
   } else {

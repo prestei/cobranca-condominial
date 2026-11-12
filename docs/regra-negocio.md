@@ -153,7 +153,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Distribuição de cobranças (T09)
 
-- **Distribuição** integrada à fila em `/atendimentos` (botão **Configurar Distribuição** no header + atribuição manual); atalho `/distribuicao` redireciona para `/atendimentos`.
+- **Distribuição** integrada à fila em `/atendimentos`; atalho `/distribuicao` redireciona para `/atendimentos`.
 - Apenas perfil com permissão de gestão de equipe (`usuarios.criar` no seed = Administradora) distribui ou redistribui.
 - Atribuição manual por **RE** do atendente; interface operacional exibe RE, não nome pessoal.
 - Cada mudança gera novo registro em `collection_assignment`; vigência anterior recebe `encerrado_em`, `anterior_atendente_id` e motivo quando informado.
@@ -177,7 +177,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 - Resposta Sim/Não e motivo da pendência (catálogo) quando houve contato
 - Agendamento de retorno (data e próxima ação)
 - **Agendar atendimento:** sheet global (`AgendarAtendimentoProvider` em `Providers`) com `atendimentos.criar` — unidades, débitos, detalhe/histórico da unidade, `/minha-agenda`, home do atendente e central de pendências; na fila de cobranças o fluxo é registrar contato (palitagem), não o atalho de agendar; grava `service_ticket` com `data_proxima_acao` via `POST /api/atendimentos`
-- Agenda de retornos (T11): filtro **Retorno** na fila `/atendimentos` (ex. `?retorno=hoje`); API `GET /api/retornos` permanece para integrações; conclusão na fila via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
+- Agenda de retornos (T11): chip **Período** na fila `/atendimentos` (atalhos e De/Até; `?retorno=hoje` abre em Hoje); API `GET /api/retornos` permanece para integrações; conclusão na fila via `POST /api/atendimentos/[id]/concluir-retorno` (preserva agendamento original; histórico permanece)
 - **Notificações internas (T34):** central no sino do header e em `/notificacoes` — atribuição/transferência de carteira, atendimentos e movimentações, retornos (agendado, próximo, atrasado, lembrete do dia), alteração de situação da unidade e pendências da central T30. Destinatário: carteira vigente ou colaborador impactado; idempotência por evento; atualização automática no cliente (polling). Falhas vão para log interno sem bloquear fluxos. WhatsApp, SMS e e-mail **desativados** até aprovação. Detalhes: [modulos/notificacoes.md](modulos/notificacoes.md)
 - Atendente conclui retornos só da carteira vigente; administradora acompanha por RE
 - Situação da unidade: em cobrança, em acordo, notificada, ajuizada ou quitada

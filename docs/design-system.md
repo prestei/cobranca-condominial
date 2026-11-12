@@ -13,7 +13,8 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `PeriodInput` | `period-input.tsx` | Um campo de período: atalhos (hoje, ontem, 7 dias, 30 dias, este mês, todos) e intervalo personalizado no mesmo controle. |
 | `Checkbox`, `Radio`, `Switch` | `input.tsx` | Controles de seleção com estilo primário. |
 | `CheckboxField`, `RadioField`, `SwitchField` | `input.tsx` | Label ao lado do controle (e descrição opcional). |
-| `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. |
+| `FormField` | `input.tsx` | Label, obrigatório (`required`) e mensagem de erro. Prop opcional `labelId` para `aria-labelledby` em grupos customizados. |
+| `IconChoiceGroup` | `icon-choice-group.tsx` | `layout`: `grid` (grade), `row` (ícones em uma linha), `segmented` (barra Sim/Não). |
 | `FiltrosSection` | `filtros-section.tsx` | Título **Filtros** (`text-label-lg`), espaçamento curto e seta para expandir/recolher. Envolve o `FilterBar` em todas as listagens. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
 | `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
@@ -73,7 +74,7 @@ Barras de rolagem finas e discretas em todo o sistema (`globals.css`, camada `ba
 
 `Input`, `Textarea` e `Select` usam `FormField` com label acima do campo. O `Select` mostra a opção escolhida e um `ChevronDown` a `spacing-md` da borda direita, com o mesmo padding do `Input`. Ao abrir, o primeiro item é o campo **Buscar**: o texto digitado filtra a lista. Campos curtos e relacionados ficam na mesma linha (`grid grid-cols-2 gap-md`); nome, descrição e observação continuam em largura total.
 
-`PeriodInput` ocupa o lugar de um único campo. O valor fechado mostra o atalho ou o intervalo. Ao abrir, a lista traz Hoje, Ontem, Últimos 7 dias, Últimos 30 dias, Este mês, Mês anterior e Todos; em seguida, De e Até formam o período personalizado.
+`PeriodInput` ocupa o lugar de um único campo. O valor fechado mostra o atalho ou o intervalo. Ao abrir, a lista traz Hoje, Ontem, Últimos 7 dias, Últimos 30 dias, Este mês, Mês anterior e Todos; em seguida, De e Até formam o período personalizado. Com `appearance="chip"`, o mesmo painel abre a partir de um chip compacto (fila de Atendimentos).
 
 ```tsx
 <FormField label="Período" htmlFor="periodo">

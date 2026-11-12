@@ -179,6 +179,9 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       : usuarioSessaoApp(cadastros, sessao.userId, sessao);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
 
+  const layoutInboxAtendimentos =
+    pathname === "/atendimentos" || (pathname?.startsWith("/atendimentos/") ?? false);
+
   const handleAbrirNotificacao = useCallback(
     async (id: number) => {
       const resultado = await abrirNotificacao(id);
@@ -199,6 +202,7 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
 
   return (
     <AppShell
+      viewportLocked={layoutInboxAtendimentos}
       onLogout={logout}
       headerCarregando={sessaoCarregando}
       notificationCount={naoLidas}
@@ -251,7 +255,13 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       }
       user={usuario}
     >
-      <AppShellMain>{children}</AppShellMain>
+      <AppShellMain
+        className={
+          layoutInboxAtendimentos ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-card" : undefined
+        }
+      >
+        {children}
+      </AppShellMain>
     </AppShell>
   );
 }

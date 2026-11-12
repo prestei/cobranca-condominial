@@ -513,6 +513,98 @@ export function SkeletonSidebarNav({
   );
 }
 
+/** Layout operacional de atendimentos: fila (chips + lista) + painel do caso (desktop). */
+export function SkeletonAtendimentosOperacao({
+  filaRows = 8,
+  showHeaderAction = false,
+  className = "",
+  label = "Carregando atendimentos",
+}: {
+  filaRows?: number;
+  showHeaderAction?: boolean;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <SkeletonStatus
+      label={label}
+      className={`flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-card ${className}`}
+    >
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[1024px]:flex-row">
+        <aside
+          className="flex min-h-0 w-full flex-col border-border-subtle min-[1024px]:w-[min(100%,22rem)] min-[1024px]:shrink-0 min-[1024px]:border-r"
+          aria-hidden="true"
+        >
+          <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-2 py-2">
+            <div className="flex min-w-0 flex-1 gap-1 overflow-hidden">
+              <Skeleton className="h-8 w-[4.5rem] shrink-0 rounded-full" />
+              <Skeleton className="h-8 w-[5.5rem] shrink-0 rounded-full" />
+              <Skeleton className="h-8 w-[6.5rem] shrink-0 rounded-full" />
+            </div>
+            {showHeaderAction ? <Skeleton className="h-9 w-44 shrink-0 rounded-md" /> : null}
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden bg-surface-container-low">
+            {Array.from({ length: filaRows }, (_, index) => (
+              <div
+                key={index}
+                className="flex w-full gap-3 border-b border-border-subtle px-3 py-2.5"
+              >
+                <Skeleton className="size-12 shrink-0 rounded-full" />
+                <div className="flex min-w-0 flex-1 flex-col gap-sm pt-0.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Skeleton className={`h-4 ${index % 2 === 0 ? "w-36" : "w-28"}`} />
+                    <Skeleton className="h-3 w-10 shrink-0" />
+                  </div>
+                  <Skeleton className="h-3.5 w-full max-w-[90%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div
+          className="hidden min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-border-subtle min-[1024px]:flex min-[1024px]:border-l"
+          aria-hidden="true"
+        >
+          <div className="flex shrink-0 flex-wrap items-center gap-sm border-b border-border-subtle bg-surface-container-low px-md py-2">
+            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-5 w-44 max-w-full" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-64 max-w-full" />
+            </div>
+            <Skeleton className="hidden h-4 w-28 min-[720px]:block" />
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-md overflow-hidden bg-surface-container-low p-md">
+            <div className="flex flex-wrap gap-sm">
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="flex flex-col gap-md border-l border-border-subtle pl-md">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="relative flex flex-col gap-xs">
+                  <Skeleton className="absolute -left-[calc(0.5rem+5px)] top-1 size-2.5 rounded-full" />
+                  <Skeleton className="h-20 w-full rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle bg-surface-card px-md py-md">
+            <Skeleton className="size-11 shrink-0 rounded-md" />
+            <Skeleton className="size-11 shrink-0 rounded-md" />
+            <Skeleton className="h-11 min-h-11 flex-1 rounded-md" />
+            <Skeleton className="size-11 shrink-0 rounded-md" />
+          </div>
+        </div>
+      </div>
+    </SkeletonStatus>
+  );
+}
+
 /** Calendário / grade mensal. */
 export function SkeletonCalendar({
   className = "",
