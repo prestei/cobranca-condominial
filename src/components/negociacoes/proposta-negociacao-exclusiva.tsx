@@ -5,7 +5,7 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  CalendarDays,
+  CalendarX2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -15,11 +15,12 @@ import {
   Printer,
   Scale,
   User,
-  Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
+import { CardMetric } from "@/components/card-metric";
 import { GraficoRosca } from "@/components/charts";
+import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Textarea } from "@/components/input";
 import { SkeletonCardList } from "@/components/skeleton";
@@ -66,52 +67,6 @@ function rotuloStatusExibicao(status: string) {
 function centavos(valor: string): number {
   const n = Number(String(valor).replace(",", "."));
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
-}
-
-function FaixaMeta({
-  icon,
-  rotulo,
-  valor,
-}: {
-  icon: typeof Building2;
-  rotulo: string;
-  valor: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-xs rounded-lg border border-border-subtle bg-surface-card px-md py-sm">
-      <span className="flex items-center gap-xs text-label-sm text-on-surface-variant">
-        <Icon icon={icon} size="sm" />
-        {rotulo}
-      </span>
-      <span className="truncate text-body-md font-medium text-on-surface">{valor}</span>
-    </div>
-  );
-}
-
-function CartaoStatus({
-  tom,
-  titulo,
-  quantidade,
-  valor,
-}: {
-  tom: "success" | "secondary" | "error";
-  titulo: string;
-  quantidade: number;
-  valor: string;
-}) {
-  const borda =
-    tom === "success"
-      ? "border-success/30 bg-success-container/20"
-      : tom === "error"
-        ? "border-error/30 bg-error-container/20"
-        : "border-primary-container/25 bg-primary-fixed/25";
-  return (
-    <div className={`flex flex-1 flex-col gap-xs rounded-xl border p-md ${borda}`}>
-      <span className="text-label-sm font-medium text-on-surface-variant">{titulo}</span>
-      <span className="text-metric tabular-nums text-on-surface">{String(quantidade).padStart(2, "0")}</span>
-      <span className="text-body-sm tabular-nums text-on-surface-variant">{valor}</span>
-    </div>
-  );
 }
 
 export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, onRecarregar }: Props) {
@@ -271,316 +226,305 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   const { proposta } = detalhe;
   const codigo = rotuloProposta(proposta);
 
+  const metas: { icon: typeof Building2; rotulo: string; valor: string }[] = [
+    { icon: Building2, rotulo: "Condomínio", valor: detalhe.condominioNome },
+    { icon: DoorOpen, rotulo: "Unidade", valor: detalhe.unidadeIdentificacao },
+    { icon: User, rotulo: "Devedor", valor: detalhe.devedorNome },
+    { icon: Scale, rotulo: "Advogado responsável", valor: detalhe.advogadoResponsavelRotulo },
+    { icon: Calendar, rotulo: "Data da criação", valor: formatarData(proposta.criadoEm) },
+  ];
+
   return (
-    <div className="flex flex-col gap-lg print:text-on-surface">
-      <header className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-md">
-          <div className="flex flex-col gap-sm">
-            <Button type="button" variant="ghost" size="sm" className="w-fit print:hidden" onClick={onVoltar}>
-              <ArrowLeft className="size-icon-sm" aria-hidden />
-              Voltar
-            </Button>
-            <div className="flex flex-wrap items-center gap-sm">
-              <h1 className="text-headline-lg text-on-surface">Proposta de Negociação #{codigo}</h1>
-              <Badge variant={badgeStatus[proposta.status] ?? "secondary"}>
-                {rotuloStatusExibicao(proposta.status)}
-              </Badge>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-sm print:hidden">
-            <Button type="button" variant="secondary" size="sm" onClick={() => window.print()}>
-              <Printer className="size-icon-sm" aria-hidden />
-              Imprimir
-            </Button>
-            {proposta.status === "Em análise" && podeEditar ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => document.getElementById("decisao-proposta")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Editar proposta
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <div className="grid gap-sm min-[768px]:grid-cols-5">
-          <FaixaMeta icon={Building2} rotulo="Condomínio" valor={detalhe.condominioNome} />
-          <FaixaMeta icon={DoorOpen} rotulo="Unidade" valor={detalhe.unidadeIdentificacao} />
-          <FaixaMeta icon={User} rotulo="Devedor" valor={detalhe.devedorNome} />
-          <FaixaMeta icon={Scale} rotulo="Advogado responsável" valor={detalhe.advogadoResponsavelRotulo} />
-          <FaixaMeta icon={Calendar} rotulo="Data da criação" valor={formatarData(proposta.criadoEm)} />
-        </div>
-      </header>
-
-      <section className="grid gap-md lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-xl border border-border-subtle bg-primary-container text-on-primary shadow-card">
-          <div className="flex flex-col gap-md p-lg">
-            <p className="text-label-md text-primary-fixed/90">Valor Negociado</p>
-            <p className="text-headline-xl tabular-nums text-on-primary">{formatarMoeda(proposta.valorProposto)}</p>
-            <div className="grid gap-sm border-t border-on-primary/20 pt-md min-[640px]:grid-cols-4">
-              <div>
-                <p className="text-label-sm text-on-primary/80">Valor original</p>
-                <p className="text-body-md tabular-nums">
-                  {proposta.valorDividaOriginal ? formatarMoeda(proposta.valorDividaOriginal) : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-label-sm text-on-primary/80">Valor atualizado</p>
-                <p className="text-body-md tabular-nums">
-                  {proposta.valorDividaAtualizada ? formatarMoeda(proposta.valorDividaAtualizada) : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-label-sm text-on-primary/80">Desconto {detalhe.descontoPercent}%</p>
-                <p className="text-body-md tabular-nums">{detalhe.descontoConcedido}</p>
-              </div>
-              <div>
-                <p className="text-label-sm text-on-primary/80">Parcelamento</p>
-                <p className="text-body-md">
-                  {proposta.quantidadeParcelas
-                    ? `${proposta.quantidadeParcelas}x de ${detalhe.valorParcelaIndicativo}`
-                    : "—"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center rounded-xl border border-border-subtle bg-surface-card p-md shadow-card">
-          {resumo ? (
-            <GraficoRosca
-              chave={`negociacao-${propostaId}`}
-              centro={`${percentualPago}%`}
-              legenda="Total recebido"
-              fatias={[
-                {
-                  nome: "Recebido",
-                  valor: centavos(resumo.valorPagoConfirmado),
-                  detalhe: formatarMoeda(resumo.valorPagoConfirmado),
-                  tom: "settled",
-                },
-                {
-                  nome: "Saldo",
-                  valor: centavos(resumo.saldoRestante),
-                  detalhe: formatarMoeda(resumo.saldoRestante),
-                  tom: "navy",
-                },
-              ]}
-              vazio={<p className="text-body-sm text-on-surface-variant">Sem parcelas definidas</p>}
-              semLegenda
-            />
-          ) : (
-            <p className="text-body-sm text-on-surface-variant">Cronograma ainda não gerado</p>
-          )}
-        </div>
-      </section>
-
-      {resumo ? (
-        <section className="grid gap-sm min-[768px]:grid-cols-4">
-          <CartaoStatus
-            tom="success"
-            titulo="Parcelas pagas"
-            quantidade={resumo.parcelasPagas}
-            valor={formatarMoeda((valorPagasCent / 100).toFixed(2))}
-          />
-          <CartaoStatus
-            tom="secondary"
-            titulo="Parcelas pendentes"
-            quantidade={resumo.parcelasPendentes}
-            valor={formatarMoeda((valorPendentesCent / 100).toFixed(2))}
-          />
-          <CartaoStatus
-            tom="error"
-            titulo="Parcelas vencidas"
-            quantidade={resumo.parcelasVencidas}
-            valor={formatarMoeda((valorVencidasCent / 100).toFixed(2))}
-          />
-          <div className="flex flex-col justify-center rounded-xl border border-border-subtle bg-surface-card p-md shadow-card">
-            <span className="text-label-sm text-on-surface-variant">Total recebido</span>
-            <span className="text-metric tabular-nums text-on-surface">{formatarMoeda(resumo.valorPagoConfirmado)}</span>
-          </div>
-        </section>
-      ) : null}
-
-      <div className="grid gap-lg min-[1024px]:grid-cols-[minmax(0,1.5fr)_minmax(17rem,22rem)]">
-        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-          <h2 className="text-headline-sm text-on-surface">Parcelas da Negociação</h2>
-          {!resumo || resumo.parcelas.length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant">Nenhuma parcela prevista. Confirme o acordo ou gere o cronograma.</p>
-          ) : (
-            <ul className="flex flex-col gap-sm">
-              {parcelasPagas.map((parcela) => (
-                <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} />
-              ))}
-              {parcelasAguardando.length > 0 ? (
-                <li className="rounded-lg border border-border-subtle bg-surface-subtle">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-sm px-md py-sm text-left"
-                    onClick={() => setPendentesAbertos((v) => !v)}
-                  >
-                    <span className="text-body-md font-medium text-on-surface">
-                      Parcelas {parcelasAguardando[0]?.numero}
-                      {parcelasAguardando.length > 1
-                        ? ` a ${parcelasAguardando[parcelasAguardando.length - 1]?.numero}`
-                        : ""}{" "}
-                      · {parcelasAguardando.length} pendentes
-                    </span>
-                    {pendentesAbertos ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
-                  </button>
-                  {pendentesAbertos ? (
-                    <ul className="flex flex-col gap-xs border-t border-border-subtle p-sm">
-                      {parcelasAguardando.map((parcela) => (
-                        <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} compacto />
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              ) : null}
-            </ul>
-          )}
-        </section>
-
-        <aside className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card">
-          <h2 className="text-headline-sm text-on-surface">Histórico da Negociação</h2>
-          {historico.length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant">Sem eventos auditados ainda.</p>
-          ) : (
-            <ol className="relative flex flex-col gap-md border-l border-border-subtle pl-md">
-              {historico.map((item, index) => (
-                <li key={`${item.data}-${index}`} className="relative">
-                  <span className="absolute -left-[calc(0.5rem+5px)] top-1.5 size-2.5 rounded-full bg-primary-container" />
-                  <p className="text-label-sm text-on-surface">{item.titulo}</p>
-                  <p className="text-body-sm text-on-surface-variant">
-                    {formatarData(item.data)} · {item.usuario}
-                  </p>
-                  <p className="text-body-sm text-on-surface">{item.descricao}</p>
-                </li>
-              ))}
-            </ol>
-          )}
-          {resumo ? (
-            <div className="rounded-lg border border-primary-container/30 bg-primary-fixed/25 px-md py-sm text-body-sm text-on-surface">
-              A soma das parcelas corresponde ao valor negociado ({formatarMoeda(resumo.valorAcordado)}). Saldo confirmado:{" "}
-              {formatarMoeda(resumo.saldoRestante)}.
-            </div>
-          ) : null}
-        </aside>
-      </div>
-
-      {resumo ? (
-        <footer className="grid gap-md rounded-xl border border-border-subtle bg-surface-subtle p-lg min-[768px]:grid-cols-[auto_1fr] min-[768px]:items-center">
-          <div className="flex items-center gap-md">
-            <div
-              className="flex size-20 items-center justify-center rounded-full border-4 border-primary-container text-headline-sm tabular-nums text-primary-container"
-              style={{
-                background: `conic-gradient(var(--color-primary-container) ${percentualPago}%, var(--color-surface-container) 0)`,
-              }}
-              role="img"
-              aria-label={`${percentualPago}% recebido`}
+    <div className="flex flex-col gap-md print:text-on-surface">
+      <div className="flex flex-wrap items-center justify-between gap-sm print:hidden">
+        <Button type="button" variant="ghost" size="sm" onClick={onVoltar}>
+          <ArrowLeft className="size-icon-sm" aria-hidden />
+          Voltar
+        </Button>
+        <div className="flex flex-wrap gap-sm">
+          <Button type="button" variant="secondary" size="sm" onClick={() => window.print()}>
+            <Printer className="size-icon-sm" aria-hidden />
+            Imprimir
+          </Button>
+          {proposta.status === "Em análise" && podeEditar ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => document.getElementById("decisao-proposta")?.scrollIntoView({ behavior: "smooth" })}
             >
-              <span className="flex size-14 items-center justify-center rounded-full bg-surface-card text-headline-sm">
-                {percentualPago}%
-              </span>
-            </div>
-            <div>
-              <p className="text-body-md tabular-nums text-on-surface">{formatarMoeda(resumo.valorPagoConfirmado)}</p>
-              <p className="text-body-sm text-on-surface-variant">Já recebido (confirmado)</p>
-            </div>
-          </div>
-          <div className="grid gap-sm min-[640px]:grid-cols-4">
-            <ResumoRodape icon={Wallet} rotulo="Saldo restante" valor={formatarMoeda(resumo.saldoRestante)} />
-            <ResumoRodape icon={CalendarDays} rotulo="Total de parcelas" valor={String(resumo.parcelasTotal)} />
-            <ResumoRodape icon={CheckCircle2} rotulo="Pagas" valor={String(resumo.parcelasPagas)} tom="success" />
-            <ResumoRodape icon={Clock} rotulo="Pendentes" valor={String(resumo.parcelasPendentes)} />
-          </div>
-        </footer>
-      ) : null}
-
-      {proposta.status === "Em análise" && podeEditar ? (
-        <section
-          id="decisao-proposta"
-          className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card print:hidden"
-        >
-          <h2 className="text-headline-sm text-on-surface">Decisão da proposta</h2>
-          <div className="mt-md flex flex-col gap-sm">
-            <FormField label="1º vencimento do cronograma (opcional)">
-              <Input type="date" value={primeiroVencimento} onChange={(e) => setPrimeiroVencimento(e.target.value)} />
-            </FormField>
-            <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
-              <Textarea
-                icon={FileText}
-                value={termos}
-                onChange={(e) => {
-                  setTermos(e.target.value);
-                  if (e.target.value.trim()) setTermosErro("");
-                }}
-                rows={3}
-              />
-            </FormField>
-            <div className="flex flex-wrap gap-sm">
-              <Button type="button" disabled={statusSalvando || !termos.trim()} onClick={() => void alterarStatus("Aceita")}>
-                Confirmar acordo
-              </Button>
-              <Button type="button" variant="secondary" disabled={statusSalvando} onClick={() => void alterarStatus("Recusada")}>
-                Recusar
-              </Button>
-              <Button type="button" variant="ghost" disabled={statusSalvando} onClick={() => void alterarStatus("Cancelada")}>
-                Cancelar proposta
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {proposta.status === "Aceita" ? (
-        <section className="rounded-xl border border-border-subtle bg-surface-card shadow-card print:hidden">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-lg py-md text-left"
-            onClick={() => setOperacoesAbertas((v) => !v)}
-          >
-            <span className="text-headline-sm text-on-surface">Registrar pagamento e cronograma</span>
-            {operacoesAbertas ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
-          </button>
-          {operacoesAbertas ? (
-            <div className="border-t border-border-subtle px-lg pb-lg pt-md">
-              <AcordoAcompanhamentoBlock
-                propostaId={proposta.id}
-                podeRegistrar={pode("atendimentos", "criar") || pode("negociacoes", "criar")}
-                podeCorrigir={podeEditar}
-                onChanged={() => {
-                  void refetch();
-                  onRecarregar();
-                  void carregar();
-                }}
-              />
-            </div>
+              Decidir proposta
+            </Button>
           ) : null}
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function ResumoRodape({
-  icon,
-  rotulo,
-  valor,
-  tom,
-}: {
-  icon: typeof Wallet;
-  rotulo: string;
-  valor: string;
-  tom?: "success";
-}) {
-  return (
-    <div className="flex items-center gap-sm rounded-lg bg-surface-card px-md py-sm">
-      <Icon icon={icon} size="sm" className={tom === "success" ? "text-success" : "text-primary-container"} />
-      <div>
-        <p className="text-metric tabular-nums text-on-surface">{valor}</p>
-        <p className="text-body-sm text-on-surface-variant">{rotulo}</p>
+        </div>
       </div>
+
+      <article className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card">
+        <header className="flex flex-col gap-md p-lg">
+          <div className="flex flex-wrap items-center gap-sm">
+            <h1 className="text-headline-lg text-on-surface">Proposta de Negociação #{codigo}</h1>
+            <Badge variant={badgeStatus[proposta.status] ?? "secondary"}>
+              {rotuloStatusExibicao(proposta.status)}
+            </Badge>
+          </div>
+          <dl className="grid gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
+            {metas.map((item) => (
+              <div key={item.rotulo} className="min-w-0">
+                <dt className="flex items-center gap-xs text-label-sm text-on-surface-variant">
+                  <Icon icon={item.icon} size="sm" aria-hidden />
+                  {item.rotulo}
+                </dt>
+                <dd className="mt-xs truncate text-body-md font-medium text-on-surface">{item.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        </header>
+
+        <section className="border-t border-border-subtle bg-gradient-to-br from-primary-fixed/30 via-surface-card to-surface-card p-lg">
+          <div className="flex flex-col gap-lg min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-label-sm text-on-surface-variant">Valor negociado</p>
+              <p className="mt-xs text-headline-xl tabular-nums text-on-surface">{formatarMoeda(proposta.valorProposto)}</p>
+              <dl className="mt-md grid gap-md min-[640px]:grid-cols-2 min-[960px]:grid-cols-4">
+                <div>
+                  <dt className="text-label-sm text-on-surface-variant">Valor original</dt>
+                  <dd className="text-body-md tabular-nums text-on-surface">
+                    {proposta.valorDividaOriginal ? formatarMoeda(proposta.valorDividaOriginal) : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-label-sm text-on-surface-variant">Valor atualizado</dt>
+                  <dd className="text-body-md tabular-nums text-on-surface">
+                    {proposta.valorDividaAtualizada ? formatarMoeda(proposta.valorDividaAtualizada) : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-label-sm text-on-surface-variant">Desconto ({detalhe.descontoPercent}%)</dt>
+                  <dd className="text-body-md tabular-nums text-on-surface">{detalhe.descontoConcedido}</dd>
+                </div>
+                <div>
+                  <dt className="text-label-sm text-on-surface-variant">Parcelamento</dt>
+                  <dd className="text-body-md text-on-surface">
+                    {proposta.quantidadeParcelas
+                      ? `${proposta.quantidadeParcelas}x de ${detalhe.valorParcelaIndicativo}`
+                      : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            {resumo ? (
+              <div className="flex shrink-0 flex-col items-center gap-xs min-[1024px]:w-44">
+                <GraficoRosca
+                  chave={`negociacao-${propostaId}`}
+                  centro={`${percentualPago}%`}
+                  legenda="Recebido"
+                  fatias={[
+                    {
+                      nome: "Recebido",
+                      valor: centavos(resumo.valorPagoConfirmado),
+                      detalhe: formatarMoeda(resumo.valorPagoConfirmado),
+                      tom: "settled",
+                    },
+                    {
+                      nome: "Saldo",
+                      valor: centavos(resumo.saldoRestante),
+                      detalhe: formatarMoeda(resumo.saldoRestante),
+                      tom: "navy",
+                    },
+                  ]}
+                  vazio={<p className="text-body-sm text-on-surface-variant">Sem parcelas</p>}
+                  semLegenda
+                />
+                <p className="text-center text-body-sm text-on-surface-variant">
+                  Total recebido{" "}
+                  <span className="font-medium tabular-nums text-on-surface">
+                    {formatarMoeda(resumo.valorPagoConfirmado)}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <p className="text-body-sm text-on-surface-variant">Cronograma ainda não gerado.</p>
+            )}
+          </div>
+        </section>
+
+        {resumo ? (
+          <section aria-label="Indicadores de parcelas" className="border-t border-border-subtle px-lg py-md">
+            <div className="grid grid-cols-1 gap-sm min-[768px]:hidden">
+              <KpiMobileCard
+                rotulo="Parcelas pagas"
+                valor={String(resumo.parcelasPagas).padStart(2, "0")}
+                detalhe={formatarMoeda((valorPagasCent / 100).toFixed(2))}
+                icon={CheckCircle2}
+                iconClassName="bg-badge-success-subtle text-badge-success-emphasis"
+              />
+              <KpiMobileCard
+                rotulo="Parcelas pendentes"
+                valor={String(resumo.parcelasPendentes).padStart(2, "0")}
+                detalhe={formatarMoeda((valorPendentesCent / 100).toFixed(2))}
+                icon={Clock}
+              />
+              <KpiMobileCard
+                rotulo="Parcelas vencidas"
+                valor={String(resumo.parcelasVencidas).padStart(2, "0")}
+                detalhe={formatarMoeda((valorVencidasCent / 100).toFixed(2))}
+                icon={CalendarX2}
+                destaque
+              />
+            </div>
+            <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+              <CardMetric
+                rotulo="Parcelas pagas"
+                valor={String(resumo.parcelasPagas).padStart(2, "0")}
+                detalhe={formatarMoeda((valorPagasCent / 100).toFixed(2))}
+                iconClassName="bg-badge-success-subtle text-badge-success-emphasis"
+                icon={<Icon icon={CheckCircle2} size="md" className="text-badge-success-emphasis" />}
+              />
+              <CardMetric
+                rotulo="Parcelas pendentes"
+                valor={String(resumo.parcelasPendentes).padStart(2, "0")}
+                detalhe={formatarMoeda((valorPendentesCent / 100).toFixed(2))}
+                iconClassName="bg-primary-fixed/50 text-primary-container"
+                icon={<Icon icon={Clock} size="md" className="text-primary-container" />}
+              />
+              <CardMetric
+                rotulo="Parcelas vencidas"
+                valor={String(resumo.parcelasVencidas).padStart(2, "0")}
+                detalhe={formatarMoeda((valorVencidasCent / 100).toFixed(2))}
+                iconClassName="bg-error-container text-status-critical"
+                icon={<Icon icon={CalendarX2} size="md" className="text-status-critical" />}
+              />
+            </div>
+          </section>
+        ) : null}
+
+        <div className="grid min-[1024px]:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
+          <section className="flex flex-col gap-md border-t border-border-subtle p-lg min-[1024px]:border-r">
+            <h2 className="text-headline-sm text-on-surface">Parcelas da negociação</h2>
+            {!resumo || resumo.parcelas.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant">
+                Nenhuma parcela prevista. Confirme o acordo ou gere o cronograma.
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border-subtle rounded-lg bg-surface-subtle/50">
+                {parcelasPagas.map((parcela) => (
+                  <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} />
+                ))}
+                {parcelasAguardando.length > 0 ? (
+                  <li>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-sm bg-surface-subtle px-md py-sm text-left transition-colors hover:brightness-[0.98]"
+                      onClick={() => setPendentesAbertos((v) => !v)}
+                    >
+                      <span className="text-body-md font-medium text-on-surface">
+                        Parcelas {parcelasAguardando[0]?.numero}
+                        {parcelasAguardando.length > 1
+                          ? ` a ${parcelasAguardando[parcelasAguardando.length - 1]?.numero}`
+                          : ""}{" "}
+                        · {parcelasAguardando.length} pendentes
+                      </span>
+                      {pendentesAbertos ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
+                    </button>
+                    {pendentesAbertos ? (
+                      <ul className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle">
+                        {parcelasAguardando.map((parcela) => (
+                          <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} compacto />
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ) : null}
+              </ul>
+            )}
+          </section>
+
+          <aside className="flex flex-col gap-md border-t border-border-subtle p-lg min-[1024px]:border-t-0">
+            <h2 className="text-headline-sm text-on-surface">Histórico da negociação</h2>
+            {historico.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant">Sem eventos auditados ainda.</p>
+            ) : (
+              <ol className="relative flex flex-col gap-md border-l border-border-subtle pl-md">
+                {historico.map((item, index) => (
+                  <li key={`${item.data}-${index}`} className="relative">
+                    <span className="absolute -left-[calc(0.5rem+5px)] top-1.5 size-2.5 rounded-full bg-primary-container" />
+                    <p className="text-label-sm text-on-surface">{item.titulo}</p>
+                    <p className="text-body-sm text-on-surface-variant">
+                      {formatarData(item.data)} · {item.usuario}
+                    </p>
+                    <p className="text-body-sm text-on-surface">{item.descricao}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {resumo ? (
+              <p className="rounded-lg bg-surface-subtle px-md py-sm text-body-sm text-on-surface-variant">
+                A soma das parcelas corresponde ao valor negociado ({formatarMoeda(resumo.valorAcordado)}). Saldo em
+                aberto: {formatarMoeda(resumo.saldoRestante)}.
+              </p>
+            ) : null}
+          </aside>
+        </div>
+
+        {proposta.status === "Em análise" && podeEditar ? (
+          <section id="decisao-proposta" className="border-t border-border-subtle p-lg print:hidden">
+            <h2 className="text-headline-sm text-on-surface">Decisão da proposta</h2>
+            <div className="mt-md flex flex-col gap-sm">
+              <FormField label="1º vencimento do cronograma (opcional)">
+                <Input type="date" value={primeiroVencimento} onChange={(e) => setPrimeiroVencimento(e.target.value)} />
+              </FormField>
+              <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
+                <Textarea
+                  icon={FileText}
+                  value={termos}
+                  onChange={(e) => {
+                    setTermos(e.target.value);
+                    if (e.target.value.trim()) setTermosErro("");
+                  }}
+                  rows={3}
+                />
+              </FormField>
+              <div className="flex flex-wrap gap-sm">
+                <Button type="button" disabled={statusSalvando || !termos.trim()} onClick={() => void alterarStatus("Aceita")}>
+                  Confirmar acordo
+                </Button>
+                <Button type="button" variant="secondary" disabled={statusSalvando} onClick={() => void alterarStatus("Recusada")}>
+                  Recusar
+                </Button>
+                <Button type="button" variant="ghost" disabled={statusSalvando} onClick={() => void alterarStatus("Cancelada")}>
+                  Cancelar proposta
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {proposta.status === "Aceita" ? (
+          <section className="border-t border-border-subtle print:hidden">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-sm px-lg py-md text-left"
+              onClick={() => setOperacoesAbertas((v) => !v)}
+            >
+              <span className="text-headline-sm text-on-surface">Registrar pagamento e cronograma</span>
+              {operacoesAbertas ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
+            </button>
+            {operacoesAbertas ? (
+              <div className="border-t border-border-subtle px-lg pb-lg pt-md">
+                <AcordoAcompanhamentoBlock
+                  propostaId={proposta.id}
+                  podeRegistrar={pode("atendimentos", "criar") || pode("negociacoes", "criar")}
+                  podeCorrigir={podeEditar}
+                  onChanged={() => {
+                    void refetch();
+                    onRecarregar();
+                    void carregar();
+                  }}
+                />
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+      </article>
     </div>
   );
 }
@@ -598,13 +542,13 @@ function LinhaParcela({
   const confirmado = parcela.pagamentos.find((p) => p.confirmacao === "Confirmado");
 
   return (
-    <li
-      className={[
-        "flex flex-col gap-xs rounded-lg border border-border-subtle px-md py-sm",
-        pago ? "bg-success-container/15" : "bg-surface-card",
-        compacto ? "text-body-sm" : "",
-      ].join(" ")}
-    >
+  <li
+    className={[
+      "flex flex-col gap-xs px-md py-sm",
+      pago ? "bg-success-container/10" : "bg-surface-card",
+      compacto ? "text-body-sm" : "",
+    ].join(" ")}
+  >
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <span className="flex items-center gap-sm font-medium text-on-surface">
           {pago ? <CheckCircle2 className="size-icon-sm text-success" aria-hidden /> : null}

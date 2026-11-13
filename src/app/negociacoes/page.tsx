@@ -11,18 +11,11 @@ import { SkeletonListPage } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { NegociacaoNovaPropostaSheet } from "@/components/negociacoes/negociacao-nova-proposta-sheet";
 import { NegociacoesPainel } from "@/components/negociacoes/negociacoes-painel";
-import {
-  escopoCondominios,
-  nomeCondominio,
-  nomeUnidade,
-  opcoesAdvogadosResponsaveis,
-  type PropostaNegociacao,
-} from "@/data/catalogo";
+import { type PropostaNegociacao } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularResumoAcordo } from "@/lib/acordos/resumo";
-import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 
 export default function NegociacoesPage() {
@@ -41,11 +34,7 @@ export default function NegociacoesPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
-  const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
-  const [condominio, setCondominio] = useState("todos");
-  const [advogado, setAdvogado] = useState(perfil === "advogado" ? "minhas" : "todos");
   const [page, setPage] = useState(1);
 
   const [selecionadaId, setSelecionadaId] = useState<string | null>(null);
@@ -104,9 +93,6 @@ export default function NegociacoesPage() {
     }
   }, [podeCriar, router, searchParams]);
 
-  const condominiosOpcoes = useMemo(() => escopoCondominios(cadastros, sessao?.userId), [cadastros, sessao?.userId]);
-  const advogadosFiltro = useMemo(() => opcoesAdvogadosResponsaveis(cadastros), [cadastros]);
-
   const resumoPorProposta = useMemo(() => {
     const mapa = new Map<string, ReturnType<typeof calcularResumoAcordo>>();
     for (const proposta of propostas) {
@@ -119,29 +105,9 @@ export default function NegociacoesPage() {
   }, [propostas, cadastros.parcelasAcordo, cadastros.pagamentosAcordo]);
 
   const filtradas = useMemo(() => {
-    const termo = search.trim().toLocaleLowerCase("pt-BR");
-    return propostas.filter((item) => {
-      if (condominio !== "todos" && String(item.condominioId) !== condominio) return false;
-      if (advogado === "minhas" && sessao?.userId && item.advogadoResponsavelId !== sessao.userId) return false;
-      if (advogado !== "todos" && advogado !== "minhas") {
-        const usuarioAdv = cadastros.usuarios.find((usuario) => usuario.nome === advogado);
-        if (!usuarioAdv || item.advogadoResponsavelId !== usuarioAdv.id) return false;
-      }
-      if (!termo) return true;
-      const condominioNome = nomeCondominio(item.condominioId, cadastros).toLocaleLowerCase("pt-BR");
-      const unidadeNome = nomeUnidade(item.unidadeId, cadastros).toLocaleLowerCase("pt-BR");
-      const advogadoNome =
-        item.advogadoResponsavelId != null
-          ? identificadorColaboradorPorId(item.advogadoResponsavelId, cadastros).toLocaleLowerCase("pt-BR")
-          : "";
-      return (
-        condominioNome.includes(termo) ||
-        unidadeNome.includes(termo) ||
-        advogadoNome.includes(termo) ||
-        item.id.toLocaleLowerCase("pt-BR").includes(termo)
-      );
-    });
-  }, [propostas, search, condominio, advogado, sessao?.userId, cadastros]);
+    if (perfil !== "advogado" || !sessao?.userId) return propostas;
+    return propostas.filter((item) => item.advogadoResponsavelId === sessao.userId);
+  }, [propostas, perfil, sessao?.userId]);
 
   const metricas = useMemo(() => {
     const emAnalise = filtradas.filter((item) => item.status === "Em análise").length;
@@ -167,20 +133,6 @@ export default function NegociacoesPage() {
     const inicio = (page - 1) * PAGE_SIZE;
     return filtradas.slice(inicio, inicio + PAGE_SIZE);
   }, [filtradas, page]);
-
-  function aplicarFiltros() {
-    setSearch(searchDraft);
-    setPage(1);
-  }
-
-  function limparFiltros() {
-    setSearchDraft("");
-    setSearch("");
-    setStatus("todos");
-    setCondominio("todos");
-    setAdvogado(perfil === "advogado" ? "minhas" : "todos");
-    setPage(1);
-  }
 
   if (!podeLer) {
     return (
@@ -215,7 +167,6 @@ export default function NegociacoesPage() {
         ) : (
           <NegociacoesPainel
             cadastros={cadastros}
-            perfil={perfil}
             metricas={metricas}
             propostasPagina={propostasPagina}
             totalFiltradas={filtradas.length}
@@ -229,18 +180,8 @@ export default function NegociacoesPage() {
               void carregar();
             }}
             erro={erro}
-            searchDraft={searchDraft}
-            onSearchDraftChange={setSearchDraft}
-            onAplicarFiltros={aplicarFiltros}
-            onLimparFiltros={limparFiltros}
             status={status}
             onStatusChange={setStatus}
-            condominio={condominio}
-            onCondominioChange={setCondominio}
-            condominiosOpcoes={condominiosOpcoes}
-            advogado={advogado}
-            onAdvogadoChange={setAdvogado}
-            advogadosFiltro={advogadosFiltro}
           />
         )}
       </PageContent>

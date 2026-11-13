@@ -1,10 +1,8 @@
 "use client";
 
-import { Handshake } from "lucide-react";
+import { Briefcase, CalendarX2, CircleCheck, Clock, Handshake, TriangleAlert, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
-import { FilterBar } from "@/components/filter-bar";
-import { FiltrosSection } from "@/components/filtros-section";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PropostaNegociacaoCard } from "@/components/negociacoes/proposta-negociacao-card";
@@ -12,11 +10,9 @@ import { PropostaNegociacaoExclusiva } from "@/components/negociacoes/proposta-n
 import {
   statusPropostaNegociacao,
   type Cadastros,
-  type Condominio,
   type PropostaNegociacao,
 } from "@/data/catalogo";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
-import type { PerfilOperacional } from "@/lib/perfil-operacional";
 
 type Metricas = {
   total: number;
@@ -28,7 +24,6 @@ type Metricas = {
 
 type Props = {
   cadastros: Cadastros;
-  perfil: PerfilOperacional;
   metricas: Metricas;
   propostasPagina: PropostaNegociacao[];
   totalFiltradas: number;
@@ -39,37 +34,46 @@ type Props = {
   onSelecionar: (id: string | null) => void;
   onRecarregar: () => void;
   erro?: string;
-  searchDraft: string;
-  onSearchDraftChange: (value: string) => void;
-  onAplicarFiltros: () => void;
-  onLimparFiltros: () => void;
   status: string;
   onStatusChange: (value: string) => void;
-  condominio: string;
-  onCondominioChange: (value: string) => void;
-  condominiosOpcoes: Condominio[];
-  advogado: string;
-  onAdvogadoChange: (value: string) => void;
-  advogadosFiltro: string[];
 };
 
-function FaixaIndicador({ rotulo, valor, destaque }: { rotulo: string; valor: string; destaque?: boolean }) {
+function FaixaIndicador({
+  rotulo,
+  valor,
+  destaque,
+  icon,
+  iconClassName,
+}: {
+  rotulo: string;
+  valor: string;
+  destaque?: boolean;
+  icon: LucideIcon;
+  iconClassName: string;
+}) {
   return (
     <div
       className={[
-        "flex min-w-[7.5rem] flex-1 flex-col gap-xs rounded-lg px-md py-sm",
+        "flex min-w-[7.5rem] flex-1 items-center gap-sm rounded-lg px-md py-sm",
         destaque ? "bg-error-container/15" : "bg-surface-subtle",
       ].join(" ")}
     >
-      <span className="text-metric tabular-nums text-on-surface">{valor}</span>
-      <span className="text-body-sm text-on-surface-variant">{rotulo}</span>
+      <div
+        className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+        aria-hidden
+      >
+        <Icon icon={icon} size="sm" />
+      </div>
+      <div className="flex min-w-0 flex-col gap-xs">
+        <span className="text-metric tabular-nums text-on-surface">{valor}</span>
+        <span className="text-body-sm leading-snug text-on-surface-variant">{rotulo}</span>
+      </div>
     </div>
   );
 }
 
 export function NegociacoesPainel({
   cadastros,
-  perfil,
   metricas,
   propostasPagina,
   totalFiltradas,
@@ -80,18 +84,8 @@ export function NegociacoesPainel({
   onSelecionar,
   onRecarregar,
   erro,
-  searchDraft,
-  onSearchDraftChange,
-  onAplicarFiltros,
-  onLimparFiltros,
   status,
   onStatusChange,
-  condominio,
-  onCondominioChange,
-  condominiosOpcoes,
-  advogado,
-  onAdvogadoChange,
-  advogadosFiltro,
 }: Props) {
   const metricValor = (n: number) => String(n).padStart(2, "0");
 
@@ -151,51 +145,40 @@ export function NegociacoesPainel({
           </div>
         </div>
         <div className="flex flex-wrap gap-sm border-t border-border-subtle bg-surface-card/80 px-lg py-md">
-          <FaixaIndicador rotulo="Propostas na carteira" valor={metricValor(metricas.total)} />
-          <FaixaIndicador rotulo="Em análise" valor={metricValor(metricas.emAnalise)} />
-          <FaixaIndicador rotulo="Acordos ativos" valor={metricValor(metricas.aceitas)} />
-          <FaixaIndicador rotulo="Parcelas vencidas" valor={metricValor(metricas.parcelasVencidas)} destaque />
+          <FaixaIndicador
+            rotulo="Propostas na carteira"
+            valor={metricValor(metricas.total)}
+            icon={Briefcase}
+            iconClassName="bg-primary-fixed/50 text-primary-container"
+          />
+          <FaixaIndicador
+            rotulo="Em análise"
+            valor={metricValor(metricas.emAnalise)}
+            icon={Clock}
+            iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+          />
+          <FaixaIndicador
+            rotulo="Acordos ativos"
+            valor={metricValor(metricas.aceitas)}
+            icon={CircleCheck}
+            iconClassName="bg-badge-success-subtle text-badge-success-emphasis"
+          />
+          <FaixaIndicador
+            rotulo="Parcelas vencidas"
+            valor={metricValor(metricas.parcelasVencidas)}
+            destaque
+            icon={CalendarX2}
+            iconClassName="bg-error-container/25 text-error"
+          />
           <FaixaIndicador
             rotulo="Risco de descumprimento"
             valor={metricValor(metricas.acordosComDescumprimento)}
             destaque
+            icon={TriangleAlert}
+            iconClassName="bg-error-container/25 text-error"
           />
         </div>
       </section>
-
-      <FiltrosSection>
-        <FilterBar
-          searchLabel="Buscar unidade ou condomínio"
-          searchPlaceholder="Unidade, condomínio ou advogado…"
-          searchValue={searchDraft}
-          onSearchChange={onSearchDraftChange}
-          onApply={onAplicarFiltros}
-          onClear={onLimparFiltros}
-          fields={[
-            {
-              id: "condominio",
-              label: "Condomínio",
-              value: condominio,
-              onChange: onCondominioChange,
-              options: [
-                { value: "todos", label: "Todos" },
-                ...condominiosOpcoes.map((item) => ({ value: String(item.id), label: item.nome })),
-              ],
-            },
-            {
-              id: "advogado",
-              label: "Advogado",
-              value: advogado,
-              onChange: onAdvogadoChange,
-              options: [
-                { value: "todos", label: "Todos" },
-                ...(perfil === "advogado" ? [{ value: "minhas", label: "Minhas propostas" }] : []),
-                ...advogadosFiltro.map((item) => ({ value: item, label: item })),
-              ],
-            },
-          ]}
-        />
-      </FiltrosSection>
 
       {erro ? <p className="text-body-sm text-error">{erro}</p> : null}
 
@@ -205,7 +188,7 @@ export function NegociacoesPainel({
             <EmptyState
               icon={<Icon icon={Handshake} size="md" />}
               title="Nenhuma proposta"
-              description="Ajuste os filtros ou registre uma nova tratativa."
+              description="Altere o status no topo ou registre uma nova tratativa."
             />
           ) : (
             propostasPagina.map((item) => (
