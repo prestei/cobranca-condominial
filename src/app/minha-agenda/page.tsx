@@ -10,7 +10,6 @@ import { PageContent, PageHeader } from "@/components/page-header";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { type Atendimento, hojeIso } from "@/data/catalogo";
 import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
-import { useAuth } from "@/context/auth-context";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import {
@@ -31,7 +30,6 @@ function deslocarMes(ano: number, mes: number, delta: number) {
 
 export default function MinhaAgendaPage() {
   const router = useRouter();
-  const { user } = useAuth();
   const cadastros = useCadastros();
   const { permissoes, pode } = usePermissao();
   const { abrir: abrirAgendar } = useAgendarAtendimento();
@@ -140,11 +138,6 @@ export default function MinhaAgendaPage() {
           }
         />
 
-        {!carregando && !erro && user?.nome ? (
-          <p className="text-body-sm text-on-surface-variant">
-            Agenda de {user.nome}: contatos realizados e retornos agendados no mês.
-          </p>
-        ) : null}
       </PageContent>
     </WorkspaceShell>
   );
