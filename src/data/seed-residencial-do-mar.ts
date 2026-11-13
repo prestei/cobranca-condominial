@@ -19,6 +19,7 @@ export const CONDOMINIO_RESIDENCIAL_DO_MAR: Condominio = {
   cidade: "Salvador",
   estado: "BA",
   observacao: "Base homologação — importação PDF inadimplência (Residencial do Mar).",
+  delinquencyTrackingDays: 90,
 };
 
 const IDENTIFICACOES_UNIDADES_RESIDENCIAL_DO_MAR = [

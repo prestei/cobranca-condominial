@@ -97,6 +97,12 @@ import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
 import { formatarTelefone } from "@/lib/telefone";
 import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
+import {
+  DEFAULT_DELINQUENCY_TRACKING_DAYS,
+  delinquencyTrackingDaysCaption,
+  parseDelinquencyTrackingDaysInput,
+  resolveDelinquencyTrackingDays,
+} from "@/lib/inadimplencia/delinquency-tracking";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
@@ -161,6 +167,7 @@ const formularioVazio: Omit<Condominio, "id"> = {
   cidade: "",
   estado: "",
   observacao: "",
+  delinquencyTrackingDays: null,
 };
 
 export default function CondominiosPage() {
@@ -210,7 +217,9 @@ export default function CondominiosPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [detalheId, setDetalheId] = useState<number | null>(null);
   const [form, setForm] = useState(formularioVazio);
-  const [errors, setErrors] = useState<Partial<Record<"nome" | "advogados" | "identificadorExterno", string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<"nome" | "advogados" | "identificadorExterno" | "delinquencyTrackingDays", string>>
+  >({});
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [cepErro, setCepErro] = useState("");
   const [enderecoLiberado, setEnderecoLiberado] = useState(false);
@@ -520,6 +529,7 @@ export default function CondominiosPage() {
       cidade: item.cidade,
       estado: item.estado,
       observacao: item.observacao,
+      delinquencyTrackingDays: item.delinquencyTrackingDays,
     });
     setErrors({});
     setStep(0);
@@ -613,6 +623,8 @@ export default function CondominiosPage() {
     setDeleteTarget(null);
   }
 
+  const descricaoPrazoCondominio = delinquencyTrackingDaysCaption;
+
   function acoes(item: Condominio) {
     const lista = [];
     if (pode("condominios", "ler")) {
@@ -625,7 +637,7 @@ export default function CondominiosPage() {
       lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(item) });
     }
     if (pode("condominios", "editar")) {
-      lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+      lista.push({ label: "Editar condomínio", icon: Pencil, onSelect: () => openEdit(item) });
       if (item.status === "Ativo") {
         lista.push({
           label: "Inativar",
@@ -648,20 +660,21 @@ export default function CondominiosPage() {
     return lista;
   }
 
-  function acoesUnidade(_item: Unidade, condominio: Condominio) {
+  function acoesUnidade(item: Unidade, condominio: Condominio) {
     const lista = [];
     if (pode("unidades", "ler")) {
       lista.push({
         label: "Consultar",
         icon: Eye,
-        onSelect: () => router.push(`/unidades?condominio=${condominio.id}`),
+        onSelect: () => router.push(`/unidades?condominio=${condominio.id}&consultar=${item.id}`),
       });
     }
-    if (pode("condominios", "ler")) {
-      lista.push({ label: "Consultar condomínio", icon: Building2, onSelect: () => setDetalheId(condominio.id) });
-    }
-    if (pode("unidades", "criar") && condominio.status === "Ativo") {
-      lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(condominio) });
+    if (pode("unidades", "editar")) {
+      lista.push({
+        label: "Editar",
+        icon: Pencil,
+        onSelect: () => router.push(`/unidades?condominio=${condominio.id}&editar=${item.id}`),
+      });
     }
     return lista;
   }
@@ -671,7 +684,9 @@ export default function CondominiosPage() {
     if (!pode("condominios", editingId === null ? "criar" : "editar")) return;
     const nome = form.nome.trim();
     const identificadorExterno = form.identificadorExterno.trim();
-    const nextErrors: Partial<Record<"nome" | "advogados" | "identificadorExterno", string>> = {};
+    const nextErrors: Partial<
+      Record<"nome" | "advogados" | "identificadorExterno" | "delinquencyTrackingDays", string>
+    > = {};
 
     if (!nome) {
       nextErrors.nome = "Informe o nome do condomínio.";
@@ -691,6 +706,13 @@ export default function CondominiosPage() {
       if (duplicado) {
         nextErrors.identificadorExterno = "Já existe um condomínio com este identificador.";
       }
+    }
+
+    const prazoInput =
+      form.delinquencyTrackingDays == null ? "" : String(form.delinquencyTrackingDays);
+    const prazoParsed = parseDelinquencyTrackingDaysInput(prazoInput);
+    if (!prazoParsed.ok) {
+      nextErrors.delinquencyTrackingDays = prazoParsed.message;
     }
 
     if (step < etapasCondominio.length - 1) {
@@ -721,6 +743,7 @@ export default function CondominiosPage() {
       cidade: form.cidade.trim(),
       estado: form.estado.trim(),
       observacao: form.observacao.trim(),
+      delinquencyTrackingDays: prazoParsed.ok ? prazoParsed.value : null,
     };
 
     setSalvando(true);
@@ -751,6 +774,9 @@ export default function CondominiosPage() {
           setStep(0);
         } else if (msgLower.includes("advogado")) {
           setErrors({ advogados: msg });
+          setStep(0);
+        } else if (msgLower.includes("prazo")) {
+          setErrors({ delinquencyTrackingDays: msg });
           setStep(0);
         }
         return;
@@ -786,6 +812,7 @@ export default function CondominiosPage() {
     "Número",
     "Complemento",
     "Observação",
+    "Prazo inadimplência (dias)",
   ] as const;
 
   function linhasExportacao() {
@@ -803,6 +830,7 @@ export default function CondominiosPage() {
       item.numero,
       item.complemento,
       item.observacao,
+      String(resolveDelinquencyTrackingDays(item)),
     ]);
   }
 
@@ -1160,6 +1188,8 @@ export default function CondominiosPage() {
                   renderAdvogados={celulaAdvogados}
                   renderSituacao={celulaSituacaoUnidade}
                   acoes={acoesUnidade}
+                  acoesCondominio={acoes}
+                  descricaoPrazoCondominio={descricaoPrazoCondominio}
                 />
               }
               mobile={
@@ -1172,6 +1202,8 @@ export default function CondominiosPage() {
                   renderAdvogados={celulaAdvogados}
                   renderSituacao={celulaSituacaoUnidade}
                   acoes={acoesUnidade}
+                  acoesCondominio={acoes}
+                  descricaoPrazoCondominio={descricaoPrazoCondominio}
                 />
               }
               onExport={aoExportar}
@@ -1285,6 +1317,33 @@ export default function CondominiosPage() {
                         setForm((current) => ({ ...current, administradora: event.target.value }))
                       }
                     />
+                  </FormField>
+                  <FormField
+                    label="Prazo de inadimplência (dias)"
+                    htmlFor={`${formId}-prazo-inadimplencia`}
+                    error={errors.delinquencyTrackingDays}
+                  >
+                    <Input
+                      id={`${formId}-prazo-inadimplencia`}
+                      icon={Receipt}
+                      inputMode="numeric"
+                      min={1}
+                      step={1}
+                      placeholder={String(DEFAULT_DELINQUENCY_TRACKING_DAYS)}
+                      value={form.delinquencyTrackingDays == null ? "" : String(form.delinquencyTrackingDays)}
+                      invalid={Boolean(errors.delinquencyTrackingDays)}
+                      onChange={(event) => {
+                        const raw = event.target.value.trim();
+                        setForm((current) => ({
+                          ...current,
+                          delinquencyTrackingDays: raw === "" ? null : Number(raw),
+                        }));
+                      }}
+                    />
+                    <SheetHelpText>
+                      Opcional. Em branco, o sistema usa {DEFAULT_DELINQUENCY_TRACKING_DAYS} dias (padrão). Vale para
+                      todas as unidades e inadimplências deste condomínio; não altera vencimentos dos débitos.
+                    </SheetHelpText>
                   </FormField>
                 </>
               ) : step === 1 ? (
@@ -1415,6 +1474,12 @@ export default function CondominiosPage() {
                     <DetalheCampo label="Identificador" value={detalhe.identificadorExterno} />
                     <DetalheCampo label="Advogados responsáveis" value={rotuloAdvogadosCondominio(detalhe)} />
                     <DetalheCampo label="Administradora" value={detalhe.administradora} />
+                    <DetalheCampo
+                      label="Prazo de inadimplência"
+                      value={`${resolveDelinquencyTrackingDays(detalhe)} dias${
+                        detalhe.delinquencyTrackingDays == null ? ` (padrão ${DEFAULT_DELINQUENCY_TRACKING_DAYS})` : ""
+                      }`}
+                    />
                   </div>
                 </SheetPanel>
                 <SheetPanel className="flex flex-col gap-md">
@@ -1455,6 +1520,20 @@ export default function CondominiosPage() {
                 <Button type="button" variant="outline" onClick={() => setDetalheId(null)}>
                   Fechar
                 </Button>
+                {pode("condominios", "editar") ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const alvo = detalhe;
+                      setDetalheId(null);
+                      openEdit(alvo);
+                    }}
+                  >
+                    <Icon icon={Pencil} size="sm" />
+                    Editar
+                  </Button>
+                ) : null}
                 <Button type="button" variant="outline" onClick={() => verUnidades(detalhe)}>
                   <Icon icon={DoorOpen} size="sm" />
                   Ver unidades

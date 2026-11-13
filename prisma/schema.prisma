@@ -72,6 +72,7 @@ model Condominium {
   number             String?  @map("numero") @db.Text
   complement         String?  @map("complemento") @db.VarChar(255)
   notes              String?  @map("observacao") @db.Text
+  delinquencyTrackingDays Int? @map("delinquency_tracking_days")
 
   units                 Unit[]
   debts                 Debt[]

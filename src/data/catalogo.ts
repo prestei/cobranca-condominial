@@ -34,6 +34,8 @@ export type Condominio = {
   cidade: string;
   estado: string;
   observacao: string;
+  /** Prazo em dias para acompanhamento da inadimplência; `null` = padrão do sistema (`LIMITE_AMIGAVEL_DIAS`). */
+  delinquencyTrackingDays: number | null;
 };
 
 export type Cargo = {

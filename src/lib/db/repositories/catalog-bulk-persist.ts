@@ -212,6 +212,7 @@ async function upsertCondominiums(tx: Tx, condominios: Condominio[]): Promise<vo
         number: trimText(item.numero),
         complement: trimText(item.complemento),
         notes: trimText(item.observacao),
+        delinquencyTrackingDays: item.delinquencyTrackingDays,
       },
       update: {
         name: item.nome,
@@ -226,6 +227,7 @@ async function upsertCondominiums(tx: Tx, condominios: Condominio[]): Promise<vo
         number: trimText(item.numero),
         complement: trimText(item.complemento),
         notes: trimText(item.observacao),
+        delinquencyTrackingDays: item.delinquencyTrackingDays,
       },
     });
   }

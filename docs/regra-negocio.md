@@ -121,6 +121,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 ### Condomínios e unidades
 
 - Cadastro de condomínios (`/condominios`, `GET|POST /api/condominios`, `PATCH|DELETE /api/condominios/:id`): nome obrigatório, ao menos um advogado responsável, identificador externo único quando informado; inativação preserva unidades, débitos e atendimentos; exclusão só sem unidades nem histórico de cobrança. Escopo: advogado vê condomínios em que está vinculado; **atendente** vê apenas condomínios/unidades da **carteira vigente** (atribuição `collection_assignment` ativa); administradora vê a carteira completa. Mutações registradas em `audit_log`.
+- **Prazo de inadimplência por condomínio (T02):** campo opcional `delinquencyTrackingDays` (`condominium.delinquency_tracking_days`) — inteiro ≥ 1; perfil com `condominios.editar` altera no cadastro. Sem valor configurado, o sistema usa **60 dias** (`LIMITE_AMIGAVEL_DIAS`). A contagem usa **dias de atraso** do débito (vencimento → data-base do painel); alterar o prazo **não** muda vencimento nem valores financeiros. Indicadores e painel `/debitos` comparam cada débito ao prazo do seu condomínio; estados de interface: dentro do prazo, próximo do limite (dia anterior ao término), prazo atingido e prazo ultrapassado. Lógica em `src/lib/inadimplencia/delinquency-tracking.ts`.
 - Responsável jurídico (advogados no cadastro do condomínio)
 - Cadastro de unidades
 - Proprietários e responsáveis financeiros

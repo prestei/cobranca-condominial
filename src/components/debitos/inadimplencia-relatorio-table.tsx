@@ -421,6 +421,7 @@ type ListaProps = {
   acoes: (item: Debito) => TableAction[];
   /** `desktop` usa tabela; `mobile` usa cards. */
   variante: "desktop" | "mobile";
+  descricaoPrazoCondominio?: (condominioId: number) => string | undefined;
 };
 
 function PainelCondominio({
@@ -429,12 +430,14 @@ function PainelCondominio({
   onToggle,
   acoes,
   variante,
+  descricaoPrazoCondominio,
 }: {
   condominio: GrupoCondominioInadimplencia;
   aberto: boolean;
   onToggle: () => void;
   acoes: (item: Debito) => TableAction[];
   variante: "desktop" | "mobile";
+  descricaoPrazoCondominio?: (condominioId: number) => string | undefined;
 }) {
   const painelId = useId();
   const [page, setPage] = useState(1);
@@ -452,12 +455,18 @@ function PainelCondominio({
     setPage(1);
   }, [condominio.condominioId, qtdUnidades]);
 
+  const linhaPrazo = descricaoPrazoCondominio?.(condominio.condominioId);
+
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
       <h3 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={`w-full cursor-pointer bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
+            variante === "desktop"
+              ? "grid grid-cols-[minmax(0,1fr)_minmax(3.5rem,12%)] items-center"
+              : "flex items-center justify-between gap-md"
+          }`}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={onToggle}
@@ -471,11 +480,14 @@ function PainelCondominio({
               <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
                 {qtdUnidades} unidade{qtdUnidades === 1 ? "" : "s"} · {qtdDebitos} lançamento
                 {qtdDebitos === 1 ? "" : "s"} · Proj. rec. {moedaTotais(condominio.totais.projRec)}
+                {linhaPrazo ? ` · ${linhaPrazo}` : ""}
               </span>
             </span>
           </span>
           <span
-            className="inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant"
+            className={`inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant ${
+              variante === "desktop" ? "w-full justify-self-center px-sm" : ""
+            }`}
             aria-hidden
           >
             <Icon
@@ -528,6 +540,7 @@ export function InadimplenciaPorCondominioLista({
   emptyState,
   acoes,
   variante,
+  descricaoPrazoCondominio,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
 
@@ -562,6 +575,7 @@ export function InadimplenciaPorCondominioLista({
           onToggle={() => alternar(condominio.condominioId)}
           acoes={acoes}
           variante={variante}
+          descricaoPrazoCondominio={descricaoPrazoCondominio}
         />
       ))}
     </div>

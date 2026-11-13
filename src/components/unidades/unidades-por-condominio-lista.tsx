@@ -237,6 +237,7 @@ function PainelCondominio({
   renderSituacao,
   renderDebito,
   acoes,
+  descricaoPrazoCondominio,
 }: {
   grupo: GrupoUnidadesCondominio;
   aberto: boolean;
@@ -249,6 +250,7 @@ function PainelCondominio({
   renderSituacao: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
+  descricaoPrazoCondominio?: (condominioId: number) => string | undefined;
 }) {
   const painelId = useId();
   const [page, setPage] = useState(1);
@@ -265,13 +267,18 @@ function PainelCondominio({
   }, [grupo.condominioId, total]);
 
   const ativas = grupo.itens.filter((item) => item.status === "Ativa").length;
+  const linhaPrazo = descricaoPrazoCondominio?.(grupo.condominioId);
 
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
       <h3 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={`w-full cursor-pointer bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
+            variante === "desktop"
+              ? "grid grid-cols-[minmax(0,1fr)_13%] items-center"
+              : "flex items-center justify-between gap-md"
+          }`}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={onToggle}
@@ -285,11 +292,14 @@ function PainelCondominio({
               <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
                 {total} unidade{total === 1 ? "" : "s"}
                 {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
+                {linhaPrazo ? ` · ${linhaPrazo}` : ""}
               </span>
             </span>
           </span>
           <span
-            className="inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant"
+            className={`inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant ${
+              variante === "desktop" ? "w-full justify-self-center px-sm" : ""
+            }`}
             aria-hidden
           >
             <Icon
@@ -350,6 +360,7 @@ type ListaProps = {
   renderSituacao: (item: Unidade) => ReactNode;
   renderDebito: (item: Unidade) => ReactNode;
   acoes: (item: Unidade) => UnidadeLinhaAcao[];
+  descricaoPrazoCondominio?: (condominioId: number) => string | undefined;
 };
 
 export function UnidadesPorCondominioLista({
@@ -362,6 +373,7 @@ export function UnidadesPorCondominioLista({
   renderSituacao,
   renderDebito,
   acoes,
+  descricaoPrazoCondominio,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
 
@@ -402,6 +414,7 @@ export function UnidadesPorCondominioLista({
           renderSituacao={renderSituacao}
           renderDebito={renderDebito}
           acoes={acoes}
+          descricaoPrazoCondominio={descricaoPrazoCondominio}
         />
       ))}
     </div>

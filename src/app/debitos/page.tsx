@@ -98,7 +98,6 @@ import {
   formatarMoeda,
   grupoDebito,
   hojeIso,
-  LIMITE_AMIGAVEL_DIAS,
   escopoCondominios,
   escopoUnidades,
   nomeCondominio,
@@ -111,6 +110,12 @@ import {
   type Debito,
   type Unidade,
 } from "@/data/catalogo";
+import { DelinquencyTrackingBadge } from "@/components/debitos/delinquency-tracking-badge";
+import {
+  computeDelinquencyTrackingForDebt,
+  delinquencyTrackingDaysCaptionForCondominiumId,
+  resolveDelinquencyTrackingDays,
+} from "@/lib/inadimplencia/delinquency-tracking";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
@@ -146,11 +151,6 @@ function moeda(valor: number) {
 
 function percentual(valor: number) {
   return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-}
-
-function limiteNumerico(valor: string) {
-  const numero = Number(valor);
-  return Number.isInteger(numero) && numero >= 1 ? numero : LIMITE_AMIGAVEL_DIAS;
 }
 
 function debitoParaFormulario(item: Debito) {
@@ -217,14 +217,12 @@ function DebitosPage() {
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState(periodoTodos);
   const [dataBase, setDataBase] = useState(hojeIso);
-  const [limite, setLimite] = useState(String(LIMITE_AMIGAVEL_DIAS));
   const [condominioId, setCondominioId] = useState("todos");
   const [cidade, setCidade] = useState("todas");
   const [status, setStatus] = useState("todos");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [appliedPeriodo, setAppliedPeriodo] = useState(periodoTodos);
   const [appliedDataBase, setAppliedDataBase] = useState(hojeIso);
-  const [appliedLimite, setAppliedLimite] = useState(String(LIMITE_AMIGAVEL_DIAS));
   const [appliedCondominioId, setAppliedCondominioId] = useState("todos");
   const [appliedCidade, setAppliedCidade] = useState("todas");
   const [appliedStatus, setAppliedStatus] = useState("todos");
@@ -409,11 +407,24 @@ function DebitosPage() {
     () => agruparDebitosPorCondominio(visible, cadastros),
     [visible, cadastros],
   );
+  const descricaoPrazoCondominio = (condominioId: number) =>
+    delinquencyTrackingDaysCaptionForCondominiumId(condominioId, cadastros);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const limiteDias = limiteNumerico(appliedLimite);
-  const corte = dataCorteLimite(appliedDataBase, limiteDias);
+  const condominioFiltrado =
+    appliedCondominioId !== "todos"
+      ? cadastros.condominios.find((item) => String(item.id) === appliedCondominioId)
+      : undefined;
+  const prazoReferenciaKpi = condominioFiltrado ? resolveDelinquencyTrackingDays(condominioFiltrado) : null;
+  const rotuloDentroPrazo = prazoReferenciaKpi
+    ? `Até ${prazoReferenciaKpi} dias`
+    : "Dentro do prazo do condomínio";
+  const rotuloAcimaPrazo = prazoReferenciaKpi
+    ? `Acima de ${prazoReferenciaKpi} dias`
+    : "Acima do prazo do condomínio";
+  const corte =
+    prazoReferenciaKpi != null ? dataCorteLimite(appliedDataBase, prazoReferenciaKpi) : "";
   const emAbertoNaData = visible.filter((item) => debitoAbertoNaData(item, appliedDataBase));
   const condominiosNoFiltro = cadastros.condominios.filter((item) => {
     const matchesCondominio = appliedCondominioId === "todos" || String(item.id) === appliedCondominioId;
@@ -428,8 +439,8 @@ function DebitosPage() {
   const indicadores = calcularIndicadoresInadimplencia({
     debitos: emAbertoNaData,
     dataBase: appliedDataBase,
-    limiteDias,
     unidadesCarteira,
+    catalog: cadastros,
   });
   const totalOriginal = indicadores.totalOriginal;
   const totalAtualizado = indicadores.totalAtualizado;
@@ -442,7 +453,7 @@ function DebitosPage() {
     totalAtualizado > 0 ? (acimaLimite / totalAtualizado) * 100 : null;
   const percentualValorAte =
     totalAtualizado > 0 ? (ateLimite / totalAtualizado) * 100 : null;
-  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedSituacaoCobranca}-${appliedOrigem}-${appliedDataBase}-${appliedLimite}-${query}`;
+  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedSituacaoCobranca}-${appliedOrigem}-${appliedDataBase}-${query}`;
   const vazioGrafico = (
     <p className="py-lg text-center text-body-sm text-on-surface-variant">Sem dados no recorte.</p>
   );
@@ -469,7 +480,6 @@ function DebitosPage() {
     setAppliedSearch(search);
     setAppliedPeriodo(periodo);
     setAppliedDataBase(dataBase || hojeIso());
-    setAppliedLimite(limite);
     setAppliedCondominioId(condominioId);
     setAppliedCidade(cidade);
     setAppliedStatus(status);
@@ -484,14 +494,12 @@ function DebitosPage() {
     setSearch("");
     setPeriodo(periodoTodos);
     setDataBase(hoje);
-    setLimite(String(LIMITE_AMIGAVEL_DIAS));
     setCondominioId("todos");
     setCidade("todas");
     setStatus("todos");
     setAppliedSearch("");
     setAppliedPeriodo(periodoTodos);
     setAppliedDataBase(hoje);
-    setAppliedLimite(String(LIMITE_AMIGAVEL_DIAS));
     setAppliedCondominioId("todos");
     setAppliedCidade("todas");
     setAppliedStatus("todos");
@@ -790,17 +798,34 @@ function DebitosPage() {
     return item.origem ? `Origem: ${item.origem}` : "Valores da origem";
   }
 
-  const diasDaLinha = (item: Debito) =>
-    item.dataVencimento && item.dataVencimento <= appliedDataBase
-      ? String(diasDeAtraso(item.dataVencimento, appliedDataBase))
-      : "—";
+  function metricasPrazoDebito(item: Debito) {
+    if (!item.dataVencimento || item.dataVencimento > appliedDataBase) return null;
+    return computeDelinquencyTrackingForDebt(item.condominioId, item.dataVencimento, appliedDataBase, cadastros);
+  }
 
   function celulaDias(item: Debito) {
-    const texto = diasDaLinha(item);
-    if (texto === "—") return texto;
+    const metricas = metricasPrazoDebito(item);
+    if (!metricas) return "—";
     return (
-      <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-error-container px-sm py-xs text-label-sm tabular-nums text-status-critical">
-        {texto}
+      <div className="flex flex-col items-center gap-xs">
+        <span
+          className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-error-container px-sm py-xs text-label-sm tabular-nums text-status-critical"
+          title={`Prazo do condomínio: ${metricas.trackingDays} dias`}
+        >
+          {metricas.elapsedDays}
+        </span>
+        <DelinquencyTrackingBadge status={metricas.status} />
+      </div>
+    );
+  }
+
+  function celulaDiasRestantes(item: Debito) {
+    const metricas = metricasPrazoDebito(item);
+    if (!metricas || metricas.status === "no_arrears") return "—";
+    return (
+      <span className="tabular-nums text-body-sm text-on-surface">
+        {metricas.remainingDays}
+        <span className="text-on-surface-variant"> / {metricas.trackingDays}</span>
       </span>
     );
   }
@@ -829,7 +854,10 @@ function DebitosPage() {
       nomeUnidade(item.unidadeId, cadastros),
       grupoDebito(item.descricao),
       formatarData(item.dataVencimento),
-      diasDaLinha(item),
+      (() => {
+        const metricas = metricasPrazoDebito(item);
+        return metricas ? String(metricas.elapsedDays) : "—";
+      })(),
       formatarMoeda(item.valorOriginal),
       formatarMoeda(item.valorAtualizado),
       item.status,
@@ -917,8 +945,9 @@ function DebitosPage() {
             Vencimento
           </TableHead>
           <TableHead align="center" sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
-            Dias
+            Dias em atraso
           </TableHead>
+          <TableHead align="center">Restantes</TableHead>
           <TableHead align="center" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
             Original
           </TableHead>
@@ -934,7 +963,7 @@ function DebitosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={10}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={11}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -943,6 +972,7 @@ function DebitosPage() {
               <TableCell align="center">{grupoDebito(item.descricao)}</TableCell>
               <TableCell align="center">{formatarData(item.dataVencimento)}</TableCell>
               <TableCell align="center">{celulaDias(item)}</TableCell>
+              <TableCell align="center">{celulaDiasRestantes(item)}</TableCell>
               <TableCell align="center" className="tabular-nums">
                 {formatarMoeda(item.valorOriginal)}
               </TableCell>
@@ -1033,6 +1063,7 @@ function DebitosPage() {
       emptyState={emptyState}
       acoes={acoes}
       variante="desktop"
+      descricaoPrazoCondominio={descricaoPrazoCondominio}
     />
   );
 
@@ -1042,6 +1073,7 @@ function DebitosPage() {
       emptyState={emptyState}
       acoes={acoes}
       variante="mobile"
+      descricaoPrazoCondominio={descricaoPrazoCondominio}
     />
   );
 
@@ -1069,8 +1101,8 @@ function DebitosPage() {
           <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-2 min-[768px]:hidden">
             <KpiMobileCard rotulo="Valor original" valor={moeda(totalOriginal)} icon={Receipt} destaque />
             <KpiMobileCard rotulo="Valor atualizado" valor={moeda(totalAtualizado)} icon={Wallet} />
-            <KpiMobileCard rotulo={`Até ${limiteDias} dias`} valor={moeda(ateLimite)} icon={Clock} />
-            <KpiMobileCard rotulo={`Acima de ${limiteDias} dias`} valor={moeda(acimaLimite)} icon={Scale} />
+            <KpiMobileCard rotulo={rotuloDentroPrazo} valor={moeda(ateLimite)} icon={Clock} />
+            <KpiMobileCard rotulo={rotuloAcimaPrazo} valor={moeda(acimaLimite)} icon={Scale} />
           </div>
           <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             <CardMetric
@@ -1091,14 +1123,14 @@ function DebitosPage() {
               accent="tertiary"
               iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
               icon={<Icon icon={Clock} size="md" className="text-tertiary-container" />}
-              rotulo={`Até ${limiteDias} dias`}
+              rotulo={rotuloDentroPrazo}
               valor={moeda(ateLimite)}
             />
             <CardMetric
               accent="critical"
               iconClassName="bg-error-container text-status-critical"
               icon={<Icon icon={Scale} size="md" className="text-status-critical" />}
-              rotulo={`Acima de ${limiteDias} dias`}
+              rotulo={rotuloAcimaPrazo}
               valor={moeda(acimaLimite)}
             />
           </div>
@@ -1126,14 +1158,6 @@ function DebitosPage() {
               type: "date",
               value: dataBase,
               onChange: setDataBase,
-            },
-            {
-              id: "limite",
-              label: "Limite de dias",
-              type: "number",
-              min: 1,
-              value: limite,
-              onChange: setLimite,
             },
             {
               id: "condominio",
@@ -1253,7 +1277,9 @@ function DebitosPage() {
                 <h3 className="text-label-lg text-on-surface">Valor por faixa de atraso</h3>
                 <p className="mt-xs text-body-sm text-on-surface-variant">
                   {totalAtualizado > 0
-                    ? `Total atualizado em aberto ${moeda(totalAtualizado)} · corte ${formatarData(corte)} (${limiteDias} dias)`
+                    ? corte
+                      ? `Total atualizado em aberto ${moeda(totalAtualizado)} · corte ${formatarData(corte)} (${prazoReferenciaKpi} dias)`
+                      : `Total atualizado em aberto ${moeda(totalAtualizado)} · prazos individuais por condomínio`
                     : "Sem valor em aberto no recorte filtrado"}
                 </p>
               </div>
@@ -1262,7 +1288,7 @@ function DebitosPage() {
                 vazio={vazioGrafico}
                 itens={[
                   {
-                    nome: `Até ${limiteDias} dias`,
+                    nome: rotuloDentroPrazo,
                     valor: ateLimite,
                     detalhe:
                       percentualValorAte === null
@@ -1271,7 +1297,7 @@ function DebitosPage() {
                     tom: "brass",
                   },
                   {
-                    nome: `Acima de ${limiteDias} dias`,
+                    nome: rotuloAcimaPrazo,
                     valor: acimaLimite,
                     detalhe:
                       percentualValorAcima === null
@@ -1440,6 +1466,29 @@ function DebitosPage() {
                       onChange={(event) => setForm((current) => ({ ...current, dataVencimento: event.target.value }))}
                     />
                   </FormField>
+                  {form.condominioId && form.dataVencimento ? (() => {
+                    const metricas = computeDelinquencyTrackingForDebt(
+                      Number(form.condominioId),
+                      form.dataVencimento,
+                      appliedDataBase,
+                      cadastros,
+                    );
+                    return (
+                      <div className="rounded-lg border border-border-subtle bg-surface-subtle p-md text-body-sm text-on-surface">
+                        <p className="font-semibold text-on-surface">Acompanhamento do prazo</p>
+                        <p className="mt-xs text-on-surface-variant">
+                          Prazo do condomínio: {metricas.trackingDays} dias
+                          {metricas.usesDefaultTrackingDays ? " (padrão do sistema)" : ""}
+                        </p>
+                        <p className="tabular-nums">
+                          {metricas.elapsedDays} dias transcorridos · {metricas.remainingDays} dias restantes
+                        </p>
+                        <div className="mt-sm">
+                          <DelinquencyTrackingBadge status={metricas.status} />
+                        </div>
+                      </div>
+                    );
+                  })() : null}
                   <FormField label="Situação" htmlFor={`${formId}-status`} required error={errors.status}>
                     <Select
                       id={`${formId}-status`}

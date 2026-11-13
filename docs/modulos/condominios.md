@@ -33,7 +33,7 @@ Cadastro e gestão dos condomínios da carteira do escritório, base compartilha
 
 Protótipo em memória (`src/data/catalogo.ts`), com mutações validadas no servidor via API. Snapshot compartilhado entre requisições no mesmo processo Node; o cliente sincroniza com `GET /api/condominios` ao abrir telas que dependem da carteira.
 
-Campos principais: `nome`, `identificadorExterno` (único quando preenchido), `status` (`Ativo` | `Inativo`), `advogados[]`, `administradora`, endereço (CEP, logradouro, número, complemento, cidade, estado), `observacao`.
+Campos principais: `nome`, `identificadorExterno` (único quando preenchido), `status` (`Ativo` | `Inativo`), `advogados[]`, `administradora`, endereço (CEP, logradouro, número, complemento, cidade, estado), `observacao`, `delinquencyTrackingDays` (prazo de acompanhamento da inadimplência em dias; opcional — padrão 60).
 
 ## API e contratos
 
@@ -54,7 +54,7 @@ Implementação: `src/lib/condominios/service.ts`, rotas em `src/app/api/condomi
 
 1. **Abrir `/condominios`** — `garantirCondominiosPersistidosNoServidor` (GET + POST de registros só locais); toast se falhar; listagem a partir do catálogo reativo (`useCadastros`).
 2. **Filtrar** — busca textual, administradora, cidade, advogado responsável, situação; botões **Filtrar** / **Limpar** aplicam recorte; métricas e exportação usam o **recorte filtrado**.
-3. **Novo / Editar** — sheet em 3 etapas; CEP consultado via ViaCEP (`src/lib/cep.ts`); validação de nome e ao menos um advogado; POST ou PATCH; auditoria em `audit_log`.
+3. **Novo / Editar** — sheet em 3 etapas (inclui **prazo de inadimplência** na etapa Dados); CEP consultado via ViaCEP (`src/lib/cep.ts`); validação de nome e ao menos um advogado; POST ou PATCH; auditoria em `audit_log`. Na aba **Por condomínio**, o menu ⋮ do **cabeçalho** do painel traz **Editar condomínio** (`condominios.editar`); o ⋮ de cada **unidade** na tabela redireciona para `/unidades?condominio=…&editar=` ou `&consultar=` (edição/consulta da unidade, não do condomínio). O prazo do condomínio vale para todas as unidades e débitos em `/debitos` e indicadores.
 4. **Inativar / Reativar** — PATCH parcial `{ status }`; histórico operacional permanece consultável.
 5. **Excluir** — DELETE; bloqueado com unidades ou débitos/atendimentos/atribuições vinculados.
 6. **Importar** — atalho na tabela (`showImport`) abre `/importacoes?modulo=condominios&abrir=1` com permissão `importacoes.criar`; CSV (`;`) ou XLS com colunas mínimas **Nome** e **Advogados**; duplicidade por `identificadorExterno` ignorada ou 409.
@@ -64,6 +64,7 @@ Implementação: `src/lib/condominios/service.ts`, rotas em `src/app/api/condomi
 
 - Ao menos um advogado responsável; nomes devem constar em `opcoesAdvogadosResponsaveis` (advogados da carteira + usuários cargo Advogado).
 - `identificadorExterno` opcional; quando preenchido, único na carteira (case-insensitive).
+- `delinquencyTrackingDays` opcional; inteiro positivo; ausência usa 60 dias no cálculo de acompanhamento da inadimplência.
 - Inativação não apaga unidades, débitos ou atendimentos; condomínio inativo some das rotinas que filtram **Ativo**.
 - Exclusão física apenas sem unidades e sem histórico de cobrança na unidade.
 - Novo condomínio via formulário sempre nasce **Ativo** (importação pode informar situação).
