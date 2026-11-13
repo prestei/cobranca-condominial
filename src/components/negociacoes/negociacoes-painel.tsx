@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PropostaNegociacaoCard } from "@/components/negociacoes/proposta-negociacao-card";
-import { PropostaNegociacaoExclusiva } from "@/components/negociacoes/proposta-negociacao-exclusiva";
 import {
   statusPropostaNegociacao,
   type Cadastros,
@@ -92,17 +91,6 @@ export function NegociacoesPainel({
   function selecionarChip(novoStatus: string) {
     onStatusChange(novoStatus);
     onPageChange(1);
-  }
-
-  if (selecionadaId) {
-    return (
-      <PropostaNegociacaoExclusiva
-        propostaId={selecionadaId}
-        cadastros={cadastros}
-        onVoltar={() => onSelecionar(null)}
-        onRecarregar={onRecarregar}
-      />
-    );
   }
 
   return (
