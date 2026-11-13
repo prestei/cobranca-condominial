@@ -21,12 +21,12 @@ export function AjudaGuiaCard({ guia }: AjudaGuiaCardProps) {
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-fixed/45 text-primary-container">
             <Icon icon={guia.icon} size="sm" aria-hidden />
           </span>
-          <span className="min-w-0 flex-1 truncate text-label-md font-bold text-on-surface">{guia.titulo}</span>
+          <span className="min-w-0 flex-1 truncate text-body-md font-semibold text-on-surface">{guia.titulo}</span>
         </h3>
 
-        <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{guia.resumo}</p>
+        <p className="line-clamp-2 text-body-md leading-snug text-on-surface-variant">{guia.resumo}</p>
 
-        <span className="inline-flex w-fit items-center gap-xs text-label-sm font-semibold text-primary-container">
+        <span className="inline-flex w-fit items-center gap-xs text-body-md font-semibold text-primary-container">
           Ver passo a passo
           <Icon
             icon={ChevronRight}

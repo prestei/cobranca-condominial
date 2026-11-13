@@ -102,7 +102,7 @@ function LoginForm() {
                 onChange={(event) => setCodigo(event.target.value)}
                 invalid={Boolean(error)}
                 disabled={submitting}
-                placeholder="Ex.: RE-10000"
+                placeholder="Ex.: 10000 ou RE-10000"
               />
             </FormField>
             <FormField label="Senha" className="[&>label]:!text-on-primary">

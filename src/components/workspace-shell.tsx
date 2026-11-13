@@ -56,10 +56,9 @@ type NavLink = {
 
 const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
   {
-    title: "Operação",
+    title: "Rotina",
     links: [
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
-      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
       {
         href: "/atendimentos",
         label: "Atendimentos",
@@ -68,8 +67,6 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
         modulo: "atendimentos",
         atendimentosSemRetorno: true,
       },
-      { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
-      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
       {
         href: "/minha-agenda",
         label: "Minha agenda",
@@ -78,6 +75,14 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
         agendaRetornos: true,
       },
       { href: "/notificacoes", label: "Notificações", icon: Bell, modulo: "dashboard", count: "notificacoes" },
+    ],
+  },
+  {
+    title: "Cobrança",
+    links: [
+      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
+      { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
+      { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
     ],
   },
   {
