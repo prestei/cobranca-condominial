@@ -59,16 +59,20 @@ function resumirPermissoes(permissoes: PermissoesCargo): string {
 }
 
 function serializarGuia(guia: GuiaManual): string {
+  const extras: string[] = [];
+  if (guia.passos?.length) {
+    extras.push("Por onde começar:", ...guia.passos.map((p, i) => `${i + 1}. ${p.titulo} — ${p.descricao}`));
+  }
+  if (guia.dicas?.length) {
+    extras.push("Vale lembrar:", ...guia.dicas.map((d) => `- ${d}`));
+  }
   const bloco = [
     `### ${guia.titulo}`,
     guia.resumo,
-    `Objetivo: ${guia.objetivo}`,
-    "Passos:",
-    ...guia.passos.map((p, i) => `${i + 1}. ${p.titulo} — ${p.descricao}`),
-    "Elementos da tela:",
-    ...guia.elementos.map((e) => `- ${e.titulo}: ${e.descricao}`),
-    "Dicas:",
-    ...guia.dicas.map((d) => `- ${d}`),
+    `Para que serve: ${guia.objetivo}`,
+    "Regras desta tela (priorize estas respostas — linguagem simples, sem termos técnicos):",
+    ...guia.regras.map((r) => `- ${r}`),
+    ...extras,
   ].join("\n");
   return bloco.length > MAX_GUIA_CHARS ? `${bloco.slice(0, MAX_GUIA_CHARS)}\n[… guia truncado …]` : bloco;
 }
@@ -78,6 +82,7 @@ function guiaIdPorPathname(pathname: string): string | undefined {
     { prefix: "/atendimentos", id: "atendimentos" },
     { prefix: "/minha-agenda", id: "agenda" },
     { prefix: "/debitos", id: "inadimplencia" },
+    { prefix: "/negociacoes", id: "negociacoes" },
     { prefix: "/juridico", id: "juridico" },
     { prefix: "/condominios", id: "condominios" },
     { prefix: "/unidades", id: "unidades" },

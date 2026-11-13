@@ -1,9 +1,10 @@
 "use client";
 
-import { Bot, Send, Sparkles, X } from "lucide-react";
+import { HelpCircle, Send, Sparkles, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
@@ -14,8 +15,60 @@ import { captureScreenContext } from "@/lib/ajuda/capture-screen-context";
 import type { MensagemHistorico } from "@/lib/ajuda/assistant-prompt";
 
 const ROTAS_SEM_ASSISTENTE = ["/login", "/design-system"];
+const LOGO_ASSISTENTE = "/logo-assistente-chat.webp";
 
 type ChatItem = MensagemHistorico & { id: string };
+
+/** Mesma referência visual da logo na sidebar (`object-left`). */
+const AVATAR_ASSISTENTE_CLASS =
+  "flex size-8 shrink-0 items-center justify-start overflow-hidden rounded-lg bg-surface-card py-1 pl-0.5 pr-1 shadow-sm";
+
+type AvatarAssistenteProps = {
+  variant?: "message" | "header";
+};
+
+/** Avatar do assistente (marca Daniel Jorge) — mensagens e cabeçalho do painel. */
+function AvatarAssistente({ variant = "message" }: AvatarAssistenteProps) {
+  const isHeader = variant === "header";
+  return (
+    <div
+      className={
+        isHeader
+          ? "flex size-11 shrink-0 items-center justify-start overflow-hidden rounded-lg border border-on-primary/25 bg-on-primary py-1.5 pl-1 pr-1.5"
+          : AVATAR_ASSISTENTE_CLASS
+      }
+      aria-hidden
+    >
+      <Image
+        src={LOGO_ASSISTENTE}
+        alt=""
+        width={isHeader ? 34 : 26}
+        height={isHeader ? 30 : 24}
+        className={
+          isHeader
+            ? "block h-8 w-[34px] object-contain object-left"
+            : "block h-6 w-[26px] object-contain object-left"
+        }
+        aria-hidden
+      />
+    </div>
+  );
+}
+
+type LinhaAssistenteProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+/** Linha com coluna fixa de avatar — alinha todas as logos na mesma vertical. */
+function LinhaAssistente({ children, className = "" }: LinhaAssistenteProps) {
+  return (
+    <div className={`flex items-start gap-sm ${className}`}>
+      <AvatarAssistente />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 function novaId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -109,13 +162,8 @@ export function AssistenteFlutuante() {
           role="dialog"
           aria-label="Assistente de ajuda"
         >
-          <header className="flex items-start gap-sm bg-gradient-to-br from-primary-container to-tertiary-container px-md py-md text-on-primary">
-            <div
-              className="flex size-11 shrink-0 items-center justify-center rounded-full border border-on-primary/25 bg-on-primary/10"
-              aria-hidden
-            >
-              <Icon icon={Bot} size="lg" className="text-on-primary" />
-            </div>
+          <header className="flex items-center gap-sm bg-gradient-to-br from-primary-container to-tertiary-container px-md py-md text-on-primary">
+            <AvatarAssistente variant="header" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-xs">
                 <p className="text-label-md font-semibold">Assistente</p>
@@ -145,13 +193,14 @@ export function AssistenteFlutuante() {
 
           <div ref={listaRef} className="flex flex-1 flex-col gap-sm overflow-y-auto px-md py-sm">
             {mensagens.length === 0 ? (
-              <div className="flex gap-sm rounded-lg border border-dashed border-border-subtle bg-surface-subtle px-sm py-sm">
-                <Icon icon={Bot} size="md" className="mt-0.5 shrink-0 text-primary-container" aria-hidden />
-                <p className="text-body-sm text-on-surface-variant">
-                  Olá! Pergunte como usar filtros, botões ou fluxos desta página. Não oriento configurações técnicas nem
-                  telas fora das suas permissões.
-                </p>
-              </div>
+              <LinhaAssistente>
+                <div className="rounded-lg border border-dashed border-border-subtle bg-surface-subtle px-sm py-sm">
+                  <p className="text-body-sm text-on-surface-variant">
+                    Olá! Pergunte sobre esta tela e o manual do sistema. Uso só o que está no manual e no que você vê na
+                    página — sem internet nem assuntos fora do painel.
+                  </p>
+                </div>
+              </LinhaAssistente>
             ) : null}
             {mensagens.map((msg) =>
               msg.role === "user" ? (
@@ -162,17 +211,11 @@ export function AssistenteFlutuante() {
                   {msg.content}
                 </div>
               ) : (
-                <div key={msg.id} className="flex gap-sm">
-                  <div
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-container/15 to-tertiary-container/20"
-                    aria-hidden
-                  >
-                    <Icon icon={Bot} size="sm" className="text-primary-container" />
-                  </div>
-                  <div className="max-w-[calc(100%-2.5rem)] rounded-lg rounded-tl-sm border border-border-subtle bg-background px-sm py-xs text-body-sm text-on-surface">
+                <LinhaAssistente key={msg.id}>
+                  <div className="rounded-lg rounded-tl-sm border border-border-subtle bg-background px-sm py-xs text-body-sm text-on-surface">
                     {msg.content}
                   </div>
-                </div>
+                </LinhaAssistente>
               ),
             )}
             {enviando ? <p className="text-body-sm text-on-surface-variant">Pensando…</p> : null}
@@ -190,7 +233,7 @@ export function AssistenteFlutuante() {
                 rows={2}
                 value={pergunta}
                 onChange={(e) => setPergunta(e.target.value)}
-                placeholder="Ex.: Como registro um retorno nesta tela?"
+                placeholder="Ex.: O que significa o valor atualizado que aparece aqui?"
                 disabled={enviando}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -210,7 +253,7 @@ export function AssistenteFlutuante() {
 
       <button
         type="button"
-        className={`pointer-events-auto group flex items-center gap-sm rounded-full border-2 border-on-primary/20 bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary shadow-popover transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-button-hover focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass active:scale-[0.97] ${
+        className={`pointer-events-auto group flex cursor-pointer items-center gap-sm rounded-full border-2 border-on-primary/20 bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary shadow-popover transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-button-hover focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass active:scale-[0.97] ${
           aberto ? "h-12 w-12 justify-center p-0" : "h-12 min-w-12 pl-3 pr-4"
         }`}
         aria-expanded={aberto}
@@ -222,7 +265,7 @@ export function AssistenteFlutuante() {
         ) : (
           <>
             <span className="relative flex size-9 items-center justify-center rounded-full bg-on-primary/15">
-              <Icon icon={Bot} size="lg" />
+              <Icon icon={HelpCircle} size="lg" />
               <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-primary-container bg-brass" />
             </span>
             <span className="hidden text-label-md font-semibold min-[480px]:inline">Ajuda</span>

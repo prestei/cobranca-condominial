@@ -21,6 +21,7 @@ import {
 } from "react";
 import { Icon } from "@/components/icon";
 import { SkeletonAppHeader, SkeletonInlineList } from "@/components/skeleton";
+import { useContaProfile } from "@/context/conta-profile-context";
 
 const SIDEBAR_WIDTH = "264px";
 
@@ -376,6 +377,8 @@ function AppShellHeader({
   onToggleNotif,
   onToggleUser,
 }: AppShellHeaderProps) {
+  const { openContaProfile } = useContaProfile();
+
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-md border-b border-border-subtle bg-surface-card px-md min-[768px]:px-6">
       {headerCarregando ? (
@@ -515,7 +518,17 @@ function AppShellHeader({
                     <p className="mt-[2px] text-body-sm text-[#52607A]">{user.menuSubtitle}</p>
                   ) : null}
                 </div>
-                <AppShellMenuLink href="/conta">Meu perfil</AppShellMenuLink>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex min-h-11 w-full items-center px-md text-left text-[15px] font-medium text-[#1B2A41] hover:bg-[#F3F6FA] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass"
+                  onClick={() => {
+                    onToggleUser();
+                    openContaProfile();
+                  }}
+                >
+                  Meu perfil
+                </button>
                 <AppShellMenuLink href="/ajuda">Ajuda e suporte</AppShellMenuLink>
                 <button
                   type="button"

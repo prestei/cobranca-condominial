@@ -36,8 +36,9 @@ export default function NegociacoesPage() {
   const [status, setStatus] = useState("todos");
   const [page, setPage] = useState(1);
 
-  const [selecionadaId, setSelecionadaId] = useState<string | null>(null);
   const [novaOpen, setNovaOpen] = useState(false);
+
+  const propostaSelecionadaId = searchParams?.get("proposta")?.trim() || null;
   const carregar = useCallback(async () => {
     if (!podeLer) {
       setPropostas([]);
@@ -63,24 +64,20 @@ export default function NegociacoesPage() {
     }
   }, [podeLer, status]);
 
-  function selecionarProposta(id: string | null) {
-    setSelecionadaId(id);
-  }
+  const selecionarProposta = useCallback(
+    (id: string | null) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (id) params.set("proposta", id);
+      else params.delete("proposta");
+      const qs = params.toString();
+      router.replace(qs ? `/negociacoes?${qs}` : "/negociacoes", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   useEffect(() => {
     void carregar();
   }, [carregar]);
-
-  useEffect(() => {
-    const id = searchParams?.get("proposta")?.trim();
-    if (!id) return;
-    selecionarProposta(id);
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.delete("proposta");
-    const qs = params.toString();
-    router.replace(qs ? `/negociacoes?${qs}` : "/negociacoes");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deep link único na montagem
-  }, [router, searchParams]);
 
   useEffect(() => {
     if (searchParams?.get("novo") === "1" && podeCriar) {
@@ -146,9 +143,9 @@ export default function NegociacoesPage() {
 
   return (
     <WorkspaceShell>
-      {selecionadaId ? (
+      {propostaSelecionadaId ? (
         <PropostaNegociacaoExclusiva
-          propostaId={selecionadaId}
+          propostaId={propostaSelecionadaId}
           cadastros={cadastros}
           onVoltar={() => selecionarProposta(null)}
           onRecarregar={() => {
@@ -174,7 +171,7 @@ export default function NegociacoesPage() {
                 page={page}
                 onPageChange={setPage}
                 resumoPorProposta={resumoPorProposta}
-                selecionadaId={selecionadaId}
+                selecionadaId={propostaSelecionadaId}
                 onSelecionar={selecionarProposta}
                 onRecarregar={() => {
                   void refetch();

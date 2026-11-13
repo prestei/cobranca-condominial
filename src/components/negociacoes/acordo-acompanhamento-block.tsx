@@ -2,22 +2,31 @@
 
 import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useId, useState } from "react";
-import { Calendar, Flag } from "lucide-react";
+import { Calendar, Flag, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { FormField, Input, Select } from "@/components/input";
 import { SkeletonTable } from "@/components/skeleton";
+import { SheetBody, SheetFooterForm, SheetForm } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { confirmacaoPagamentoAcordo, formatarData, formatarMoeda, type PagamentoAcordo } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
+import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
+
+type ModoAcordoAcompanhamento = "completo" | "nova-parcela" | "registrar-pagamento";
 
 type Props = {
   propostaId: string;
   podeRegistrar: boolean;
   podeCorrigir: boolean;
   onChanged?: () => void;
+  /** Exibe só o formulário indicado (ex.: sheet na tela de proposta). */
+  modo?: ModoAcordoAcompanhamento;
+  onConcluido?: () => void;
+  /** Fechar sheet sem salvar (rodapé padrão). */
+  onFechar?: () => void;
 };
 
 const badgeParcela: Record<string, "success" | "secondary" | "error" | "neutral"> = {
@@ -27,7 +36,15 @@ const badgeParcela: Record<string, "success" | "secondary" | "error" | "neutral"
   Cancelada: "neutral",
 };
 
-export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorrigir, onChanged }: Props) {
+export function AcordoAcompanhamentoBlock({
+  propostaId,
+  podeRegistrar,
+  podeCorrigir,
+  onChanged,
+  modo = "completo",
+  onConcluido,
+  onFechar,
+}: Props) {
   const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
   const formId = useId();
@@ -94,6 +111,7 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
       setNovaVencimento("");
       toast({ variant: "success", title: "Parcela registrada" });
       onChanged?.();
+      onConcluido?.();
     } finally {
       setSalvando(false);
     }
@@ -153,17 +171,182 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
       setReferenciaPagamento("");
       toast({ variant: "success", title: "Pagamento registrado" });
       onChanged?.();
+      onConcluido?.();
     } finally {
       setSalvando(false);
     }
   }
 
+  const camposNovaParcela =
+    podeRegistrar ? (
+      <div className="flex flex-col gap-md">
+        <FormField label="Número da parcela">
+          <Input
+            id={`${formId}-numero`}
+            value={novaNumero}
+            onChange={(event) => setNovaNumero(event.target.value)}
+            inputMode="numeric"
+          />
+        </FormField>
+        <FormField label="Valor (R$)">
+          <Input
+            icon={Wallet}
+            value={novaValor}
+            onChange={(event) => setNovaValor(aplicarMascaraMoedaPtBr(event.target.value))}
+            inputMode="numeric"
+            placeholder="0,00"
+          />
+        </FormField>
+        <FormField label="Vencimento">
+          <Input
+            type="date"
+            value={novaVencimento}
+            onChange={(event) => setNovaVencimento(event.target.value)}
+          />
+        </FormField>
+      </div>
+    ) : null;
+
+  const camposPagamento =
+    podeRegistrar && resumo && resumo.parcelas.length > 0 ? (
+      <>
+        <FormField label="Parcela">
+          <Select
+            icon={Calendar}
+            value={parcelaPagamentoId}
+            onChange={(event) => setParcelaPagamentoId(event.target.value)}
+          >
+            {resumo.parcelas.map((parcela) => (
+              <option key={parcela.id} value={parcela.id}>
+                {parcela.numero} — {formatarMoeda(parcela.valorPrevisto)} — venc. {formatarData(parcela.vencimentoEm)}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <div className="grid gap-sm sm:grid-cols-2">
+          <FormField label="Valor (R$)">
+            <Input
+              icon={Wallet}
+              value={valorPagamento}
+              onChange={(event) => setValorPagamento(aplicarMascaraMoedaPtBr(event.target.value))}
+              inputMode="numeric"
+              placeholder="0,00"
+            />
+          </FormField>
+          <FormField label="Data">
+            <Input type="date" value={dataPagamento} onChange={(event) => setDataPagamento(event.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Referência / comprovante">
+          <Input
+            value={referenciaPagamento}
+            onChange={(event) => setReferenciaPagamento(event.target.value)}
+            placeholder="Opcional"
+          />
+        </FormField>
+        <FormField label="Confirmação">
+          <Select
+            icon={Flag}
+            value={confirmacaoPagamento}
+            onChange={(event) => setConfirmacaoPagamento(event.target.value)}
+          >
+            {confirmacaoPagamentoAcordo.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+      </>
+    ) : null;
+
+  const formularioNovaParcela =
+    podeRegistrar ? (
+      <div className="flex flex-col gap-sm">
+        {camposNovaParcela}
+        <Button type="button" disabled={salvando} onClick={() => void registrarParcela()}>
+          Adicionar parcela
+        </Button>
+      </div>
+    ) : null;
+
+  const formularioPagamento =
+    podeRegistrar && resumo && resumo.parcelas.length > 0 ? (
+      <div className="flex flex-col gap-sm">
+        {camposPagamento}
+        <Button type="button" disabled={salvando} onClick={() => void registrarPagamento()}>
+          Registrar pagamento
+        </Button>
+      </div>
+    ) : (
+      <p className="text-body-sm text-on-surface-variant">Cadastre ao menos uma parcela antes de registrar pagamento.</p>
+    );
+
+  const parcelaInvalida =
+    !novaNumero.trim() || !novaValor.trim() || !novaVencimento.trim() || Number.isNaN(Number(novaNumero));
+  const pagamentoInvalido = !parcelaPagamentoId || !valorPagamento.trim() || !dataPagamento.trim();
+
   if (loading) {
-    return <SkeletonTable rows={4} cols={4} label="Carregando parcelas do acordo" />;
+    if (modo === "completo") {
+      return <SkeletonTable rows={4} cols={4} label="Carregando parcelas do acordo" />;
+    }
+    return <p className="text-body-sm text-on-surface-variant">Carregando…</p>;
   }
 
   if (!resumo) {
     return null;
+  }
+
+  if (modo === "nova-parcela") {
+    if (!podeRegistrar) return null;
+    return (
+      <SheetForm
+        onSubmit={(event) => {
+          event.preventDefault();
+          void registrarParcela();
+        }}
+      >
+        <SheetBody className="flex flex-col gap-md">{camposNovaParcela}</SheetBody>
+        <SheetFooterForm
+          onClose={() => onFechar?.()}
+          closeLabel="Fechar"
+          saveLabel={salvando ? "Salvando…" : "Adicionar parcela"}
+          saveDisabled={salvando || parcelaInvalida}
+        />
+      </SheetForm>
+    );
+  }
+
+  if (modo === "registrar-pagamento") {
+    if (!podeRegistrar) return null;
+    if (!resumo.parcelas.length) {
+      return (
+        <>
+          <SheetBody>
+            <p className="text-body-sm text-on-surface-variant">
+              Cadastre ao menos uma parcela antes de registrar pagamento.
+            </p>
+          </SheetBody>
+          <SheetFooterForm onClose={() => onFechar?.()} saveLabel="Registrar pagamento" saveDisabled />
+        </>
+      );
+    }
+    return (
+      <SheetForm
+        onSubmit={(event) => {
+          event.preventDefault();
+          void registrarPagamento();
+        }}
+      >
+        <SheetBody className="flex flex-col gap-md">{camposPagamento}</SheetBody>
+        <SheetFooterForm
+          onClose={() => onFechar?.()}
+          closeLabel="Fechar"
+          saveLabel={salvando ? "Salvando…" : "Registrar pagamento"}
+          saveDisabled={salvando || pagamentoInvalido}
+        />
+      </SheetForm>
+    );
   }
 
   return (
@@ -268,89 +451,14 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
       {podeRegistrar ? (
         <div className="flex flex-col gap-sm rounded-md border border-border-subtle bg-surface px-md py-sm">
           <p className="text-label-sm text-on-surface">Nova parcela (prevista)</p>
-          <div className="grid gap-sm sm:grid-cols-3">
-            <FormField label="Nº">
-              <Input
-                id={`${formId}-numero`}
-                value={novaNumero}
-                onChange={(event) => setNovaNumero(event.target.value)}
-                inputMode="numeric"
-              />
-            </FormField>
-            <FormField label="Valor (R$)">
-              <Input
-                value={novaValor}
-                onChange={(event) => setNovaValor(event.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-              />
-            </FormField>
-            <FormField label="Vencimento">
-              <Input
-                type="date"
-                value={novaVencimento}
-                onChange={(event) => setNovaVencimento(event.target.value)}
-              />
-            </FormField>
-          </div>
-          <Button type="button" size="sm" disabled={salvando} onClick={() => void registrarParcela()}>
-            Adicionar parcela
-          </Button>
+          {formularioNovaParcela}
         </div>
       ) : null}
 
       {podeRegistrar && resumo.parcelas.length > 0 ? (
         <div className="flex flex-col gap-sm rounded-md border border-border-subtle bg-surface px-md py-sm">
           <p className="text-label-sm text-on-surface">Registrar pagamento</p>
-          <FormField label="Parcela">
-            <Select
-              icon={Calendar}
-              value={parcelaPagamentoId}
-              onChange={(event) => setParcelaPagamentoId(event.target.value)}
-            >
-              {resumo.parcelas.map((parcela) => (
-                <option key={parcela.id} value={parcela.id}>
-                  {parcela.numero} — {formatarMoeda(parcela.valorPrevisto)} — venc.{" "}
-                  {formatarData(parcela.vencimentoEm)}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-          <div className="grid gap-sm sm:grid-cols-2">
-            <FormField label="Valor (R$)">
-              <Input
-                value={valorPagamento}
-                onChange={(event) => setValorPagamento(event.target.value)}
-                inputMode="decimal"
-              />
-            </FormField>
-            <FormField label="Data">
-              <Input type="date" value={dataPagamento} onChange={(event) => setDataPagamento(event.target.value)} />
-            </FormField>
-          </div>
-          <FormField label="Referência / comprovante">
-            <Input
-              value={referenciaPagamento}
-              onChange={(event) => setReferenciaPagamento(event.target.value)}
-              placeholder="Opcional"
-            />
-          </FormField>
-          <FormField label="Confirmação">
-            <Select
-              icon={Flag}
-              value={confirmacaoPagamento}
-              onChange={(event) => setConfirmacaoPagamento(event.target.value)}
-            >
-              {confirmacaoPagamentoAcordo.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-          <Button type="button" size="sm" disabled={salvando} onClick={() => void registrarPagamento()}>
-            Registrar pagamento
-          </Button>
+          {formularioPagamento}
         </div>
       ) : null}
 

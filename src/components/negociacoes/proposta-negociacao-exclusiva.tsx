@@ -1,24 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Calendar,
   ChevronDown,
-  ChevronUp,
   DoorOpen,
   FileText,
   Handshake,
   ListOrdered,
+  Plus,
   Printer,
   Scale,
   ScrollText,
   User,
+  Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
+import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Textarea } from "@/components/input";
 import { PageContent, PageHeader } from "@/components/page-header";
@@ -27,10 +29,22 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/table";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetHeaderIcon,
+  SheetHeaderLead,
+  SheetHeaderText,
+  SheetTitle,
+} from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
 import {
@@ -97,16 +111,19 @@ function tituloEventoHistorico(acao: string, campos?: string) {
 }
 
 export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, onRecarregar }: Props) {
+  const formId = useId();
   const { toast } = useToast();
   const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const podeEditar = pode("atendimentos", "editar") || pode("negociacoes", "editar");
+  const podeRegistrar = pode("atendimentos", "criar") || pode("negociacoes", "criar");
 
   const [detalhe, setDetalhe] = useState<PropostaNegociacaoDetalhe | null>(null);
   const [resumo, setResumo] = useState<ResumoAcordo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [operacoesAbertas, setOperacoesAbertas] = useState(false);
   const [parcelasExpandidas, setParcelasExpandidas] = useState(false);
+  const [sheetPagamentoAberto, setSheetPagamentoAberto] = useState(false);
+  const [sheetParcelaAberto, setSheetParcelaAberto] = useState(false);
   const [historicoCompleto, setHistoricoCompleto] = useState(false);
 
   const [termos, setTermos] = useState("");
@@ -253,8 +270,8 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
       return;
     }
     if (detalhe.proposta.status === "Aceita") {
-      setOperacoesAbertas(true);
-      document.getElementById("operacoes-acordo")?.scrollIntoView({ behavior: "smooth" });
+      setSheetParcelaAberto(true);
+      document.getElementById("parcelas-negociacao")?.scrollIntoView({ behavior: "smooth" });
     }
   }
 
@@ -386,115 +403,146 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
             )}
           </section>
 
-          <div className="grid grid-cols-1 gap-md min-[1000px]:grid-cols-[minmax(0,1.65fr)_minmax(17rem,0.9fr)]">
-            <section
-              aria-label="Parcelas da negociação"
-              className="flex min-w-0 flex-col gap-md rounded-2xl border border-border-subtle bg-surface-card p-lg shadow-card"
-            >
-              <div className="flex items-center justify-between gap-sm">
-                <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
-                  <Icon icon={ListOrdered} size="md" className="text-primary-container" aria-hidden />
-                  Parcelas
-                </h2>
-              </div>
-              {!resumo || resumo.parcelas.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">
-                  Nenhuma parcela prevista. Confirme o acordo ou gere o cronograma.
-                </p>
-              ) : (
-                <>
-                  <Table showExport={false} aria-label="Parcelas da negociação">
-                    <TableHeader>
-                      <TableRow className="border-border-subtle/50 hover:bg-transparent">
-                        <TableHead>Parcela</TableHead>
-                        <TableHead>Vencimento</TableHead>
-                        <TableHead align="right">Valor</TableHead>
-                        <TableHead>Pagamento</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parcelasVisiveis.map((parcela) => (
-                        <TableRow key={parcela.id}>
-                          <TableCell>{parcela.numero}ª parcela</TableCell>
-                          <TableCell className="tabular-nums">{formatarData(parcela.vencimentoEm)}</TableCell>
-                          <TableCell align="right" className="tabular-nums font-medium">
-                            {formatarMoeda(parcela.valorPrevisto)}
-                          </TableCell>
-                          <TableCell>
-                            <CelulaStatusPagamento parcela={parcela} cadastros={cadastros} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {resumo.parcelas.length > PARCELAS_PREVIEW ? (
-                    <div className="flex justify-center border-t border-border-subtle pt-md">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="gap-xs text-brass hover:text-brass"
-                        onClick={() => setParcelasExpandidas((value) => !value)}
-                      >
-                        {parcelasExpandidas
-                          ? "Mostrar menos"
-                          : `Ver todas as ${resumo.parcelas.length} parcelas`}
-                        <Icon icon={ChevronDown} size="sm" aria-hidden />
-                      </Button>
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            <aside
-              aria-label="Histórico da negociação"
-              className="flex min-w-0 flex-col gap-md rounded-2xl border border-border-subtle bg-surface-card p-lg shadow-card"
-            >
-              <div className="flex items-center justify-between gap-sm">
-                <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
-                  <Icon icon={ScrollText} size="md" className="text-primary-container" aria-hidden />
-                  Histórico
-                </h2>
-                {historico.length > HISTORICO_PREVIEW ? (
+          <section
+            id="parcelas-negociacao"
+            aria-label="Parcelas da negociação"
+            className="flex min-w-0 flex-col gap-md"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
+                <Icon icon={ListOrdered} size="md" className="text-primary-container" aria-hidden />
+                Parcelas
+              </h2>
+              {proposta.status === "Aceita" && podeRegistrar ? (
+                <div className="flex flex-wrap gap-sm print:hidden">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
-                    className="gap-xs text-brass hover:text-brass"
-                    onClick={() => setHistoricoCompleto((value) => !value)}
+                    disabled={!resumo?.parcelas.length}
+                    onClick={() => setSheetPagamentoAberto(true)}
                   >
-                    {historicoCompleto ? "Resumir" : "Ver completo"}
-                    <Icon icon={ArrowRight} size="sm" aria-hidden />
+                    <Icon icon={Wallet} size="sm" aria-hidden />
+                    Registrar pagamento
                   </Button>
-                ) : null}
+                  <Button type="button" size="sm" onClick={() => setSheetParcelaAberto(true)}>
+                    <Icon icon={Plus} size="sm" aria-hidden />
+                    Adicionar parcela
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <Table showExport={false} fitContainer aria-label="Parcelas da negociação">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Parcela</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead align="right">Pagamento</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!resumo || resumo.parcelas.length === 0 ? (
+                  <TableEmpty colSpan={4}>
+                    <EmptyState
+                      icon={<Icon icon={ListOrdered} size="lg" />}
+                      title="Nenhuma parcela prevista"
+                      description="Confirme o acordo ou gere o cronograma."
+                      action={
+                        proposta.status === "Aceita" && podeRegistrar ? (
+                          <Button type="button" size="sm" onClick={() => setSheetParcelaAberto(true)}>
+                            <Icon icon={Plus} size="sm" aria-hidden />
+                            Adicionar parcela
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  </TableEmpty>
+                ) : (
+                  parcelasVisiveis.map((parcela) => (
+                    <TableRow key={parcela.id}>
+                      <TableCell>{parcela.numero}ª parcela</TableCell>
+                      <TableCell className="tabular-nums">{formatarData(parcela.vencimentoEm)}</TableCell>
+                      <TableCell className="tabular-nums font-medium">{formatarMoeda(parcela.valorPrevisto)}</TableCell>
+                      <TableCell align="right">
+                        <CelulaStatusPagamento parcela={parcela} cadastros={cadastros} className="items-end" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {resumo && resumo.parcelas.length > PARCELAS_PREVIEW ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-xs text-brass hover:text-brass"
+                  onClick={() => setParcelasExpandidas((value) => !value)}
+                >
+                  {parcelasExpandidas ? "Mostrar menos" : `Ver todas as ${resumo.parcelas.length} parcelas`}
+                  <Icon icon={ChevronDown} size="sm" aria-hidden />
+                </Button>
               </div>
+            ) : null}
+          </section>
+
+          <section aria-label="Histórico da negociação" className="flex min-w-0 flex-col gap-md">
+            <div className="flex items-center justify-between gap-sm">
+              <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
+                <Icon icon={ScrollText} size="md" className="text-primary-container" aria-hidden />
+                Histórico
+              </h2>
+              {historico.length > HISTORICO_PREVIEW ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-xs text-brass hover:text-brass"
+                  onClick={() => setHistoricoCompleto((value) => !value)}
+                >
+                  {historicoCompleto ? "Resumir" : "Ver completo"}
+                  <Icon icon={ArrowRight} size="sm" aria-hidden />
+                </Button>
+              ) : null}
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-surface-card p-lg shadow-card">
               {historico.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">Sem eventos auditados ainda.</p>
+                <p className="text-body-md text-on-surface-variant">Sem eventos auditados ainda.</p>
               ) : (
-                <ol className="relative flex flex-col gap-md border-l-2 border-primary-fixed/40 pl-md">
+                <ol className="relative flex flex-col gap-lg border-l-2 border-primary-fixed/35 py-xs pl-md">
                   {historicoVisivel.map((item, index) => (
-                    <li key={`${item.data}-${item.titulo}-${index}`} className="relative pl-xs">
+                    <li key={`${item.data}-${item.titulo}-${index}`} className="relative pl-sm">
                       <span
                         className={[
-                          "absolute -left-[calc(0.5rem+7px)] top-1.5 size-2.5 rounded-full",
+                          "absolute -left-[calc(0.5rem+7px)] top-[0.45rem] size-2.5 rounded-full",
                           item.destaque
                             ? "bg-status-settled"
                             : "border-2 border-border-subtle bg-surface-card",
                         ].join(" ")}
                         aria-hidden
                       />
-                      <p className="text-label-sm font-medium text-on-surface">{item.titulo}</p>
-                      <p className="text-body-sm text-on-surface-variant">{formatarData(item.data.slice(0, 10))}</p>
-                      {item.usuario ? (
-                        <p className="mt-xs text-body-sm text-on-surface-variant">{item.usuario}</p>
-                      ) : null}
+                      <p className="text-body-md font-medium leading-snug text-on-surface">{item.titulo}</p>
+                      <p className="mt-xs text-body-md leading-snug text-on-surface-variant">
+                        <time dateTime={item.data.slice(0, 10)} className="tabular-nums">
+                          {formatarData(item.data.slice(0, 10))}
+                        </time>
+                        {item.usuario && item.usuario !== "—" ? (
+                          <>
+                            <span className="px-xs text-on-surface-variant/50" aria-hidden>
+                              ·
+                            </span>
+                            <span>{item.usuario}</span>
+                          </>
+                        ) : null}
+                      </p>
                     </li>
                   ))}
                 </ol>
               )}
-            </aside>
-          </div>
+            </div>
+          </section>
 
           {proposta.status === "Em análise" && podeEditar ? (
             <section
@@ -532,41 +580,72 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
             </section>
           ) : null}
 
-          {proposta.status === "Aceita" ? (
-            <section
-              id="operacoes-acordo"
-              className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card print:hidden"
-            >
-              <button
-                type="button"
-                className="flex w-full items-center justify-between gap-sm px-lg py-md text-left transition-colors hover:bg-surface-subtle/60"
-                onClick={() => setOperacoesAbertas((value) => !value)}
-              >
-                <span className="text-headline-sm text-on-surface">Registrar pagamento e cronograma</span>
-                {operacoesAbertas ? (
-                  <Icon icon={ChevronUp} size="sm" aria-hidden />
-                ) : (
-                  <Icon icon={ChevronDown} size="sm" aria-hidden />
-                )}
-              </button>
-              {operacoesAbertas ? (
-                <div className="border-t border-border-subtle px-lg pb-lg pt-md">
-                  <AcordoAcompanhamentoBlock
-                    propostaId={proposta.id}
-                    podeRegistrar={pode("atendimentos", "criar") || pode("negociacoes", "criar")}
-                    podeCorrigir={podeEditar}
-                    onChanged={() => {
-                      void refetch();
-                      onRecarregar();
-                      void carregar();
-                    }}
-                  />
-                </div>
-              ) : null}
-            </section>
-          ) : null}
         </div>
       </PageContent>
+
+      {proposta.status === "Aceita" ? (
+        <>
+          <Sheet open={sheetParcelaAberto} onOpenChange={setSheetParcelaAberto}>
+            <SheetContent aria-labelledby={`${formId}-nova-parcela-titulo`}>
+              <SheetHeader>
+                <SheetHeaderLead>
+                  <SheetHeaderIcon>
+                    <Icon icon={Plus} size="md" />
+                  </SheetHeaderIcon>
+                  <SheetHeaderText>
+                    <SheetTitle id={`${formId}-nova-parcela-titulo`}>Adicionar parcela</SheetTitle>
+                    <SheetDescription>Inclua uma parcela prevista no cronograma do acordo.</SheetDescription>
+                  </SheetHeaderText>
+                </SheetHeaderLead>
+                <SheetClose />
+              </SheetHeader>
+              <AcordoAcompanhamentoBlock
+                propostaId={proposta.id}
+                podeRegistrar={podeRegistrar}
+                podeCorrigir={podeEditar}
+                modo="nova-parcela"
+                onFechar={() => setSheetParcelaAberto(false)}
+                onConcluido={() => setSheetParcelaAberto(false)}
+                onChanged={() => {
+                  void refetch();
+                  onRecarregar();
+                  void carregar();
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+
+          <Sheet open={sheetPagamentoAberto} onOpenChange={setSheetPagamentoAberto}>
+            <SheetContent aria-labelledby={`${formId}-pagamento-titulo`}>
+              <SheetHeader>
+                <SheetHeaderLead>
+                  <SheetHeaderIcon>
+                    <Icon icon={Wallet} size="md" />
+                  </SheetHeaderIcon>
+                  <SheetHeaderText>
+                    <SheetTitle id={`${formId}-pagamento-titulo`}>Registrar pagamento</SheetTitle>
+                    <SheetDescription>Informe valor, data e confirmação do recebimento.</SheetDescription>
+                  </SheetHeaderText>
+                </SheetHeaderLead>
+                <SheetClose />
+              </SheetHeader>
+              <AcordoAcompanhamentoBlock
+                propostaId={proposta.id}
+                podeRegistrar={podeRegistrar}
+                podeCorrigir={podeEditar}
+                modo="registrar-pagamento"
+                onFechar={() => setSheetPagamentoAberto(false)}
+                onConcluido={() => setSheetPagamentoAberto(false)}
+                onChanged={() => {
+                  void refetch();
+                  onRecarregar();
+                  void carregar();
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : null}
     </>
   );
 }
@@ -669,9 +748,11 @@ function LegendaParcelas({ resumo }: { resumo: ResumoAcordo }) {
 function CelulaStatusPagamento({
   parcela,
   cadastros,
+  className,
 }: {
   parcela: ParcelaAcordoEnriquecida;
   cadastros: Cadastros;
+  className?: string;
 }) {
   const pago = parcela.status === "Paga";
   const vencida = parcela.status === "Vencida";
@@ -680,7 +761,7 @@ function CelulaStatusPagamento({
   const rotulo = pago ? "Paga" : vencida ? "Vencida" : "Pendente";
 
   return (
-    <div className="flex flex-col gap-xs">
+    <div className={`flex flex-col gap-xs ${className ?? ""}`}>
       {pago || vencida ? (
         <Badge variant={pago ? "success" : "error"} className="w-fit gap-1 font-medium">
           <span aria-hidden>●</span>

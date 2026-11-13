@@ -17,6 +17,7 @@ import {
   upsertUser,
   userIsReferenced,
 } from "@/lib/db/repositories/identity-repository";
+import { normalizarAvatarDataUrl } from "@/lib/avatar/validate-avatar-data-url";
 import { sincronizarCondominiosAdvogado } from "@/lib/usuarios/advogado-condominios";
 import { usuarioParaResposta, type UsuarioPublico } from "@/lib/usuarios/apresentacao";
 
@@ -177,22 +178,104 @@ export type PerfilMinhaConta = {
   telefone: string;
   codigoRe?: string;
   cargoNome: string;
+  avatar?: string | null;
 };
 
-/** Perfil do colaborador autenticado (somente leitura, sem permissão administrativa). */
-export async function obterPerfilMinhaConta(usuarioId: number): Promise<PerfilMinhaConta | null> {
-  const usuario = await findUserById(usuarioId);
-  if (!usuario) return null;
+export type MinhaContaInput = {
+  nome: string;
+  telefone: string;
+  email: string;
+  /** Omitido = não altera; `null` = remove o avatar. */
+  avatar?: string | null;
+};
+
+function perfilMinhaContaDeUsuario(usuario: Usuario, cargoNome: string): PerfilMinhaConta {
   const publico = usuarioParaResposta(usuario);
-  const cargos = await listRoles();
-  const cargo = cargos.find((item) => item.id === usuario.cargoId);
   return {
     nome: publico.nome,
     email: publico.email,
     telefone: publico.telefone,
     ...(publico.codigoRe ? { codigoRe: publico.codigoRe } : {}),
-    cargoNome: cargo?.nome ?? "—",
+    cargoNome,
+    avatar: publico.avatar?.trim() ? publico.avatar : null,
   };
+}
+
+/** Perfil do colaborador autenticado. */
+export async function obterPerfilMinhaConta(usuarioId: number): Promise<PerfilMinhaConta | null> {
+  const usuario = await findUserById(usuarioId);
+  if (!usuario) return null;
+  const cargos = await listRoles();
+  const cargo = cargos.find((item) => item.id === usuario.cargoId);
+  return perfilMinhaContaDeUsuario(usuario, cargo?.nome ?? "—");
+}
+
+/** Atualiza nome, contato e avatar do próprio colaborador (sem alterar cargo, RE ou permissões). */
+export async function atualizarPerfilMinhaConta(
+  usuarioId: number,
+  input: MinhaContaInput,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<PerfilMinhaConta> {
+  const atual = await findUserById(usuarioId);
+  if (!atual) {
+    throw new UsuarioServiceError("Colaborador não encontrado.", 404);
+  }
+
+  const nome = input.nome.trim();
+  if (!nome) {
+    throw new UsuarioServiceError("Informe o nome.", 400);
+  }
+
+  const email = input.email.trim();
+  if (!email) {
+    throw new UsuarioServiceError("Informe o e-mail.", 400);
+  }
+  if (!emailValido(email)) {
+    throw new UsuarioServiceError("Informe um e-mail válido.", 400);
+  }
+
+  const usuarios = await listUsers();
+  if (emailDuplicado(email, usuarioId, usuarios)) {
+    throw new UsuarioServiceError("Já existe um colaborador com este e-mail.", 409);
+  }
+
+  let avatar = atual.avatar?.trim() || null;
+  if (input.avatar !== undefined) {
+    try {
+      avatar = normalizarAvatarDataUrl(input.avatar);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Imagem inválida.";
+      throw new UsuarioServiceError(message, 400);
+    }
+  }
+
+  const atualizado: Usuario = {
+    ...atual,
+    nome,
+    email,
+    telefone: input.telefone.trim(),
+    avatar,
+  };
+  const gravado = await upsertUser(atualizado);
+
+  const cargos = await listRoles();
+  const cargo = cargos.find((item) => item.id === gravado.cargoId);
+
+  const changedFields = ["nome", "email", "telefone", ...(input.avatar !== undefined ? ["avatar"] : [])].join(", ");
+
+  await writeAuditLog({
+    entity: "user",
+    recordId: String(usuarioId),
+    action: "UPDATE",
+    previousData: atual.nome,
+    newData: gravado.nome,
+    changedFields,
+    userId: usuarioId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+
+  return perfilMinhaContaDeUsuario(gravado, cargo?.nome ?? "—");
 }
 
 export async function criarUsuario(

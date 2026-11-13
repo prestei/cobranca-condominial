@@ -6,12 +6,13 @@ Botão fixo no canto inferior esquerdo para o colaborador tirar dúvidas de **us
 
 ## O que o assistente faz
 
-- Explica fluxos, botões e conceitos descritos no manual (`/ajuda`) e em `docs/modulos/`.
+- Prioriza **regras de negócio por tela** do manual (`/ajuda`), em linguagem simples; complementa com `docs/modulos/` quando necessário.
 - Respeita o **perfil operacional** (administradora, atendente, advogado) e as permissões reais do cargo.
-- Usa contexto da rota (`pathname`) e captura leve do DOM (títulos, rótulos, botões na área principal).
+- Usa contexto da rota (`pathname`) e captura leve do DOM (títulos, **indicadores/KPIs** com valor e rótulo, filtros preenchidos, paginação da listagem, botões e colunas na área principal).
 
 ## O que o assistente não faz
 
+- Não pesquisa na internet nem usa conhecimento fora do manual, da documentação do módulo e da captura da tela (chamada OpenRouter **sem** plugins/tools de web).
 - Não revela código, SQL, variáveis de ambiente, deploy ou detalhes de integração interna.
 - Não orienta acessar módulos ou ações sem permissão.
 - Não substitui o manual estático nem o suporte da administradora.

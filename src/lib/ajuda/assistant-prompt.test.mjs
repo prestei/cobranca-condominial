@@ -23,5 +23,8 @@ test("montarMensagensAssistente inclui matriz de permissões e pergunta", () => 
   assert.equal(msgs[0].role, "system");
   assert.match(msgs[0].content, /Atendimentos: Ver, Criar/);
   assert.match(msgs[0].content, /NÃO explique telas/);
+  assert.match(msgs[0].content, /Indicadores\/números visíveis/);
+  assert.match(msgs[0].content, /NÃO tem acesso à internet/);
+  assert.match(msgs[0].content, /Escopo fechado/);
   assert.equal(msgs.at(-1).content, "Como filtro retornos?");
 });

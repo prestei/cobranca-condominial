@@ -59,6 +59,7 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
     title: "Operação",
     links: [
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
+      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
       {
         href: "/atendimentos",
         label: "Atendimentos",
@@ -67,7 +68,6 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
         modulo: "atendimentos",
         atendimentosSemRetorno: true,
       },
-      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
       { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
       { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
       {
@@ -82,10 +82,7 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
   },
   {
     title: "Conta",
-    links: [
-      { href: "/conta", label: "Minha conta", icon: UserRound, modulo: "dashboard" },
-      { href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" },
-    ],
+    links: [{ href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" }],
   },
 ];
 
@@ -94,10 +91,10 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
     title: "Cobrança",
     links: [
       { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
-      { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
       { href: "/debitos", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
-      { href: "/juridico", label: "Jurídico", icon: Scale, modulo: "juridico" },
+      { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
       { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
+      { href: "/juridico", label: "Jurídico", icon: Scale, modulo: "juridico" },
     ],
   },
   {
@@ -124,10 +121,7 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
   },
   {
     title: "Conta",
-    links: [
-      { href: "/conta", label: "Minha conta", icon: UserRound, modulo: "dashboard" },
-      { href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" },
-    ],
+    links: [{ href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" }],
   },
 ];
 

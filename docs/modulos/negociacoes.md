@@ -17,7 +17,7 @@ Registrar tratativas de negociação vinculadas à unidade e aos débitos pertin
 
 | Onde | Descrição |
 | --- | --- |
-| **`/negociacoes`** | Tela exclusiva **sem tabela**: painel `NegociacoesPainel` (carteira em cards + detalhe fixo no desktop), `PropostaNegociacaoCard`, `PropostaNegociacaoDetalheConteudo`, sheet mobile (`PropostaDetalheSheet`), **Novo** (`NegociacaoNovaPropostaSheet`) |
+| **`/negociacoes`** | Tela exclusiva **sem tabela**: painel `NegociacoesPainel` (carteira em cards + detalhe fixo no desktop), `PropostaNegociacaoCard` (link discreto «Encaminhar p/ jurídico» no rodapé do card, com `juridico.criar`), `PropostaNegociacaoDetalheConteudo`, sheet mobile (`PropostaDetalheSheet`), **Novo** (`NegociacaoNovaPropostaSheet`) |
 | Fila de cobranças | Ação **Proposta** por unidade → `PropostaNegociacaoSheet` |
 | Histórico da unidade | Botão **Proposta** no sheet de linha do tempo |
 | Acordo confirmado | Bloco **Acompanhamento do acordo** no sheet (parcelas + pagamentos) |
