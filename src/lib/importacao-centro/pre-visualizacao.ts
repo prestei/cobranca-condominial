@@ -28,6 +28,7 @@ export function indicadorLinhaPreVisualizacao(
   if (item.situacao === "erro") return "erro";
   const motor: ResultadoValidacaoImportacao | undefined = item.validacao?.resultado;
   if (motor === "erro") return "erro";
+  if (item.situacao === "duplicado" && motor === "valido") return "valido";
   if (
     item.situacao === "duplicado" ||
     item.situacao === "manual_protegido" ||

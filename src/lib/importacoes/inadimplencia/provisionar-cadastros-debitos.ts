@@ -1,4 +1,5 @@
 import {
+  escopoCondominios,
   opcoesAdvogadosResponsaveis,
   proximoNumero,
   SITUACAO_COBRANCA_PADRAO,
@@ -117,25 +118,47 @@ function localizarResponsavelExistente(nome: string, unidadeId: number): Respons
   return undefined;
 }
 
-/** Quando a carteira tem um único município cadastrado, replica na provisão (relatórios PDF não trazem cidade). */
-function resolverEnderecoPadraoCondominioProvisionamento(): { cidade: string; estado: string } {
-  const pares = getCadastros()
-    .condominios.map((item) => ({ cidade: item.cidade.trim(), estado: item.estado.trim() }))
+/**
+ * Infere cidade/UF para condomínio provisionado (PDF não traz endereço).
+ * Usa condomínios no escopo do usuário; prefere município único ou o mais frequente na carteira.
+ */
+export function resolverEnderecoPadraoCondominioProvisionamento(userId: number): { cidade: string; estado: string } {
+  const cadastros = getCadastros();
+  const condominiosReferencia = userId > 0 ? escopoCondominios(cadastros, userId) : cadastros.condominios;
+  const pares = condominiosReferencia
+    .map((item) => ({ cidade: item.cidade.trim(), estado: item.estado.trim() }))
     .filter((item) => item.cidade);
   if (pares.length === 0) return { cidade: "", estado: "" };
 
-  const porCidade = new Map<string, Set<string>>();
+  const contagem = new Map<string, { cidade: string; estado: string; count: number }>();
   for (const item of pares) {
     const chave = item.cidade.toLocaleLowerCase("pt-BR");
-    if (!porCidade.has(chave)) porCidade.set(chave, new Set());
-    if (item.estado) porCidade.get(chave)!.add(item.estado.toLocaleUpperCase("pt-BR"));
+    const atual = contagem.get(chave);
+    if (!atual) {
+      contagem.set(chave, { cidade: item.cidade, estado: item.estado, count: 1 });
+      continue;
+    }
+    atual.count += 1;
+    if (item.estado && !atual.estado) atual.estado = item.estado;
   }
-  if (porCidade.size !== 1) return { cidade: "", estado: "" };
 
-  const [cidadeNorm, estados] = [...porCidade.entries()][0]!;
-  const cidade = pares.find((item) => item.cidade.toLocaleLowerCase("pt-BR") === cidadeNorm)!.cidade;
-  const estado = estados.size === 1 ? [...estados][0]! : "";
-  return { cidade, estado };
+  const ranking = [...contagem.values()].sort((a, b) => b.count - a.count);
+  if (ranking.length === 0) return { cidade: "", estado: "" };
+  if (ranking.length > 1 && ranking[0]!.count === ranking[1]!.count) {
+    return { cidade: "", estado: "" };
+  }
+
+  const escolhido = ranking[0]!;
+  const estados = new Set(
+    pares
+      .filter((item) => item.cidade.toLocaleLowerCase("pt-BR") === escolhido.cidade.toLocaleLowerCase("pt-BR"))
+      .map((item) => item.estado.toLocaleUpperCase("pt-BR"))
+      .filter(Boolean),
+  );
+  return {
+    cidade: escolhido.cidade,
+    estado: estados.size === 1 ? [...estados][0]! : escolhido.estado,
+  };
 }
 
 async function completarEnderecoCondominioProvisionado(
@@ -420,7 +443,7 @@ async function criarCondominioProvisionamento(
     throw new CondominioServiceError("Situação do condomínio inválida.", 400);
   }
 
-  const enderecoPadrao = resolverEnderecoPadraoCondominioProvisionamento();
+  const enderecoPadrao = resolverEnderecoPadraoCondominioProvisionamento(userId);
   const cidade = (input.cidade?.trim() || enderecoPadrao.cidade).trim();
   const estado = (input.estado?.trim() || enderecoPadrao.estado).trim();
 
@@ -560,6 +583,7 @@ export async function provisionarCadastrosImportacaoDebitos(
   opcoes?: OpcoesProvisionamentoCadastrosDebitos,
 ): Promise<ResultadoProvisionamentoCadastrosDebitos> {
   const persistirNoBanco = opcoes?.persistirNoBanco === true;
+  await reidratarCatalogoCadastralImportacaoDebitos();
   const referencias = extrairReferenciasCadastraisMatrizDebitos(matriz);
   if (referencias.length === 0) {
     return { condominiosCriados: [], unidadesCriadas: [], responsaveisCriados: [], vinculosCriados: [] };
@@ -575,7 +599,7 @@ export async function provisionarCadastrosImportacaoDebitos(
   const responsaveisCriados: Responsavel[] = [];
   const vinculosCriados: Vinculo[] = [];
   const administradora = origem.trim() || "Importação";
-  const enderecoPadrao = resolverEnderecoPadraoCondominioProvisionamento();
+  const enderecoPadrao = resolverEnderecoPadraoCondominioProvisionamento(userId);
 
   for (const ref of referencias) {
     let condominioId: number | null = null;
@@ -609,9 +633,11 @@ export async function provisionarCadastrosImportacaoDebitos(
           meta,
           persistirNoBanco,
         );
-        if (!getCadastros().condominios.some((item) => item.id === criado.id)) {
-          setCondominios((current) => [...current, criado]);
-        }
+        setCondominios((current) => {
+          const existe = current.some((item) => item.id === criado.id);
+          if (!existe) return [...current, criado];
+          return current.map((item) => (item.id === criado.id ? criado : item));
+        });
         condominiosCriados.push(criado);
         condominioId = criado.id;
       }
@@ -715,11 +741,28 @@ export async function provisionarCadastrosImportacaoDebitos(
 }
 
 /** Na prévia, cadastros provisionados ficam só na memória — não podem ser descartados ao sincronizar com o PG. */
+function mesclarCondominioProvisionado(banco: Condominio, memoria: Condominio): Condominio {
+  return {
+    ...banco,
+    cidade: banco.cidade.trim() || memoria.cidade.trim(),
+    estado: banco.estado.trim() || memoria.estado.trim(),
+  };
+}
+
 function mesclarCadastroPorId<T extends { id: number }>(banco: T[], memoria: T[]): T[] {
   const porId = new Map<number, T>();
   for (const item of banco) porId.set(item.id, item);
   for (const item of memoria) {
-    if (!porId.has(item.id)) porId.set(item.id, item);
+    if (!porId.has(item.id)) {
+      porId.set(item.id, item);
+      continue;
+    }
+    if ("cidade" in item && "estado" in item && "cidade" in porId.get(item.id)!) {
+      porId.set(
+        item.id,
+        mesclarCondominioProvisionado(porId.get(item.id)! as Condominio, item as Condominio) as T,
+      );
+    }
   }
   return [...porId.values()];
 }

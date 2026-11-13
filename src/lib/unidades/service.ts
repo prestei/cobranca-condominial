@@ -1,4 +1,4 @@
-import { debitoEmAberto, formatarData, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposUnidade, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import { debitoEmAberto, formatarData, persistedDebtBalanceAmount, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposUnidade, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { invalidateServiceContextCache, scopeCondominiumIds } from "@/lib/db/service-context";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
@@ -134,7 +134,10 @@ export async function obterUnidadeDetalhe(userId: number, unidadeId: number) {
     (item) => String(item.unidadeId) === String(unidadeId),
   );
   const debitosAbertos = debitos.filter(debitoEmAberto);
-  const valorAberto = debitosAbertos.reduce((sum, item) => sum + Number(item.valorAtualizado || 0), 0);
+  const valorAberto = debitosAbertos.reduce(
+    (sum, item) => sum + persistedDebtBalanceAmount(item),
+    0,
+  );
 
   const ultimosDebitos = [...debitos]
     .sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento))

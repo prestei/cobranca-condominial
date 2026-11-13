@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { SheetPanel } from "@/components/sheet";
 import type { ColunaPreVisualizacaoImportacao, LinhaPreVisualizacaoImportacaoUi } from "@/components/importacao-pre-visualizacao/types";
 import type { CategoriaValidacaoImportacao } from "@/lib/importacao-centro/motor-validacao/types";
-import { montarResumoDebitoDeDadosOriginais } from "@/lib/importacao-centro/adaptadores/debitos-resumo";
+import { mesclarResumoLinhaImportacao } from "@/lib/importacao-centro/adaptadores/debitos-resumo";
 import { mensagensLinhaPreVisualizacao, situacaoPermiteIgnorarNaPrevia } from "@/lib/importacao-centro/pre-visualizacao";
 
 const rotuloCategoria: Record<CategoriaValidacaoImportacao, string> = {
@@ -115,12 +115,7 @@ export function DetalheLinhaImportacao({
       setRascunho({});
       return;
     }
-    const resumoExibicao =
-      linha.resumo && Object.values(linha.resumo).some((v) => v?.trim() && v !== "—")
-        ? linha.resumo
-        : linha.validacao?.dadosOriginais
-          ? montarResumoDebitoDeDadosOriginais(linha.validacao.dadosOriginais)
-          : {};
+    const resumoExibicao = mesclarResumoLinhaImportacao(linha.resumo, linha.validacao?.dadosOriginais);
     const inicial: Record<string, string> = { ...(linha.valoresEditados ?? {}) };
     for (const coluna of colunas) {
       if (!coluna.editavel || !coluna.campoNormalizado) continue;
@@ -137,6 +132,8 @@ export function DetalheLinhaImportacao({
   if (!linha) return null;
 
   const mensagens = mensagensLinhaPreVisualizacao(linha);
+  const alertaSomenteDuplicataExata =
+    linha.situacao === "duplicado" && linha.indicador === "valido" && mensagens.length > 0;
   const dadosOriginais = linha.validacao?.dadosOriginais ?? {};
   const dadosNormalizados =
     linha.validacao?.dadosNormalizados && typeof linha.validacao.dadosNormalizados === "object"
@@ -189,7 +186,10 @@ export function DetalheLinhaImportacao({
 
         <DialogBody className="flex max-h-[calc(90vh-10.5rem)] flex-col gap-md overflow-y-auto py-md">
           {mensagens.length > 0 ? (
-            <Alert variant={alertPorIndicador[linha.indicador]} title="Observações desta linha">
+            <Alert
+              variant={alertaSomenteDuplicataExata ? "info" : alertPorIndicador[linha.indicador]}
+              title={alertaSomenteDuplicataExata ? "Registro já existente na base" : "Observações desta linha"}
+            >
               <ul className="list-inside list-disc space-y-xs">
                 {mensagens.map((msg) => (
                   <li key={msg}>{msg}</li>

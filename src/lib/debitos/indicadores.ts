@@ -1,4 +1,10 @@
-import { debitoAbertoNaData, diasDeAtraso, type Cadastros, type Debito } from "@/data/catalogo";
+import {
+  debitoAbertoNaData,
+  diasDeAtraso,
+  persistedDebtBalanceAmount,
+  type Cadastros,
+  type Debito,
+} from "@/data/catalogo";
 import {
   delinquencyTrackingDaysForCondominiumId,
   isAboveDelinquencyTrackingLimit,
@@ -39,7 +45,7 @@ export function somarValorAtualizadoSemDuplicata(itens: Debito[]): number {
     const chave = chaveUnicaIndicador(item);
     if (vistos.has(chave)) continue;
     vistos.add(chave);
-    total += Number(item.valorAtualizado) || 0;
+    total += persistedDebtBalanceAmount(item);
   }
   return total;
 }

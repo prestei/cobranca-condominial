@@ -76,6 +76,17 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 | `OPENROUTER_API_KEY` | Assistente de ajuda | Chave OpenRouter no servidor (`POST /api/ajuda/assistente`). Ver [ajuda-assistente](modulos/ajuda-assistente.md). |
 | `OPENROUTER_MODEL` | Não | Modelo OpenRouter (padrão `google/gemini-2.5-flash`). |
 
+### Push Firebase (opcional)
+
+| Variável | Obrigatória | Descrição |
+| --- | --- | --- |
+| `NEXT_PUBLIC_FIREBASE_*` | Para push | Config da app Web no Firebase (API key, project ID, messaging sender ID, app ID). |
+| `NEXT_PUBLIC_FIREBASE_VAPID_KEY` | Para push | Chave pública Web Push (Cloud Messaging). |
+| `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` | Para push (servidor) | Conta de serviço para Admin SDK enviar FCM. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Alternativa | JSON completo da conta de serviço (substitui e-mail + chave). |
+
+Sem essas variáveis, o sistema mantém apenas notificações in-app (sino). Pacotes: `firebase` (cliente), `firebase-admin` (API).
+
 ## Produção (VPS)
 
 Deploy (Node + systemd + Caddy + PostgreSQL, **sem Docker**): ver [`deploy/README.md`](../deploy/README.md).
@@ -100,7 +111,7 @@ npm run db:migrate          # prisma migrate deploy
 - Gravação em lote (importação / flush): `saveCatalogBulkToPostgres` em `src/lib/db/repositories/catalog-bulk-persist.ts` (`$transaction` + upsert + remoção de órfãos).
 - Catálogo em memória **somente** no pipeline de importação (AsyncLocalStorage / escopo de request); telas e APIs não dependem de módulos `*-pg` nem de `catalogo_snapshot`.
 - Identidade: tabelas `role` e `user` (CRUD e login via Prisma).
-- Config app: `app_setting` (ex.: `distribuicao_automatica` em `src/lib/distribuicao/service.ts`).
+- Config app: `app_setting` (ex.: `distribuicao_automatica` em `src/lib/distribuicao/service.ts`; `alertas_prazo_inadimplencia` em `src/lib/notificacoes/alertas-prazo-inadimplencia-service.ts`).
 - Não há mais `catalogo_snapshot`, `pool.ts`, `operacional-pg.ts` nem drivers raw `pg` no `src/`.
 - Deploy: Node + systemd + Caddy — ver [`deploy/README.md`](../deploy/README.md). Sem Docker.
 - Anti-perda: `saveCatalogBulkToPostgres` recusa sobrescrever linhas operacionais existentes por estado operacional vazio; `TimeoutStopSec=30` no systemd para flush no restart.

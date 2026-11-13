@@ -145,6 +145,7 @@ type ErroCampo =
   | "juros"
   | "correcao"
   | "valorAtualizado"
+  | "dataPagamento"
   | "valorPago";
 function moeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -676,6 +677,12 @@ function DebitosPage() {
     if (!form.dataVencimento) nextErrors.dataVencimento = "Informe o vencimento.";
     if (!form.status) nextErrors.status = "Selecione a situação.";
 
+    const quitado = form.status === "Pago";
+    if (step === etapas.length - 1 && quitado) {
+      if (!form.dataPagamento.trim()) nextErrors.dataPagamento = "Informe a data do pagamento.";
+      if (!form.valorPago.trim()) nextErrors.valorPago = "Informe o valor pago.";
+    }
+
     const camposValor = ["valor", "valorOriginal", "multa", "juros", "correcao", "valorAtualizado", "valorPago"] as const;
     for (const campo of camposValor) {
       const raw = form[campo].trim();
@@ -723,6 +730,10 @@ function DebitosPage() {
       setStep(1);
       return;
     }
+    if (nextErrors.dataPagamento || nextErrors.valorPago) {
+      setStep(2);
+      return;
+    }
     if (Object.keys(nextErrors).length > 0) return;
 
     await sincronizarCadastrosRelacionados();
@@ -741,8 +752,8 @@ function DebitosPage() {
       correcao: canon(form.correcao),
       valorAtualizado: canon(form.valorAtualizado),
       status: form.status,
-      dataPagamento: form.dataPagamento,
-      valorPago: canon(form.valorPago),
+      dataPagamento: quitado ? form.dataPagamento : "",
+      valorPago: quitado ? canon(form.valorPago) : "",
       origem: form.origem,
       identificadorExterno: form.identificadorExterno.trim(),
     };
@@ -760,7 +771,7 @@ function DebitosPage() {
       toast({ variant: "error", title: body.error ?? "Não foi possível salvar o débito." });
       return;
     }
-    if (body.debito) aplicarDebitoSalvo(body.debito, editingId === null ? "INSERT" : "UPDATE");
+    if (body.debito) await recarregarDebitosDoServidor();
     toast({ variant: "success", title: editingId === null ? "Débito cadastrado" : "Débito atualizado" });
     setSheetOpen(false);
   }
@@ -1505,7 +1516,14 @@ function DebitosPage() {
                       icon={Flag}
                       value={form.status}
                       invalid={Boolean(errors.status)}
-                      onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
+                      onChange={(event) => {
+                        const status = event.target.value;
+                        setForm((current) => ({
+                          ...current,
+                          status,
+                          ...(status !== "Pago" ? { dataPagamento: "", valorPago: "" } : {}),
+                        }));
+                      }}
                     >
                       <option value="">Selecione</option>
                       {statusDebito.map((item) => (
@@ -1578,16 +1596,32 @@ function DebitosPage() {
                 </>
               ) : (
                 <>
-                  <FormField label="Data do pagamento" htmlFor={`${formId}-pagamento`}>
+                  {form.status !== "Pago" ? (
+                    <p className="text-body-sm text-on-surface-variant">
+                      Com situação diferente de Pago, os dados de pagamento são opcionais.
+                    </p>
+                  ) : null}
+                  <FormField
+                    label="Data do pagamento"
+                    htmlFor={`${formId}-pagamento`}
+                    required={form.status === "Pago"}
+                    error={errors.dataPagamento}
+                  >
                     <Input
                       id={`${formId}-pagamento`}
                       icon={Calendar}
                       type="date"
                       value={form.dataPagamento}
+                      invalid={Boolean(errors.dataPagamento)}
                       onChange={(event) => setForm((current) => ({ ...current, dataPagamento: event.target.value }))}
                     />
                   </FormField>
-                  <FormField label="Valor pago" htmlFor={`${formId}-pago`} error={errors.valorPago}>
+                  <FormField
+                    label="Valor pago"
+                    htmlFor={`${formId}-pago`}
+                    required={form.status === "Pago"}
+                    error={errors.valorPago}
+                  >
                     <Input
                       id={`${formId}-pago`}
                       icon={Wallet}

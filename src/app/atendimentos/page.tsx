@@ -5,6 +5,7 @@ import { SkeletonAtendimentosOperacao } from "@/components/skeleton";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
+import { DistribuicaoAutomaticaSheet } from "@/components/atendimentos/distribuicao-automatica-sheet";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
 import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
 import {
@@ -14,14 +15,16 @@ import {
   statusRegistrarContato,
   validarRegistrarContato,
 } from "@/components/atendimentos/registrar-contato-sheet";
+import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { canaisAtendimento, montarMotivoPendencia, type Atendimento } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Network } from "lucide-react";
 function AtendimentosPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -31,6 +34,7 @@ function AtendimentosPage() {
   const { pode } = usePermissao();
   const visaoGestao = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [distribuicaoSheetOpen, setDistribuicaoSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [form, setForm] = useState(() => registrarContatoFormVazio());
   const [errors, setErrors] = useState<
@@ -180,18 +184,31 @@ function AtendimentosPage() {
   return (
     <WorkspaceShell>
       {visaoGestao ? (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-card">
           <PageHeader
             icon={ClipboardList}
             title="Atendimentos"
             description="Fila de cobrança da carteira: retornos, distribuição por RE e visão por condomínio ou atendente."
             className="shrink-0 bg-surface-card max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
+            actions={
+              <Button size="md" onClick={() => setDistribuicaoSheetOpen(true)}>
+                <Icon icon={Network} size="sm" />
+                Configurar Distribuição
+              </Button>
+            }
           />
           {corpoFila}
-        </>
+        </div>
       ) : (
         corpoFila
       )}
+
+      {visaoGestao ? (
+        <DistribuicaoAutomaticaSheet
+          open={distribuicaoSheetOpen}
+          onOpenChange={setDistribuicaoSheetOpen}
+        />
+      ) : null}
 
       <RegistrarContatoSheet
         open={sheetOpen}

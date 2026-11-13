@@ -1,12 +1,17 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
-import { DistribuicaoServiceError, listarHistoricoAtribuicoes } from "@/lib/distribuicao/service";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import {
+  DistribuicaoServiceError,
+  listarHistoricoAtribuicoes,
+  podeGerenciarDistribuicaoAsync,
+} from "@/lib/distribuicao/service";
 
 export async function GET(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
 
-  const denied = await requirePermissao(session, "usuarios", "criar");
-  if (denied) return denied;
+  if (!(await podeGerenciarDistribuicaoAsync(session.userId))) {
+    return Response.json({ error: "Sem permissão para consultar o histórico." }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const unidadeId = Number(searchParams.get("unidadeId"));

@@ -36,6 +36,11 @@ test("homologação Residencial do Mar — extração em 8 páginas e registros"
   assert.equal(relatorio.paginas, 8);
   assert.ok(relatorio.linhas.length > 100);
   assert.equal(relatorio.condominioNome, "Residencial do Mar");
+  const semResponsavel = relatorio!.linhas.filter((item) => !item.responsavel?.trim());
+  assert.equal(semResponsavel.length, 0, `linhas sem responsável: ${semResponsavel.length}`);
+  const mb0102 = relatorio!.linhas.filter((item) => item.unidade === "MB-0102");
+  assert.ok(mb0102.length >= 4);
+  assert.equal(mb0102[0]?.responsavel, "Gleide Nunes Rocha");
 });
 
 test("homologação Residencial do Mar — reconciliação de subtotais e total geral", async () => {

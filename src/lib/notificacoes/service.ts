@@ -6,7 +6,6 @@ import {
   findInternalNotificationById,
   findInternalNotificationByIdempotencyKey,
   listInternalNotificationsByRecipient,
-  nextInternalNotificationId,
   nextNotificationFailureId,
   prependNotificationFailure,
   updateInternalNotification,
@@ -16,6 +15,10 @@ import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import { dataHoraPartesEmFuso, hojeEmFuso, minutosDesdeMeiaNoite, FUSO_NOTIFICACOES } from "@/lib/notificacoes/timezone";
+import { processarAlertasPrazoInadimplencia } from "@/lib/notificacoes/alertas-prazo-inadimplencia-service";
+import { destinatarioPodeReceberNotificacaoOperacional } from "@/lib/notificacoes/recipient-eligibility";
+import { dispatchPushForInternalNotification } from "@/lib/notificacoes/push-dispatch";
+import { pushFirebaseHabilitadoNoServidor } from "@/lib/notificacoes/firebase-config";
 
 export class NotificacaoServiceError extends Error {
   constructor(
@@ -26,11 +29,12 @@ export class NotificacaoServiceError extends Error {
   }
 }
 
-/** Canais externos permanecem desativados até aprovação de provedor (T34). */
+/** Canais externos: push Firebase quando configurado; demais até aprovação de provedor (T34). */
 export const CANAIS_EXTERNOS_HABILITADOS = {
   whatsapp: false,
   sms: false,
   email: false,
+  push: pushFirebaseHabilitadoNoServidor(),
 } as const;
 
 export type EventoNotificacaoInterna = NotificacaoInterna["evento"];
@@ -83,9 +87,7 @@ async function assertPodeConsultarNotificacoes(userId: number) {
 }
 
 async function destinatarioPodeReceber(userId: number) {
-  const cadastros = await loadCadastrosForScope();
-  const perm = permissoesDoUsuarioId(userId, cadastros);
-  return temPermissao(perm, "atendimentos", "ler");
+  return destinatarioPodeReceberNotificacaoOperacional(userId);
 }
 
 async function destinatarioRetornoAgendado(atendimento: Atendimento): Promise<number | null> {
@@ -131,13 +133,13 @@ async function criarNotificacao(input: Omit<NotificacaoInterna, "id" | "criadoEm
   }
 
   try {
-    const registro: NotificacaoInterna = {
-      id: await nextInternalNotificationId(),
+    const salvo = await createInternalNotification({
       criadoEm: agoraIso(),
       lidaEm: null,
       ...input,
-    };
-    return await createInternalNotification(registro);
+    });
+    void dispatchPushForInternalNotification(salvo);
+    return salvo;
   } catch (error) {
     await registrarFalha({
       chaveIdempotencia: input.chaveIdempotencia,
@@ -245,15 +247,7 @@ function formatarRelativo(iso: string) {
   return `há ${diffD} d`;
 }
 
-export function resolverUrlRegistroNotificacao(item: NotificacaoInterna): string | null {
-  if (item.entidadeTipo === "service_ticket") {
-    return `/atendimentos?retorno=todos&atendimento=${encodeURIComponent(item.registroId)}`;
-  }
-  if (item.entidadeTipo === "collection_assignment") {
-    return `/atendimentos?unidade=${item.unidadeId}`;
-  }
-  return null;
-}
+export { resolverUrlRegistroNotificacao } from "@/lib/notificacoes/notification-deep-link";
 
 async function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna, cadastros: Cadastros): Promise<boolean> {
   const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((c) => c.id));
@@ -280,6 +274,12 @@ async function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna, c
     return vigente?.atendenteId === userId;
   }
 
+  if (item.entidadeTipo === "debt") {
+    const vigente = await openAssignmentForUnit(item.unidadeId);
+    if (vigente?.atendenteId === userId) return true;
+    return veCarteiraGeral;
+  }
+
   return false;
 }
 
@@ -297,6 +297,7 @@ export async function listarNotificacoes(
 ): Promise<NotificacaoApresentacao[]> {
   await assertPodeConsultarNotificacoes(userId);
   await processarLembretesRetornoHoje();
+  await processarAlertasPrazoInadimplencia();
 
   const limit = Math.min(100, Math.max(1, opcoes?.limit ?? 20));
   let lista = await listInternalNotificationsByRecipient(userId);
@@ -312,6 +313,7 @@ export async function listarNotificacoes(
 export async function contarNotificacoesNaoLidas(userId: number) {
   await assertPodeConsultarNotificacoes(userId);
   await processarLembretesRetornoHoje();
+  await processarAlertasPrazoInadimplencia();
   const lista = await listInternalNotificationsByRecipient(userId);
   return lista.filter((item) => !item.lidaEm).length;
 }

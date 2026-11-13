@@ -5,18 +5,18 @@ import {
   decimalFromString,
   mapDebtToDebito,
 } from "@/lib/db/mappers";
+import { retryCreateAfterIdSequenceBump } from "@/lib/db/repositories/prisma-insert-retry";
 
 function texto(value: string | null | undefined): string | null {
   const t = value?.trim();
   return t ? t : null;
 }
 
-function debitoToData(item: Debito) {
+function debitoPersistFields(item: Omit<Debito, "id">) {
   const atualizadoEm = item.atualizadoEm?.trim()
     ? new Date(item.atualizadoEm)
     : null;
   return {
-    id: item.id,
     condominiumId: item.condominioId,
     unitId: item.unidadeId,
     reference: item.referencia,
@@ -36,6 +36,10 @@ function debitoToData(item: Debito) {
     updatedAt: atualizadoEm,
     valueSource: item.fonteValores === "manual" ? "manual" : "origem",
   };
+}
+
+function debitoToData(item: Debito) {
+  return { id: item.id, ...debitoPersistFields(item) };
 }
 
 export async function listDebts(): Promise<Debito[]> {
@@ -64,13 +68,9 @@ export async function findDebtById(id: number): Promise<Debito | null> {
   return row ? mapDebtToDebito(row) : null;
 }
 
-export async function nextDebtId(): Promise<number> {
-  const agg = await prisma.debt.aggregate({ _max: { id: true } });
-  return (agg._max.id ?? 0) + 1;
-}
-
-export async function createDebt(item: Debito): Promise<Debito> {
-  const row = await prisma.debt.create({ data: debitoToData(item) });
+export async function createDebt(item: Omit<Debito, "id">): Promise<Debito> {
+  const data = debitoPersistFields(item);
+  const row = await retryCreateAfterIdSequenceBump("debt", () => prisma.debt.create({ data }));
   return mapDebtToDebito(row);
 }
 
