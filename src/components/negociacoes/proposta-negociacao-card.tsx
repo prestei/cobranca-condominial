@@ -108,7 +108,7 @@ export function PropostaNegociacaoCard({ proposta, cadastros, resumo, selecionad
       type="button"
       onClick={onClick}
       className={[
-        "flex h-full min-h-[11.5rem] w-full flex-col gap-md rounded-xl border p-lg text-left shadow-card transition-colors",
+        "flex h-full min-h-[11.5rem] w-full cursor-pointer flex-col gap-md rounded-xl border p-lg text-left shadow-card transition-colors",
         selecionada
           ? "border-primary-container bg-surface-card ring-2 ring-primary-container/35"
           : "border-border-subtle bg-surface-card hover:border-border-strong hover:shadow-popover",
