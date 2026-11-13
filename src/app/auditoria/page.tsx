@@ -372,8 +372,8 @@ export default function AuditoriaPage() {
                 <Badge variant={badgeAcaoVariant(item.acao)}>{rotuloAcao(item.acao)}</Badge>
               </TableCell>
               <TableCell className="max-w-[16rem] truncate" title={resumoLinha(item)}>{resumoLinha(item)}</TableCell>
-              <TableCell align="center" className="w-14 px-sm">
-                <div className="flex justify-center">{botaoVer(item)}</div>
+              <TableCell className="w-14 px-sm">
+                <div className="flex justify-start">{botaoVer(item)}</div>
               </TableCell>
             </TableRow>
           ))

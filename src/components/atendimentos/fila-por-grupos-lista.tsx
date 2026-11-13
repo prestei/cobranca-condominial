@@ -6,6 +6,13 @@ import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-conta
 import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
+import {
+  listGroupAccordionPanelClassName,
+  listGroupAccordionToggleClassName,
+  listGroupEmbeddedTableContainerClassName,
+  listGroupEmbeddedTableHeaderClassName,
+  listGroupEmbeddedTableRowClassName,
+} from "@/components/list-group-accordion";
 import { Checkbox } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
@@ -239,22 +246,22 @@ function TabelaDesktop({
       aria-label={modo === "condominio" ? "Fila do condomínio" : "Fila do atendente"}
       showExport={false}
       fitContainer
-      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+      containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
       <ColgroupFilaDesktop modo={modo} visaoGeral={visaoGeral} mostraContato={mostraContato} />
-      <TableHeader>
+      <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           {visaoGeral ? <TableHead className="w-12" /> : null}
-          {modo === "atendente" ? <TableHead align="center">Condomínio</TableHead> : null}
-          <TableHead align="center">Unidade</TableHead>
-          <TableHead align="center">Inadimplência</TableHead>
-          <TableHead align="center">Situação</TableHead>
+          {modo === "atendente" ? <TableHead>Condomínio</TableHead> : null}
+          <TableHead>Unidade</TableHead>
+          <TableHead>Inadimplência</TableHead>
+          <TableHead>Situação</TableHead>
           {modo === "condominio" ? (
-            visaoGeral ? <TableHead align="center">RE responsável</TableHead> : <TableHead align="center">Iniciar contato</TableHead>
+            visaoGeral ? <TableHead>RE responsável</TableHead> : <TableHead>Iniciar contato</TableHead>
           ) : null}
-          {mostraContato && modo === "atendente" ? <TableHead align="center">Iniciar contato</TableHead> : null}
-          <TableHead align="center">Último atendimento</TableHead>
-          <TableHead align="center">Próximo retorno</TableHead>
+          {mostraContato && modo === "atendente" ? <TableHead>Iniciar contato</TableHead> : null}
+          <TableHead>Último atendimento</TableHead>
+          <TableHead>Próximo retorno</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -269,12 +276,14 @@ function TabelaDesktop({
               className={
                 destaqueUnidadeId === item.unidadeId
                   ? "border-b border-border-subtle bg-[#FFF8E6] hover:bg-[#FFF8E6]"
-                  : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+                  : embutida
+                    ? listGroupEmbeddedTableRowClassName
+                    : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
               }
             >
               {visaoGeral ? (
-                <TableCell align="center" className="w-12">
-                  <div className="flex justify-center">
+                <TableCell className="w-12">
+                  <div className="flex justify-start">
                     <Checkbox
                       aria-label={`Selecionar ${rotuloUnidade(item)}`}
                       checked={selecionadas.has(item.unidadeId)}
@@ -284,14 +293,14 @@ function TabelaDesktop({
                 </TableCell>
               ) : null}
               {modo === "atendente" ? (
-                <TableCell align="center" className="text-on-surface">
+                <TableCell className="text-on-surface">
                   {nomeCondominio(item.condominioId, cadastros)}
                 </TableCell>
               ) : null}
-              <TableCell align="center" className="font-medium text-on-surface">
+              <TableCell className="font-medium text-on-surface">
                 {rotuloUnidade(item)}
               </TableCell>
-              <TableCell align="center">
+              <TableCell>
                 {item.valorInadimplencia ? (
                   <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
                 ) : (
@@ -303,19 +312,19 @@ function TabelaDesktop({
                   </span>
                 ) : null}
               </TableCell>
-              <TableCell align="center" className="align-middle">
-                <div className="flex justify-center">
+              <TableCell className="align-middle">
+                <div className="flex justify-start">
                   <BadgeSituacaoCobranca situacao={item.situacao} />
                 </div>
               </TableCell>
               {modo === "condominio" ? (
                 visaoGeral ? (
-                  <TableCell align="center" className="text-on-surface">
+                  <TableCell className="text-on-surface">
                     {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
                   </TableCell>
                 ) : (
-                  <TableCell align="center">
-                    <div className="flex justify-center">
+                  <TableCell>
+                    <div className="flex justify-start">
                       <AtalhosContatoAtendente
                         compacto
                         unidadeId={item.unidadeId}
@@ -329,8 +338,8 @@ function TabelaDesktop({
                 )
               ) : null}
               {mostraContato && modo === "atendente" ? (
-                <TableCell align="center">
-                  <div className="flex justify-center">
+                <TableCell>
+                  <div className="flex justify-start">
                     <AtalhosContatoAtendente
                       compacto
                       unidadeId={item.unidadeId}
@@ -342,18 +351,17 @@ function TabelaDesktop({
                   </div>
                 </TableCell>
               ) : null}
-              <TableCell align="center" className="text-on-surface-variant">
+              <TableCell className="text-on-surface-variant">
                 {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
               </TableCell>
-              <TableCell align="center" className="align-middle">
-                <div className="flex justify-center">
+              <TableCell className="align-middle">
+                <div className="flex justify-start">
                   <CelulaProximoRetorno data={item.proximoRetorno} />
                 </div>
               </TableCell>
               <TableActionsCell
                 label={`Ações da cobrança ${rotuloUnidade(item)}`}
                 actions={acoesLinha(item)}
-                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
               />
             </TableRow>
           ))
@@ -582,7 +590,7 @@ function PainelGrupo({
       <h3 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={listGroupAccordionToggleClassName}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={onToggle}
@@ -618,7 +626,7 @@ function PainelGrupo({
           id={painelId}
           role="region"
           aria-label={`Cobranças de ${grupo.nome}`}
-          className="flex flex-col gap-md border-t border-border-subtle p-md"
+          className={listGroupAccordionPanelClassName}
         >
           {variante === "desktop" ? (
             <TabelaDesktop
@@ -650,7 +658,11 @@ function PainelGrupo({
               totalItens={total}
             />
           )}
-          {total > 0 ? <Pagination page={currentPage} total={total} onPageChange={setPage} /> : null}
+          {total > 0 ? (
+            <div className="px-md pb-md">
+              <Pagination page={currentPage} total={total} onPageChange={setPage} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

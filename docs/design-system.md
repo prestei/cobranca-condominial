@@ -162,7 +162,9 @@ Pill com `text-body-sm` e variantes de status/marca. Use `neutral` para etiqueta
 
 Acima da tabela, alinhado à direita, o controle **Exportar** abre o menu de formato (CSV, XLS e PDF). Por enquanto o menu é só visual: escolher um formato fecha o painel e não gera arquivo. No celular, o mesmo controle fica acima dos cards.
 
-Cabeçalho compacto (`py-sm`, `text-label-md`), fundo `surface-subtle`. Colunas de dados: `TableHead` com `sortable`, `sortDirection` (`asc` | `desc` | `none`) e `onSort`. Coluna de menu: `TableHead actions` + `TableActionsCell` (ícone de três pontos). O clique abre um menu com `actions` (`label`, `onSelect`, `icon` opcional, `destructive` opcional). No card mobile, o mesmo menu fica em `TableActionsButton`. Linhas com borda inferior bem suave (`border-border-subtle/30`). A tabela usa largura automática (`min-w-max`) dentro de um contêiner com `overflow-x-auto`: colunas não são comprimidas com texto quebrado letra a letra; em telas estreitas aparece rolagem horizontal.
+Cabeçalho compacto (`py-sm`, `text-label-md`), fundo `surface-subtle`. **Alinhamento:** `TableHead` e `TableCell` usam `align="left"` por padrão (texto, datas, badges e status). Valores numéricos e monetários usam `align="right"` com `tabular-nums`. Só a coluna de seleção e a de ações (`TableHead actions` / `TableActionsCell`) permanecem centralizadas.
+
+Colunas de dados: `TableHead` com `sortable`, `sortDirection` (`asc` | `desc` | `none`) e `onSort`. Coluna de menu: `TableHead actions` + `TableActionsCell` (ícone de três pontos). O clique abre um menu com `actions` (`label`, `onSelect`, `icon` opcional, `destructive` opcional). No card mobile, o mesmo menu fica em `TableActionsButton`. Linhas com borda inferior bem suave (`border-border-subtle/30`). A tabela usa largura automática (`min-w-max`) dentro de um contêiner com `overflow-x-auto`: colunas não são comprimidas com texto quebrado letra a letra; em telas estreitas aparece rolagem horizontal.
 
 ```tsx
 <Table aria-label="Condomínios">

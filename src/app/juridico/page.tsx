@@ -354,10 +354,10 @@ export default function JuridicoPage() {
             Status
           </TableHead>
           <TableHead
+            align="right"
             sortable
             sortDirection={directionFor("documentos")}
             onSort={() => handleSort("documentos")}
-            align="center"
           >
             Documentos
           </TableHead>
@@ -375,16 +375,16 @@ export default function JuridicoPage() {
             const rotuloAcoes = `${nomeCondominio(item.condominioId, cadastros)} · ${identificacaoUnidade}`;
             return (
             <TableRow key={item.id} className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle">
-              <TableCell align="center" className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
-              <TableCell align="center">{nomeCondominio(item.condominioId, cadastros)}</TableCell>
-              <TableCell align="center">{identificacaoUnidade}</TableCell>
-              <TableCell align="center">{item.advogadoResponsavel}</TableCell>
-              <TableCell align="center">
-                <div className="flex justify-center">
+              <TableCell className="font-medium">{formatarData(item.encaminhadoEm)}</TableCell>
+              <TableCell>{nomeCondominio(item.condominioId, cadastros)}</TableCell>
+              <TableCell>{identificacaoUnidade}</TableCell>
+              <TableCell>{item.advogadoResponsavel}</TableCell>
+              <TableCell>
+                <div className="flex justify-start">
                   <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
                 </div>
               </TableCell>
-              <TableCell align="center" className="tabular-nums">
+              <TableCell align="right" className="tabular-nums">
                 {item.documentos?.length ?? 0}
               </TableCell>
               <TableActionsCell

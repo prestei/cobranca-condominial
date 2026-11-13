@@ -412,7 +412,7 @@ export default function CondominiosPage() {
   function celulaResponsavelUnidade(item: Unidade) {
     const contato = contatoResponsavel(item.id);
     if (!contato) return <span className="text-on-surface-variant">—</span>;
-    return <span className="block truncate text-center text-on-surface">{contato.nome}</span>;
+    return <span className="block truncate text-left text-on-surface">{contato.nome}</span>;
   }
 
   function celulaSituacaoUnidade(item: Unidade) {
@@ -429,7 +429,7 @@ export default function CondominiosPage() {
     const [principal, ...demais] = item.advogados;
     const detalhe = demais.length > 0 ? demais.join(", ") : "";
     return (
-      <div className="min-w-0 text-center">
+      <div className="min-w-0 text-left">
         <p className="truncate text-on-surface">{principal}</p>
         {detalhe ? <p className="truncate text-body-sm text-on-surface-variant">{detalhe}</p> : null}
       </div>
@@ -877,18 +877,17 @@ export default function CondominiosPage() {
           <TableHead sortable sortDirection={directionFor("nome")} onSort={() => handleSort("nome")}>
             Condomínio
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("cidade")} onSort={() => handleSort("cidade")}>
+          <TableHead sortable sortDirection={directionFor("cidade")} onSort={() => handleSort("cidade")}>
             Cidade
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("advogado")} onSort={() => handleSort("advogado")}>
+          <TableHead sortable sortDirection={directionFor("advogado")} onSort={() => handleSort("advogado")}>
             Advogado responsável
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Situação
           </TableHead>
-          <TableHead align="center">Inadimplência</TableHead>
+          <TableHead>Inadimplência</TableHead>
           <TableHead
-            align="center"
             sortable
             sortDirection={directionFor("administradora")}
             onSort={() => handleSort("administradora")}
@@ -896,7 +895,7 @@ export default function CondominiosPage() {
             Administradora
           </TableHead>
           <TableHead
-            align="center"
+            align="right"
             className="w-32"
             sortable
             sortDirection={directionFor("unidades")}
@@ -929,9 +928,9 @@ export default function CondominiosPage() {
                   </div>
                 </div>
               </TableCell>
-              <TableCell align="center">
+              <TableCell>
                 {item.cidade.trim() ? (
-                  <div className="flex items-center justify-center gap-sm">
+                  <div className="flex items-center justify-start gap-sm">
                     <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span>{item.cidade}</span>
                   </div>
@@ -939,14 +938,14 @@ export default function CondominiosPage() {
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell align="center">{celulaAdvogados(item)}</TableCell>
-              <TableCell align="center">
+              <TableCell>{celulaAdvogados(item)}</TableCell>
+              <TableCell>
                 <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell align="center">{celulaInadimplencia(item)}</TableCell>
-              <TableCell align="center">
+              <TableCell>{celulaInadimplencia(item)}</TableCell>
+              <TableCell>
                 {item.administradora.trim() ? (
-                  <div className="flex min-w-0 items-center justify-center gap-sm">
+                  <div className="flex min-w-0 items-center justify-start gap-sm">
                     <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span className="min-w-0 truncate">{item.administradora}</span>
                   </div>
@@ -954,7 +953,7 @@ export default function CondominiosPage() {
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell align="center" className="tabular-nums">
+              <TableCell align="right" className="tabular-nums">
                 {contarUnidades(item.id)}
               </TableCell>
               <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />

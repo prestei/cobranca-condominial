@@ -4,6 +4,13 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { Building2, ChevronDown, Scale, User } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Icon } from "@/components/icon";
+import {
+  listGroupAccordionPanelClassName,
+  listGroupAccordionToggleClassName,
+  listGroupEmbeddedTableContainerClassName,
+  listGroupEmbeddedTableHeaderClassName,
+  listGroupEmbeddedTableRowClassName,
+} from "@/components/list-group-accordion";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
@@ -132,7 +139,7 @@ function TabelaDesktop({
       aria-label={modo === "advogado" ? "Encaminhamentos do advogado" : "Encaminhamentos do condomínio"}
       showExport={false}
       fitContainer
-      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+      containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
       <colgroup>
         <col className="w-[17%]" />
@@ -142,18 +149,18 @@ function TabelaDesktop({
         <col className="w-[20%]" />
         <col className="w-[10%]" />
       </colgroup>
-      <TableHeader>
+      <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead align="center">Encaminhado</TableHead>
+          <TableHead>Encaminhado</TableHead>
           {modo === "advogado" ? (
-            <TableHead align="center" className="min-w-[7rem]">
+            <TableHead className="min-w-[7rem]">
               Condomínio
             </TableHead>
           ) : null}
-          <TableHead align="center">Unidade</TableHead>
-          {modo === "condominio" ? <TableHead align="center">Advogado</TableHead> : null}
-          <TableHead align="center">Status</TableHead>
-          <TableHead align="center">Documentos</TableHead>
+          <TableHead>Unidade</TableHead>
+          {modo === "condominio" ? <TableHead>Advogado</TableHead> : null}
+          <TableHead>Status</TableHead>
+          <TableHead>Documentos</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -164,36 +171,39 @@ function TabelaDesktop({
           itens.map((item) => (
             <TableRow
               key={item.id}
-              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              className={
+                embutida
+                  ? listGroupEmbeddedTableRowClassName
+                  : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              }
             >
-              <TableCell align="center" className="align-middle font-medium whitespace-nowrap">
+              <TableCell className="align-middle font-medium whitespace-nowrap">
                 {formatarData(item.encaminhadoEm)}
               </TableCell>
               {modo === "advogado" ? (
-                <TableCell align="center" className="max-w-0 align-middle">
+                <TableCell className="max-w-0 align-middle">
                   <span className="block truncate">{nomeCondominio(item.condominioId, cadastros)}</span>
                 </TableCell>
               ) : null}
-              <TableCell align="center" className="align-middle font-medium">
+              <TableCell className="align-middle font-medium">
                 {identificacaoUnidade(cadastros, item.unidadeId)}
               </TableCell>
               {modo === "condominio" ? (
-                <TableCell align="center" className="max-w-0 align-middle">
+                <TableCell className="max-w-0 align-middle">
                   <span className="block truncate">{item.advogadoResponsavel}</span>
                 </TableCell>
               ) : null}
-              <TableCell align="center" className="align-middle">
-                <div className="flex justify-center">
+              <TableCell className="align-middle">
+                <div className="flex justify-start">
                   <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
                 </div>
               </TableCell>
-              <TableCell align="center" className="align-middle tabular-nums">
+              <TableCell align="right" className="align-middle tabular-nums">
                 {item.documentos?.length ?? 0}
               </TableCell>
               <TableActionsCell
                 label={`Ações do encaminhamento — ${rotuloEncaminhamento(item, cadastros)}`}
                 actions={acoesLinha(item)}
-                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
               />
             </TableRow>
           ))
@@ -315,7 +325,7 @@ function PainelGrupo({
       <h3 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={listGroupAccordionToggleClassName}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={onToggle}
@@ -349,7 +359,7 @@ function PainelGrupo({
           id={painelId}
           role="region"
           aria-label={`Encaminhamentos de ${grupo.nome}`}
-          className="flex flex-col gap-md border-t border-border-subtle p-md"
+          className={listGroupAccordionPanelClassName}
         >
           {variante === "desktop" ? (
             <TabelaDesktop
@@ -371,7 +381,11 @@ function PainelGrupo({
               totalItens={total}
             />
           )}
-          {total > 0 ? <Pagination page={currentPage} total={total} onPageChange={setPage} /> : null}
+          {total > 0 ? (
+            <div className="px-md pb-md">
+              <Pagination page={currentPage} total={total} onPageChange={setPage} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

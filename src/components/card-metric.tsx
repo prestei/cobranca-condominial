@@ -73,7 +73,7 @@ export function CardMetric({
       {modoIndicador ? (
         <div className="flex min-w-0 flex-1 flex-col gap-xs">
           <p className="text-metric tabular-nums text-on-surface">{valor}</p>
-          <p className="text-body-md leading-snug text-on-surface">{rotulo}</p>
+          <p className="text-body-md leading-snug text-on-surface break-words">{rotulo}</p>
           {detalhe ? <p className="text-body-sm leading-snug text-on-surface-variant">{detalhe}</p> : null}
         </div>
       ) : (

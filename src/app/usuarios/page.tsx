@@ -573,7 +573,6 @@ export default function UsuariosPage() {
             Nome
           </TableHead>
           <TableHead
-            align="center"
             sortable
             sortDirection={directionFor("cargo")}
             onSort={() => handleSort("cargo")}
@@ -581,7 +580,6 @@ export default function UsuariosPage() {
             Cargo
           </TableHead>
           <TableHead
-            align="center"
             sortable
             sortDirection={directionFor("ativo")}
             onSort={() => handleSort("ativo")}
@@ -589,14 +587,13 @@ export default function UsuariosPage() {
             Situação
           </TableHead>
           <TableHead
-            align="center"
             sortable
             sortDirection={directionFor("email")}
             onSort={() => handleSort("email")}
           >
             Contato
           </TableHead>
-          <TableHead align="center">Último acesso</TableHead>
+          <TableHead>Último acesso</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -620,22 +617,22 @@ export default function UsuariosPage() {
                   </div>
                 </div>
               </TableCell>
-              <TableCell align="center" className="!align-middle py-md text-on-surface">
+              <TableCell className="!align-middle py-md text-on-surface">
                 {nomeCargo(item.cargoId, cadastros)}
               </TableCell>
-              <TableCell align="center" className="!align-middle py-md">
-                <div className="flex justify-center">
+              <TableCell className="!align-middle py-md">
+                <div className="flex justify-start">
                   <SituacaoColaboradorBadge ativo={item.ativo !== false} />
                 </div>
               </TableCell>
-              <TableCell align="center" className="!align-middle py-md">
-                <div className="flex min-w-0 items-center justify-center gap-sm text-on-surface">
+              <TableCell className="!align-middle py-md">
+                <div className="flex min-w-0 items-center justify-start gap-sm text-on-surface">
                   <Icon icon={Mail} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
                   <span className="min-w-0 max-w-full truncate">{item.email.trim() || "—"}</span>
                 </div>
               </TableCell>
-              <TableCell align="center" className="!align-middle py-md text-on-surface-variant">
-                <span className="inline-flex items-center justify-center gap-sm">
+              <TableCell className="!align-middle py-md text-on-surface-variant">
+                <span className="inline-flex items-center justify-start gap-sm">
                   <Icon icon={Calendar} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
                   —
                 </span>
@@ -683,15 +680,15 @@ export default function UsuariosPage() {
                 className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
               />
             </TableMobileCardHeader>
-            <div className="mt-sm flex flex-col items-center gap-sm border-t border-border-subtle/30 pt-sm text-center">
-              <div className="flex w-full flex-col items-center gap-xs text-body-sm">
+            <div className="mt-sm flex flex-col items-start gap-sm border-t border-border-subtle/30 pt-sm text-left">
+              <div className="flex w-full flex-col items-start gap-xs text-body-sm">
                 <p className="text-label-sm uppercase text-on-surface-variant">Cargo</p>
                 <p className="text-body-md text-on-surface">{nomeCargo(item.cargoId, cadastros)}</p>
                 <SituacaoColaboradorBadge ativo={item.ativo !== false} />
               </div>
-              <div className="flex w-full flex-col items-center gap-xs">
+              <div className="flex w-full flex-col items-start gap-xs">
                 <p className="text-label-sm uppercase text-on-surface-variant">Contato</p>
-                <p className="flex max-w-full items-center justify-center gap-xs text-body-md text-on-surface">
+                <p className="flex max-w-full items-center justify-start gap-xs text-body-md text-on-surface">
                   <Icon icon={Mail} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden />
                   <span className="truncate">{item.email.trim() || "—"}</span>
                 </p>

@@ -98,10 +98,12 @@ export function ImportacaoAprovacao({
         </dl>
       </section>
 
-      <p className="flex items-start gap-sm rounded-md bg-surface-subtle px-md py-sm text-body-sm text-on-surface">
-        <Icon icon={AlertTriangle} size="sm" className="mt-0.5 shrink-0 text-brass" aria-hidden />
-        <span>{resumo.mensagemImpacto}</span>
-      </p>
+      {!resumo.arquivoJaImportado ? (
+        <p className="flex items-start gap-sm rounded-md bg-surface-subtle px-md py-sm text-body-sm text-on-surface">
+          <Icon icon={AlertTriangle} size="sm" className="mt-0.5 shrink-0 text-brass" aria-hidden />
+          <span>{resumo.mensagemImpacto}</span>
+        </p>
+      ) : null}
 
       <p className="text-body-sm text-on-surface-variant">
         Responsável pela conferência: <span className="font-medium text-on-surface">{usuarioResponsavel}</span>. O

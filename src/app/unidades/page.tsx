@@ -563,7 +563,7 @@ function UnidadesPage() {
   function celulaResponsavel(item: Unidade) {
     const contato = contatoResponsavel(item.id);
     if (!contato) return <span className="text-on-surface-variant">—</span>;
-    return <span className="block truncate text-center text-on-surface">{contato.nome}</span>;
+    return <span className="block truncate text-left text-on-surface">{contato.nome}</span>;
   }
 
   function celulaSituacao(item: Unidade) {
@@ -912,15 +912,15 @@ function UnidadesPage() {
           <TableHead sortable sortDirection={directionFor("condominio")} onSort={() => handleSort("condominio")}>
             Condomínio
           </TableHead>
-          <TableHead align="center">Responsável</TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+          <TableHead>Responsável</TableHead>
+          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Cadastro
           </TableHead>
-          <TableHead align="center" className="min-w-[7rem] whitespace-nowrap">
+          <TableHead className="min-w-[7rem] whitespace-nowrap">
             Dias em atraso
           </TableHead>
-          <TableHead align="center">Situações</TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
+          <TableHead>Situações</TableHead>
+          <TableHead sortable sortDirection={directionFor("debito")} onSort={() => handleSort("debito")}>
             Débito
           </TableHead>
           <TableHead actions />
@@ -949,19 +949,19 @@ function UnidadesPage() {
                   <span className="truncate">{nomeCondominio(item.condominioId, cadastros)}</span>
                 </div>
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {celulaResponsavel(item)}
               </TableCell>
-              <TableCell align="center" className="align-middle">
+              <TableCell className="align-middle">
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell align="center" className="align-middle whitespace-nowrap">
+              <TableCell className="align-middle whitespace-nowrap">
                 {celulaDiasAtraso(item)}
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {celulaSituacao(item)}
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {celulaDebito(item)}
               </TableCell>
               <TableActionsCell label={`Ações da unidade ${item.identificacao}`} actions={acoes(item)} />

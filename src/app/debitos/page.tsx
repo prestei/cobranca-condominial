@@ -907,28 +907,28 @@ function DebitosPage() {
           <TableHead sortable sortDirection={directionFor("referencia")} onSort={() => handleSort("referencia")}>
             Referência
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("unidade")} onSort={() => handleSort("unidade")}>
+          <TableHead sortable sortDirection={directionFor("unidade")} onSort={() => handleSort("unidade")}>
             Unidade
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("grupo")} onSort={() => handleSort("grupo")}>
+          <TableHead sortable sortDirection={directionFor("grupo")} onSort={() => handleSort("grupo")}>
             Tipo
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("vencimento")} onSort={() => handleSort("vencimento")}>
+          <TableHead sortable sortDirection={directionFor("vencimento")} onSort={() => handleSort("vencimento")}>
             Vencimento
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
+          <TableHead sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
             Dias
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
+          <TableHead align="right" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
             Original
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("atualizado")} onSort={() => handleSort("atualizado")}>
+          <TableHead align="right" sortable sortDirection={directionFor("atualizado")} onSort={() => handleSort("atualizado")}>
             Atualizado
           </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
+          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
             Situação
           </TableHead>
-          <TableHead align="center">Origem / atualização</TableHead>
+          <TableHead>Origem / atualização</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -939,20 +939,20 @@ function DebitosPage() {
           pageRows.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{item.referencia}</TableCell>
-              <TableCell align="center">{nomeUnidade(item.unidadeId, cadastros)}</TableCell>
-              <TableCell align="center">{grupoDebito(item.descricao)}</TableCell>
-              <TableCell align="center">{formatarData(item.dataVencimento)}</TableCell>
-              <TableCell align="center">{celulaDias(item)}</TableCell>
-              <TableCell align="center" className="tabular-nums">
+              <TableCell>{nomeUnidade(item.unidadeId, cadastros)}</TableCell>
+              <TableCell>{grupoDebito(item.descricao)}</TableCell>
+              <TableCell>{formatarData(item.dataVencimento)}</TableCell>
+              <TableCell>{celulaDias(item)}</TableCell>
+              <TableCell align="right" className="tabular-nums">
                 {formatarMoeda(item.valorOriginal)}
               </TableCell>
-              <TableCell align="center" className="tabular-nums">
+              <TableCell align="right" className="tabular-nums">
                 {formatarMoeda(item.valorAtualizado)}
               </TableCell>
-              <TableCell align="center">
+              <TableCell>
                 <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
               </TableCell>
-              <TableCell align="center" className="text-body-sm text-on-surface-variant">
+              <TableCell className="text-body-sm text-on-surface-variant">
                 <span className="block">{rotuloFonteValores(item)}</span>
                 <span className="block tabular-nums">{formatarData(item.atualizadoEm)}</span>
               </TableCell>
