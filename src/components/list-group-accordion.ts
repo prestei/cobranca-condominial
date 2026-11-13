@@ -2,6 +2,10 @@
 export const listGroupAccordionToggleClassName =
   "flex w-full cursor-pointer items-center justify-between gap-md bg-surface-subtle px-md py-md text-left transition-[filter] hover:brightness-[0.98] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass";
 
+/** Toggle do título «Filtros» — sem fundo; o cinza fica só no `FilterBar`. */
+export const filtrosSectionToggleClassName =
+  "flex w-full cursor-pointer items-center justify-between gap-md text-left focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass";
+
 export const listGroupAccordionChevronClassName =
   "inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant";
 

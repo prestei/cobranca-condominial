@@ -47,6 +47,11 @@ model User {
   serviceTicketsReturnBy      ServiceTicket[]          @relation("ServiceTicketReturnBy")
   negotiationProposals        NegotiationProposal[]    @relation("ProposalUser")
   negotiationAgreements       NegotiationProposal[]    @relation("ProposalAgreementBy")
+  negotiationAsResponsibleLawyer NegotiationProposal[]   @relation("ProposalResponsibleLawyer")
+  negotiationValuesDefined      NegotiationProposal[]   @relation("ProposalValuesDefinedBy")
+  negotiationValuesApproved     NegotiationProposal[]   @relation("ProposalValuesApprovedBy")
+  lawyerNegotiationRule         LawyerNegotiationRule?
+  lawyerNegotiationRulesUpdated LawyerNegotiationRule[]  @relation("LawyerRuleUpdatedBy")
   agreementInstallments       AgreementInstallment[]   @relation("InstallmentCreatedBy")
   agreementPayments           AgreementPayment[]       @relation("PaymentRegisteredBy")
   legalReferrals              LegalCaseReferral[]      @relation("LegalReferralUser")
@@ -250,6 +255,19 @@ model ServiceTicket {
   @@map("service_ticket")
 }
 
+model LawyerNegotiationRule {
+  userId             Int      @id @map("usuario_id")
+  maxDiscountPercent Decimal  @default(30) @map("desconto_maximo_percent") @db.Decimal(5, 2)
+  maxInstallments    Int      @default(24) @map("parcelas_maximas")
+  updatedAt          DateTime @map("atualizado_em")
+  updatedById        Int?     @map("atualizado_por_id")
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation("LawyerRuleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@map("lawyer_negotiation_rule")
+}
+
 model NegotiationProposal {
   id                  String    @id @db.VarChar(64)
   condominiumId       Int       @map("condominio_id")
@@ -263,11 +281,20 @@ model NegotiationProposal {
   agreementConfirmedAt DateTime? @map("acordo_confirmado_em")
   agreementConfirmedById Int?   @map("acordo_confirmado_por_id")
   approvedTerms       String?   @map("termos_aprovados") @db.Text
+  responsibleLawyerUserId Int?  @map("advogado_responsavel_id")
+  originalDebtAmount  Decimal?  @map("valor_divida_original") @db.Decimal(12, 2)
+  updatedDebtAmount   Decimal?  @map("valor_divida_atualizada") @db.Decimal(12, 2)
+  installmentCount    Int?      @map("quantidade_parcelas")
+  valuesDefinedByUserId Int?    @map("valores_definidos_por_id")
+  valuesApprovedByUserId Int?   @map("valores_aprovados_por_id")
 
   condominium      Condominium              @relation(fields: [condominiumId], references: [id])
   unit             Unit                     @relation(fields: [unitId], references: [id])
   user             User                     @relation("ProposalUser", fields: [userId], references: [id])
   agreementBy      User?                    @relation("ProposalAgreementBy", fields: [agreementConfirmedById], references: [id])
+  responsibleLawyer User?                   @relation("ProposalResponsibleLawyer", fields: [responsibleLawyerUserId], references: [id])
+  valuesDefinedBy  User?                    @relation("ProposalValuesDefinedBy", fields: [valuesDefinedByUserId], references: [id])
+  valuesApprovedBy User?                    @relation("ProposalValuesApprovedBy", fields: [valuesApprovedByUserId], references: [id])
   debts            NegotiationProposalDebt[]
   installments     AgreementInstallment[]
   payments         AgreementPayment[]
@@ -297,6 +324,7 @@ model AgreementInstallment {
   dueDate      DateTime @map("vencimento_em") @db.Date
   createdAt    DateTime @map("criado_em")
   createdById  Int      @map("criado_por_id")
+  cancelledAt  DateTime? @map("cancelado_em")
 
   proposal    NegotiationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   condominium Condominium         @relation(fields: [condominiumId], references: [id])

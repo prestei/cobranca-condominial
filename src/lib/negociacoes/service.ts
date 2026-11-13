@@ -11,6 +11,13 @@ import {
 import { openAssignmentForUnit, requireUnitInScope } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
+import {
+  calcularTotaisDebitos,
+  carregarRegraAdvogadoResponsavel,
+  validarAlcadaNegociacao,
+} from "@/lib/negociacoes/alcada";
+import { montarDetalheProposta, type PropostaNegociacaoDetalhe } from "@/lib/negociacoes/detalhe";
+import { gerarCronogramaParcelasPadrao } from "@/lib/negociacoes/gerar-cronograma";
 
 export class PropostaNegociacaoServiceError extends Error {
   constructor(
@@ -28,11 +35,14 @@ export type PropostaNegociacaoInput = {
   valorProposto: string;
   observacoes?: string;
   debitoIds: number[];
+  quantidadeParcelas?: number | null;
 };
 
 export type PropostaNegociacaoStatusInput = {
   status: string;
   termosAprovados?: string;
+  /** Ao aceitar: gera cronograma quando informado com quantidadeParcelas da proposta. */
+  primeiroVencimento?: string;
 };
 
 export type PropostaNegociacaoFiltros = {
@@ -40,8 +50,12 @@ export type PropostaNegociacaoFiltros = {
   status?: string;
 };
 
-async function usuarioVeCarteiraGeral(userId: number) {
-  const perm = await resolverPermissoesUsuario(userId);
+async function permissoesUsuario(userId: number) {
+  return resolverPermissoesUsuario(userId);
+}
+
+async function usuarioAdministradora(userId: number) {
+  const perm = await permissoesUsuario(userId);
   return temPermissao(perm, "usuarios", "criar");
 }
 
@@ -72,13 +86,46 @@ async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condomin
 }
 
 async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
-  if (await usuarioVeCarteiraGeral(userId)) return;
+  if (await usuarioAdministradora(userId)) return;
+  const perm = await permissoesUsuario(userId);
+  if (temPermissao(perm, "negociacoes", "editar") && !temPermissao(perm, "atendimentos", "criar")) {
+    return;
+  }
   const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new PropostaNegociacaoServiceError(
       "Esta cobrança não está na sua carteira. Peça redistribuição à administradora.",
       403,
     );
+  }
+}
+
+async function propostaVisivelParaUsuario(userId: number, proposta: PropostaNegociacao): Promise<boolean> {
+  if (await usuarioAdministradora(userId)) return true;
+
+  const perm = await permissoesUsuario(userId);
+  const cadastros = await loadCadastrosForScope();
+  const usuario = cadastros.usuarios.find((item) => item.id === userId);
+
+  if (proposta.advogadoResponsavelId === userId) return true;
+  if (temPermissao(perm, "negociacoes", "ler") && usuario) {
+    const condominio = cadastros.condominios.find((item) => item.id === proposta.condominioId);
+    if (condominio?.advogados.includes(usuario.nome)) return true;
+  }
+
+  if (temPermissao(perm, "atendimentos", "ler")) {
+    if (proposta.usuarioId === userId) return true;
+    const vigente = await openAssignmentForUnit(proposta.unidadeId);
+    if (vigente?.atendenteId === userId) return true;
+  }
+
+  return false;
+}
+
+async function assertLeituraProposta(userId: number, proposta: PropostaNegociacao) {
+  await assertUnidadeNoEscopo(userId, proposta.unidadeId, proposta.condominioId);
+  if (!(await propostaVisivelParaUsuario(userId, proposta))) {
+    throw new PropostaNegociacaoServiceError("Proposta fora do seu escopo de acesso.", 403);
   }
 }
 
@@ -94,6 +141,15 @@ function normalizarValorMonetario(raw: string): string {
   return numero.toFixed(2);
 }
 
+function normalizarQuantidadeParcelas(raw: number | null | undefined): number | null {
+  if (raw == null || raw === undefined) return null;
+  const numero = Number(raw);
+  if (!Number.isFinite(numero) || numero < 1) {
+    throw new PropostaNegociacaoServiceError("Quantidade de parcelas inválida.", 400);
+  }
+  return Math.floor(numero);
+}
+
 async function validarDebitos(unidadeId: number, debitoIds: number[]) {
   if (!Array.isArray(debitoIds) || debitoIds.length === 0) {
     throw new PropostaNegociacaoServiceError("Selecione ao menos um débito vinculado à proposta.", 400);
@@ -102,6 +158,7 @@ async function validarDebitos(unidadeId: number, debitoIds: number[]) {
   if (idsUnicos.length === 0) {
     throw new PropostaNegociacaoServiceError("Débitos inválidos.", 400);
   }
+  const debitos = [];
   for (const id of idsUnicos) {
     const debito = await findDebtById(id);
     if (!debito) {
@@ -110,11 +167,12 @@ async function validarDebitos(unidadeId: number, debitoIds: number[]) {
     if (debito.unidadeId !== unidadeId) {
       throw new PropostaNegociacaoServiceError("Todos os débitos devem pertencer à mesma unidade.", 400);
     }
+    debitos.push(debito);
   }
-  return idsUnicos;
+  return { idsUnicos, debitos };
 }
 
-async function validarEntrada(input: PropostaNegociacaoInput) {
+async function validarEntrada(input: PropostaNegociacaoInput, userId: number, pularAlcada: boolean) {
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
     throw new PropostaNegociacaoServiceError("Selecione o condomínio.", 400);
   }
@@ -122,11 +180,24 @@ async function validarEntrada(input: PropostaNegociacaoInput) {
     throw new PropostaNegociacaoServiceError("Selecione a unidade.", 400);
   }
   const valorProposto = normalizarValorMonetario(input.valorProposto);
-  const debitoIds = await validarDebitos(input.unidadeId, input.debitoIds);
+  const quantidadeParcelas = normalizarQuantidadeParcelas(input.quantidadeParcelas);
+  const { idsUnicos, debitos } = await validarDebitos(input.unidadeId, input.debitoIds);
+  const totais = calcularTotaisDebitos(debitos);
+  const { regra } = await carregarRegraAdvogadoResponsavel(input.condominioId);
+  const alcada = validarAlcadaNegociacao(
+    regra,
+    { valorDividaAtualizada: totais.atualizado, valorProposto, quantidadeParcelas },
+    { pularValidacao: pularAlcada },
+  );
+  if (!alcada.ok) {
+    throw new PropostaNegociacaoServiceError(alcada.mensagens[0] ?? "Condições fora da alçada autorizada.", 400, alcada.mensagens);
+  }
   return {
     valorProposto,
     observacoes: (input.observacoes ?? "").trim(),
-    debitoIds,
+    debitoIds: idsUnicos,
+    quantidadeParcelas,
+    totais,
   };
 }
 
@@ -154,9 +225,13 @@ export async function listarPropostasNegociacao(
 ): Promise<PropostaNegociacao[]> {
   const idsUnidade = await idsUnidadeNoEscopo(userId);
   let lista = (await listNegotiationProposals()).filter((item) => idsUnidade.has(item.unidadeId));
-  if (!(await usuarioVeCarteiraGeral(userId))) {
-    lista = lista.filter((item) => item.usuarioId === userId);
+
+  const visiveis: PropostaNegociacao[] = [];
+  for (const item of lista) {
+    if (await propostaVisivelParaUsuario(userId, item)) visiveis.push(item);
   }
+  lista = visiveis;
+
   if (filtros?.unidadeId) {
     lista = lista.filter((item) => item.unidadeId === filtros.unidadeId);
   }
@@ -171,14 +246,13 @@ export async function obterPropostaNegociacao(userId: number, id: string): Promi
   if (!proposta) {
     throw new PropostaNegociacaoServiceError("Proposta não encontrada.", 404);
   }
-  const idsUnidade = await idsUnidadeNoEscopo(userId);
-  if (!idsUnidade.has(proposta.unidadeId)) {
-    throw new PropostaNegociacaoServiceError("Proposta fora do seu escopo de acesso.", 403);
-  }
-  if (!(await usuarioVeCarteiraGeral(userId)) && proposta.usuarioId !== userId) {
-    throw new PropostaNegociacaoServiceError("Proposta fora da sua carteira.", 403);
-  }
+  await assertLeituraProposta(userId, proposta);
   return proposta;
+}
+
+export async function obterPropostaNegociacaoDetalhe(userId: number, id: string): Promise<PropostaNegociacaoDetalhe> {
+  const proposta = await obterPropostaNegociacao(userId, id);
+  return montarDetalheProposta(proposta);
 }
 
 export async function criarPropostaNegociacao(
@@ -186,9 +260,12 @@ export async function criarPropostaNegociacao(
   input: PropostaNegociacaoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PropostaNegociacao> {
-  const dados = await validarEntrada(input);
+  const pularAlcada = await usuarioAdministradora(userId);
+  const dados = await validarEntrada(input, userId, pularAlcada);
   await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
   await assertCarteiraParaRegistrar(userId, input.unidadeId);
+
+  const { advogadoId } = await carregarRegraAdvogadoResponsavel(input.condominioId);
 
   const registro: PropostaNegociacao = {
     id: crypto.randomUUID(),
@@ -203,6 +280,12 @@ export async function criarPropostaNegociacao(
     acordoConfirmadoEm: "",
     acordoConfirmadoPorId: null,
     termosAprovados: "",
+    advogadoResponsavelId: advogadoId,
+    valorDividaOriginal: dados.totais.original,
+    valorDividaAtualizada: dados.totais.atualizado,
+    quantidadeParcelas: dados.quantidadeParcelas,
+    valoresDefinidosPorId: userId,
+    valoresAprovadosPorId: null,
   };
 
   const criada = await createNegotiationProposal(registro);
@@ -216,8 +299,10 @@ export async function criarPropostaNegociacao(
       valorProposto: criada.valorProposto,
       status: criada.status,
       debitoIds: criada.debitoIds,
+      quantidadeParcelas: criada.quantidadeParcelas,
+      advogadoResponsavelId: criada.advogadoResponsavelId,
     }),
-    changedFields: "unidade_id, valor_proposto, status, debito_ids",
+    changedFields: "unidade_id, valor_proposto, status, debito_ids, quantidade_parcelas, advogado_responsavel_id",
     userId,
     ip: meta?.ip,
     userAgent: meta?.userAgent,
@@ -231,8 +316,10 @@ export async function atualizarStatusPropostaNegociacao(
   input: PropostaNegociacaoStatusInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PropostaNegociacao> {
-  const perm = await resolverPermissoesUsuario(userId);
-  if (!temPermissao(perm, "atendimentos", "editar")) {
+  const perm = await permissoesUsuario(userId);
+  const podeEditarAtendimento = temPermissao(perm, "atendimentos", "editar");
+  const podeEditarNegociacao = temPermissao(perm, "negociacoes", "editar");
+  if (!podeEditarAtendimento && !podeEditarNegociacao) {
     throw new PropostaNegociacaoServiceError("Sem permissão para alterar o status da proposta.", 403);
   }
 
@@ -240,7 +327,7 @@ export async function atualizarStatusPropostaNegociacao(
   if (!anterior) {
     throw new PropostaNegociacaoServiceError("Proposta não encontrada.", 404);
   }
-  await assertUnidadeNoEscopo(userId, anterior.unidadeId, anterior.condominioId);
+  await assertLeituraProposta(userId, anterior);
 
   const status = input.status.trim();
   if (!statusPropostaNegociacao.includes(status as (typeof statusPropostaNegociacao)[number])) {
@@ -248,9 +335,40 @@ export async function atualizarStatusPropostaNegociacao(
   }
   validarTransicaoStatus(anterior.status, status);
 
+  const pularAlcada = await usuarioAdministradora(userId);
+  if (status === "Aceita") {
+    const { regra } = await carregarRegraAdvogadoResponsavel(anterior.condominioId);
+    const alcada = validarAlcadaNegociacao(
+      regra,
+      {
+        valorDividaAtualizada: anterior.valorDividaAtualizada || "0",
+        valorProposto: anterior.valorProposto,
+        quantidadeParcelas: anterior.quantidadeParcelas,
+      },
+      { pularValidacao: pularAlcada },
+    );
+    if (!alcada.ok) {
+      throw new PropostaNegociacaoServiceError(
+        alcada.mensagens[0] ?? "Não é possível aprovar condições fora da alçada.",
+        403,
+        alcada.mensagens,
+      );
+    }
+    if (
+      podeEditarNegociacao &&
+      !podeEditarAtendimento &&
+      anterior.advogadoResponsavelId != null &&
+      anterior.advogadoResponsavelId !== userId &&
+      !pularAlcada
+    ) {
+      throw new PropostaNegociacaoServiceError("Apenas o advogado responsável pode confirmar este acordo.", 403);
+    }
+  }
+
   let termosAprovados = anterior.termosAprovados;
   let acordoConfirmadoEm = anterior.acordoConfirmadoEm;
   let acordoConfirmadoPorId = anterior.acordoConfirmadoPorId;
+  let valoresAprovadosPorId = anterior.valoresAprovadosPorId;
 
   if (status === "Aceita") {
     termosAprovados = (input.termosAprovados ?? "").trim();
@@ -262,6 +380,7 @@ export async function atualizarStatusPropostaNegociacao(
     }
     acordoConfirmadoEm = agoraIso();
     acordoConfirmadoPorId = userId;
+    valoresAprovadosPorId = userId;
   }
 
   const atualizado: PropostaNegociacao = {
@@ -270,6 +389,7 @@ export async function atualizarStatusPropostaNegociacao(
     termosAprovados,
     acordoConfirmadoEm,
     acordoConfirmadoPorId,
+    valoresAprovadosPorId,
   };
 
   const salvo = await updateNegotiationProposal(atualizado);
@@ -282,12 +402,25 @@ export async function atualizarStatusPropostaNegociacao(
       status: salvo.status,
       termosAprovados: salvo.termosAprovados,
       acordoConfirmadoEm: salvo.acordoConfirmadoEm,
+      valoresAprovadosPorId: salvo.valoresAprovadosPorId,
     }),
-    changedFields: "status, termos_aprovados, acordo_confirmado_em",
+    changedFields: "status, termos_aprovados, acordo_confirmado_em, valores_aprovados_por_id",
     userId,
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+
+  if (status === "Aceita" && input.primeiroVencimento && salvo.quantidadeParcelas && salvo.quantidadeParcelas > 0) {
+    try {
+      await gerarCronogramaParcelasPadrao(userId, salvo, input.primeiroVencimento, meta);
+    } catch {
+      throw new PropostaNegociacaoServiceError(
+        "Acordo confirmado, mas o cronograma automático de parcelas não pôde ser gerado.",
+        500,
+      );
+    }
+  }
+
   return salvo;
 }
 

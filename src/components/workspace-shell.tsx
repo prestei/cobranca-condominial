@@ -17,6 +17,7 @@ import {
   Scale,
   ScrollText,
   Shield,
+  Handshake,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { useCadastros } from "@/hooks/use-cadastros";
 import { useNotificacoes } from "@/hooks/use-notificacoes";
 import { usePermissao } from "@/hooks/use-permissao";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
+import { podeVerModuloNoMenu } from "@/lib/permissions/check";
 import type { ModuloPermissao } from "@/lib/permissions/modulos";
 
 type NavLink = {
@@ -66,6 +68,7 @@ const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
         atendimentosSemRetorno: true,
       },
       { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
+      { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
       { href: "/importacoes", label: "Importações", icon: FileUp, modulo: "importacoes" },
       {
         href: "/minha-agenda",
@@ -94,6 +97,7 @@ const secoes: Array<{ title: string; links: NavLink[] }> = [
       { href: "/atendimentos", label: "Atendimentos", icon: ClipboardList, count: "retornos", modulo: "atendimentos" },
       { href: "/debitos", label: "Inadimplência", icon: Receipt, modulo: "debitos" },
       { href: "/juridico", label: "Jurídico", icon: Scale, modulo: "juridico" },
+      { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
     ],
   },
   {
@@ -179,8 +183,10 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       : usuarioSessaoApp(cadastros, sessao.userId, sessao);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
 
-  const layoutInboxAtendimentos =
+  const rotaAtendimentos =
     pathname === "/atendimentos" || (pathname?.startsWith("/atendimentos/") ?? false);
+  const visaoGestaoAtendimentos = rotaAtendimentos && pode("usuarios", "criar");
+  const layoutInboxAtendimentos = rotaAtendimentos && !visaoGestaoAtendimentos;
 
   const handleAbrirNotificacao = useCallback(
     async (id: number) => {
@@ -225,7 +231,9 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
               <SkeletonSidebarNav />
             ) : (
               menuSecoes.map((secao) => {
-                const links = secao.links.filter((link) => pode(link.modulo, "ler"));
+                const links = secao.links.filter((link) =>
+                  podeVerModuloNoMenu(permissoes, link.modulo, link.href),
+                );
                 if (links.length === 0) return null;
                 return (
                   <AppShellNavSection key={secao.title} title={secao.title}>

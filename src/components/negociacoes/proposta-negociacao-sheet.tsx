@@ -25,9 +25,9 @@ import {
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { debitoEmAberto, formatarData, formatarMoeda, type PropostaNegociacao } from "@/data/catalogo";
-import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
+import { PropostaDetalheResumo } from "@/components/negociacoes/proposta-detalhe-resumo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
@@ -60,8 +60,8 @@ export function PropostaNegociacaoSheet({
   const formId = useId();
   const { toast } = useToast();
   const { pode } = usePermissao();
-  const podeCriar = pode("atendimentos", "criar");
-  const podeEditar = pode("atendimentos", "editar");
+  const podeCriar = pode("atendimentos", "criar") || pode("negociacoes", "criar");
+  const podeEditar = pode("atendimentos", "editar") || pode("negociacoes", "editar");
 
   const [propostas, setPropostas] = useState<PropostaNegociacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +72,8 @@ export function PropostaNegociacaoSheet({
   const [termosPorId, setTermosPorId] = useState<Record<string, string>>({});
   const [termosErroPorId, setTermosErroPorId] = useState<Record<string, string>>({});
   const [statusSalvandoId, setStatusSalvandoId] = useState<string | null>(null);
+  const [quantidadeParcelas, setQuantidadeParcelas] = useState("");
+  const [primeiroVencimentoPorId, setPrimeiroVencimentoPorId] = useState<Record<string, string>>({});
 
   const debitosUnidade = useMemo(() => {
     if (unidadeId === null) return [];
@@ -135,6 +137,7 @@ export function PropostaNegociacaoSheet({
           valorProposto,
           observacoes,
           debitoIds,
+          quantidadeParcelas: quantidadeParcelas.trim() ? Number(quantidadeParcelas) : null,
         }),
       });
       const payload = (await response.json()) as { error?: string; proposta?: PropostaNegociacao };
@@ -177,7 +180,12 @@ export function PropostaNegociacaoSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          ...(status === "Aceita" ? { termosAprovados } : {}),
+          ...(status === "Aceita"
+            ? {
+                termosAprovados,
+                primeiroVencimento: (primeiroVencimentoPorId[proposta.id] ?? "").trim() || undefined,
+              }
+            : {}),
         }),
       });
       const payload = (await response.json()) as { error?: string; proposta?: PropostaNegociacao };
@@ -242,12 +250,11 @@ export function PropostaNegociacaoSheet({
                         {formatarData(item.criadoEm)}
                       </time>
                     </div>
-                    <p className="text-body-sm text-on-surface">
-                      Valor proposto: <strong>{formatarMoeda(item.valorProposto)}</strong>
-                    </p>
-                    <p className="text-body-sm text-on-surface-variant">
-                      Autor: {identificadorColaboradorPorId(item.usuarioId, cadastros)} · Débitos {item.debitoIds.join(", ")}
-                    </p>
+                    <PropostaDetalheResumo
+                      proposta={item}
+                      condominioNome={condominio}
+                      unidadeIdentificacao={titulo}
+                    />
                     {item.observacoes ? (
                       <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p>
                     ) : null}
@@ -269,6 +276,18 @@ export function PropostaNegociacaoSheet({
                     ) : null}
                     {item.status === "Em análise" && podeEditar ? (
                       <div className="flex flex-col gap-sm border-t border-border-subtle pt-sm">
+                        <FormField label="1º vencimento do cronograma (opcional)">
+                          <Input
+                            type="date"
+                            value={primeiroVencimentoPorId[item.id] ?? ""}
+                            onChange={(event) =>
+                              setPrimeiroVencimentoPorId((current) => ({
+                                ...current,
+                                [item.id]: event.target.value,
+                              }))
+                            }
+                          />
+                        </FormField>
                         <FormField
                           label="Termos do acordo (obrigatório ao aceitar)"
                           error={termosErroPorId[item.id]}
@@ -342,6 +361,14 @@ export function PropostaNegociacaoSheet({
                     inputMode="numeric"
                     placeholder="0,00"
                     required
+                  />
+                </FormField>
+                <FormField label="Quantidade de parcelas (limite do advogado)">
+                  <Input
+                    value={quantidadeParcelas}
+                    onChange={(event) => setQuantidadeParcelas(event.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="Ex.: 12"
                   />
                 </FormField>
                 <FormField label="Observações">

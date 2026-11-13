@@ -264,6 +264,24 @@ Proposta de negociação (T15). Não representa pagamento recebido. Protótipo: 
 | acordo_confirmado_em | TIMESTAMP | sim | | Preenchido quando status = Aceita |
 | acordo_confirmado_por_id | INT | sim | FK → user.id | Quem confirmou o acordo |
 | termos_aprovados | TEXT | sim | | Termos textuais do acordo confirmado |
+| advogado_responsavel_id | INT | sim | FK → user.id | Advogado do condomínio no registro |
+| valor_divida_original | DECIMAL(12,2) | sim | | Snapshot soma valor original dos débitos |
+| valor_divida_atualizada | DECIMAL(12,2) | sim | | Snapshot soma valor atualizado |
+| quantidade_parcelas | INT | sim | | Parcelas acordadas na proposta |
+| valores_definidos_por_id | INT | sim | FK → user.id | Quem definiu valores |
+| valores_aprovados_por_id | INT | sim | FK → user.id | Quem aprovou o acordo |
+
+## lawyer_negotiation_rule
+
+Limites de negociação por advogado (`usuario_id` = PK). Padrões: 30% desconto, 24 parcelas.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| usuario_id | INT | não | PK, FK → user.id | Advogado |
+| desconto_maximo_percent | DECIMAL(5,2) | não | | Teto de desconto sobre dívida atualizada |
+| parcelas_maximas | INT | não | | Máximo de parcelas na proposta |
+| atualizado_em | TIMESTAMPTZ | não | | |
+| atualizado_por_id | INT | sim | FK → user.id | Administradora |
 
 ## agreement_installment
 
@@ -280,8 +298,9 @@ Parcelas do cronograma após acordo confirmado (proposta **Aceita**). Valor **pr
 | vencimento_em | DATE | não | | Data de vencimento |
 | criado_em | TIMESTAMP | não | | |
 | criado_por_id | INT | não | FK → user.id | |
+| cancelado_em | TIMESTAMPTZ | sim | | Cancelamento auditado |
 
-Status operacional (**Prevista**, **Vencida**, **Quitada**) é calculado em `src/lib/acordos/resumo.ts` a partir de vencimento e pagamentos **Confirmados**.
+Status operacional (**Pendente**, **Paga**, **Vencida**, **Cancelada**) é calculado em `src/lib/acordos/resumo.ts` a partir de vencimento, cancelamento e pagamentos **Confirmados**.
 
 ## agreement_payment
 

@@ -16,7 +16,7 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Atendimentos** — layout operação master–detail (fila + painel): KPIs resumidos, **fila** com prévia/horário, barra com três chips em grid: **Período** (`PeriodInput`: Hoje, Ontem, últimos 7/30 dias, este mês, mês anterior, todos e intervalo De/Até), **Sem retorno** e **Atrasados** (atalhos complementares ao período), painel com **linha do tempo** de eventos (`GET /api/unidades/:id/historico`), registro rápido e atalhos de contato. A query `?retorno=` pré-seleciona período e/ou chip rápido. |
+| `/atendimentos` | **Atendimentos** — **atendente:** layout operação master–detail (fila + painel): chips **Período**, **Sem retorno** e **Atrasados**, painel com **linha do tempo** (`GET /api/unidades/:id/historico`), atalhos de contato e ações no rodapé. **Administradora:** KPIs da carteira, filtros, abas **Por condomínio** / **Por atendente** / **Geral**, distribuição em lote e tabelas agrupadas (`fila-gestao-admin-panel.tsx`); consulta detalhe via menu **Histórico** / ações da linha. Query `?retorno=` (atalhos) e `?operacional=` (painel de indicadores) aplicam-se conforme o perfil. |
 | `/minha-agenda` | **Agenda do atendente** — calendário mensal com todos os dias; contatos realizados e retornos agendados; navegação mês a mês (somente perfil atendente) |
 | `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Pré-seleciona filtros: `hoje` = Hoje; `atrasado` = chip Atrasados + até ontem; `semana` = de amanhã a 7 dias; `sem` = unidades sem data de retorno |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
@@ -24,13 +24,13 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
 | `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx` + visão `src/components/atendimentos/atendimento-operacao-view.tsx`, `atendimento-painel-caso.tsx`, `atendimento-linha-tempo-operacao.tsx`; legado compacto `atendimento-linha-tempo-compacta.tsx`; agenda do atendente `src/app/minha-agenda/page.tsx` + `src/components/atendimentos/agenda-historico-visual.tsx` + `src/lib/atendimentos/agrupar-historico-por-dia.ts`; legado de listagens agrupadas `src/components/atendimentos/fila-por-grupos-lista.tsx`; atalhos `src/components/atendimentos/atalhos-contato-atendente.tsx` + `src/lib/contato-responsavel.ts`; sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx`. **Agendar atendimento** (sistema-wide): `AgendarAtendimentoProvider` em `Providers` + `AgendarAtendimentoSheet` — também no painel do caso; registro completo (palitagem em etapas) via **Formulário completo** ou query `?novo=1`. Histórico completo: menu **Histórico** → `HistoricoUnidadeSheet`.
+Arquivos: `src/app/atendimentos/page.tsx`; roteamento por perfil em `fila-cobrancas-panel.tsx` (`usuarios.criar` → `fila-gestao-admin-panel.tsx`; atendente → `atendimento-operacao-view.tsx` + `atendimento-painel-caso.tsx`, `atendimento-linha-tempo-operacao.tsx`); listagens agrupadas `fila-por-grupos-lista.tsx`; agenda do atendente `src/app/minha-agenda/page.tsx` + `agenda-historico-visual.tsx`; atalhos `atalhos-contato-atendente.tsx`. **Agendar atendimento:** `AgendarAtendimentoProvider` + `AgendarAtendimentoSheet`; registro via `?novo=1&unidade=` ou **Registrar contato** (atendente). Histórico: `HistoricoUnidadeSheet`.
 
 ## Perfis e permissões
 
 | Ação | Administradora | Atendente | Advogado |
 | --- | --- | --- | --- |
-| Ver fila (`atendimentos.ler`) | Carteira geral no escopo; abas Por condomínio / Por atendente / Geral | Somente unidades com RE atribuído ao login; abas **Por condomínio** / **Geral** | Sem acesso (sem `atendimentos.ler` no seed) |
+| Ver fila (`atendimentos.ler`) | Carteira geral no escopo; abas Por condomínio / Por atendente / Geral; distribuição e filtros por RE | Somente unidades da carteira vigente; layout operação **master–detail** (fila + painel do caso) | Sem acesso (sem `atendimentos.ler` no seed) |
 | Registrar atendimento | Sim | Sim (autor = sessão) | Não |
 | Filtro por RE | Sim | Não |
 | Distribuir / redistribuir cobranças | Sim (`usuarios.criar`) | Não | Não |

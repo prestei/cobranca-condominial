@@ -191,6 +191,23 @@ export function permissoesSomenteConsulta(): PermissoesCargo {
   return out;
 }
 
+/** União de flags `true` — útil para sincronizar cargos de fábrica após novo módulo no sistema. */
+export function unirPermissoesCargo(base: PermissoesCargo, extra: PermissoesCargo): PermissoesCargo {
+  const out: PermissoesCargo = { ...base };
+  for (const modulo of MODULOS_PERMISSAO) {
+    const id = modulo.id;
+    const acoesExtra = extra[id];
+    if (!acoesExtra) continue;
+    const acoesBase = out[id] ?? {};
+    const merged: Partial<Record<AcaoPermissao, boolean>> = { ...acoesBase };
+    for (const acao of modulo.acoes) {
+      if (acoesExtra[acao] === true) merged[acao] = true;
+    }
+    if (Object.keys(merged).length > 0) out[id] = merged;
+  }
+  return out;
+}
+
 export function permissoesModuloCompleto(moduloId: ModuloPermissao): Partial<Record<AcaoPermissao, boolean>> {
   const modulo = MODULOS_PERMISSAO.find((item) => item.id === moduloId);
   if (!modulo) return {};

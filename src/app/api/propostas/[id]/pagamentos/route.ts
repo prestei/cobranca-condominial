@@ -1,4 +1,5 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePropostaCriar, requirePropostaLer } from "@/lib/api/require-proposta-auth";
 import {
   AcordoServiceError,
   PropostaNegociacaoServiceError,
@@ -27,7 +28,7 @@ function parsePagamentoBody(body: unknown): PagamentoAcordoInput | null {
 export async function GET(_request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "ler");
+  const denied = await requirePropostaLer(session);
   if (denied) return denied;
 
   const { id } = await context.params;
@@ -50,7 +51,7 @@ export async function GET(_request: Request, context: RouteContext) {
 export async function POST(request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "criar");
+  const denied = await requirePropostaCriar(session);
   if (denied) return denied;
 
   const { id } = await context.params;

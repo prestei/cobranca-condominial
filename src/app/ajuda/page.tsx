@@ -2,114 +2,25 @@
 
 import { useId, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  Bell,
-  Building2,
-  CalendarClock,
-  ChevronRight,
-  ClipboardList,
-  HelpCircle,
-  LayoutDashboard,
-  Search,
-  ShieldAlert,
-  UserRound,
-  Wallet,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { BookOpen, ChevronRight, HelpCircle, Search, ShieldAlert } from "lucide-react";
+import { AjudaCapturaTela } from "@/components/ajuda/ajuda-captura-tela";
 import { Alert } from "@/components/alert";
 import { Icon } from "@/components/icon";
 import { FormField, Input } from "@/components/input";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { guiasAjudaVisiveis } from "@/lib/ajuda/manual-guias";
 import { usePermissao } from "@/hooks/use-permissao";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
-import type { ModuloPermissao } from "@/lib/permissions/modulos";
 
-type TopicoAjuda = {
-  id: string;
-  titulo: string;
-  descricao: string;
-  href: string;
-  icon: LucideIcon;
-  modulo: ModuloPermissao;
-  palavrasChave: string[];
-  perfis?: Array<"administradora" | "atendente" | "advogado">;
-};
-
-type AtalhoAjuda = {
-  href: string;
-  titulo: string;
-  icon: LucideIcon;
-  modulo: ModuloPermissao;
-};
-
-const topicos: TopicoAjuda[] = [
-  {
-    id: "atendimentos",
-    titulo: "Atendimentos",
-    descricao: "Registre tentativas de contato, acompanhe a fila da sua carteira e finalize pendências.",
-    href: "/atendimentos",
-    icon: ClipboardList,
-    modulo: "atendimentos",
-    palavrasChave: ["fila", "contato", "tentativa", "pendência", "retorno"],
-  },
-  {
-    id: "agenda",
-    titulo: "Minha agenda",
-    descricao: "Histórico dos seus atendimentos dia a dia, no formato de agenda.",
-    href: "/minha-agenda",
-    icon: CalendarClock,
-    modulo: "atendimentos",
-    palavrasChave: ["retorno", "hoje", "atrasado", "calendário", "histórico"],
-    perfis: ["atendente"],
-  },
-  {
-    id: "inadimplencia",
-    titulo: "Inadimplência",
-    descricao: "Consulte valores em aberto das unidades dentro do seu escopo de carteira.",
-    href: "/debitos",
-    icon: Wallet,
-    modulo: "debitos",
-    palavrasChave: ["débito", "valor", "unidade", "cobrança"],
-  },
-  {
-    id: "notificacoes",
-    titulo: "Notificações",
-    descricao: "Alertas de retorno, distribuição e movimentação também aparecem no sino do topo.",
-    href: "/notificacoes",
-    icon: Bell,
-    modulo: "dashboard",
-    palavrasChave: ["alerta", "sino", "aviso", "retorno"],
-  },
-  {
-    id: "inicio",
-    titulo: "Início",
-    descricao: "Painel com visão da carteira, pendências e atalhos conforme o seu perfil.",
-    href: "/",
-    icon: LayoutDashboard,
-    modulo: "dashboard",
-    palavrasChave: ["dashboard", "painel", "início"],
-  },
-  {
-    id: "condominios",
-    titulo: "Condomínios",
-    descricao: "Cadastro e consulta de condomínios vinculados ao escritório.",
-    href: "/condominios",
-    icon: Building2,
-    modulo: "condominios",
-    palavrasChave: ["cadastro", "empreendimento"],
-    perfis: ["administradora", "advogado"],
-  },
-];
-
-const atalhos: AtalhoAjuda[] = [
-  { href: "/atendimentos", titulo: "Atendimentos", icon: ClipboardList, modulo: "atendimentos" },
-  { href: "/minha-agenda", titulo: "Minha agenda", icon: CalendarClock, modulo: "atendimentos" },
-  { href: "/debitos", titulo: "Inadimplência", icon: Wallet, modulo: "debitos" },
-  { href: "/notificacoes", titulo: "Notificações", icon: Bell, modulo: "dashboard" },
-  { href: "/", titulo: "Início", icon: LayoutDashboard, modulo: "dashboard" },
-  { href: "/conta", titulo: "Minha conta", icon: UserRound, modulo: "dashboard" },
-];
+const atalhosRapidos = [
+  { guiaId: "atendimentos", titulo: "Atendimentos" },
+  { guiaId: "agenda", titulo: "Minha agenda" },
+  { guiaId: "inadimplencia", titulo: "Inadimplência" },
+  { guiaId: "notificacoes", titulo: "Notificações" },
+  { guiaId: "inicio", titulo: "Início" },
+  { guiaId: "conta", titulo: "Minha conta" },
+] as const;
 
 function normalizarBusca(texto: string) {
   return texto
@@ -125,31 +36,49 @@ export default function AjudaPage() {
   const { permissoes, pode } = usePermissao();
   const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
 
-  const atalhosVisiveis = useMemo(
-    () => atalhos.filter((item) => pode(item.modulo, "ler")),
-    [pode],
-  );
+  const guiasVisiveis = useMemo(() => guiasAjudaVisiveis(pode, perfil), [pode, perfil]);
 
-  const topicosVisiveis = useMemo(() => {
+  const guiasFiltrados = useMemo(() => {
     const query = normalizarBusca(busca);
-    return topicos.filter((item) => {
-      if (!pode(item.modulo, "ler")) return false;
-      if (item.perfis && !item.perfis.includes(perfil)) return false;
-      if (!query) return true;
-      const alvo = normalizarBusca(`${item.titulo} ${item.descricao} ${item.palavrasChave.join(" ")}`);
+    if (!query) return guiasVisiveis;
+    return guiasVisiveis.filter((item) => {
+      const alvo = normalizarBusca(`${item.titulo} ${item.resumo} ${item.palavrasChave.join(" ")}`);
       return alvo.includes(query);
     });
-  }, [busca, pode, perfil]);
+  }, [busca, guiasVisiveis]);
+
+  const atalhosVisiveis = useMemo(() => {
+    const ids = new Set(guiasVisiveis.map((g) => g.id));
+    return atalhosRapidos.filter((item) => ids.has(item.guiaId));
+  }, [guiasVisiveis]);
 
   return (
     <WorkspaceShell>
       <PageHeader
         icon={HelpCircle}
         title="Ajuda e suporte"
-        description="Orientações rápidas para o dia a dia da cobrança."
+        description="Manual do sistema: como cada tela funciona, com capturas reais e passo a passo."
       />
       <PageContent>
         <div className="flex w-full min-w-0 flex-col gap-xl">
+          <section className="grid w-full min-w-0 gap-lg min-[1024px]:grid-cols-[1.1fr_0.9fr] min-[1024px]:items-center">
+            <div className="flex flex-col gap-md">
+              <h2 className="flex items-center gap-sm text-title-md font-bold text-on-surface">
+                <Icon icon={BookOpen} size="md" className="text-primary-container" />
+                Manual funcional
+              </h2>
+              <p className="text-body-md leading-relaxed text-on-surface-variant">
+                Cada cartão abaixo abre um guia completo: objetivo da tela, fluxo em passos, o que significa cada área da
+                interface e dicas de operação. As imagens são capturas reais do sistema (ambiente de demonstração).
+              </p>
+              <p className="text-body-sm text-on-surface-variant">
+                Guias disponíveis para o seu perfil:{" "}
+                <span className="font-semibold text-on-surface">{guiasVisiveis.length}</span>
+              </p>
+            </div>
+            <AjudaCapturaTela capturaId="ajuda" titulo="Ajuda e suporte" variante="card" className="min-[1024px]:max-h-[280px]" priority />
+          </section>
+
           <section className="w-full rounded-card border border-outline-variant bg-surface-card p-lg shadow-card">
             <div className="flex w-full min-w-0 flex-col gap-lg">
               <div className="w-full min-w-0">
@@ -158,12 +87,12 @@ export default function AjudaPage() {
                   Como podemos ajudar?
                 </h2>
                 <p className="mt-xs text-body-md text-on-surface-variant">
-                  Busque por um módulo ou use os atalhos para ir direto à tela desejada.
+                  Busque por um módulo ou abra um guia com print da tela antes de ir à operação.
                 </p>
               </div>
               <FormField
                 htmlFor={buscaAjudaId}
-                label="Buscar na ajuda"
+                label="Buscar no manual"
                 className="w-full min-w-0 max-w-[var(--container-sm)]"
               >
                 <div className="relative w-full min-w-0">
@@ -179,7 +108,7 @@ export default function AjudaPage() {
                     autoComplete="off"
                     value={busca}
                     onChange={(event) => setBusca(event.target.value)}
-                    placeholder="retorno, inadimplência, notificação…"
+                    placeholder="retorno, inadimplência, importação…"
                     className="w-full !pl-10"
                   />
                 </div>
@@ -191,12 +120,11 @@ export default function AjudaPage() {
                 <p className="text-label-sm uppercase text-on-surface-variant">Atalhos rápidos</p>
                 <ul className="mt-sm flex flex-wrap gap-sm">
                   {atalhosVisiveis.map((item) => (
-                    <li key={item.href}>
+                    <li key={item.guiaId}>
                       <Link
-                        href={item.href}
+                        href={`/ajuda/guia/${item.guiaId}`}
                         className="inline-flex items-center gap-xs rounded-full border border-border-subtle bg-surface-muted px-md py-xs text-body-sm font-medium text-on-surface transition-colors hover:border-primary-container/40 hover:bg-primary-fixed/30"
                       >
-                        <Icon icon={item.icon} size="sm" className="text-primary-container" />
                         {item.titulo}
                       </Link>
                     </li>
@@ -208,15 +136,15 @@ export default function AjudaPage() {
 
           <section className="flex flex-col gap-md">
             <div className="flex items-center justify-between gap-md">
-              <h2 className="text-title-md font-bold text-on-surface">Guias por módulo</h2>
+              <h2 className="text-title-md font-bold text-on-surface">Guias por tela</h2>
               {busca.trim() ? (
                 <p className="text-body-sm text-on-surface-variant">
-                  {topicosVisiveis.length} resultado{topicosVisiveis.length === 1 ? "" : "s"}
+                  {guiasFiltrados.length} resultado{guiasFiltrados.length === 1 ? "" : "s"}
                 </p>
               ) : null}
             </div>
 
-            {topicosVisiveis.length === 0 ? (
+            {guiasFiltrados.length === 0 ? (
               <div className="rounded-card border border-dashed border-border-subtle bg-surface-muted/50 px-lg py-xl text-center">
                 <p className="text-body-md font-medium text-on-surface">Nenhum tópico encontrado</p>
                 <p className="mt-xs text-body-sm text-on-surface-variant">
@@ -234,26 +162,37 @@ export default function AjudaPage() {
               </div>
             ) : (
               <ul className="grid w-full min-w-0 gap-md min-[768px]:grid-cols-2 min-[1200px]:grid-cols-3">
-                {topicosVisiveis.map((item) => (
-                  <li key={item.id}>
+                {guiasFiltrados.map((item) => (
+                  <li key={item.id} className="flex min-w-0 flex-col gap-sm">
                     <Link
-                      href={item.href}
-                      className="group flex h-full flex-col rounded-card border border-outline-variant bg-surface-card p-lg shadow-card transition-[border-color,box-shadow] hover:border-primary-container/35 hover:shadow-popover"
+                      href={`/ajuda/guia/${item.id}`}
+                      className="group flex h-full flex-col overflow-hidden rounded-card border border-outline-variant bg-surface-card shadow-card transition-[border-color,box-shadow] hover:border-primary-container/35 hover:shadow-popover"
                     >
-                      <div className="flex items-start gap-md">
-                        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/50 text-primary-container">
-                          <Icon icon={item.icon} size="md" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-sm">
-                            <h3 className="text-title-sm font-bold text-on-surface">{item.titulo}</h3>
-                            <Icon
-                              icon={ChevronRight}
-                              size="sm"
-                              className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5 group-hover:text-primary-container"
-                            />
+                      <div className="border-b border-outline-variant/50 bg-surface-muted/30 p-sm">
+                        <AjudaCapturaTela
+                          capturaId={item.id}
+                          titulo={item.titulo}
+                          variante="thumb"
+                          className="rounded-none border-0 shadow-none"
+                        />
+                      </div>
+                      <div className="flex flex-1 flex-col p-lg">
+                        <div className="flex items-start gap-md">
+                          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/50 text-primary-container">
+                            <Icon icon={item.icon} size="md" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-sm">
+                              <h3 className="text-title-sm font-bold text-on-surface">{item.titulo}</h3>
+                              <Icon
+                                icon={ChevronRight}
+                                size="sm"
+                                className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5 group-hover:text-primary-container"
+                              />
+                            </div>
+                            <p className="mt-xs text-body-sm text-on-surface-variant">{item.resumo}</p>
+                            <p className="mt-sm text-label-sm font-medium text-primary-container">Ver guia com captura</p>
                           </div>
-                          <p className="mt-xs text-body-sm text-on-surface-variant">{item.descricao}</p>
                         </div>
                       </div>
                     </Link>
@@ -286,15 +225,15 @@ export default function AjudaPage() {
               <ul className="mt-md space-y-sm text-body-sm text-on-surface-variant">
                 <li className="flex gap-sm">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary-container" aria-hidden />
-                  Registre cada tentativa de contato em Atendimentos para manter o histórico da carteira.
+                  Leia o guia de Atendimentos antes da primeira palitagem — o histórico não pode ser apagado.
                 </li>
                 <li className="flex gap-sm">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary-container" aria-hidden />
-                  Confira o sino do topo para retornos urgentes antes de iniciar novos contatos.
+                  Confira o sino e o guia de Notificações para retornos urgentes.
                 </li>
                 <li className="flex gap-sm">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary-container" aria-hidden />
-                  Use a agenda para priorizar retornos atrasados e os compromissos do dia.
+                  Administradora: Importações e Cargos têm guias próprios sobre permissões e conferência.
                 </li>
               </ul>
             </article>

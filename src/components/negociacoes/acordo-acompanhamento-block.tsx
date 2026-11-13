@@ -9,6 +9,8 @@ import { FormField, Input, Select } from "@/components/input";
 import { SkeletonTable } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { confirmacaoPagamentoAcordo, formatarData, formatarMoeda, type PagamentoAcordo } from "@/data/catalogo";
+import { useCadastros } from "@/hooks/use-cadastros";
+import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
 
 type Props = {
@@ -18,13 +20,15 @@ type Props = {
   onChanged?: () => void;
 };
 
-const badgeParcela: Record<string, "success" | "secondary" | "error"> = {
-  Prevista: "secondary",
+const badgeParcela: Record<string, "success" | "secondary" | "error" | "neutral"> = {
+  Pendente: "secondary",
   Vencida: "error",
-  Quitada: "success",
+  Paga: "success",
+  Cancelada: "neutral",
 };
 
 export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorrigir, onChanged }: Props) {
+  const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
   const formId = useId();
   const { toast } = useToast();
@@ -89,6 +93,29 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
       setNovaValor("");
       setNovaVencimento("");
       toast({ variant: "success", title: "Parcela registrada" });
+      onChanged?.();
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function cancelarParcela(parcelaId: string) {
+    if (!podeCorrigir) return;
+    setSalvando(true);
+    try {
+      const response = await fetch(`/api/parcelas-acordo/${parcelaId}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelar: true }),
+      });
+      const payload = (await response.json()) as { error?: string; resumo?: ResumoAcordo };
+      if (!response.ok || !payload.resumo) {
+        toast({ variant: "error", title: "Parcela", description: payload.error });
+        return;
+      }
+      setResumo(payload.resumo);
+      toast({ variant: "success", title: "Parcela cancelada" });
       onChanged?.();
     } finally {
       setSalvando(false);
@@ -163,12 +190,30 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
           <dd className="font-medium tabular-nums">{formatarMoeda(resumo.valorPagoConfirmado)}</dd>
         </div>
         <div>
+          <dt className="text-on-surface-variant">Saldo restante</dt>
+          <dd className="font-medium tabular-nums">{formatarMoeda(resumo.saldoRestante)}</dd>
+        </div>
+        <div>
+          <dt className="text-on-surface-variant">Parcelas pagas</dt>
+          <dd className="font-medium tabular-nums">
+            {resumo.parcelasPagas} / {resumo.parcelasTotal}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-on-surface-variant">Pendentes</dt>
+          <dd className="font-medium tabular-nums">{resumo.parcelasPendentes}</dd>
+        </div>
+        <div>
+          <dt className="text-on-surface-variant">Vencidas</dt>
+          <dd className="font-medium tabular-nums">{resumo.parcelasVencidas}</dd>
+        </div>
+        <div>
           <dt className="text-on-surface-variant">Pago (informado)</dt>
           <dd className="font-medium tabular-nums">{formatarMoeda(resumo.valorPagoInformado)}</dd>
         </div>
         <div>
-          <dt className="text-on-surface-variant">Saldo (confirmado)</dt>
-          <dd className="font-medium tabular-nums">{formatarMoeda(resumo.saldoRestante)}</dd>
+          <dt className="text-on-surface-variant">Canceladas</dt>
+          <dd className="font-medium tabular-nums">{resumo.parcelasCanceladas}</dd>
         </div>
       </dl>
 
@@ -179,18 +224,42 @@ export function AcordoAcompanhamentoBlock({ propostaId, podeRegistrar, podeCorri
           {resumo.parcelas.map((parcela) => (
             <li
               key={parcela.id}
-              className="flex flex-wrap items-center justify-between gap-sm rounded-sm bg-surface-container px-sm py-xs text-body-sm"
+              className="flex flex-col gap-xs rounded-sm bg-surface-container px-sm py-xs text-body-sm"
             >
-              <span>
-                Parcela {parcela.numero} · venc. {formatarData(parcela.vencimentoEm)} ·{" "}
-                {formatarMoeda(parcela.valorPrevisto)}
-              </span>
-              <span className="flex items-center gap-sm">
-                <Badge variant={badgeParcela[parcela.status] ?? "secondary"}>{parcela.status}</Badge>
-                <span className="text-on-surface-variant tabular-nums">
-                  conf. {formatarMoeda(parcela.valorPagoConfirmado)}
+              <div className="flex flex-wrap items-center justify-between gap-sm">
+                <span>
+                  Parcela {parcela.numero} · venc. {formatarData(parcela.vencimentoEm)} ·{" "}
+                  {formatarMoeda(parcela.valorPrevisto)}
                 </span>
-              </span>
+                <span className="flex items-center gap-sm">
+                  <Badge variant={badgeParcela[parcela.status] ?? "secondary"}>{parcela.status}</Badge>
+                  <span className="text-on-surface-variant tabular-nums">
+                    conf. {formatarMoeda(parcela.valorPagoConfirmado)}
+                  </span>
+                  {podeCorrigir && parcela.status !== "Cancelada" && parcela.status !== "Paga" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={salvando}
+                      onClick={() => void cancelarParcela(parcela.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  ) : null}
+                </span>
+              </div>
+              {parcela.pagamentos.length > 0 ? (
+                <ul className="ml-sm list-disc pl-sm text-on-surface-variant">
+                  {parcela.pagamentos.map((pagamento) => (
+                    <li key={pagamento.id}>
+                      {formatarData(pagamento.dataPagamento)} · {formatarMoeda(pagamento.valor)} ·{" "}
+                      {pagamento.confirmacao} · reg.{" "}
+                      {identificadorColaboradorPorId(pagamento.registradoPorId, cadastros)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
         </ul>

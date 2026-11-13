@@ -15,16 +15,21 @@ import {
   validarRegistrarContato,
 } from "@/components/atendimentos/registrar-contato-sheet";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { canaisAtendimento, montarMotivoPendencia, type Atendimento } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
+import { usePermissao } from "@/hooks/use-permissao";
+import { ClipboardList } from "lucide-react";
 function AtendimentosPage() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
+  const { pode } = usePermissao();
+  const visaoGestao = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [form, setForm] = useState(() => registrarContatoFormVazio());
@@ -161,12 +166,32 @@ function AtendimentosPage() {
     }
   }
 
+  const corpoFila = (
+    <div
+      className={`flex w-full flex-col bg-surface-card ${
+        visaoGestao ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 w-full flex-1 overflow-hidden"
+      }`}
+    >
+      <OperacionalAtendimentosPanel />
+      <FilaCobrancasPanel className={visaoGestao ? "w-full" : "min-h-0 w-full flex-1 overflow-hidden"} />
+    </div>
+  );
+
   return (
     <WorkspaceShell>
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-card">
-        <OperacionalAtendimentosPanel />
-        <FilaCobrancasPanel className="min-h-0 w-full flex-1 overflow-hidden" />
-      </div>
+      {visaoGestao ? (
+        <>
+          <PageHeader
+            icon={ClipboardList}
+            title="Atendimentos"
+            description="Fila de cobrança da carteira: retornos, distribuição por RE e visão por condomínio ou atendente."
+            className="shrink-0 bg-surface-card max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
+          />
+          {corpoFila}
+        </>
+      ) : (
+        corpoFila
+      )}
 
       <RegistrarContatoSheet
         open={sheetOpen}

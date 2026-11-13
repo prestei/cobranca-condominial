@@ -34,6 +34,12 @@ export const MODULOS_PERMISSAO = [
     acoes: ["ler", "criar", "editar"] as const,
   },
   {
+    id: "negociacoes",
+    label: "Negociações",
+    description: "Propostas de acordo, alçada do advogado e acompanhamento de parcelas.",
+    acoes: ["ler", "criar", "editar"] as const,
+  },
+  {
     id: "condominios",
     label: "Condomínios",
     description: "Cadastro da carteira de condomínios.",
@@ -89,6 +95,7 @@ export const ROTAS_MODULO: Array<{ prefix: string; modulo: ModuloPermissao }> = 
   { prefix: "/atendimentos", modulo: "atendimentos" },
   { prefix: "/debitos", modulo: "debitos" },
   { prefix: "/juridico", modulo: "juridico" },
+  { prefix: "/negociacoes", modulo: "negociacoes" },
   { prefix: "/condominios", modulo: "condominios" },
   { prefix: "/unidades", modulo: "unidades" },
   { prefix: "/relatorios", modulo: "relatorios" },

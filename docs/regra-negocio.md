@@ -144,10 +144,9 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 ### Fila de cobranças (T08)
 
 - Integrada à tela `/atendimentos`; atalho `/fila` redireciona para essa rota.
-- Lista unidades em cobrança ativa via `GET /api/fila` (dados do cadastro persistido em memória no protótipo).
-- Listagem em abas conforme o perfil — painéis recolhíveis com paginação por grupo nas visões agrupadas; tabela plana nas demais.
-- **Administradora:** abas **Por condomínio** (padrão), **Por atendente** e **Geral**; carteira geral no escopo; filtros por condomínio, situação, RE e retorno; paginação no servidor na visão Geral.
-- **Atendente:** abas **Por condomínio** (padrão) e **Geral**; somente unidades com atribuição vigente ao seu RE (`collection_assignment` / seed). Visual próprio (brass/gold) com atalhos **WhatsApp** e **E-mail** a partir do responsável principal da unidade: abre o app do operador (`wa.me` / `mailto`) e o sheet de palitagem com o canal já marcado — sem envio automático pelo sistema.
+- Lista unidades em cobrança ativa via `GET /api/fila`.
+- **Atendente:** layout operação **master–detail** (fila lateral + painel com linha do tempo, concluir retorno e registrar contato); somente unidades com atribuição vigente ao seu RE; chips **Período**, **Sem retorno** e **Atrasados**; atalhos **WhatsApp** / **E-mail** no painel do caso.
+- **Administradora:** visão de gestão com KPIs, filtros e abas **Por condomínio** (padrão), **Por atendente** e **Geral**; painéis recolhíveis nas visões agrupadas; tabela plana e paginação no servidor na visão Geral; seleção em lote e distribuição por RE; coluna RE responsável nas tabelas.
 - **Advogado:** sem `atendimentos.ler` — não acessa a fila operacional.
 - Quitada / inativa cadastral não entra na fila; histórico permanece na aba Registros e em unidades.
 - Regra de **quando** o débito entra em cobrança: pendente de aprovação (fora do T08).
@@ -185,7 +184,7 @@ Fluxo não organizado, anotações em papéis, planilhas grandes e sem conferên
 
 ### Negociação e pagamentos
 
-- **Propostas de negociação (T15):** registro via `/api/propostas` e sheet **Proposta** (fila / histórico da unidade). Vincula unidade, autor, valor proposto, observações e débitos (`debitoIds`). Status: Em análise, Aceita, Recusada, Cancelada. Confirmar acordo (`Aceita`) exige `termosAprovados` textuais e grava origem (`acordo_confirmado_*`); **não** baixa débito nem registra pagamento. Alterações de status auditadas (`negotiation_proposal`). Entrada, quantidade de parcelas na proposta e aprovação formal ampliada: ver [DECISOES_PENDENTES.md](DECISOES_PENDENTES.md).
+- **Propostas de negociação (T15):** registro via `/api/propostas` e sheet **Proposta** (fila / histórico da unidade). Vincula unidade, autor, valor proposto, observações e débitos (`debitoIds`). Status: Em análise, Aceita, Recusada, Cancelada. Confirmar acordo (`Aceita`) exige `termosAprovados` textuais e grava origem (`acordo_confirmado_*`); **não** baixa débito nem registra pagamento. **Alçada:** limites por advogado (`lawyer_negotiation_rule`); advogado vê e aprova propostas dos condomínios de sua responsabilidade (`negociacoes.ler` / `negociacoes.editar`). Alterações auditadas (`negotiation_proposal`, `lawyer_negotiation_rule`).
 - **Parcelas e pagamentos de acordo (T16):** após proposta **Aceita**, parcelas previstas em `/api/propostas/:id/parcelas` e pagamentos em `/api/propostas/:id/pagamentos`. Pagamento **Informado** ≠ recebimento confirmado; quitação de parcela e saldo do acordo usam apenas pagamentos **Confirmados** (regra de saldo de débitos e fonte de confirmação: decisão pendente). Potencial descumprimento = parcela vencida sem quitação confirmada — **não** rotular acordo como quebrado sem regra aprovada. Correções auditadas em `agreement_installment` e `agreement_payment`. Detalhes: [modulos/negociacoes.md](modulos/negociacoes.md).
 
 ### Jurídico e gestão

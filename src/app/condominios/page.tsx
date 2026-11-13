@@ -1321,22 +1321,21 @@ export default function CondominiosPage() {
                 </SheetHeaderLead>
                 <SheetClose />
               </SheetHeader>
-              <SheetBody>
-                <SheetPanel variant="tint">
-                  <div className="grid grid-cols-2 gap-md">
-                    <DetalheCampo label="Situação" value={detalhe.status} />
-                    <DetalheCampo label="Identificador" value={detalhe.identificadorExterno} />
-                    <DetalheCampo label="Advogados responsáveis" value={rotuloAdvogadosCondominio(detalhe)} />
-                    <DetalheCampo label="Administradora" value={detalhe.administradora} />
-                    <DetalheCampo
-                      label="Prazo de inadimplência"
-                      value={`${resolveDelinquencyTrackingDays(detalhe)} dias${
-                        detalhe.delinquencyTrackingDays == null ? ` (padrão ${DEFAULT_DELINQUENCY_TRACKING_DAYS})` : ""
-                      }`}
-                    />
-                  </div>
-                </SheetPanel>
-                <SheetPanel className="flex flex-col gap-md">
+              <SheetBody className="gap-lg">
+                <div className="grid grid-cols-2 gap-md">
+                  <DetalheCampo label="Situação" value={detalhe.status} />
+                  <DetalheCampo label="Identificador" value={detalhe.identificadorExterno} />
+                  <DetalheCampo label="Advogados responsáveis" value={rotuloAdvogadosCondominio(detalhe)} />
+                  <DetalheCampo label="Administradora" value={detalhe.administradora} />
+                  <DetalheCampo
+                    label="Prazo de inadimplência"
+                    value={`${resolveDelinquencyTrackingDays(detalhe)} dias${
+                      detalhe.delinquencyTrackingDays == null ? ` (padrão ${DEFAULT_DELINQUENCY_TRACKING_DAYS})` : ""
+                    }`}
+                  />
+                </div>
+                <div className="flex flex-col gap-md border-t border-border-subtle pt-lg">
+                  <p className="text-label-lg text-on-surface">Endereço</p>
                   <div className="grid grid-cols-2 gap-md">
                     <DetalheCampo label="CEP" value={detalhe.cep} />
                     <DetalheCampo label="Número" value={detalhe.numero} />
@@ -1347,28 +1346,31 @@ export default function CondominiosPage() {
                     <DetalheCampo label="Cidade" value={detalhe.cidade} />
                     <DetalheCampo label="Estado" value={detalhe.estado} />
                   </div>
-                </SheetPanel>
-                <SheetPanel>
+                </div>
+                <div className="border-t border-border-subtle pt-lg">
                   <DetalheCampo label="Observação" value={detalhe.observacao} />
-                </SheetPanel>
-                <SheetPanel className="flex flex-col gap-md">
+                </div>
+                <div className="flex flex-col gap-md border-t border-border-subtle pt-lg">
                   <p className="text-label-lg text-on-surface">Unidades</p>
                   {unidadesDoDetalhe.length === 0 ? (
                     <p className="text-body-sm text-on-surface-variant">Nenhuma unidade cadastrada neste condomínio.</p>
                   ) : (
                     unidadesDoDetalhe.map((unidade) => (
-                      <div key={unidade.id} className="flex items-center justify-between gap-md">
+                      <div
+                        key={unidade.id}
+                        className="flex items-center justify-between gap-md border-b border-border-subtle pb-md last:border-0 last:pb-0"
+                      >
                         <div className="min-w-0">
                           <p className="text-label-lg text-on-surface">{unidade.identificacao}</p>
                           <p className="text-body-sm text-on-surface-variant">
                             {[unidade.bloco, unidade.tipo].filter((parte) => parte.trim()).join(" · ")}
                           </p>
                         </div>
-                        <Badge variant={unidade.status === "Ativa" ? "success" : "error"}>{unidade.status}</Badge>
+                        <p className="shrink-0 text-body-sm text-on-surface-variant">{unidade.status}</p>
                       </div>
                     ))
                   )}
-                </SheetPanel>
+                </div>
               </SheetBody>
               <SheetFooter>
                 <Button type="button" variant="outline" onClick={() => setDetalheId(null)}>

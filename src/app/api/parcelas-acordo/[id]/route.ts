@@ -1,7 +1,9 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePropostaEditar } from "@/lib/api/require-proposta-auth";
 import {
   AcordoServiceError,
   PropostaNegociacaoServiceError,
+  cancelarParcelaAcordo,
   corrigirParcelaAcordo,
   obterResumoAcordo,
   requestMeta,
@@ -11,20 +13,23 @@ import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-function parseCorrecaoBody(body: unknown): ParcelaAcordoCorrecaoInput | null {
+function parseCorrecaoBody(body: unknown): { correcao?: ParcelaAcordoCorrecaoInput; cancelar?: boolean } | null {
   if (!body || typeof body !== "object") return null;
   const record = body as Record<string, unknown>;
+  if (record.cancelar === true) {
+    return { cancelar: true };
+  }
   const input: ParcelaAcordoCorrecaoInput = {};
   if (typeof record.valorPrevisto === "string") input.valorPrevisto = record.valorPrevisto;
   if (typeof record.vencimentoEm === "string") input.vencimentoEm = record.vencimentoEm;
   if (input.valorPrevisto === undefined && input.vencimentoEm === undefined) return null;
-  return input;
+  return { correcao: input };
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "editar");
+  const denied = await requirePropostaEditar(session);
   if (denied) return denied;
 
   const { id } = await context.params;
@@ -39,13 +44,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const input = parseCorrecaoBody(body);
-  if (!input) {
-    return Response.json({ error: "Informe valor ou vencimento para correção." }, { status: 400 });
+  const parsed = parseCorrecaoBody(body);
+  if (!parsed) {
+    return Response.json({ error: "Informe valor, vencimento ou cancelamento." }, { status: 400 });
   }
 
   try {
-    const parcela = await corrigirParcelaAcordo(session.userId, id, input, requestMeta(request));
+    const parcela = parsed.cancelar
+      ? await cancelarParcelaAcordo(session.userId, id, requestMeta(request))
+      : await corrigirParcelaAcordo(session.userId, id, parsed.correcao ?? {}, requestMeta(request));
     const propostaId = (await loadFullOperationalCadastros()).parcelasAcordo.find((item) => item.id === id)?.propostaId ?? parcela.propostaId;
     const resumo = await obterResumoAcordo(session.userId, propostaId);
     return Response.json({ parcela, resumo });

@@ -67,6 +67,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   ResponsiveTable,
   Table,
+  TableDataBar,
   TableActionsButton,
   TableActionsCell,
   TableBody,
@@ -1319,10 +1320,18 @@ function DebitosPage() {
           defaultValue="condominio"
           className="flex flex-col gap-md"
         >
-          <TabsList>
-            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col gap-sm border-b border-border-subtle min-[768px]:flex-row min-[768px]:items-end min-[768px]:justify-between">
+            <TabsList className="min-w-0 w-full border-b-0 min-[768px]:w-auto">
+              <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
+              <TabsTrigger value="geral">Geral</TabsTrigger>
+            </TabsList>
+            <TableDataBar
+              className="w-full shrink-0 justify-end pb-sm min-[768px]:w-auto"
+              onExport={aoExportar}
+              onImport={abrirImportacao}
+              showImport={podeImportar}
+            />
+          </div>
           <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
             <ResponsiveTable
               desktop={desktopTableCondominio}
@@ -1330,6 +1339,7 @@ function DebitosPage() {
               onExport={aoExportar}
               onImport={abrirImportacao}
               showImport={podeImportar}
+              showExport={false}
             />
           </TabsContent>
           <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
@@ -1339,6 +1349,7 @@ function DebitosPage() {
               onExport={aoExportar}
               onImport={abrirImportacao}
               showImport={podeImportar}
+              showExport={false}
             />
             {visible.length > 0 ? (
               <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />

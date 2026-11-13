@@ -13,6 +13,7 @@ import {
   parsePermissoesJson,
   permissoesVazias,
   serializarPermissoes,
+  unirPermissoesCargo,
 } from "@/lib/permissions/parse";
 import type { PermissoesCargo } from "@/lib/permissions/modulos";
 
@@ -170,11 +171,18 @@ export async function ensureIdentitySeed(): Promise<{ cargos: Cargo[]; usuarios:
     cargos = await listRoles();
   } else {
     for (const cargo of cargos) {
-      const atual = parsePermissoesJson(cargo.permissaoJson);
-      if (cargoTemAlgumaPermissao(atual)) continue;
       const padrao = permissoesPadraoPorNome(cargo.nome);
       if (!padrao) continue;
-      await upsertRole({ ...cargo, permissaoJson: serializarPermissoes(padrao) });
+      const atual = parsePermissoesJson(cargo.permissaoJson);
+      if (!cargoTemAlgumaPermissao(atual)) {
+        await upsertRole({ ...cargo, permissaoJson: serializarPermissoes(padrao) });
+        continue;
+      }
+      const mesclado = unirPermissoesCargo(atual, padrao);
+      const proximoJson = serializarPermissoes(mesclado);
+      if (proximoJson !== (cargo.permissaoJson ?? "{}")) {
+        await upsertRole({ ...cargo, permissaoJson: proximoJson });
+      }
     }
     cargos = await listRoles();
   }

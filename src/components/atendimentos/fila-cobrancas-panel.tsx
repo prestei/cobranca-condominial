@@ -13,6 +13,7 @@ import {
   AtendimentoOperacaoView,
   type FiltroRapidoFila,
 } from "@/components/atendimentos/atendimento-operacao-view";
+import { FilaGestaoAdminPanel } from "@/components/atendimentos/fila-gestao-admin-panel";
 import { type PeriodValue } from "@/components/period-input";
 import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -60,7 +61,7 @@ function rotuloUnidade(item: FilaCobrancaItem) {
   return item.identificacao;
 }
 
-export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: ReactNode; className?: string }) {
+function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: ReactNode; className?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -340,4 +341,13 @@ export function FilaCobrancasPanel({ topoAcoes, className }: { topoAcoes?: React
       ) : null}
     </div>
   );
+}
+
+/** Atendente: master–detail operacional; administradora: visão por condomínio/atendente/geral. */
+export function FilaCobrancasPanel(props: { topoAcoes?: ReactNode; className?: string }) {
+  const { pode } = usePermissao();
+  if (pode("usuarios", "criar")) {
+    return <FilaGestaoAdminPanel className={props.className} />;
+  }
+  return <FilaCobrancasOperacaoPanel {...props} />;
 }

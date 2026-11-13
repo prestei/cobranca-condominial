@@ -1,4 +1,5 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePropostaCriar, requirePropostaLer } from "@/lib/api/require-proposta-auth";
 import {
   PropostaNegociacaoServiceError,
   criarPropostaNegociacao,
@@ -28,14 +29,19 @@ function parsePropostaBody(body: unknown): PropostaNegociacaoInput | null {
   const debitoIds = Array.isArray(debitoIdsRaw)
     ? debitoIdsRaw.map((item) => Number(item)).filter((id) => Number.isFinite(id) && id > 0)
     : [];
+  const quantidadeParcelasRaw = record.quantidadeParcelas;
+  const quantidadeParcelas =
+    quantidadeParcelasRaw == null || quantidadeParcelasRaw === ""
+      ? null
+      : Number(quantidadeParcelasRaw);
   if (!Number.isFinite(condominioId) || !Number.isFinite(unidadeId)) return null;
-  return { condominioId, unidadeId, valorProposto, observacoes, debitoIds };
+  return { condominioId, unidadeId, valorProposto, observacoes, debitoIds, quantidadeParcelas };
 }
 
 export async function GET(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "ler");
+  const denied = await requirePropostaLer(session);
   if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
@@ -53,7 +59,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "criar");
+  const denied = await requirePropostaCriar(session);
   if (denied) return denied;
 
   let body: unknown;

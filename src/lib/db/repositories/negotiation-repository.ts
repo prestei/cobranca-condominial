@@ -28,6 +28,12 @@ function propostaToData(item: PropostaNegociacao) {
     agreementConfirmedAt: item.acordoConfirmadoEm ? dateFromIsoDateTime(item.acordoConfirmadoEm) : null,
     agreementConfirmedById: item.acordoConfirmadoPorId,
     approvedTerms: texto(item.termosAprovados),
+    responsibleLawyerUserId: item.advogadoResponsavelId,
+    originalDebtAmount: item.valorDividaOriginal ? decimalFromString(item.valorDividaOriginal) : null,
+    updatedDebtAmount: item.valorDividaAtualizada ? decimalFromString(item.valorDividaAtualizada) : null,
+    installmentCount: item.quantidadeParcelas,
+    valuesDefinedByUserId: item.valoresDefinidosPorId,
+    valuesApprovedByUserId: item.valoresAprovadosPorId,
   };
 }
 
@@ -79,6 +85,7 @@ function parcelaToData(item: ParcelaAcordo) {
     dueDate: dateFromIsoDate(item.vencimentoEm) ?? new Date(),
     createdAt: dateFromIsoDateTime(item.criadoEm) ?? new Date(),
     createdById: item.criadoPorId,
+    cancelledAt: item.canceladoEm ? dateFromIsoDateTime(item.canceladoEm) : null,
   };
 }
 

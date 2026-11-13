@@ -1,8 +1,10 @@
-import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
+import { requirePropostaEditar, requirePropostaLer } from "@/lib/api/require-proposta-auth";
 import {
   PropostaNegociacaoServiceError,
   atualizarStatusPropostaNegociacao,
   obterPropostaNegociacao,
+  obterPropostaNegociacaoDetalhe,
   requestMeta,
   type PropostaNegociacaoStatusInput,
 } from "@/lib/negociacoes/service";
@@ -12,8 +14,10 @@ function parseStatusBody(body: unknown): PropostaNegociacaoStatusInput | null {
   const record = body as Record<string, unknown>;
   const status = typeof record.status === "string" ? record.status : "";
   const termosAprovados = typeof record.termosAprovados === "string" ? record.termosAprovados : undefined;
+  const primeiroVencimento =
+    typeof record.primeiroVencimento === "string" ? record.primeiroVencimento : undefined;
   if (!status.trim()) return null;
-  return { status, termosAprovados };
+  return { status, termosAprovados, primeiroVencimento };
 }
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -21,7 +25,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "ler");
+  const denied = await requirePropostaLer(session);
   if (denied) return denied;
 
   const { id } = await context.params;
@@ -30,8 +34,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const proposta = await obterPropostaNegociacao(session.userId, id);
-    return Response.json({ proposta });
+    const detalhe = await obterPropostaNegociacaoDetalhe(session.userId, id);
+    return Response.json({ proposta: detalhe.proposta, detalhe });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {
       return Response.json({ error: error.message }, { status: error.status });
@@ -43,7 +47,7 @@ export async function GET(_request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
-  const denied = await requirePermissao(session, "atendimentos", "editar");
+  const denied = await requirePropostaEditar(session);
   if (denied) return denied;
 
   const { id } = await context.params;

@@ -14,7 +14,8 @@ import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { obterPropostaNegociacao, PropostaNegociacaoServiceError } from "@/lib/negociacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
-import { calcularResumoAcordo, type ResumoAcordo } from "@/lib/acordos/resumo";
+import { calcularResumoAcordo, somaPagamentosParcela, type ResumoAcordo } from "@/lib/acordos/resumo";
+import { centavosMonetarios, parcelasCoerentesComValorAcordado } from "@/lib/negociacoes/parcelamento";
 
 export class AcordoServiceError extends Error {
   constructor(
@@ -177,7 +178,22 @@ export async function registrarParcelasAcordo(
       vencimentoEm: normalizarDataVencimento(item.vencimentoEm),
       criadoEm: agoraIso(),
       criadoPorId: userId,
+      canceladoEm: "",
     });
+  }
+
+  const todas = [...existentes, ...novas];
+  const somaCent = todas.filter((p) => !p.canceladoEm).reduce((sum, p) => sum + centavosMonetarios(p.valorPrevisto), 0);
+  const alvoCent = centavosMonetarios(proposta.valorProposto);
+  if (todas.length > 0 && !parcelasCoerentesComValorAcordado(somaCent, alvoCent)) {
+    throw new AcordoServiceError(
+      "A soma das parcelas deve corresponder ao valor negociado (tolerância de 1 centavo).",
+      400,
+    );
+  }
+
+  if (novas.length === 0) {
+    return [...existentes].sort((a, b) => a.numero - b.numero);
   }
 
   for (const parcela of novas) {
@@ -202,6 +218,50 @@ export async function registrarParcelasAcordo(
   return [...existentes, ...novas].sort((a, b) => a.numero - b.numero);
 }
 
+export async function cancelarParcelaAcordo(
+  userId: number,
+  parcelaId: string,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<ParcelaAcordo> {
+  const perm = await resolverPermissoesUsuario(userId);
+  if (!temPermissao(perm, "atendimentos", "editar") && !temPermissao(perm, "negociacoes", "editar")) {
+    throw new AcordoServiceError("Sem permissão para cancelar parcelas.", 403);
+  }
+
+  const anterior = await findAgreementInstallmentById(parcelaId);
+  if (!anterior) {
+    throw new AcordoServiceError("Parcela não encontrada.", 404);
+  }
+  if (anterior.canceladoEm) {
+    return anterior;
+  }
+  const proposta = await obterPropostaNegociacao(userId, anterior.propostaId);
+  if (proposta.status !== "Aceita") {
+    throw new AcordoServiceError("Somente acordos confirmados permitem cancelamento de parcela.", 409);
+  }
+
+  const pagamentos = await pagamentosDaProposta(anterior.propostaId);
+  const confirmado = somaPagamentosParcela(anterior.id, pagamentos, "Confirmado");
+  if (confirmado > 0) {
+    throw new AcordoServiceError("Não é possível cancelar parcela com pagamento confirmado.", 409);
+  }
+
+  const atualizado: ParcelaAcordo = { ...anterior, canceladoEm: agoraIso() };
+  const salvo = await updateAgreementInstallment(atualizado);
+  await writeAuditLog({
+    entity: "agreement_installment",
+    recordId: parcelaId,
+    action: "UPDATE",
+    previousData: JSON.stringify({ canceladoEm: "" }),
+    newData: JSON.stringify({ canceladoEm: salvo.canceladoEm }),
+    changedFields: "cancelado_em",
+    userId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return salvo;
+}
+
 export async function corrigirParcelaAcordo(
   userId: number,
   parcelaId: string,
@@ -216,6 +276,9 @@ export async function corrigirParcelaAcordo(
   const anterior = await findAgreementInstallmentById(parcelaId);
   if (!anterior) {
     throw new AcordoServiceError("Parcela não encontrada.", 404);
+  }
+  if (anterior.canceladoEm) {
+    throw new AcordoServiceError("Parcela cancelada não pode ser corrigida.", 409);
   }
   await obterPropostaNegociacao(userId, anterior.propostaId);
 
@@ -268,10 +331,27 @@ export async function registrarPagamentoAcordo(
   if (!parcela || parcela.propostaId !== propostaId) {
     throw new AcordoServiceError("Parcela inválida para este acordo.", 400);
   }
+  if (parcela.canceladoEm) {
+    throw new AcordoServiceError("Não é possível registrar pagamento em parcela cancelada.", 409);
+  }
 
   const confirmacao = (input.confirmacao ?? "Informado").trim();
   if (!confirmacaoPagamentoAcordo.includes(confirmacao as (typeof confirmacaoPagamentoAcordo)[number])) {
     throw new AcordoServiceError("Confirmação inválida. Use Informado ou Confirmado.", 400);
+  }
+
+  const pagamentosAtuais = await pagamentosDaProposta(propostaId);
+  const valorPago = normalizarValorMonetario(input.valor, "valor pago");
+  if (confirmacao === "Confirmado") {
+    const confirmadoCent = somaPagamentosParcela(parcela.id, pagamentosAtuais, "Confirmado");
+    const previstoCent = centavosMonetarios(parcela.valorPrevisto);
+    if (confirmadoCent >= previstoCent) {
+      throw new AcordoServiceError("Esta parcela já está quitada. Não é possível contabilizar o pagamento novamente.", 409);
+    }
+    const novoTotal = confirmadoCent + centavosMonetarios(valorPago);
+    if (novoTotal > previstoCent) {
+      throw new AcordoServiceError("O valor confirmado excede o previsto da parcela.", 400);
+    }
   }
 
   const registro: PagamentoAcordo = {
@@ -279,7 +359,7 @@ export async function registrarPagamentoAcordo(
     propostaId,
     parcelaId: parcela.id,
     unidadeId: proposta.unidadeId,
-    valor: normalizarValorMonetario(input.valor, "valor pago"),
+    valor: valorPago,
     dataPagamento: normalizarDataPagamento(input.dataPagamento),
     referenciaComprovante: (input.referenciaComprovante ?? "").trim(),
     confirmacao,

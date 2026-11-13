@@ -6,6 +6,7 @@ export type ParcelaAcordoEnriquecida = ParcelaAcordo & {
   status: StatusParcelaAcordo;
   valorPagoConfirmado: string;
   valorPagoInformado: string;
+  pagamentos: PagamentoAcordo[];
 };
 
 export type ResumoAcordo = {
@@ -15,8 +16,12 @@ export type ResumoAcordo = {
   valorPagoConfirmado: string;
   valorPagoInformado: string;
   saldoRestante: string;
+  parcelasTotal: number;
+  parcelasPagas: number;
+  parcelasPendentes: number;
   parcelasVencidas: number;
-  /** Indício operacional — não equivale a “acordo quebrado” (regra oficial pendente). */
+  parcelasCanceladas: number;
+  /** Mantido por compatibilidade operacional (contagem de vencidas). */
   potencialDescumprimento: boolean;
   parcelas: ParcelaAcordoEnriquecida[];
 };
@@ -55,10 +60,11 @@ export function calcularStatusParcelaAcordo(
   pagamentos: PagamentoAcordo[],
   hoje = dataReferenciaHoje(),
 ): StatusParcelaAcordo {
+  if (parcela.canceladoEm) return "Cancelada";
   const confirmado = somaPagamentosParcela(parcela.id, pagamentos, "Confirmado");
-  if (confirmado >= centavos(parcela.valorPrevisto)) return "Quitada";
+  if (confirmado >= centavos(parcela.valorPrevisto)) return "Paga";
   if (parcela.vencimentoEm < hoje) return "Vencida";
-  return "Prevista";
+  return "Pendente";
 }
 
 export function calcularResumoAcordo(
@@ -69,6 +75,7 @@ export function calcularResumoAcordo(
 ): ResumoAcordo {
   const parcelasOrdenadas = [...parcelas].sort((a, b) => a.numero - b.numero || a.vencimentoEm.localeCompare(b.vencimentoEm));
   const enriquecidas: ParcelaAcordoEnriquecida[] = parcelasOrdenadas.map((parcela) => {
+    const historico = pagamentos.filter((item) => item.parcelaId === parcela.id);
     const valorPagoConfirmado = deCentavos(somaPagamentosParcela(parcela.id, pagamentos, "Confirmado"));
     const valorPagoInformado = deCentavos(somaPagamentosParcela(parcela.id, pagamentos, "Informado"));
     return {
@@ -76,6 +83,7 @@ export function calcularResumoAcordo(
       status: calcularStatusParcelaAcordo(parcela, pagamentos, hoje),
       valorPagoConfirmado,
       valorPagoInformado,
+      pagamentos: historico.sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento)),
     };
   });
 
@@ -92,7 +100,11 @@ export function calcularResumoAcordo(
     if (item.confirmacao === "Informado") pagoInformado += centavos(item.valor);
   }
 
-  const parcelasVencidas = enriquecidas.filter((item) => item.status === "Vencida").length;
+  const parcelasAtivas = enriquecidas.filter((item) => item.status !== "Cancelada");
+  const parcelasPagas = parcelasAtivas.filter((item) => item.status === "Paga").length;
+  const parcelasVencidas = parcelasAtivas.filter((item) => item.status === "Vencida").length;
+  const parcelasPendentes = parcelasAtivas.filter((item) => item.status === "Pendente").length;
+  const parcelasCanceladas = enriquecidas.filter((item) => item.status === "Cancelada").length;
   const potencialDescumprimento = parcelasVencidas > 0;
 
   return {
@@ -102,7 +114,11 @@ export function calcularResumoAcordo(
     valorPagoConfirmado: deCentavos(pagoConfirmado),
     valorPagoInformado: deCentavos(pagoInformado),
     saldoRestante: deCentavos(Math.max(0, valorAcordadoCent - pagoConfirmado)),
+    parcelasTotal: parcelasAtivas.length,
+    parcelasPagas,
+    parcelasPendentes,
     parcelasVencidas,
+    parcelasCanceladas,
     potencialDescumprimento,
     parcelas: enriquecidas,
   };

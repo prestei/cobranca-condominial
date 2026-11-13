@@ -166,6 +166,24 @@ export type PropostaNegociacao = {
   acordoConfirmadoEm: string;
   acordoConfirmadoPorId: number | null;
   termosAprovados: string;
+  /** Advogado responsável pelo condomínio no momento do registro. */
+  advogadoResponsavelId: number | null;
+  /** Soma dos débitos vinculados (valor original / atualizado). */
+  valorDividaOriginal: string;
+  valorDividaAtualizada: string;
+  /** Quantidade de parcelas acordada na proposta (cronograma). */
+  quantidadeParcelas: number | null;
+  valoresDefinidosPorId: number | null;
+  valoresAprovadosPorId: number | null;
+};
+
+/** Limites de negociação autorizados para um advogado. */
+export type RegraNegociacaoAdvogado = {
+  usuarioId: number;
+  descontoMaximoPercent: string;
+  parcelasMaximas: number;
+  atualizadoEm: string;
+  atualizadoPorId: number | null;
 };
 
 /** Parcela de acordo confirmado (T16) — valor previsto, não equivale a recebimento. */
@@ -180,6 +198,8 @@ export type ParcelaAcordo = {
   vencimentoEm: string;
   criadoEm: string;
   criadoPorId: number;
+  /** Preenchido quando a parcela é cancelada conforme regra de negócio. */
+  canceladoEm: string;
 };
 
 /** Encaminhamento de cobrança para análise jurídica (T17). Não ajuíza nem envia documentos a tribunais. */
@@ -374,7 +394,11 @@ export const statusEncaminhamentoJuridico = [
   "Arquivado",
 ] as const;
 export const confirmacaoPagamentoAcordo = ["Informado", "Confirmado"] as const;
-export const statusParcelaAcordo = ["Prevista", "Vencida", "Quitada"] as const;
+export const statusParcelaAcordo = ["Pendente", "Paga", "Vencida", "Cancelada"] as const;
+
+/** Padrão administrativo quando o advogado não tem regra individual. */
+export const NEGOCIACAO_DESCONTO_MAX_PADRAO = 30;
+export const NEGOCIACAO_PARCELAS_MAX_PADRAO = 24;
 export const tiposImportacao = ["debitos", "responsaveis", "unidades", "condominios"] as const;
 export const statusImportacao = [
   "Em processamento",

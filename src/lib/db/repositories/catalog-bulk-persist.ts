@@ -519,6 +519,12 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         agreementConfirmedAt: dateFromIsoDateTime(trimText(item.acordoConfirmadoEm) ?? undefined),
         agreementConfirmedById: item.acordoConfirmadoPorId,
         approvedTerms: trimText(item.termosAprovados),
+        responsibleLawyerUserId: item.advogadoResponsavelId,
+        originalDebtAmount: decimalFromString(trimText(item.valorDividaOriginal) ?? undefined),
+        updatedDebtAmount: decimalFromString(trimText(item.valorDividaAtualizada) ?? undefined),
+        installmentCount: item.quantidadeParcelas,
+        valuesDefinedByUserId: item.valoresDefinidosPorId,
+        valuesApprovedByUserId: item.valoresAprovadosPorId,
       },
       update: {
         condominiumId: item.condominioId,
@@ -532,6 +538,12 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         agreementConfirmedAt: dateFromIsoDateTime(trimText(item.acordoConfirmadoEm) ?? undefined),
         agreementConfirmedById: item.acordoConfirmadoPorId,
         approvedTerms: trimText(item.termosAprovados),
+        responsibleLawyerUserId: item.advogadoResponsavelId,
+        originalDebtAmount: decimalFromString(trimText(item.valorDividaOriginal) ?? undefined),
+        updatedDebtAmount: decimalFromString(trimText(item.valorDividaAtualizada) ?? undefined),
+        installmentCount: item.quantidadeParcelas,
+        valuesDefinedByUserId: item.valoresDefinidosPorId,
+        valuesApprovedByUserId: item.valoresAprovadosPorId,
       },
     });
 
@@ -559,6 +571,7 @@ async function upsertAgreementInstallments(tx: Tx, itens: ParcelaAcordo[]): Prom
         dueDate: requiredDueDate(item.vencimentoEm),
         createdAt: requiredDateTime(item.criadoEm),
         createdById: item.criadoPorId,
+        cancelledAt: dateFromIsoDateTime(trimText(item.canceladoEm) ?? undefined),
       },
       update: {
         proposalId: item.propostaId,
@@ -569,6 +582,7 @@ async function upsertAgreementInstallments(tx: Tx, itens: ParcelaAcordo[]): Prom
         dueDate: requiredDueDate(item.vencimentoEm),
         createdAt: requiredDateTime(item.criadoEm),
         createdById: item.criadoPorId,
+        cancelledAt: dateFromIsoDateTime(trimText(item.canceladoEm) ?? undefined),
       },
     });
   }

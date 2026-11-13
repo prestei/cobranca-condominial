@@ -3,6 +3,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Icon } from "@/components/icon";
+import {
+  filtrosSectionToggleClassName,
+  listGroupAccordionChevronClassName,
+} from "@/components/list-group-accordion";
 
 const DESKTOP_MQ = "(min-width: 768px)";
 
@@ -39,14 +43,14 @@ export function FiltrosSection({
       <h2 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-sm rounded-md text-left transition-colors hover:bg-surface-subtle/70 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={filtrosSectionToggleClassName}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={() => setAberto((atual) => !atual)}
         >
           <span>{title}</span>
           <span
-            className="inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant"
+            className={listGroupAccordionChevronClassName}
             aria-hidden
           >
             <Icon

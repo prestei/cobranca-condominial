@@ -13,11 +13,13 @@ const admin: PermissoesCargo = {
   usuarios: { ler: true, criar: true, editar: true, excluir: true },
   cargos: { ler: true, criar: true, editar: true, excluir: true },
   auditoria: { ler: true },
+  negociacoes: { ler: true, criar: true, editar: true },
 };
 
 const atendente: PermissoesCargo = {
   dashboard: { ler: true },
   atendimentos: { ler: true, criar: true, editar: true },
+  negociacoes: { ler: true, criar: true },
   debitos: { ler: true },
   importacoes: { ler: true, criar: true, editar: true },
 };
@@ -29,6 +31,7 @@ const advogado: PermissoesCargo = {
   debitos: { ler: true },
   juridico: { ler: true, editar: true },
   relatorios: { ler: true, exportar: true },
+  negociacoes: { ler: true, editar: true },
 };
 
 export const PERMISSAO_JSON_ADMIN = serializarPermissoes(admin);

@@ -17,12 +17,15 @@ Registrar tratativas de negociação vinculadas à unidade e aos débitos pertin
 
 | Onde | Descrição |
 | --- | --- |
+| **`/negociacoes`** | Tela exclusiva **sem tabela**: painel `NegociacoesPainel` (carteira em cards + detalhe fixo no desktop), `PropostaNegociacaoCard`, `PropostaNegociacaoDetalheConteudo`, sheet mobile (`PropostaDetalheSheet`), **Novo** (`NegociacaoNovaPropostaSheet`) |
 | Fila de cobranças | Ação **Proposta** por unidade → `PropostaNegociacaoSheet` |
 | Histórico da unidade | Botão **Proposta** no sheet de linha do tempo |
 | Acordo confirmado | Bloco **Acompanhamento do acordo** no sheet (parcelas + pagamentos) |
 | Linha do tempo (T12) | Negociação, pagamentos de acordo, alerta de potencial descumprimento |
 
-Arquivos: `src/components/negociacoes/proposta-negociacao-sheet.tsx`, `acordo-acompanhamento-block.tsx`, `src/lib/negociacoes/*`, `src/lib/acordos/*`.
+Query útil: `?proposta=<uuid>` abre o detalhe; `?novo=1` abre o sheet de nova proposta.
+
+Arquivos: `src/app/negociacoes/page.tsx`, `src/components/negociacoes/proposta-detalhe-sheet.tsx`, `negociacao-nova-proposta-sheet.tsx`, `proposta-negociacao-sheet.tsx`, `acordo-acompanhamento-block.tsx`, `src/lib/negociacoes/*`, `src/lib/acordos/*`.
 
 ## Perfis e permissões
 
@@ -30,9 +33,10 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 
 | Ação | Permissão |
 | --- | --- |
-| Listar propostas / parcelas / pagamentos | `atendimentos.ler` |
-| Registrar proposta, parcela ou pagamento | `atendimentos.criar` (unidade na carteira vigente ou visão administradora) |
-| Alterar status da proposta; corrigir parcela ou pagamento | `atendimentos.editar` |
+| Listar propostas / parcelas / pagamentos | `atendimentos.ler` **ou** `negociacoes.ler` |
+| Registrar proposta, parcela ou pagamento | `atendimentos.criar` / `negociacoes.criar` |
+| Confirmar acordo, corrigir ou cancelar parcela / pagamento | `atendimentos.editar` **ou** `negociacoes.editar` |
+| Configurar alçada por advogado | `usuarios.criar` (administradora) — `PATCH /api/negociacoes/regras-advogado` |
 
 ## API
 
@@ -65,13 +69,17 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 - Vinculada à unidade, autor e débitos da mesma unidade.
 - Estados: **Em análise**, **Aceita**, **Recusada**, **Cancelada**.
 - **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento.
+- **Alçada do advogado:** ao registrar ou aprovar, o servidor valida desconto máximo (`lawyer_negotiation_rule`, padrão 30%) e quantidade máxima de parcelas (padrão 24) do advogado principal do condomínio. Administradora ignora limites.
+- **Responsáveis:** `valores_definidos_por_id` (registro), `valores_aprovados_por_id` (confirmação), `advogado_responsavel_id` (condomínio).
+- **Detalhe:** valores original/atualizado da dívida, desconto, quantidade de parcelas, cronograma opcional ao confirmar (`primeiroVencimento` + geração automática).
 
 ### Acordo — parcelas e pagamentos (T16)
 
 - Parcelas e pagamentos só para proposta **Aceita**; ligados à proposta e à unidade.
 - **Previsto:** valor e vencimento da parcela (`agreement_installment`).
 - **Informado / Confirmado:** nível do pagamento registrado (`agreement_payment`). Pagamento **Informado** não quita parcela nem reduz saldo confirmado.
-- **Quitada / Vencida / Prevista:** status da parcela calculado (quitação só com pagamentos **Confirmados** ≥ valor previsto).
+- **Pendente / Paga / Vencida / Cancelada:** status calculado (quitação só com pagamentos **Confirmados** ≥ valor previsto; cancelamento sem pagamento confirmado).
+- **Integridade:** soma das parcelas ativas = valor negociado (±1 centavo); pagamento confirmado duplicado na mesma parcela é rejeitado.
 - **Potencial descumprimento:** indício quando há parcela **Vencida** sem quitação confirmada — **não** equivale a “acordo quebrado” (regra oficial pendente).
 - **Saldo restante:** valor acordado (soma das parcelas ou, se ausentes, `valorProposto`) menos pagamentos **Confirmados** — regra financeira definitiva pendente; **não** altera saldo de débitos automaticamente.
 - Correções administrativas geram `audit_log` com estado anterior (`agreement_installment`, `agreement_payment`).

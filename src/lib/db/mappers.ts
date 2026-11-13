@@ -244,6 +244,12 @@ export function mapProposalToProposta(row: NegotiationProposal): PropostaNegocia
     acordoConfirmadoEm: row.agreementConfirmedAt ? isoDateTime(row.agreementConfirmedAt) : "",
     acordoConfirmadoPorId: row.agreementConfirmedById,
     termosAprovados: row.approvedTerms ?? "",
+    advogadoResponsavelId: row.responsibleLawyerUserId ?? null,
+    valorDividaOriginal: row.originalDebtAmount != null ? money(row.originalDebtAmount) : "",
+    valorDividaAtualizada: row.updatedDebtAmount != null ? money(row.updatedDebtAmount) : "",
+    quantidadeParcelas: row.installmentCount ?? null,
+    valoresDefinidosPorId: row.valuesDefinedByUserId ?? null,
+    valoresAprovadosPorId: row.valuesApprovedByUserId ?? null,
   };
 }
 
@@ -258,6 +264,7 @@ export function mapInstallmentToParcela(row: AgreementInstallment): ParcelaAcord
     vencimentoEm: isoDate(row.dueDate),
     criadoEm: isoDateTime(row.createdAt),
     criadoPorId: row.createdById,
+    canceladoEm: row.cancelledAt ? isoDateTime(row.cancelledAt) : "",
   };
 }
 
