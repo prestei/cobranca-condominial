@@ -8,6 +8,7 @@ import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import {
   listGroupAccordionPanelClassName,
+  listGroupAccordionPanelFooterClassName,
   listGroupAccordionToggleClassName,
   listGroupEmbeddedTableContainerClassName,
   listGroupEmbeddedTableHeaderClassName,
@@ -659,7 +660,7 @@ function PainelGrupo({
             />
           )}
           {total > 0 ? (
-            <div className="px-md pb-md">
+            <div className={listGroupAccordionPanelFooterClassName}>
               <Pagination page={currentPage} total={total} onPageChange={setPage} />
             </div>
           ) : null}

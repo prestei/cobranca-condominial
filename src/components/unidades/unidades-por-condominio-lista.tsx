@@ -6,6 +6,12 @@ import { Badge } from "@/components/badge";
 import { Icon } from "@/components/icon";
 import {
   listGroupAccordionPanelClassName,
+  listGroupAccordionPanelFooterClassName,
+  listGroupAccordionActionColumn13,
+  listGroupAccordionChevronClassName,
+  listGroupAccordionChevronDesktopClassName,
+  listGroupAccordionDesktopHeaderGridClassName,
+  listGroupAccordionDesktopToggleSubgridClassName,
   listGroupAccordionToggleClassName,
   listGroupEmbeddedTableContainerClassName,
   listGroupEmbeddedTableHeaderClassName,
@@ -282,43 +288,67 @@ function PainelCondominio({
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
       <h3 className="text-label-lg text-on-surface">
-        <button
-          type="button"
-          className={`w-full cursor-pointer bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
-            variante === "desktop"
-              ? "grid grid-cols-[minmax(0,1fr)_13%] items-center"
-              : "flex items-center justify-between gap-md"
-          }`}
-          aria-expanded={aberto}
-          aria-controls={painelId}
-          onClick={onToggle}
-        >
-          <span className="flex min-w-0 items-center gap-sm">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
-              <Icon icon={Building2} size="sm" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
-              <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
-                {total} unidade{total === 1 ? "" : "s"}
-                {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
-                {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+        {variante === "desktop" ? (
+          <div className={listGroupAccordionDesktopHeaderGridClassName(listGroupAccordionActionColumn13)}>
+            <button
+              type="button"
+              className={listGroupAccordionDesktopToggleSubgridClassName}
+              aria-expanded={aberto}
+              aria-controls={painelId}
+              onClick={onToggle}
+            >
+              <span className="flex min-w-0 items-center gap-sm">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+                  <Icon icon={Building2} size="sm" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
+                  <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+                    {total} unidade{total === 1 ? "" : "s"}
+                    {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
+                    {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+                  </span>
+                </span>
+              </span>
+              <span className={`${listGroupAccordionChevronClassName} ${listGroupAccordionChevronDesktopClassName}`} aria-hidden>
+                <Icon
+                  icon={ChevronDown}
+                  size="sm"
+                  className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+                />
+              </span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={listGroupAccordionToggleClassName}
+            aria-expanded={aberto}
+            aria-controls={painelId}
+            onClick={onToggle}
+          >
+            <span className="flex min-w-0 items-center gap-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+                <Icon icon={Building2} size="sm" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
+                <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+                  {total} unidade{total === 1 ? "" : "s"}
+                  {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
+                  {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+                </span>
               </span>
             </span>
-          </span>
-          <span
-            className={`inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant ${
-              variante === "desktop" ? "w-full justify-self-center px-sm" : ""
-            }`}
-            aria-hidden
-          >
-            <Icon
-              icon={ChevronDown}
-              size="sm"
-              className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
-            />
-          </span>
-        </button>
+            <span className={listGroupAccordionChevronClassName} aria-hidden>
+              <Icon
+                icon={ChevronDown}
+                size="sm"
+                className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+              />
+            </span>
+          </button>
+        )}
       </h3>
       {aberto ? (
         <div
@@ -354,7 +384,7 @@ function PainelCondominio({
             />
           )}
           {total > 0 ? (
-            <div className="px-md pb-md">
+            <div className={listGroupAccordionPanelFooterClassName}>
               <Pagination page={currentPage} total={total} onPageChange={setPage} />
             </div>
           ) : null}

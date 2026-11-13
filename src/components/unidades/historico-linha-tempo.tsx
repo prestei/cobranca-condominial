@@ -36,14 +36,38 @@ const variantTipo: Record<
   correcao_juridico: "neutral",
 };
 
+const tiposAtendimento = new Set<EventoHistoricoUnidade["tipo"]>([
+  "tentativa",
+  "retorno_concluido",
+  "correcao_atendimento",
+  "redistribuicao",
+]);
+
+const tiposDebito = new Set<EventoHistoricoUnidade["tipo"]>([
+  "pagamento",
+  "pagamento_acordo",
+  "negociacao",
+  "encaminhamento_juridico",
+  "correcao_proposta",
+  "correcao_juridico",
+  "correcao_unidade",
+]);
+
+function eventosDaSecao(eventos: EventoHistoricoUnidade[], secao?: "debito" | "atendimento") {
+  if (!secao) return eventos;
+  const permitidos = secao === "atendimento" ? tiposAtendimento : tiposDebito;
+  return eventos.filter((item) => permitidos.has(item.tipo));
+}
+
 type Props = {
   referencia: HistoricoUnidadeReferencia;
   eventos: EventoHistoricoUnidade[];
   loading?: boolean;
   erro?: string | null;
+  secao?: "debito" | "atendimento";
 };
 
-export function HistoricoLinhaTempo({ referencia, eventos, loading, erro }: Props) {
+export function HistoricoLinhaTempo({ referencia, eventos, loading, erro, secao }: Props) {
   if (loading) {
     return <SkeletonTimeline items={4} label="Carregando linha do tempo" />;
   }
@@ -51,27 +75,39 @@ export function HistoricoLinhaTempo({ referencia, eventos, loading, erro }: Prop
     return <p className="text-body-sm text-error">{erro}</p>;
   }
 
+  const eventosFiltrados = eventosDaSecao(eventos, secao);
+  const mostrarDebitos = !secao || secao === "debito";
+  const mostrarAtendimento = !secao || secao === "atendimento";
+
   return (
     <div className="flex flex-col gap-md">
       <div className="flex flex-wrap gap-sm">
-        <Badge variant="secondary">Situação: {referencia.cobranca.situacao}</Badge>
-        {referencia.cobranca.reResponsavel ? (
-          <Badge variant="secondary">RE {referencia.cobranca.reResponsavel}</Badge>
+        {mostrarDebitos ? (
+          <>
+            <Badge variant="secondary">Situação: {referencia.cobranca.situacao}</Badge>
+            {referencia.cobranca.debitosAbertos > 0 ? (
+              <Badge variant="error">
+                {referencia.cobranca.debitosAbertos} débito(s) · {formatarMoeda(String(referencia.cobranca.valorAberto))}
+              </Badge>
+            ) : (
+              <Badge variant="success">Sem débitos em aberto</Badge>
+            )}
+          </>
         ) : null}
-        <Badge variant="secondary">{referencia.cobranca.totalTentativas} tentativa(s)</Badge>
-        {referencia.cobranca.ultimoContato ? (
-          <Badge variant="secondary">Último contato: {formatarData(referencia.cobranca.ultimoContato)}</Badge>
+        {mostrarAtendimento ? (
+          <>
+            {referencia.cobranca.reResponsavel ? (
+              <Badge variant="secondary">RE {referencia.cobranca.reResponsavel}</Badge>
+            ) : null}
+            <Badge variant="secondary">{referencia.cobranca.totalTentativas} tentativa(s)</Badge>
+            {referencia.cobranca.ultimoContato ? (
+              <Badge variant="secondary">Último contato: {formatarData(referencia.cobranca.ultimoContato)}</Badge>
+            ) : null}
+          </>
         ) : null}
-        {referencia.cobranca.debitosAbertos > 0 ? (
-          <Badge variant="error">
-            {referencia.cobranca.debitosAbertos} débito(s) · {formatarMoeda(String(referencia.cobranca.valorAberto))}
-          </Badge>
-        ) : (
-          <Badge variant="success">Sem débitos em aberto</Badge>
-        )}
       </div>
 
-      {referencia.debitos.length > 0 ? (
+      {mostrarDebitos && referencia.debitos.length > 0 ? (
         <details className="rounded-md border border-border-subtle bg-surface-container-low px-md py-sm">
           <summary className="cursor-pointer text-label-md text-on-surface">Débitos da unidade ({referencia.debitos.length})</summary>
           <ul className="mt-sm flex flex-col gap-xs text-body-sm text-on-surface">
@@ -89,14 +125,23 @@ export function HistoricoLinhaTempo({ referencia, eventos, loading, erro }: Prop
         </details>
       ) : null}
 
-      {eventos.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant">Nenhum evento registrado para esta unidade.</p>
+      {eventosFiltrados.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant">
+          {secao === "debito"
+            ? "Nenhum evento de débito registrado para esta unidade."
+            : secao === "atendimento"
+              ? "Nenhum atendimento registrado para esta unidade."
+              : "Nenhum evento registrado para esta unidade."}
+        </p>
       ) : (
-        <ol className="relative flex flex-col gap-0 border-l border-border-subtle pl-md" aria-label="Linha do tempo da cobrança">
-          {eventos.map((evento, index) => (
+        <ol
+          className="relative flex flex-col gap-0 border-l border-border-subtle pl-md"
+          aria-label={secao === "atendimento" ? "Linha do tempo de atendimento" : "Linha do tempo de débito"}
+        >
+          {eventosFiltrados.map((evento, index) => (
             <li
               key={evento.id}
-              className={`relative pb-md ${index === eventos.length - 1 ? "pb-0" : ""}`}
+              className={`relative pb-md ${index === eventosFiltrados.length - 1 ? "pb-0" : ""}`}
             >
               <span
                 className="absolute -left-[calc(0.5rem+1px)] top-1.5 size-2 rounded-full bg-primary"

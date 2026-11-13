@@ -6,6 +6,7 @@ import { Badge } from "@/components/badge";
 import { Icon } from "@/components/icon";
 import {
   listGroupAccordionPanelClassName,
+  listGroupAccordionPanelFooterClassName,
   listGroupAccordionToggleClassName,
   listGroupEmbeddedTableContainerClassName,
   listGroupEmbeddedTableHeaderClassName,
@@ -309,7 +310,7 @@ function PainelCidade({
             />
           )}
           {total > 0 ? (
-            <div className="px-md pb-md">
+            <div className={listGroupAccordionPanelFooterClassName}>
               <Pagination page={currentPage} total={total} onPageChange={setPage} />
             </div>
           ) : null}

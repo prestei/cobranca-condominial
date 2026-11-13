@@ -525,11 +525,7 @@ export default function CargosPage() {
                   <SituacaoCargoBadge ativo={item.ativo !== false} />
                 </div>
               </TableCell>
-              <TableActionsCell
-                label={`Ações de ${item.nome}`}
-                actions={acoes(item)}
-                className="!align-middle py-md size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
-              />
+              <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} className="!align-middle py-md" />
             </TableRow>
           ))
         )}
@@ -562,11 +558,7 @@ export default function CargosPage() {
                   <SituacaoCargoBadge ativo={item.ativo !== false} />
                 </div>
               </div>
-              <TableActionsButton
-                label={`Ações de ${item.nome}`}
-                actions={acoes(item)}
-                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
-              />
+              <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <div className="mt-sm flex items-center justify-between gap-md border-t border-border-subtle/30 pt-sm">
               <p className="text-label-sm uppercase text-on-surface-variant">Colaboradores</p>

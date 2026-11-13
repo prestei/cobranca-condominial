@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import {
   CalendarClock,
-  ClipboardList,
   CreditCard,
   DoorOpen,
   LayoutGrid,
@@ -15,7 +14,6 @@ import {
   Pencil,
   Star,
   Plus,
-  Receipt,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -45,6 +43,7 @@ import { useToast } from "@/components/toast";
 import { nomeCondominio, tiposPessoa, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { usePermissao } from "@/hooks/use-permissao";
 import { HistoricoLinhaTempo } from "@/components/unidades/historico-linha-tempo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import type { EventoHistoricoUnidade, HistoricoUnidadeReferencia } from "@/lib/historico-unidade/service";
 import { podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import type { ResponsavelResposta } from "@/lib/privacidade/dados-pessoais";
@@ -261,6 +260,32 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
 
   const aberto = unidadeId !== null;
 
+  const historicoReferenciaFallback =
+    detalhe && !historicoRef
+      ? {
+          referencia: {
+            unidade: detalhe.unidade,
+            condominio: {
+              id: detalhe.unidade.condominioId,
+              nome: nomeCondominio(detalhe.unidade.condominioId),
+            },
+            cobranca: {
+              situacao: detalhe.unidade.situacao,
+              reResponsavel: null,
+              totalTentativas: detalhe.resumo.totalAtendimentos,
+              ultimoContato: detalhe.resumo.ultimosAtendimentos[0]?.dataHora ?? null,
+              debitosAbertos: detalhe.resumo.debitosAbertos,
+              valorAberto: detalhe.resumo.valorAberto,
+            },
+            debitos: [],
+          } as HistoricoUnidadeReferencia,
+          eventos: [] as EventoHistoricoUnidade[],
+        }
+      : null;
+
+  const historicoReferencia = historicoRef ?? historicoReferenciaFallback?.referencia;
+  const historicoEventosAtivos = historicoRef ? historicoEventos : (historicoReferenciaFallback?.eventos ?? []);
+
   return (
     <>
       <Sheet
@@ -290,90 +315,99 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                 </SheetHeaderLead>
                 <SheetClose />
               </SheetHeader>
-              <SheetBody className="flex flex-col gap-md">
-                <SheetPanel variant="tint">
-                  <div className="grid grid-cols-2 gap-md">
-                    <DetalheCampo label="Bloco" value={detalhe.unidade.bloco} />
-                    <DetalheCampo label="Tipo" value={detalhe.unidade.tipo} />
-                    <DetalheCampo label="Situação cadastral" value={detalhe.unidade.status} />
-                    <div className="flex flex-col gap-xs">
-                      <span className="text-label-sm text-on-surface-variant">Cobrança</span>
-                      <BadgeSituacaoCobranca situacao={detalhe.unidade.situacao} />
-                    </div>
-                  </div>
-                </SheetPanel>
-
-                <SheetPanel className="flex flex-col gap-md">
-                  <div className="flex items-center justify-between gap-md">
-                    <p className="text-label-lg text-on-surface">Condôminos e responsáveis</p>
-                    {pode("unidades", "editar") ? (
-                      <Button type="button" size="sm" variant="outline" onClick={() => setVinculoOpen(true)}>
-                        <Icon icon={Plus} size="sm" />
-                        Vincular
-                      </Button>
-                    ) : null}
-                  </div>
-                  {detalhe.vinculos.length === 0 ? (
-                    <p className="text-body-sm text-on-surface-variant">Nenhum responsável vinculado.</p>
-                  ) : (
-                    detalhe.vinculos.map((vinculo) => (
-                      <div key={vinculo.id} className="flex items-start justify-between gap-md border-b border-border-subtle pb-md last:border-0 last:pb-0">
-                        <div className="min-w-0">
-                          <p className="text-label-lg text-on-surface">{vinculo.responsavel?.nome ?? "—"}</p>
-                          <p className="text-body-sm text-on-surface-variant">
-                            {vinculo.tipoVinculo}
-                            {vinculo.principal ? " · Responsável financeiro principal" : ""}
-                          </p>
-                          {vinculo.responsavel ? (
-                            <p className="mt-xs text-body-sm text-on-surface-variant">
-                              {vinculo.responsavel.cpfCnpj}
-                              {verPessoais && vinculo.responsavel.telefone ? ` · ${vinculo.responsavel.telefone}` : ""}
-                            </p>
-                          ) : null}
+              <SheetBody className="flex min-h-0 flex-col gap-md">
+                <Tabs defaultValue="informacao" className="flex min-h-0 flex-1 flex-col gap-md">
+                  <TabsList className="shrink-0">
+                    <TabsTrigger value="informacao">Informação</TabsTrigger>
+                    <TabsTrigger value="debito">Débito ({detalhe.resumo.totalDebitos})</TabsTrigger>
+                    <TabsTrigger value="atendimento">Atendimento ({detalhe.resumo.totalAtendimentos})</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="informacao" className="flex flex-col gap-md !bg-transparent !p-0">
+                    <SheetPanel variant="tint">
+                      <div className="grid grid-cols-2 gap-md">
+                        <DetalheCampo label="Bloco" value={detalhe.unidade.bloco} />
+                        <DetalheCampo label="Tipo" value={detalhe.unidade.tipo} />
+                        <DetalheCampo label="Situação cadastral" value={detalhe.unidade.status} />
+                        <div className="flex flex-col gap-xs">
+                          <span className="text-label-sm text-on-surface-variant">Cobrança</span>
+                          <BadgeSituacaoCobranca situacao={detalhe.unidade.situacao} />
                         </div>
+                      </div>
+                    </SheetPanel>
+                    <SheetPanel className="flex flex-col gap-md">
+                      <div className="flex items-center justify-between gap-md">
+                        <p className="text-label-lg text-on-surface">Condôminos e responsáveis</p>
                         {pode("unidades", "editar") ? (
-                          <Button type="button" size="sm" variant="ghost" onClick={() => setRemoverVinculo(vinculo)}>
-                            <Icon icon={Trash2} size="sm" />
+                          <Button type="button" size="sm" variant="outline" onClick={() => setVinculoOpen(true)}>
+                            <Icon icon={Plus} size="sm" />
+                            Vincular
                           </Button>
                         ) : null}
                       </div>
-                    ))
-                  )}
-                </SheetPanel>
-
-                <SheetPanel className="flex max-h-[min(28rem,55vh)] flex-col gap-md overflow-y-auto">
-                  <p className="text-label-lg text-on-surface">Linha do tempo da cobrança</p>
-                  {historicoRef ? (
-                    <HistoricoLinhaTempo
-                      referencia={historicoRef}
-                      eventos={historicoEventos}
-                      loading={historicoLoading}
-                      erro={historicoErro}
-                    />
-                  ) : (
-                    <HistoricoLinhaTempo
-                      referencia={{
-                        unidade: detalhe.unidade,
-                        condominio: {
-                          id: detalhe.unidade.condominioId,
-                          nome: nomeCondominio(detalhe.unidade.condominioId),
-                        },
-                        cobranca: {
-                          situacao: detalhe.unidade.situacao,
-                          reResponsavel: null,
-                          totalTentativas: detalhe.resumo.totalAtendimentos,
-                          ultimoContato: detalhe.resumo.ultimosAtendimentos[0]?.dataHora ?? null,
-                          debitosAbertos: detalhe.resumo.debitosAbertos,
-                          valorAberto: detalhe.resumo.valorAberto,
-                        },
-                        debitos: [],
-                      }}
-                      eventos={[]}
-                      loading={historicoLoading}
-                      erro={historicoErro}
-                    />
-                  )}
-                </SheetPanel>
+                      {detalhe.vinculos.length === 0 ? (
+                        <p className="text-body-sm text-on-surface-variant">Nenhum responsável vinculado.</p>
+                      ) : (
+                        detalhe.vinculos.map((vinculo) => (
+                          <div
+                            key={vinculo.id}
+                            className="flex items-start justify-between gap-md border-b border-border-subtle pb-md last:border-0 last:pb-0"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-label-lg text-on-surface">{vinculo.responsavel?.nome ?? "—"}</p>
+                              <p className="text-body-sm text-on-surface-variant">
+                                {vinculo.tipoVinculo}
+                                {vinculo.principal ? " · Responsável financeiro principal" : ""}
+                              </p>
+                              {vinculo.responsavel ? (
+                                <p className="mt-xs text-body-sm text-on-surface-variant">
+                                  {vinculo.responsavel.cpfCnpj}
+                                  {verPessoais && vinculo.responsavel.telefone ? ` · ${vinculo.responsavel.telefone}` : ""}
+                                </p>
+                              ) : null}
+                            </div>
+                            {pode("unidades", "editar") ? (
+                              <Button type="button" size="sm" variant="ghost" onClick={() => setRemoverVinculo(vinculo)}>
+                                <Icon icon={Trash2} size="sm" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        ))
+                      )}
+                    </SheetPanel>
+                  </TabsContent>
+                  <TabsContent
+                    value="debito"
+                    className="max-h-[min(28rem,55vh)] min-h-0 flex-1 overflow-y-auto !bg-transparent !p-0"
+                  >
+                    {historicoReferencia ? (
+                      <HistoricoLinhaTempo
+                        referencia={historicoReferencia}
+                        eventos={historicoEventosAtivos}
+                        loading={historicoLoading}
+                        erro={historicoErro}
+                        secao="debito"
+                      />
+                    ) : (
+                      <p className="text-body-sm text-on-surface-variant">Não foi possível montar o histórico.</p>
+                    )}
+                  </TabsContent>
+                  <TabsContent
+                    value="atendimento"
+                    className="max-h-[min(28rem,55vh)] min-h-0 flex-1 overflow-y-auto !bg-transparent !p-0"
+                  >
+                    {historicoReferencia ? (
+                      <HistoricoLinhaTempo
+                        referencia={historicoReferencia}
+                        eventos={historicoEventosAtivos}
+                        loading={historicoLoading}
+                        erro={historicoErro}
+                        secao="atendimento"
+                      />
+                    ) : (
+                      <p className="text-body-sm text-on-surface-variant">Não foi possível montar o histórico.</p>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </SheetBody>
               <SheetFooter>
                 <Button type="button" variant="outline" onClick={onClose}>
@@ -387,26 +421,6 @@ export function UnidadeDetalheSheet({ unidadeId, onClose, responsaveisDisponivei
                   >
                     <Icon icon={Pencil} size="sm" />
                     Editar
-                  </Button>
-                ) : null}
-                {pode("debitos", "ler") ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(`/debitos?unidade=${detalhe.unidade.id}`)}
-                  >
-                    <Icon icon={Receipt} size="sm" />
-                    Débitos
-                  </Button>
-                ) : null}
-                {pode("atendimentos", "ler") ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(`/atendimentos?unidade=${detalhe.unidade.id}`)}
-                  >
-                    <Icon icon={ClipboardList} size="sm" />
-                    Atendimentos
                   </Button>
                 ) : null}
                 {pode("atendimentos", "criar") ? (

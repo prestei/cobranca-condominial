@@ -56,12 +56,6 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import {
-  agruparUnidadesPorCondominioCarteira,
-  CondominiosPorCondominioLista,
-} from "@/components/condominios/condominios-por-condominio-lista";
-import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
-import {
   ResponsiveTable,
   Table,
   TableActionsButton,
@@ -91,15 +85,11 @@ import {
   rotuloAdvogadosCondominio,
   statusCondominio,
   type Condominio,
-  type Unidade,
 } from "@/data/catalogo";
 import { buscarCep, CEP_TIMEOUT_MS, digitosCep, formatarCep } from "@/lib/cep";
-import { formatarTelefone } from "@/lib/telefone";
-import { mascararEmail, mascararTelefone, podeVerDadosPessoaisResponsavel } from "@/lib/privacidade/dados-pessoais";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import {
   DEFAULT_DELINQUENCY_TRACKING_DAYS,
-  delinquencyTrackingDaysCaption,
   parseDelinquencyTrackingDaysInput,
   resolveDelinquencyTrackingDays,
 } from "@/lib/inadimplencia/delinquency-tracking";
@@ -143,7 +133,6 @@ const estados = [
 ] as const;
 
 type SortKey = "nome" | "administradora" | "cidade" | "advogado" | "unidades" | "status";
-type VisaoListagem = "condominio" | "geral";
 
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
@@ -172,7 +161,7 @@ const formularioVazio: Omit<Condominio, "id"> = {
 
 export default function CondominiosPage() {
   const { toast } = useToast();
-  const { pode, permissoes } = usePermissao();
+  const { pode } = usePermissao();
   const podeImportar = pode("importacoes", "criar");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -208,7 +197,6 @@ export default function CondominiosPage() {
   const [sortKey, setSortKey] = useState<SortKey>("nome");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("asc");
   const [page, setPage] = useState(1);
-  const [visao, setVisao] = useState<VisaoListagem>("condominio");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Condominio | null>(null);
@@ -335,9 +323,6 @@ export default function CondominiosPage() {
       );
     })
     .sort((a, b) => {
-      if (visao === "condominio") {
-        return a.nome.localeCompare(b.nome, "pt-BR");
-      }
       const factor = sortDirection === "asc" ? 1 : -1;
       if (sortKey === "unidades") {
         return (contarUnidades(a.id) - contarUnidades(b.id)) * factor;
@@ -365,21 +350,6 @@ export default function CondominiosPage() {
       return left.localeCompare(right, "pt-BR") * factor;
     });
 
-  const visibleIds = useMemo(() => new Set(visible.map((item) => item.id)), [visible]);
-  const unidadesPorCondominioFiltrado = useMemo(() => {
-    const mapa = new Map<number, Unidade[]>();
-    for (const unidade of unidadesEscopo) {
-      if (!visibleIds.has(unidade.condominioId)) continue;
-      const lista = mapa.get(unidade.condominioId) ?? [];
-      lista.push(unidade);
-      mapa.set(unidade.condominioId, lista);
-    }
-    return mapa;
-  }, [unidadesEscopo, visibleIds]);
-  const gruposCondominio = useMemo(
-    () => agruparUnidadesPorCondominioCarteira(visible, unidadesPorCondominioFiltrado),
-    [visible, unidadesPorCondominioFiltrado],
-  );
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -397,40 +367,6 @@ export default function CondominiosPage() {
 
   function condominioComInadimplencia(item: Condominio) {
     return unidadesEscopo.some((u) => u.condominioId === item.id && unidadesComDebitoAberto.has(u.id));
-  }
-
-  function contatoResponsavel(unidadeId: number) {
-    const vinculosDaUnidade = cadastros.vinculos.filter((item) => item.unidadeId === unidadeId);
-    const vinculo = vinculosDaUnidade.find((item) => item.principal) ?? vinculosDaUnidade[0];
-    const responsavel = vinculo && cadastros.responsaveis.find((item) => item.id === vinculo.responsavelId);
-    if (!responsavel) return null;
-    if (podeVerDadosPessoaisResponsavel(permissoes)) {
-      return {
-        nome: responsavel.nome,
-        telefone: responsavel.telefone.trim() ? formatarTelefone(responsavel.telefone) : "",
-        email: responsavel.email.trim(),
-      };
-    }
-    return {
-      nome: responsavel.nome,
-      telefone: mascararTelefone(responsavel.telefone),
-      email: mascararEmail(responsavel.email),
-    };
-  }
-
-  function celulaResponsavelUnidade(item: Unidade) {
-    const contato = contatoResponsavel(item.id);
-    if (!contato) return <span className="text-on-surface-variant">—</span>;
-    return <span className="block truncate text-left text-on-surface">{contato.nome}</span>;
-  }
-
-  function celulaSituacaoUnidade(item: Unidade) {
-    return (
-      <UnidadeSituacaoListagemBadge
-        unidade={item}
-        temDebitoVencidoAberto={unidadesComDebitoAberto.has(item.id)}
-      />
-    );
   }
 
   function celulaAdvogados(item: Condominio) {
@@ -593,10 +529,6 @@ export default function CondominiosPage() {
     router.push(`/unidades?condominio=${item.id}`);
   }
 
-  function adicionarUnidade(item: Condominio) {
-    router.push(`/unidades?condominio=${item.id}&novo=1`);
-  }
-
   async function confirmDelete() {
     if (!deleteTarget) return;
     const response = await fetch(`/api/condominios/${deleteTarget.id}`, {
@@ -623,8 +555,6 @@ export default function CondominiosPage() {
     setDeleteTarget(null);
   }
 
-  const descricaoPrazoCondominio = delinquencyTrackingDaysCaption;
-
   function acoes(item: Condominio) {
     const lista = [];
     if (pode("condominios", "ler")) {
@@ -632,9 +562,6 @@ export default function CondominiosPage() {
       if (pode("unidades", "ler")) {
         lista.push({ label: "Ver unidades", icon: DoorOpen, onSelect: () => verUnidades(item) });
       }
-    }
-    if (pode("unidades", "criar") && item.status === "Ativo") {
-      lista.push({ label: "Adicionar unidade", icon: Plus, onSelect: () => adicionarUnidade(item) });
     }
     if (pode("condominios", "editar")) {
       lista.push({ label: "Editar condomínio", icon: Pencil, onSelect: () => openEdit(item) });
@@ -655,25 +582,6 @@ export default function CondominiosPage() {
         icon: Trash2,
         destructive: true,
         onSelect: () => setDeleteTarget(item),
-      });
-    }
-    return lista;
-  }
-
-  function acoesUnidade(item: Unidade, condominio: Condominio) {
-    const lista = [];
-    if (pode("unidades", "ler")) {
-      lista.push({
-        label: "Consultar",
-        icon: Eye,
-        onSelect: () => router.push(`/unidades?condominio=${condominio.id}&consultar=${item.id}`),
-      });
-    }
-    if (pode("unidades", "editar")) {
-      lista.push({
-        label: "Editar",
-        icon: Pencil,
-        onSelect: () => router.push(`/unidades?condominio=${condominio.id}&editar=${item.id}`),
       });
     }
     return lista;
@@ -892,10 +800,6 @@ export default function CondominiosPage() {
         ) : undefined
       }
     />
-  );
-
-  const emptyStateUnidades = (
-    <p className="py-md text-center text-body-md text-on-surface-variant">Nenhuma unidade cadastrada neste condomínio.</p>
   );
 
   const desktopTable = (
@@ -1162,69 +1066,17 @@ export default function CondominiosPage() {
             />
           </FiltrosSection>
 
-        <Tabs
-          value={visao}
-          onValueChange={(value) => {
-            setVisao(value as VisaoListagem);
-            setPage(1);
-          }}
-          defaultValue="condominio"
-          className="flex flex-col gap-md"
-        >
-          <TabsList>
-            <TabsTrigger value="condominio">Por condomínio</TabsTrigger>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-          </TabsList>
-          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={
-                <CondominiosPorCondominioLista
-                  grupos={gruposCondominio}
-                  emptyState={emptyState}
-                  emptyStateUnidades={emptyStateUnidades}
-                  variante="desktop"
-                  renderResponsavel={celulaResponsavelUnidade}
-                  renderAdvogados={celulaAdvogados}
-                  renderSituacao={celulaSituacaoUnidade}
-                  acoes={acoesUnidade}
-                  acoesCondominio={acoes}
-                  descricaoPrazoCondominio={descricaoPrazoCondominio}
-                />
-              }
-              mobile={
-                <CondominiosPorCondominioLista
-                  grupos={gruposCondominio}
-                  emptyState={emptyState}
-                  emptyStateUnidades={emptyStateUnidades}
-                  variante="mobile"
-                  renderResponsavel={celulaResponsavelUnidade}
-                  renderAdvogados={celulaAdvogados}
-                  renderSituacao={celulaSituacaoUnidade}
-                  acoes={acoesUnidade}
-                  acoesCondominio={acoes}
-                  descricaoPrazoCondominio={descricaoPrazoCondominio}
-                />
-              }
-              onExport={aoExportar}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              mobileDataBarClassName={condominiosMobileDataBarClassName}
-            />
-          </TabsContent>
-          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTable}
-              mobile={mobileTable}
-              onExport={aoExportar}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              mobileDataBarClassName={condominiosMobileDataBarClassName}
-            />
-            {visible.length > 0 ? (
-              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-            ) : null}
-          </TabsContent>
-        </Tabs>
+        <ResponsiveTable
+          desktop={desktopTable}
+          mobile={mobileTable}
+          onExport={aoExportar}
+          onImport={abrirImportacao}
+          showImport={podeImportar}
+          mobileDataBarClassName={condominiosMobileDataBarClassName}
+        />
+        {visible.length > 0 ? (
+          <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+        ) : null}
           </>
           )}
         </PageContent>
@@ -1340,8 +1192,7 @@ export default function CondominiosPage() {
                       }}
                     />
                     <SheetHelpText>
-                      Opcional. Em branco, o sistema usa {DEFAULT_DELINQUENCY_TRACKING_DAYS} dias (padrão). Vale para
-                      todas as unidades e inadimplências deste condomínio; não altera vencimentos dos débitos.
+                      Opcional: vazio usa {DEFAULT_DELINQUENCY_TRACKING_DAYS} dias para o condomínio; não altera vencimentos.
                     </SheetHelpText>
                   </FormField>
                 </>
@@ -1368,6 +1219,7 @@ export default function CondominiosPage() {
                         <Input
                           id={`${formId}-logradouro`}
                           icon={MapPin}
+                          placeholder="Ex.: Rua das Flores"
                           value={form.logradouro}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, logradouro: event.target.value }))}
@@ -1377,6 +1229,7 @@ export default function CondominiosPage() {
                         <Input
                           id={`${formId}-numero`}
                           icon={Hash}
+                          placeholder="123"
                           value={form.numero}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, numero: event.target.value }))}
@@ -1387,6 +1240,7 @@ export default function CondominiosPage() {
                       <Input
                         id={`${formId}-complemento`}
                         icon={Hash}
+                        placeholder="Ex.: Bloco A, apto 101"
                         value={form.complemento}
                         disabled={!enderecoLiberado}
                         onChange={(event) =>
@@ -1399,6 +1253,7 @@ export default function CondominiosPage() {
                         <Input
                           id={`${formId}-cidade`}
                           icon={MapPin}
+                          placeholder="Ex.: São Paulo"
                           value={form.cidade}
                           disabled={!enderecoLiberado}
                           onChange={(event) => setForm((current) => ({ ...current, cidade: event.target.value }))}
@@ -1537,12 +1392,6 @@ export default function CondominiosPage() {
                   <Icon icon={DoorOpen} size="sm" />
                   Ver unidades
                 </Button>
-                {pode("unidades", "criar") && detalhe.status === "Ativo" ? (
-                  <Button type="button" onClick={() => adicionarUnidade(detalhe)}>
-                    <Icon icon={Plus} size="sm" />
-                    Adicionar unidade
-                  </Button>
-                ) : null}
               </SheetFooter>
             </>
           ) : null}

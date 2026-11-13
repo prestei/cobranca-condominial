@@ -160,6 +160,7 @@ export function CondominioFormSheet({
                   name="cidade"
                   value={values.cidade}
                   onChange={(event) => setValues((current) => ({ ...current, cidade: event.target.value }))}
+                  placeholder="Ex.: São Paulo"
                 />
               </FormField>
             </div>
@@ -183,6 +184,7 @@ export function CondominioFormSheet({
                 name="logradouro"
                 value={values.logradouro}
                 onChange={(event) => setValues((current) => ({ ...current, logradouro: event.target.value }))}
+                placeholder="Ex.: Rua das Flores"
               />
             </FormField>
 
@@ -194,6 +196,7 @@ export function CondominioFormSheet({
                   name="numero"
                   value={values.numero}
                   onChange={(event) => setValues((current) => ({ ...current, numero: event.target.value }))}
+                  placeholder="123"
                 />
               </FormField>
               <FormField label="Complemento" htmlFor={`${formId}-complemento`}>
@@ -203,6 +206,7 @@ export function CondominioFormSheet({
                   name="complemento"
                   value={values.complemento}
                   onChange={(event) => setValues((current) => ({ ...current, complemento: event.target.value }))}
+                  placeholder="Ex.: Bloco A, apto 101"
                 />
               </FormField>
             </div>

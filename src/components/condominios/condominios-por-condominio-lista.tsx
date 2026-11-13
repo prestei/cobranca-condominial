@@ -23,6 +23,10 @@ import {
 } from "@/components/table";
 import {
   listGroupAccordionPanelClassName,
+  listGroupAccordionPanelFooterClassName,
+  listGroupAccordionActionColumn12,
+  listGroupAccordionChevronClassName,
+  listGroupAccordionChevronDesktopClassName,
   listGroupAccordionToggleClassName,
   listGroupEmbeddedTableContainerClassName,
   listGroupEmbeddedTableHeaderClassName,
@@ -287,58 +291,81 @@ function PainelCondominio({
   const ativas = grupo.itens.filter((item) => item.status === "Ativa").length;
   const acoesDoCondominio = acoesCondominio?.(grupo.condominio) ?? [];
   const linhaPrazo = descricaoPrazoCondominio?.(grupo.condominio);
+  const mostrarAcoesDesktop = variante === "desktop" && acoesDoCondominio.length > 0;
+
+  const cabecalhoConteudo = (
+    <>
+      <span className="flex min-w-0 items-center gap-sm">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+          <Icon icon={Building2} size="sm" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
+          <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+            {total} unidade{total === 1 ? "" : "s"}
+            {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
+            {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+          </span>
+        </span>
+      </span>
+      <span
+        className={`${listGroupAccordionChevronClassName} ${
+          variante === "desktop" ? listGroupAccordionChevronDesktopClassName : ""
+        }`}
+        aria-hidden
+      >
+        <Icon
+          icon={ChevronDown}
+          size="sm"
+          className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+        />
+      </span>
+    </>
+  );
 
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
       <h3 className="text-label-lg text-on-surface">
-        <div
-          className={`grid w-full items-center bg-surface-dim px-md py-md ${
-            variante === "desktop" && acoesDoCondominio.length > 0
-              ? "grid-cols-[minmax(0,1fr)_12%]"
-              : "grid-cols-[minmax(0,1fr)_auto]"
-          }`}
-        >
+        {variante === "desktop" ? (
+          <div
+            className={`grid w-full items-center bg-surface-subtle ${
+              mostrarAcoesDesktop
+                ? `grid-cols-[minmax(0,1fr)_minmax(3.5rem,${listGroupAccordionActionColumn12})_${listGroupAccordionActionColumn12}]`
+                : `grid-cols-[minmax(0,1fr)_minmax(3.5rem,${listGroupAccordionActionColumn12})]`
+            }`}
+          >
+            <button
+              type="button"
+              className={`col-span-2 grid min-w-0 cursor-pointer grid-cols-subgrid items-center py-md pl-md text-left transition-[filter] hover:brightness-[0.98] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
+                mostrarAcoesDesktop ? "" : "pr-md"
+              }`}
+              aria-expanded={aberto}
+              aria-controls={painelId}
+              onClick={onToggle}
+            >
+              {cabecalhoConteudo}
+            </button>
+            {mostrarAcoesDesktop ? (
+              <div
+                className="flex w-full min-w-14 shrink-0 items-center justify-center py-md pr-md"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <TableActionsButton label={`Ações de ${grupo.nome}`} actions={acoesDoCondominio} />
+              </div>
+            ) : null}
+          </div>
+        ) : (
           <button
             type="button"
-            className="flex min-w-0 cursor-pointer items-center justify-between gap-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+            className={listGroupAccordionToggleClassName}
             aria-expanded={aberto}
             aria-controls={painelId}
             onClick={onToggle}
           >
-            <span className="flex min-w-0 items-center gap-sm">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
-                <Icon icon={Building2} size="sm" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-on-surface">{grupo.nome}</span>
-                <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
-                  {total} unidade{total === 1 ? "" : "s"}
-                  {ativas > 0 ? ` · ${ativas} ativa${ativas === 1 ? "" : "s"}` : ""}
-                  {linhaPrazo ? ` · ${linhaPrazo}` : ""}
-                </span>
-              </span>
-            </span>
-            <span
-              className="inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant"
-              aria-hidden
-            >
-              <Icon
-                icon={ChevronDown}
-                size="sm"
-                className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
-              />
-            </span>
+            {cabecalhoConteudo}
           </button>
-          {acoesDoCondominio.length > 0 ? (
-            <div
-              className="flex w-full min-w-14 shrink-0 justify-center px-sm"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <TableActionsButton label={`Ações de ${grupo.nome}`} actions={acoesDoCondominio} />
-            </div>
-          ) : null}
-        </div>
+        )}
       </h3>
       {aberto ? (
         <div
@@ -372,7 +399,7 @@ function PainelCondominio({
             />
           )}
           {total > 0 ? (
-            <div className="px-md pb-md">
+            <div className={listGroupAccordionPanelFooterClassName}>
               <Pagination page={currentPage} total={total} onPageChange={setPage} />
             </div>
           ) : null}

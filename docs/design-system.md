@@ -17,7 +17,7 @@ Importar sempre de `@/components/...`. Não recriar markup ou estilos locais equ
 | `IconChoiceGroup` | `icon-choice-group.tsx` | `layout`: `grid` (grade), `row` (ícones em uma linha), `segmented` (barra Sim/Não). |
 | `FiltrosSection` | `filtros-section.tsx` | Título **Filtros** (`text-label-lg`), espaçamento curto e seta para expandir/recolher. Envolve o `FilterBar` em todas as listagens. |
 | `FilterBar` | `filter-bar.tsx` | Barra de filtros de listagem: busca, selects, data, período, Limpar e Filtrar. Campos sem ícone interno. |
-| `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error`. |
+| `Badge` | `badge.tsx` | Etiquetas. Variantes: `primary`, `secondary`, `neutral` (fundo claro, texto escuro), `success`, `error` (subtle Bootstrap: fundo claro + texto emphasis). |
 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `tabs.tsx` | Navegação por abas (client component). |
 | `CardMetric` | `card-metric.tsx` | Cartão de métrica compacto (`p-md`, ícone `size-9` em caixa `rounded-lg`). Ordem fixa: **valor** (`text-metric` / 22px bold) → **rótulo** (`text-body-md` / 14px) → **detalhe** (`text-body-sm` / 12px, opcional). Sem faixa lateral. Sempre `w-full` (preenche a coluna; não encolhe ao conteúdo). Grid típico **4 colunas** no desktop. |
 | `CardMetricRow` | `card-metric-row.tsx` | Linha de `CardMetric`: carrossel com snap no mobile (avanço automático a cada 5s e pontos de posição); grid no desktop com colunas de **largura igual** (`desktopCols`, padrão **4**). Respeita `prefers-reduced-motion` (sem autoplay). |

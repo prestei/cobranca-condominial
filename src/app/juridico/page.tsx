@@ -390,7 +390,6 @@ export default function JuridicoPage() {
               <TableActionsCell
                 label={`Ações do encaminhamento — ${rotuloAcoes}`}
                 actions={acoesEncaminhamento(item)}
-                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
               />
             </TableRow>
             );

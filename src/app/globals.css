@@ -57,6 +57,11 @@
   --color-status-settled: #1d7c4d;
   --color-status-pending: #d98200;
   --color-status-critical: #b3261e;
+  /* Badges success/danger — tons Bootstrap 5.3 (subtle + emphasis), menos saturados que fill sólido */
+  --color-badge-success-subtle: #d1e7dd;
+  --color-badge-success-emphasis: #0a3622;
+  --color-badge-danger-subtle: #f8d7da;
+  --color-badge-danger-emphasis: #58151c;
   --color-gold-subtle: #fdf6ea;
   --color-brass: #eaa015;
   --color-brass-hover: color-mix(in srgb, var(--color-brass) 85%, var(--color-primary-container));

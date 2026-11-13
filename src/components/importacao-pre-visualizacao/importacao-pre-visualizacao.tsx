@@ -287,7 +287,7 @@ export function ImportacaoPreVisualizacao({
                       {exibirCabecalhoGrupo ? (
                         <TableRow
                           key={`grupo-${unidadeAtual}-${indiceNaPagina}`}
-                          className="border-t-2 border-border-default bg-surface-dim"
+                          className="border-t-2 border-border-default bg-surface-subtle"
                         >
                           <TableCell colSpan={colSpanTotal} className="py-sm">
                             <div className="flex flex-wrap items-baseline gap-x-sm gap-y-xs">

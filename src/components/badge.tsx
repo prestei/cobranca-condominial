@@ -4,8 +4,8 @@ const variants = {
   primary: "bg-primary-container text-on-primary",
   secondary: "bg-brass text-primary-container",
   neutral: "border border-border-subtle bg-surface-subtle text-on-surface",
-  success: "bg-status-settled text-on-primary",
-  error: "bg-status-critical text-on-primary",
+  success: "bg-badge-success-subtle text-badge-success-emphasis",
+  error: "bg-badge-danger-subtle text-badge-danger-emphasis",
 } as const;
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {

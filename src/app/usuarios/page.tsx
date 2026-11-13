@@ -637,11 +637,7 @@ export default function UsuariosPage() {
                   —
                 </span>
               </TableCell>
-              <TableActionsCell
-                label={`Ações de ${item.nome}`}
-                actions={acoes(item)}
-                className="!align-middle py-md size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
-              />
+              <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} className="!align-middle py-md" />
             </TableRow>
           ))
         )}
@@ -674,11 +670,7 @@ export default function UsuariosPage() {
                 </div>
                 <p className="mt-xs truncate text-body-sm text-on-surface-variant">{rotuloReListagem(item)}</p>
               </div>
-              <TableActionsButton
-                label={`Ações de ${item.nome}`}
-                actions={acoes(item)}
-                className="size-9 rounded-lg bg-primary-fixed/35 text-primary-container hover:bg-primary-fixed/50 hover:text-primary-container"
-              />
+              <TableActionsButton label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableMobileCardHeader>
             <div className="mt-sm flex flex-col items-start gap-sm border-t border-border-subtle/30 pt-sm text-left">
               <div className="flex w-full flex-col items-start gap-xs text-body-sm">

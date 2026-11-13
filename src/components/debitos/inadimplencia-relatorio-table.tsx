@@ -5,6 +5,12 @@ import { Building2, ChevronDown, Receipt } from "lucide-react";
 import { Icon } from "@/components/icon";
 import {
   listGroupAccordionPanelClassName,
+  listGroupAccordionPanelFooterClassName,
+  listGroupAccordionActionColumn12,
+  listGroupAccordionChevronClassName,
+  listGroupAccordionChevronDesktopClassName,
+  listGroupAccordionDesktopHeaderGridClassName,
+  listGroupAccordionDesktopToggleSubgridClassName,
   listGroupAccordionToggleClassName,
   listGroupEmbeddedTableContainerClassName,
   listGroupEmbeddedTableHeaderClassName,
@@ -185,8 +191,22 @@ export function InadimplenciaRelatorioDesktop({
     <Table
       aria-label="Inadimplência por condomínio"
       showExport={false}
+      fitContainer={embutida}
       containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
+      {embutida ? (
+        <colgroup>
+          <col className="w-[16%]" />
+          <col className="w-[10%]" />
+          <col className="w-[12%]" />
+          <col className="w-[11%]" />
+          <col className="w-[9%]" />
+          <col className="w-[9%]" />
+          <col className="w-[10%]" />
+          <col className="w-[11%]" />
+          <col className="w-[12%]" />
+        </colgroup>
+      ) : null}
       <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Lançamento</TableHead>
@@ -212,7 +232,7 @@ export function InadimplenciaRelatorioDesktop({
               linhas.push(
                 <TableRow
                   key={`condo-${grupo.condominioId}`}
-                  className="border-t-2 border-border-strong bg-surface-dim hover:bg-surface-dim"
+                  className="border-t-2 border-border-strong bg-surface-subtle hover:bg-surface-subtle"
                 >
                   <TableCell colSpan={COL_SPAN} className="py-sm">
                     <div className="flex items-center gap-sm text-label-lg font-semibold text-on-surface">
@@ -261,7 +281,6 @@ export function InadimplenciaRelatorioDesktop({
                   <TableActionsCell
                     label={`Ações do débito ${item.referencia}`}
                     actions={acoes(item)}
-                    className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
                   />
                 </TableRow>,
               );
@@ -270,7 +289,7 @@ export function InadimplenciaRelatorioDesktop({
             linhas.push(
               <TableRow
                 key={`total-unidade-${grupo.unidadeId}`}
-                className="border-b border-border-subtle bg-surface-dim hover:bg-surface-dim"
+                className="border-b border-border-subtle bg-surface-subtle hover:bg-surface-subtle"
               >
                 <TableCell className="pl-lg text-body-sm font-semibold text-on-surface-variant">
                   Total {grupo.identificacao}
@@ -393,7 +412,7 @@ export function InadimplenciaRelatorioMobile({
                     </div>
                   </div>
                 ))}
-                <div className="-mx-md rounded-b-lg bg-surface-dim px-md py-sm">
+                <div className="-mx-md rounded-b-lg bg-surface-subtle px-md py-sm">
                   <TableMobileField label={`Total ${grupo.identificacao}`} stacked>
                     <span className="font-semibold tabular-nums">{moedaTotais(grupo.totais.projRec)}</span>
                     <span className="block text-body-sm text-on-surface-variant">
@@ -466,43 +485,67 @@ function PainelCondominio({
   return (
     <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-card">
       <h3 className="text-label-lg text-on-surface">
-        <button
-          type="button"
-          className={`w-full cursor-pointer bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
-            variante === "desktop"
-              ? "grid grid-cols-[minmax(0,1fr)_minmax(3.5rem,12%)] items-center"
-              : "flex items-center justify-between gap-md"
-          }`}
-          aria-expanded={aberto}
-          aria-controls={painelId}
-          onClick={onToggle}
-        >
-          <span className="flex min-w-0 items-center gap-sm">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
-              <Icon icon={Building2} size="sm" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate font-semibold text-on-surface">{condominio.nome}</span>
-              <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
-                {qtdUnidades} unidade{qtdUnidades === 1 ? "" : "s"} · {qtdDebitos} lançamento
-                {qtdDebitos === 1 ? "" : "s"} · Proj. rec. {moedaTotais(condominio.totais.projRec)}
-                {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+        {variante === "desktop" ? (
+          <div className={listGroupAccordionDesktopHeaderGridClassName(listGroupAccordionActionColumn12)}>
+            <button
+              type="button"
+              className={listGroupAccordionDesktopToggleSubgridClassName}
+              aria-expanded={aberto}
+              aria-controls={painelId}
+              onClick={onToggle}
+            >
+              <span className="flex min-w-0 items-center gap-sm">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+                  <Icon icon={Building2} size="sm" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-on-surface">{condominio.nome}</span>
+                  <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+                    {qtdUnidades} unidade{qtdUnidades === 1 ? "" : "s"} · {qtdDebitos} lançamento
+                    {qtdDebitos === 1 ? "" : "s"} · Proj. rec. {moedaTotais(condominio.totais.projRec)}
+                    {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+                  </span>
+                </span>
+              </span>
+              <span className={`${listGroupAccordionChevronClassName} ${listGroupAccordionChevronDesktopClassName}`} aria-hidden>
+                <Icon
+                  icon={ChevronDown}
+                  size="sm"
+                  className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+                />
+              </span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={listGroupAccordionToggleClassName}
+            aria-expanded={aberto}
+            aria-controls={painelId}
+            onClick={onToggle}
+          >
+            <span className="flex min-w-0 items-center gap-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-card text-on-surface-variant">
+                <Icon icon={Building2} size="sm" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-on-surface">{condominio.nome}</span>
+                <span className="mt-xs block text-body-sm font-normal text-on-surface-variant">
+                  {qtdUnidades} unidade{qtdUnidades === 1 ? "" : "s"} · {qtdDebitos} lançamento
+                  {qtdDebitos === 1 ? "" : "s"} · Proj. rec. {moedaTotais(condominio.totais.projRec)}
+                  {linhaPrazo ? ` · ${linhaPrazo}` : ""}
+                </span>
               </span>
             </span>
-          </span>
-          <span
-            className={`inline-flex size-8 shrink-0 items-center justify-center text-on-surface-variant ${
-              variante === "desktop" ? "w-full justify-self-center px-sm" : ""
-            }`}
-            aria-hidden
-          >
-            <Icon
-              icon={ChevronDown}
-              size="sm"
-              className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
-            />
-          </span>
-        </button>
+            <span className={listGroupAccordionChevronClassName} aria-hidden>
+              <Icon
+                icon={ChevronDown}
+                size="sm"
+                className={`transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+              />
+            </span>
+          </button>
+        )}
       </h3>
       {aberto ? (
         <div
@@ -532,7 +575,7 @@ function PainelCondominio({
             />
           )}
           {qtdUnidades > 0 ? (
-            <div className="px-md pb-md">
+            <div className={listGroupAccordionPanelFooterClassName}>
               <Pagination page={currentPage} total={qtdUnidades} onPageChange={setPage} />
             </div>
           ) : null}

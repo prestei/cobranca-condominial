@@ -436,7 +436,7 @@ export function TableHead({
     return (
       <th
         scope="col"
-        className={`sticky right-0 z-[2] w-14 shrink-0 whitespace-nowrap bg-inherit px-md py-md text-center text-label-lg text-primary-container ${className ?? ""}`}
+        className={`sticky right-0 z-[2] w-14 shrink-0 whitespace-nowrap px-md py-md text-center text-label-lg text-primary-container ${className ?? ""}`}
         {...props}
       >
         Ação
@@ -486,7 +486,7 @@ type TableCellProps = TdHTMLAttributes<HTMLTableCellElement> & {
 export function TableCell({ className, align = "left", ...props }: TableCellProps) {
   return (
     <td
-      className={`min-w-0 align-top break-words px-md py-sm text-on-surface ${alignClass[align]} ${className ?? ""}`}
+      className={`min-w-0 align-middle break-words px-md py-sm text-on-surface ${alignClass[align]} ${className ?? ""}`}
       {...props}
     />
   );
@@ -635,7 +635,7 @@ export function TableActionsButton({
         aria-haspopup={hasMenu ? "menu" : undefined}
         aria-expanded={hasMenu ? open : undefined}
         aria-controls={hasMenu && open ? menuId : undefined}
-        className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
+        className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${className ?? ""}`}
         onClick={(event) => {
           event.stopPropagation();
           if (hasMenu) {
@@ -703,7 +703,7 @@ export function TableActionsCell({
   return (
     <TableCell
       align="center"
-      className={`sticky right-0 z-[1] w-14 shrink-0 whitespace-nowrap bg-inherit px-sm group-hover/row:bg-gold-subtle/25 ${className ?? ""}`}
+      className={`sticky right-0 z-[1] w-14 shrink-0 whitespace-nowrap bg-inherit px-sm ${className ?? ""}`}
       onClick={(event) => event.stopPropagation()}
     >
       <div className="flex justify-center">

@@ -54,7 +54,7 @@ Implementação: `src/lib/condominios/service.ts`, rotas em `src/app/api/condomi
 
 1. **Abrir `/condominios`** — `garantirCondominiosPersistidosNoServidor` (GET + POST de registros só locais); toast se falhar; listagem a partir do catálogo reativo (`useCadastros`).
 2. **Filtrar** — busca textual, administradora, cidade, advogado responsável, situação; botões **Filtrar** / **Limpar** aplicam recorte; métricas e exportação usam o **recorte filtrado**.
-3. **Novo / Editar** — sheet em 3 etapas (inclui **prazo de inadimplência** na etapa Dados); CEP consultado via ViaCEP (`src/lib/cep.ts`); validação de nome e ao menos um advogado; POST ou PATCH; auditoria em `audit_log`. Na aba **Por condomínio**, o menu ⋮ do **cabeçalho** do painel traz **Editar condomínio** (`condominios.editar`); o ⋮ de cada **unidade** na tabela redireciona para `/unidades?condominio=…&editar=` ou `&consultar=` (edição/consulta da unidade, não do condomínio). O prazo do condomínio vale para todas as unidades e débitos em `/debitos` e indicadores.
+3. **Novo / Editar** — sheet em 3 etapas (inclui **prazo de inadimplência** na etapa Dados); CEP consultado via ViaCEP (`src/lib/cep.ts`); validação de nome e ao menos um advogado; POST ou PATCH; auditoria em `audit_log`. O prazo do condomínio vale para todas as unidades e débitos em `/debitos` e indicadores. Unidades do condomínio são acessadas pelo menu **Ver unidades** ou atalhos em `/unidades?condominio=…`.
 4. **Inativar / Reativar** — PATCH parcial `{ status }`; histórico operacional permanece consultável.
 5. **Excluir** — DELETE; bloqueado com unidades ou débitos/atendimentos/atribuições vinculados.
 6. **Importar** — atalho na tabela (`showImport`) abre `/importacoes?modulo=condominios&abrir=1` com permissão `importacoes.criar`; CSV (`;`) ou XLS com colunas mínimas **Nome** e **Advogados**; duplicidade por `identificadorExterno` ignorada ou 409.
@@ -75,7 +75,7 @@ Nenhuma direta neste módulo; importações de inadimplência resolvem condomín
 
 ## Estados de interface
 
-`PageHeader` com descrição; quatro indicadores (`CardMetric`, grid 4 colunas como Unidades) sobre o recorte filtrado (total, ativos, inadimplentes com débito pendente/vencido em alguma unidade, com cidade cadastrada); seção **Filtros** + `FilterBar`; abas **Por condomínio** (painéis expansíveis por condomínio com unidades: colunas Unidade, Responsável, Cidade, Administradora, Advogado responsável, **Situações** com os mesmos rótulos da listagem em `/unidades` — Em dia, Inadimplente, Aguardando débitos, Unidade prescrita — via `UnidadeSituacaoListagemBadge` e `rotuloSituacaoListagemUnidade`, paginação por painel; padrão) e **Geral** (tabela única de condomínios: colunas com ícone, advogado em duas linhas, situação em badge, inadimplência e paginação de 20); exportação/importação; `EmptyState`; toasts de erro da API e da sincronização; confirmações para sair do formulário, inativar e excluir. Componente `condominios-por-condominio-lista.tsx`.
+`PageHeader` com descrição; quatro indicadores (`CardMetric`, grid 4 colunas como Unidades) sobre o recorte filtrado (total, ativos, inadimplentes com débito pendente/vencido em alguma unidade, com cidade cadastrada); seção **Filtros** + `FilterBar`; listagem **Geral** (tabela única de condomínios: colunas com ícone, advogado em duas linhas, situação em badge, inadimplência e paginação de 20); exportação/importação; `EmptyState`; toasts de erro da API e da sincronização; confirmações para sair do formulário, inativar e excluir.
 
 ## Pendências e decisões
 

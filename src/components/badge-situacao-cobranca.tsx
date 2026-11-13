@@ -10,7 +10,7 @@ const estiloSituacao: Record<(typeof situacoesUnidade)[number], string> = {
   Ajuizada: "bg-error-container text-on-error-container",
   "Unidade prescrita":
     "border border-border-subtle bg-surface-card text-on-surface-variant",
-  Quitada: "bg-status-settled text-on-primary",
+  Quitada: "bg-badge-success-subtle text-badge-success-emphasis",
 };
 
 type BadgeSituacaoCobrancaProps = {
