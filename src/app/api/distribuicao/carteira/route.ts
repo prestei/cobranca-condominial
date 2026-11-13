@@ -1,13 +1,12 @@
-import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
-import { DistribuicaoServiceError, listarCarteiraPorRe, podeGerenciarDistribuicao } from "@/lib/distribuicao/service";
+import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
+import { DistribuicaoServiceError, listarCarteiraPorRe } from "@/lib/distribuicao/service";
 
 export async function GET() {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
 
-  if (!podeGerenciarDistribuicao(session.userId)) {
-    return Response.json({ error: "Sem permissão para consultar carteiras." }, { status: 403 });
-  }
+  const denied = await requirePermissao(session, "usuarios", "criar");
+  if (denied) return denied;
 
   try {
     return Response.json({ carteiras: await listarCarteiraPorRe(session.userId) });

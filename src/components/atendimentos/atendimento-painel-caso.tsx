@@ -173,7 +173,7 @@ export function AtendimentoPainelCaso({
         }
       />
 
-      <footer className="shrink-0 border-t border-border-subtle bg-surface-card px-md py-sm">
+      <footer className="shrink-0 border-t border-border-subtle bg-surface-container-low px-md py-sm">
         {podeProposta || podeJuridico || podeRegistrar ? (
           <div className="flex flex-col gap-1.5 min-[480px]:flex-row min-[480px]:items-stretch">
             {podeProposta ? (

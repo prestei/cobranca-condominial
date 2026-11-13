@@ -512,7 +512,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
         const detalhe = payload.detalhes?.length ? ` ${payload.detalhes.join(" ")}` : "";
         throw new Error((payload.error ?? "Falha na atribuição.") + detalhe);
       }
-      if (payload.atribuicoesCobranca) void refetch()
+      void refetch();
       toast({ variant: "success", title: `${payload.atribuidas ?? 0} cobrança(s) atribuída(s)` });
       setSheetAtribuirOpen(false);
       setSelecionadas(new Set());
