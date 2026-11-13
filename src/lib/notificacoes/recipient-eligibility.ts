@@ -1,5 +1,3 @@
-import "server-only";
-
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";

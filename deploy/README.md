@@ -40,7 +40,7 @@ Internet → Caddy :443/:80 → 127.0.0.1:3000 (Next.js / systemd)
 | `scripts/subir-vps.py` | Assistente: IP + senha → VPS no ar |
 | `scripts/push.sh` | Re-deploy (ou abre o assistente se faltar config) |
 | `scripts/remote-bootstrap.sh` | Node, Caddy, Postgres, UFW, systemd |
-| `scripts/ci-remote-deploy.sh` | migrate + build + restart |
+| `scripts/ci-remote-deploy.sh` | migrate + build + restart (backup de `.next` e rollback se build/healthcheck falhar) |
 | `systemd/cobranca-app.service` | Processo da aplicação |
 
 ## Pré-requisitos no seu PC

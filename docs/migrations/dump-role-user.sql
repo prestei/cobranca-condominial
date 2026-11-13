@@ -115,9 +115,9 @@ ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.user_
 --
 
 COPY public.role (id, nome, descricao, permissao_json, ativo) FROM stdin;
-1	Administrador	Cadastros, relatórios, exportações e correção de registros.	{"dashboard":{"ler":true},"atendimentos":{"ler":true,"criar":true,"editar":true,"excluir":true},"debitos":{"ler":true,"criar":true,"editar":true,"excluir":true},"juridico":{"ler":true,"criar":true,"editar":true},"condominios":{"ler":true,"criar":true,"editar":true,"excluir":true},"unidades":{"ler":true,"criar":true,"editar":true,"excluir":true},"relatorios":{"ler":true,"exportar":true},"importacoes":{"ler":true,"criar":true,"editar":true,"excluir":true},"usuarios":{"ler":true,"criar":true,"editar":true,"excluir":true},"cargos":{"ler":true,"criar":true,"editar":true,"excluir":true},"auditoria":{"ler":true}}	t
-2	Atendente	Registra atendimentos e acompanha os próprios retornos.	{"dashboard":{"ler":true},"atendimentos":{"ler":true,"criar":true,"editar":true},"debitos":{"ler":true},"importacoes":{"ler":true,"criar":true,"editar":true}}	t
-3	Advogado	Consulta relatórios e o histórico dos condomínios sob sua responsabilidade.	{"dashboard":{"ler":true},"debitos":{"ler":true},"juridico":{"ler":true,"editar":true},"condominios":{"ler":true},"unidades":{"ler":true},"relatorios":{"ler":true,"exportar":true}}	t
+1	Administrador	Cadastros, relatórios, exportações e correção de registros.	{"dashboard":{"ler":true},"atendimentos":{"ler":true,"criar":true,"editar":true,"excluir":true},"debitos":{"ler":true,"criar":true,"editar":true,"excluir":true},"juridico":{"ler":true,"criar":true,"editar":true},"negociacoes":{"ler":true,"criar":true,"editar":true},"condominios":{"ler":true,"criar":true,"editar":true,"excluir":true},"unidades":{"ler":true,"criar":true,"editar":true,"excluir":true},"relatorios":{"ler":true,"exportar":true},"importacoes":{"ler":true,"criar":true,"editar":true,"excluir":true},"usuarios":{"ler":true,"criar":true,"editar":true,"excluir":true},"cargos":{"ler":true,"criar":true,"editar":true,"excluir":true},"auditoria":{"ler":true}}	t
+2	Atendente	Registra atendimentos e acompanha os próprios retornos.	{"dashboard":{"ler":true},"atendimentos":{"ler":true,"criar":true,"editar":true},"negociacoes":{"ler":true,"criar":true},"debitos":{"ler":true},"importacoes":{"ler":true,"criar":true,"editar":true}}	t
+3	Advogado	Consulta relatórios e o histórico dos condomínios sob sua responsabilidade.	{"dashboard":{"ler":true},"debitos":{"ler":true},"juridico":{"ler":true,"editar":true},"negociacoes":{"ler":true,"editar":true},"condominios":{"ler":true},"unidades":{"ler":true},"relatorios":{"ler":true,"exportar":true}}	t
 \.
 
 
@@ -131,7 +131,7 @@ COPY public."user" (id, codigo, cargo_id, nome, cpf, data_nascimento, telefone, 
 3	TASSIA	2	Tássia	\N	\N	71999990003	tassia@escritorio.example	$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie	RE-10001	\N	t
 4	ATD003	2	Atendente 3	\N	\N	\N	atendente3@escritorio.example	$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie	RE-10002	\N	f
 5	ADRYELLE	3	Dra. Adryelle	\N	\N	71999990005	adryelle@escritorio.example	$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie	RE-10004	\N	t
-6	12345	1	Usuário Teste	\N	\N	\N	teste@escritorio.example	$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie	RE-10005	\N	t
+6	USUARIOTST	1	Usuário Teste	\N	\N	\N	teste@escritorio.example	$2b$12$i28E0e.k2Ld.FSrys.myW.0bPQ/a9quiTz07iVchW67QFbPQN1gie	RE-10005	\N	t
 \.
 
 

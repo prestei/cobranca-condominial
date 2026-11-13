@@ -55,6 +55,34 @@ type NavLink = {
   agendaRetornos?: boolean;
 };
 
+const secoesAdvogado: Array<{ title: string; links: NavLink[] }> = [
+  {
+    title: "Rotina",
+    links: [
+      { href: "/", label: "Início", icon: LayoutDashboard, modulo: "dashboard" },
+      { href: "/juridico", label: "Jurídico", icon: Scale, modulo: "juridico" },
+      { href: "/negociacoes", label: "Negociações", icon: Handshake, modulo: "negociacoes" },
+      { href: "/notificacoes", label: "Notificações", icon: Bell, modulo: "dashboard", count: "notificacoes" },
+    ],
+  },
+  {
+    title: "Carteira",
+    links: [
+      { href: "/debitos", label: "Inadimplência", icon: Wallet, modulo: "debitos" },
+      { href: "/condominios", label: "Condomínios", icon: Building2, modulo: "condominios" },
+      { href: "/unidades", label: "Unidades", icon: DoorOpen, modulo: "unidades" },
+    ],
+  },
+  {
+    title: "Análise",
+    links: [{ href: "/relatorios", label: "Relatórios", icon: FileBarChart, modulo: "relatorios" }],
+  },
+  {
+    title: "Conta",
+    links: [{ href: "/ajuda", label: "Ajuda e suporte", icon: HelpCircle, modulo: "dashboard" }],
+  },
+];
+
 const secoesAtendente: Array<{ title: string; links: NavLink[] }> = [
   {
     title: "Rotina",
@@ -156,7 +184,8 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
   const { permissoes, pode } = usePermissao();
   const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
   const retornoNaUrl = searchParams?.get("retorno") ?? null;
-  const menuSecoes = perfil === "atendente" ? secoesAtendente : secoes;
+  const menuSecoes =
+    perfil === "atendente" ? secoesAtendente : perfil === "advogado" ? secoesAdvogado : secoes;
   const cadastros = useCadastros();
   const retornos = useMemo(() => {
     if (!layoutMontado || sessaoCarregando || !sessao?.userId) return 0;

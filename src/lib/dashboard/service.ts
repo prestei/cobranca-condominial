@@ -8,7 +8,10 @@ import type { DebitoIndicadores } from "@/lib/debitos/indicadores";
 import { somarValorAtualizadoSemDuplicata } from "@/lib/debitos/indicadores";
 import { listarDebitos, obterIndicadoresDebitos } from "@/lib/debitos/service";
 import { resumoFilaCobranca } from "@/lib/fila/service";
+import { calcularResumoAcordo } from "@/lib/acordos/resumo";
 import { listarEncaminhamentosJuridicos } from "@/lib/juridico/service";
+import { listarPropostasNegociacao } from "@/lib/negociacoes/service";
+import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 import type { MetaPainelIndicadores } from "@/lib/indicadores/meta";
@@ -124,6 +127,23 @@ export type DashboardAtendente = DashboardComum & {
   graficos: DashboardGraficosAtendente | null;
 };
 
+export type DashboardNegociacaoPendente = {
+  id: string;
+  unidadeId: number;
+  condominioId: number;
+  criadoEm: string;
+  valorProposto: string;
+};
+
+export type DashboardNegociacoesAdvogado = {
+  total: number;
+  emAnalise: number;
+  aceitas: number;
+  parcelasVencidas: number;
+  acordosComDescumprimento: number;
+  pendentesAnalise: DashboardNegociacaoPendente[];
+};
+
 export type DashboardAdvogado = DashboardComum & {
   perfil: "advogado";
   condominios: { total: number; itens: { id: number; nome: string; status: string }[] };
@@ -134,6 +154,7 @@ export type DashboardAdvogado = DashboardComum & {
     abertos: number;
     porStatus: { status: string; quantidade: number }[];
   } | null;
+  negociacoes: DashboardNegociacoesAdvogado | null;
   retornos: { resumo: DashboardRetornoResumo; itens: DashboardRetornoLinha[] } | null;
 };
 
@@ -358,9 +379,15 @@ async function indicadoresEscopo(
 }
 
 async function resumoJuridico(userId: number) {
-  const perm = permissoesDoUsuarioId(userId, cadastrosDash());
+  const cadastros = cadastrosDash();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "juridico", "ler")) return null;
-  const lista = await listarEncaminhamentosJuridicos(userId);
+  let lista = await listarEncaminhamentosJuridicos(userId);
+  if (resolverPerfilOperacional(perm) === "advogado") {
+    const usuario = cadastros.usuarios.find((item) => item.id === userId);
+    const nome = usuario?.nome?.trim();
+    if (nome) lista = lista.filter((item) => item.advogadoResponsavel === nome);
+  }
   const abertos = lista.filter((item) => item.status !== "Arquivado" && item.status !== "Retornado à cobrança amigável");
   const mapa = new Map<string, number>();
   for (const item of lista) {
@@ -370,6 +397,41 @@ async function resumoJuridico(userId: number) {
     .map(([status, quantidade]) => ({ status, quantidade }))
     .sort((a, b) => b.quantidade - a.quantidade);
   return { total: lista.length, abertos: abertos.length, porStatus };
+}
+
+async function resumoNegociacoesAdvogado(userId: number): Promise<DashboardNegociacoesAdvogado | null> {
+  const cadastros = cadastrosDash();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
+  if (!temPermissao(perm, "negociacoes", "ler")) return null;
+
+  const lista = await listarPropostasNegociacao(userId);
+  const minhas = lista.filter((item) => item.advogadoResponsavelId === userId);
+  const emAnalise = minhas.filter((item) => item.status === "Em análise");
+
+  let parcelasVencidas = 0;
+  let acordosComDescumprimento = 0;
+  for (const proposta of minhas.filter((item) => item.status === "Aceita")) {
+    const parcelas = cadastros.parcelasAcordo.filter((item) => item.propostaId === proposta.id);
+    const pagamentos = cadastros.pagamentosAcordo.filter((item) => item.propostaId === proposta.id);
+    const resumo = calcularResumoAcordo(proposta, parcelas, pagamentos);
+    parcelasVencidas += resumo.parcelasVencidas;
+    if (resumo.potencialDescumprimento) acordosComDescumprimento += 1;
+  }
+
+  return {
+    total: minhas.length,
+    emAnalise: emAnalise.length,
+    aceitas: minhas.filter((item) => item.status === "Aceita").length,
+    parcelasVencidas,
+    acordosComDescumprimento,
+    pendentesAnalise: emAnalise.slice(0, 6).map((item) => ({
+      id: item.id,
+      unidadeId: item.unidadeId,
+      condominioId: item.condominioId,
+      criadoEm: item.criadoEm,
+      valorProposto: item.valorProposto,
+    })),
+  };
 }
 
 export async function obterDashboard(
@@ -451,6 +513,7 @@ export async function obterDashboard(
     indicadores: await indicadoresEscopo(userId, dataBase, limiteDias),
     rankingCondominio: (await rankingCondominios(userId, dataBase, limiteDias)).slice(0, 10),
     juridico: await resumoJuridico(userId),
+    negociacoes: await resumoNegociacoesAdvogado(userId),
     retornos,
   };
 }

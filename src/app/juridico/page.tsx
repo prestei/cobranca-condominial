@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
+import { ehAdministradora } from "@/lib/permissions/check";
 import { Clock, FileText, Pencil, Scale, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -87,9 +89,16 @@ function tituloEncaminhamentoMobile(item: EncaminhamentoJuridicoDetalhe, cadastr
 export default function JuridicoPage() {
   const { user: sessao } = useAuth();
   const cadastros = useCadastros();
-  const { pode } = usePermissao();
+  const { pode, permissoes } = usePermissao();
   const { toast } = useToast();
   const podeEditarJuridico = pode("juridico", "editar");
+  const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
+  const visaoAdvogado = perfil === "advogado";
+  const nomeAdvogadoLogado = useMemo(() => {
+    if (!sessao?.userId) return "";
+    const usuario = cadastros.usuarios.find((item) => item.id === sessao.userId);
+    return usuario?.nome?.trim() ?? "";
+  }, [cadastros.usuarios, sessao?.userId]);
 
   const [encaminhamentos, setEncaminhamentos] = useState<EncaminhamentoJuridicoDetalhe[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -104,7 +113,7 @@ export default function JuridicoPage() {
   const [appliedCondominio, setAppliedCondominio] = useState("todos");
   const [appliedAdvogado, setAppliedAdvogado] = useState("todos");
 
-  const [visao, setVisao] = useState<VisaoListagem>("advogado");
+  const [visao, setVisao] = useState<VisaoListagem>("geral");
   const [sortKey, setSortKey] = useState<SortKey>("encaminhado");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
@@ -154,6 +163,13 @@ export default function JuridicoPage() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    if (!visaoAdvogado || !nomeAdvogadoLogado) return;
+    setAdvogado(nomeAdvogadoLogado);
+    setAppliedAdvogado(nomeAdvogadoLogado);
+    setVisao("geral");
+  }, [visaoAdvogado, nomeAdvogadoLogado]);
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   const visible = encaminhamentos
@@ -246,11 +262,12 @@ export default function JuridicoPage() {
     setSearch("");
     setStatus("todos");
     setCondominio("todos");
-    setAdvogado("todos");
+    const advogadoLimpo = visaoAdvogado && nomeAdvogadoLogado ? nomeAdvogadoLogado : "todos";
+    setAdvogado(advogadoLimpo);
     setAppliedSearch("");
     setAppliedStatus("todos");
     setAppliedCondominio("todos");
-    setAppliedAdvogado("todos");
+    setAppliedAdvogado(advogadoLimpo);
     setPage(1);
   }
 
@@ -275,12 +292,14 @@ export default function JuridicoPage() {
     }
     if (podeEditarJuridico) {
       lista.push({ label: "Editar", icon: Pencil, onSelect: () => abrirDetalhe(item) });
-      lista.push({
-        label: "Excluir",
-        icon: Trash2,
-        destructive: true,
-        onSelect: () => solicitarExclusao(item),
-      });
+      if (ehAdministradora(permissoes)) {
+        lista.push({
+          label: "Excluir",
+          icon: Trash2,
+          destructive: true,
+          onSelect: () => solicitarExclusao(item),
+        });
+      }
     }
     return lista;
   }
@@ -484,7 +503,11 @@ export default function JuridicoPage() {
       <PageHeader
         icon={Scale}
         title="Jurídico"
-        description="Encaminhamentos jurídicos e acompanhamento pelos advogados."
+        description={
+          visaoAdvogado
+            ? "Seus encaminhamentos e status dos casos nos condomínios da sua carteira."
+            : "Encaminhamentos jurídicos e acompanhamento pelos advogados."
+        }
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
       />
       <PageContent className="max-md:gap-md max-md:py-md">
@@ -572,47 +595,60 @@ export default function JuridicoPage() {
                   ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome })),
                 ],
               },
-              {
-                id: "advogado",
-                label: "Advogado",
-                value: advogado,
-                onChange: setAdvogado,
-                options: [
-                  { value: "todos", label: "Todos" },
-                  ...advogadosFiltro.map((item) => ({ value: item, label: item })),
-                ],
-              },
+              ...(visaoAdvogado
+                ? []
+                : [
+                    {
+                      id: "advogado",
+                      label: "Advogado",
+                      value: advogado,
+                      onChange: setAdvogado,
+                      options: [
+                        { value: "todos", label: "Todos" },
+                        ...advogadosFiltro.map((item) => ({ value: item, label: item })),
+                      ],
+                    },
+                  ]),
             ]}
           />
         </FiltrosSection>
 
-        <Tabs
-          value={visao}
-          onValueChange={(value) => {
-            setVisao(value as VisaoListagem);
-            setPage(1);
-          }}
-          defaultValue="advogado"
-          className="flex flex-col gap-md"
-        >
-          <TabsList>
-            <TabsTrigger value="advogado">Por advogados</TabsTrigger>
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-          </TabsList>
-          <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTableAdvogado}
-              mobile={mobileTableAdvogado}
-              showExport={false}
-            />
-          </TabsContent>
-          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+        {visaoAdvogado ? (
+          <>
             <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
             {visible.length > 0 ? (
               <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
             ) : null}
-          </TabsContent>
-        </Tabs>
+          </>
+        ) : (
+          <Tabs
+            value={visao}
+            onValueChange={(value) => {
+              setVisao(value as VisaoListagem);
+              setPage(1);
+            }}
+            defaultValue="advogado"
+            className="flex flex-col gap-md"
+          >
+            <TabsList>
+              <TabsTrigger value="advogado">Por advogados</TabsTrigger>
+              <TabsTrigger value="geral">Geral</TabsTrigger>
+            </TabsList>
+            <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
+              <ResponsiveTable
+                desktop={desktopTableAdvogado}
+                mobile={mobileTableAdvogado}
+                showExport={false}
+              />
+            </TabsContent>
+            <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
+              <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
+              {visible.length > 0 ? (
+                <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+              ) : null}
+            </TabsContent>
+          </Tabs>
+        )}
           </>
         )}
       </PageContent>

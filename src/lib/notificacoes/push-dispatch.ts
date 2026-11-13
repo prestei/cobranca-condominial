@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { NotificacaoInterna } from "@/data/catalogo";
 import {
   deletePushTokensByValues,

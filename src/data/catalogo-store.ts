@@ -1,5 +1,3 @@
-import "server-only";
-
 import { sanitizarCamposAlterados, sanitizarTextoAuditoria } from "@/lib/auditoria/sanitize";
 import { entradaLoginCoincideCodigo } from "@/lib/auth/codigo";
 import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
@@ -33,7 +31,7 @@ import {
   getRequestCatalog,
   mutateRequestCatalog,
   tryGetRequestCatalog,
-} from "@/lib/db/request-catalog";
+} from "@/lib/db/request-catalog-state";
 
 function usuarioCorrespondeAoLogin(item: Usuario, codigoEntrada: string) {
   if (item.ativo === false) return false;

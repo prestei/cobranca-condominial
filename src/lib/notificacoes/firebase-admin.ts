@@ -1,5 +1,3 @@
-import "server-only";
-
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getMessaging, type Messaging } from "firebase-admin/messaging";
 import { firebaseAdminCredentialFromEnv, pushFirebaseHabilitadoNoServidor } from "@/lib/notificacoes/firebase-config";

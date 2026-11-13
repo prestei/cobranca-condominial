@@ -20,6 +20,8 @@ Definição de cargos (perfis) e matriz de permissões por módulo do sistema. O
 
 ## Perfis e permissões
 
+Matriz detalhada por cargo de fábrica (o que cada perfil vê no menu, no Início e nas APIs): **[matriz-permissoes-por-cargo.md](matriz-permissoes-por-cargo.md)**.
+
 | Quem configura | Quem é afetado |
 |----------------|----------------|
 | Colaborador com `cargos.criar` / `cargos.editar` | Todos os usuários vinculados ao cargo em [usuarios](usuarios.md) |

@@ -509,7 +509,7 @@ const usuariosSeedDemo: Usuario[] = [
   },
   {
     id: 6,
-    codigo: "12345",
+    codigo: "USUARIOTST",
     codigoRe: "RE-10005",
     cargoId: 1,
     nome: "Usuário Teste",

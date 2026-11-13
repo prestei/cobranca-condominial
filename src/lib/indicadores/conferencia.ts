@@ -89,11 +89,12 @@ export async function consultarReferenciaIndicador(
   indicador: IndicadorProdutividadeId,
   filtros: RelatorioFiltros,
 ): Promise<ConsultaReferenciaIndicador> {
-  const perm = permissoesDoUsuarioId(userId);
+  const cadastros = await loadCadastrosForScope();
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "relatorios", "ler")) {
     throw new ConferenciaIndicadoresError("Sem permissão para consultar indicadores.", 403);
   }
-  if (!podeAcessarPainelProdutividadeGlobal(userId)) {
+  if (!podeAcessarPainelProdutividadeGlobal(userId, cadastros)) {
     throw new ConferenciaIndicadoresError("Consulta de referência disponível apenas para a administradora.", 403);
   }
 

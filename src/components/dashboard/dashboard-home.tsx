@@ -60,12 +60,13 @@ export function DashboardHome() {
 
   const chaveGrafico = dados ? `dash|${dados.perfil}|${dados.dataBase}` : "dash";
   const perfilAtendente = !carregando && !erro && dados?.perfil === "atendente";
+  const perfilAdvogado = !carregando && !erro && dados?.perfil === "advogado";
   const perfilOutro =
     !carregando && !erro && dados && (dados.perfil === "administradora" || dados.perfil === "advogado");
 
   return (
     <WorkspaceShell>
-      {perfilAtendente ? null : (
+      {perfilAtendente || perfilAdvogado ? null : (
         <PageHeader
           icon={LayoutDashboard}
           title={tituloInicio(usuario.name)}
@@ -99,7 +100,12 @@ export function DashboardHome() {
         ) : null}
 
         {!carregando && !erro && dados?.perfil === "advogado" ? (
-          <DashboardAdvogadoView dados={dados} chaveGrafico={chaveGrafico} />
+          <DashboardAdvogadoView
+            dados={dados}
+            cadastros={cadastros}
+            nomeUsuario={usuario.name}
+            chaveGrafico={chaveGrafico}
+          />
         ) : null}
       </PageContent>
     </WorkspaceShell>
