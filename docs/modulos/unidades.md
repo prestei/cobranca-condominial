@@ -13,9 +13,9 @@ Cadastro e consulta de unidades por condomínio, com condôminos/responsáveis f
 
 ## Rotas e telas
 
-- `/unidades` — `src/app/unidades/page.tsx` — listagem em abas **Por condomínio** (padrão) e **Geral** (última); painéis recolhíveis com tabela/paginação por condomínio; filtros; CRUD em `Sheet`; consulta em `UnidadeDetalheSheet`; **Importar** / **Exportar** na tabela (`showImport` + `onExport`; Importar exige `importacoes.criar`)
+- `/unidades` — `src/app/unidades/page.tsx` — listagem em abas **Por condomínio** (padrão) e **Geral** (última); painéis recolhíveis com tabela/paginação por condomínio; no cabeçalho de cada painel, **Prazo inadimplência: N dias** (ou padrão 60) conforme `delinquencyTrackingDays` do condomínio; filtros; CRUD em `Sheet`; consulta em `UnidadeDetalheSheet`; **Importar** / **Exportar** na tabela (`showImport` + `onExport`; Importar exige `importacoes.criar`)
 - Agrupamento: `src/components/unidades/unidades-por-condominio-lista.tsx`
-- Atalhos: `/debitos?unidade={id}`, `/atendimentos?unidade={id}`, `/atendimentos?novo=1&unidade={id}`
+- Atalhos: `/debitos?unidade={id}`, `/atendimentos?unidade={id}`, `/atendimentos?novo=1&unidade={id}`; desde **Condomínios** (aba Por condomínio): `/unidades?condominio={condominioId}&editar={unidadeId}` (sheet de edição) e `&consultar={unidadeId}` (detalhe); `&novo=1` abre cadastro novo com condomínio pré-selecionado
 
 ## Perfis e permissões
 

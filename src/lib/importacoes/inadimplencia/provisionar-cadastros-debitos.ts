@@ -460,6 +460,7 @@ async function criarCondominioProvisionamento(
     cidade,
     estado,
     observacao: input.observacao,
+    delinquencyTrackingDays: null,
   };
   setCondominios((current) => [...current, condominio]);
   registrarAuditoria(

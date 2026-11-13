@@ -1,4 +1,8 @@
-import { acimaDoLimite, debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, faixasAtraso, type Cadastros, grupoDebito, gruposDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, type Debito } from "@/data/catalogo";
+import { debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, faixasAtraso, type Cadastros, grupoDebito, gruposDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, type Debito } from "@/data/catalogo";
+import {
+  delinquencyTrackingDaysForCondominiumId,
+  isAboveDelinquencyTrackingLimit,
+} from "@/lib/inadimplencia/delinquency-tracking";
 import { listarAtendimentos } from "@/lib/atendimentos/service";
 import type { DebitoIndicadores } from "@/lib/debitos/indicadores";
 import { somarValorAtualizadoSemDuplicata } from "@/lib/debitos/indicadores";
@@ -301,10 +305,18 @@ function distribuicaoAdvogados(
       const itens = debitos.filter((item) => ids.has(item.condominioId));
       const valor = somarValorAtualizadoSemDuplicata(itens);
       const ateLimite = somarValorAtualizadoSemDuplicata(
-        itens.filter((item) => !acimaDoLimite(diasDeAtraso(item.dataVencimento, dataBase), limiteDias)),
+        itens.filter((item) => {
+          const prazo = delinquencyTrackingDaysForCondominiumId(item.condominioId, cadastros);
+          const dias = diasDeAtraso(item.dataVencimento, dataBase);
+          return !isAboveDelinquencyTrackingLimit(dias, prazo);
+        }),
       );
       const acimaLimite = somarValorAtualizadoSemDuplicata(
-        itens.filter((item) => acimaDoLimite(diasDeAtraso(item.dataVencimento, dataBase), limiteDias)),
+        itens.filter((item) => {
+          const prazo = delinquencyTrackingDaysForCondominiumId(item.condominioId, cadastros);
+          const dias = diasDeAtraso(item.dataVencimento, dataBase);
+          return isAboveDelinquencyTrackingLimit(dias, prazo);
+        }),
       );
       return { nome, valor, ateLimite, acimaLimite };
     })

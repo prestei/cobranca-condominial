@@ -185,14 +185,14 @@ function somarRecuperacaoFinanceiraNoPeriodo(
   return total;
 }
 
-function saldoAbertoNaData(userId: number, dataBase: string, limiteDias: number, cadastros: Cadastros = getCadastros()) {
+function saldoAbertoNaData(userId: number, dataBase: string, _limiteDias: number, cadastros: Cadastros = getCadastros()) {
   const unidadesCarteira = unidadeIdsCarteiraVigente(userId, cadastros).size;
   const debitos = debitosCarteiraVigenteComCadastros(cadastros, userId);
   return calcularIndicadoresInadimplencia({
     debitos,
     dataBase,
-    limiteDias,
     unidadesCarteira,
+    catalog: cadastros,
   }).totalAtualizado;
 }
 

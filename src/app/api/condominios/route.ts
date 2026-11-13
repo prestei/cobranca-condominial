@@ -26,6 +26,11 @@ function parseCondominioBody(body: unknown): CondominioInput | null {
   const id = record.id !== undefined ? Number(record.id) : undefined;
 
   const str = (key: string) => (typeof record[key] === "string" ? (record[key] as string) : "");
+  const delinquencyTrackingDaysRaw = record.delinquencyTrackingDays;
+  const delinquencyTrackingDays =
+    delinquencyTrackingDaysRaw === null || delinquencyTrackingDaysRaw === undefined
+      ? null
+      : Number(delinquencyTrackingDaysRaw);
 
   return {
     ...(Number.isFinite(id) ? { id } : {}),
@@ -41,6 +46,10 @@ function parseCondominioBody(body: unknown): CondominioInput | null {
     cidade: str("cidade"),
     estado: str("estado"),
     observacao: str("observacao"),
+    delinquencyTrackingDays:
+      delinquencyTrackingDays === null || (Number.isInteger(delinquencyTrackingDays) && delinquencyTrackingDays >= 1)
+        ? delinquencyTrackingDays
+        : null,
   };
 }
 

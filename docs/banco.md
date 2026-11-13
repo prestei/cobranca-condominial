@@ -106,6 +106,7 @@ Condomínio atendido.
 | numero | TEXT | sim | | Número do endereço |
 | complemento | VARCHAR(255) | sim | | |
 | observacao | TEXT | sim | | |
+| delinquency_tracking_days | INT | sim | ≥ 1 quando preenchido | Prazo em dias para acompanhamento da inadimplência no condomínio; `NULL` usa o padrão da aplicação (`LIMITE_AMIGAVEL_DIAS`, 60) |
 
 ## unit
 

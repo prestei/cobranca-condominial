@@ -52,6 +52,7 @@ export const condominiosBaseTeste: Condominio[] = [
     cidade: "Salvador",
     estado: "BA",
     observacao: "Base de demonstração — unidades 101 e 102.",
+    delinquencyTrackingDays: null,
   },
   {
     id: 2,
@@ -67,6 +68,7 @@ export const condominiosBaseTeste: Condominio[] = [
     cidade: "Salvador",
     estado: "BA",
     observacao: "Base de demonstração — unidades 103 e 104.",
+    delinquencyTrackingDays: null,
   },
 ];
 

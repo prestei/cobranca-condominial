@@ -83,6 +83,7 @@ export function mapCondominiumToCondominio(row: Condominium): Condominio {
     numero: row.number ?? "",
     complemento: row.complement ?? "",
     observacao: row.notes ?? "",
+    delinquencyTrackingDays: row.delinquencyTrackingDays ?? null,
   };
 }
 

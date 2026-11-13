@@ -22,6 +22,7 @@ function condominioToCreateData(item: Condominio) {
     number: texto(item.numero),
     complement: texto(item.complemento),
     notes: texto(item.observacao),
+    delinquencyTrackingDays: item.delinquencyTrackingDays,
   };
 }
 
@@ -61,21 +62,23 @@ export async function createCondominium(item: Condominio): Promise<Condominio> {
 }
 
 export async function updateCondominium(item: Condominio): Promise<Condominio> {
+  const base = condominioToCreateData(item);
   const row = await prisma.condominium.update({
     where: { id: item.id },
     data: {
-      name: item.nome,
-      externalId: texto(item.identificadorExterno),
-      status: item.status === "Inativo" ? "Inativo" : "Ativo",
-      lawyersJson: JSON.stringify(item.advogados ?? []),
-      administrator: texto(item.administradora),
-      state: texto(item.estado),
-      city: texto(item.cidade),
-      zipCode: texto(item.cep),
-      street: texto(item.logradouro),
-      number: texto(item.numero),
-      complement: texto(item.complemento),
-      notes: texto(item.observacao),
+      name: base.name,
+      externalId: base.externalId,
+      status: base.status,
+      lawyersJson: base.lawyersJson,
+      administrator: base.administrator,
+      state: base.state,
+      city: base.city,
+      zipCode: base.zipCode,
+      street: base.street,
+      number: base.number,
+      complement: base.complement,
+      notes: base.notes,
+      delinquencyTrackingDays: base.delinquencyTrackingDays,
     },
   });
   return mapCondominiumToCondominio(row);

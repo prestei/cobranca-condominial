@@ -13,7 +13,7 @@ Consultar e acompanhar débitos por unidade e condomínio, com valores e situaç
 
 ## Rotas e telas
 
-- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs, filtros, gráficos de percentuais (rosca de unidades + barras de valor por faixa de atraso, sem título de seção) e listagem em **abas** — **Por condomínio** (padrão, à frente: todos os condomínios na tela, painel recolhível, tabela e paginação por condomínio) e **Geral** (tabela plana). Ação do cabeçalho **Nova inadimplência**; **Importar** / **Exportar** no `ResponsiveTable`; cadastro/edição em sheet; confirmação de unidade quitada.
+- `/debitos` — `src/app/debitos/page.tsx` — painel **Inadimplência**: KPIs, filtros, gráficos de percentuais (rosca de unidades + barras de valor por faixa de atraso, sem título de seção) e listagem em **abas** — **Por condomínio** (padrão, à frente: todos os condomínios na tela, painel recolhível com **Prazo inadimplência: N dias** no subtítulo do bloco, tabela e paginação por condomínio) e **Geral** (tabela plana). Ação do cabeçalho **Nova inadimplência**; **Importar** / **Exportar** no `ResponsiveTable`; cadastro/edição em sheet; confirmação de unidade quitada.
 
 ## Perfis e permissões
 
@@ -62,6 +62,8 @@ Serviço: `src/lib/debitos/service.ts`. Sincronização cliente: `src/lib/debito
 5. **Quitação da unidade** — situação `Quitada` (fora da fila); atendimentos e débitos históricos permanecem.
 
 ## Regras de negócio
+
+- **Prazo de acompanhamento (T02):** cada débito usa o prazo do condomínio (`delinquencyTrackingDays`, padrão 60). Na data-base do painel, exibe dias em atraso, dias restantes e situação (dentro do prazo, próximo do limite, atingido, ultrapassado). Alterar o prazo no condomínio não altera vencimentos nem valores persistidos.
 
 - Débito da unidade como origem do atendimento de cobrança.
 - Não inventar juros/multa/correção: usar apenas campos gravados.

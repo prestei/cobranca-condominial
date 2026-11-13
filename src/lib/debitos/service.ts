@@ -1,4 +1,5 @@
 import { agoraIso, debitoEmAberto, origensDebito, statusDebito, type Debito, type FonteValoresDebito } from "@/data/catalogo";
+import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   createDebt,
@@ -211,12 +212,14 @@ export async function obterIndicadoresDebitos(
   userId: number,
   input: Omit<DebitoIndicadoresInput, "debitos"> & { filtros?: DebitoFiltros },
 ): Promise<DebitoIndicadores> {
+  const cadastros = await loadCadastrosForScope();
   const debitos = await listarDebitos(userId, input.filtros);
   return calcularIndicadoresInadimplencia({
     debitos,
     dataBase: input.dataBase,
     limiteDias: input.limiteDias,
     unidadesCarteira: input.unidadesCarteira,
+    catalog: cadastros,
   });
 }
 

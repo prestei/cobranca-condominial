@@ -95,6 +95,7 @@ import { useAuth } from "@/context/auth-context";
 import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
 import { rotuloSituacaoListagemUnidade } from "@/lib/unidades/situacao-listagem";
+import { delinquencyTrackingDaysCaptionForCondominiumId } from "@/lib/inadimplencia/delinquency-tracking";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
@@ -149,7 +150,7 @@ function UnidadesPage() {
   const formId = useId();
   const importacaoWizardRef = useRef<ImportacaoWizardHandle>(null);
   const cadastros = useCadastros();
-  const { refetch } = useCadastrosStatus();
+  const { refetch, loading: catalogLoading } = useCadastrosStatus();
   const userIdEscopo = user?.userId;
   const condominiosVisiveis = useMemo(
     () => (userIdEscopo == null ? [] : escopoCondominios(cadastros, userIdEscopo)),
@@ -245,6 +246,45 @@ function UnidadesPage() {
     setCondominio(condominioQuery);
     setAppliedCondominio(condominioQuery);
     setPage(1);
+
+    const editarQuery = searchParams?.get("editar");
+    if (editarQuery) {
+      const unidadeId = Number(editarQuery);
+      if (Number.isFinite(unidadeId)) {
+        const unidade = cadastros.unidades.find(
+          (u) => u.id === unidadeId && String(u.condominioId) === condominioQuery,
+        );
+        if (unidade) {
+          openEdit(unidade);
+          router.replace(`/unidades?condominio=${condominioQuery}`);
+        } else if (!catalogLoading) {
+          router.replace(`/unidades?condominio=${condominioQuery}`);
+        }
+      } else if (!catalogLoading) {
+        router.replace(`/unidades?condominio=${condominioQuery}`);
+      }
+      return;
+    }
+
+    const consultarQuery = searchParams?.get("consultar");
+    if (consultarQuery) {
+      const unidadeId = Number(consultarQuery);
+      if (Number.isFinite(unidadeId)) {
+        const unidade = cadastros.unidades.find(
+          (u) => u.id === unidadeId && String(u.condominioId) === condominioQuery,
+        );
+        if (unidade) {
+          setDetalheId(unidadeId);
+          router.replace(`/unidades?condominio=${condominioQuery}`);
+        } else if (!catalogLoading) {
+          router.replace(`/unidades?condominio=${condominioQuery}`);
+        }
+      } else if (!catalogLoading) {
+        router.replace(`/unidades?condominio=${condominioQuery}`);
+      }
+      return;
+    }
+
     if (searchParams?.get("novo") !== "1") return;
     const inicial = { ...formularioVazio, condominioId: condominioQuery };
     setEditingId(null);
@@ -257,7 +297,7 @@ function UnidadesPage() {
     setErrorsResponsavel({});
     setSheetOpen(true);
     router.replace(`/unidades?condominio=${condominioQuery}`);
-  }, [router, searchParams, user?.userId]);
+  }, [cadastros.unidades, catalogLoading, router, searchParams, user?.userId]);
 
   const debitosAbertos = new Map<number, number>();
   const diasAtrasoMax = new Map<number, number>();
@@ -322,6 +362,8 @@ function UnidadesPage() {
     });
 
   const gruposCondominio = useMemo(() => agruparUnidadesPorCondominio(visible, cadastros), [visible, cadastros]);
+  const descricaoPrazoCondominio = (condominioId: number) =>
+    delinquencyTrackingDaysCaptionForCondominiumId(condominioId, cadastros);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -1175,6 +1217,7 @@ function UnidadesPage() {
                   renderSituacao={celulaSituacao}
                   renderDebito={celulaDebito}
                   acoes={acoes}
+                  descricaoPrazoCondominio={descricaoPrazoCondominio}
                 />
               }
               mobile={
@@ -1188,6 +1231,7 @@ function UnidadesPage() {
                   renderSituacao={celulaSituacao}
                   renderDebito={celulaDebito}
                   acoes={acoes}
+                  descricaoPrazoCondominio={descricaoPrazoCondominio}
                 />
               }
               onExport={aoExportar}

@@ -1,4 +1,5 @@
 import { escopoCondominios, opcoesAdvogadosResponsaveis, statusCondominio, type Condominio, type StatusCondominio } from "@/data/catalogo";
+import { parseDelinquencyTrackingDaysInput } from "@/lib/inadimplencia/delinquency-tracking";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
@@ -64,6 +65,11 @@ async function validarEntrada(input: CondominioInput, editingId: number | null):
     throw new CondominioServiceError("Situação do condomínio inválida.", 400);
   }
 
+  const prazoParsed = parseDelinquencyTrackingDaysInput(input.delinquencyTrackingDays);
+  if (!prazoParsed.ok) {
+    throw new CondominioServiceError(prazoParsed.message, 400);
+  }
+
   return {
     nome,
     identificadorExterno,
@@ -77,6 +83,7 @@ async function validarEntrada(input: CondominioInput, editingId: number | null):
     cidade: input.cidade.trim(),
     estado: input.estado.trim(),
     observacao: input.observacao.trim(),
+    delinquencyTrackingDays: prazoParsed.value,
   };
 }
 
@@ -112,7 +119,7 @@ export async function criarCondominio(
     action: "INSERT",
     previousData: "",
     newData: criado.nome,
-    changedFields: "nome, identificador_externo, advogados, endereco",
+    changedFields: "nome, identificador_externo, advogados, endereco, delinquency_tracking_days",
     userId,
     ip: meta?.ip,
     userAgent: meta?.userAgent,
@@ -140,7 +147,7 @@ export async function atualizarCondominio(
     action: "UPDATE",
     previousData: atual.nome,
     newData: salvo.nome,
-    changedFields: "nome, identificador_externo, advogados, endereco, status",
+    changedFields: "nome, identificador_externo, advogados, endereco, status, delinquency_tracking_days",
     userId,
     ip: meta?.ip,
     userAgent: meta?.userAgent,

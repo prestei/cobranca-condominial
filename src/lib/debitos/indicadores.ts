@@ -1,10 +1,17 @@
-import { acimaDoLimite, debitoAbertoNaData, diasDeAtraso, type Debito } from "@/data/catalogo";
+import { debitoAbertoNaData, diasDeAtraso, type Cadastros, type Debito } from "@/data/catalogo";
+import {
+  delinquencyTrackingDaysForCondominiumId,
+  isAboveDelinquencyTrackingLimit,
+  resolveDelinquencyTrackingDays,
+} from "@/lib/inadimplencia/delinquency-tracking";
 
 export type DebitoIndicadoresInput = {
   debitos: Debito[];
   dataBase: string;
-  limiteDias: number;
+  /** Legado: usado só quando `catalog` não é informado. */
+  limiteDias?: number;
   unidadesCarteira: number;
+  catalog?: Cadastros;
 };
 
 export type DebitoIndicadores = {
@@ -50,18 +57,31 @@ export function somarValorOriginalSemDuplicata(itens: Debito[]): number {
 }
 
 /** Usa apenas valores persistidos; não calcula juros, multa ou correção. */
+function trackingDaysForDebt(item: Debito, input: DebitoIndicadoresInput): number {
+  if (input.catalog) {
+    return delinquencyTrackingDaysForCondominiumId(item.condominioId, input.catalog);
+  }
+  return resolveDelinquencyTrackingDays(
+    input.limiteDias != null ? { delinquencyTrackingDays: input.limiteDias } : null,
+  );
+}
+
 export function calcularIndicadoresInadimplencia(input: DebitoIndicadoresInput): DebitoIndicadores {
-  const { debitos, dataBase, limiteDias, unidadesCarteira } = input;
+  const { debitos, dataBase, unidadesCarteira } = input;
   const emAbertoNaData = debitos.filter((item) => debitoAbertoNaData(item, dataBase));
   const diasNaBase = (item: Debito) => diasDeAtraso(item.dataVencimento, dataBase);
 
   const totalOriginal = somarValorOriginalSemDuplicata(emAbertoNaData);
   const totalAtualizado = somarValorAtualizadoSemDuplicata(emAbertoNaData);
   const ateLimite = somarValorAtualizadoSemDuplicata(
-    emAbertoNaData.filter((item) => !acimaDoLimite(diasNaBase(item), limiteDias)),
+    emAbertoNaData.filter(
+      (item) => !isAboveDelinquencyTrackingLimit(diasNaBase(item), trackingDaysForDebt(item, input)),
+    ),
   );
   const acimaLimite = somarValorAtualizadoSemDuplicata(
-    emAbertoNaData.filter((item) => acimaDoLimite(diasNaBase(item), limiteDias)),
+    emAbertoNaData.filter((item) =>
+      isAboveDelinquencyTrackingLimit(diasNaBase(item), trackingDaysForDebt(item, input)),
+    ),
   );
 
   const unidadesDevedoras = new Set(emAbertoNaData.map((item) => item.unidadeId)).size;

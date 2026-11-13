@@ -4,6 +4,7 @@ Registro de requisitos que dependem de aprovação antes de implementação comp
 
 | Tema | Status | Notas |
 | --- | --- | --- |
+| **Prazo de inadimplência** quando o condomínio não configura dias | Definido | Padrão **60 dias** (`LIMITE_AMIGAVEL_DIAS`); contagem por débito na data-base do painel. |
 | Algoritmo de **distribuição automática** da carteira (rodízio, carga, condomínio, volume ou outro) | Implementado (protótipo) | Quatro estratégias em `executarDistribuicaoAutomatica`; config em memória até persistência PostgreSQL. |
 | Regra de **entrada automática** na cobrança ao importar débitos | Parcial | Importação de inadimplência promove unidade em **Sem cobrança** → **Em cobrança** na **confirmação** (quando os débitos são gravados); demais transições operacionais seguem manuais. |
 | **Formato(s) oficial(is)** de relatório por administradora (PDF, Excel proprietário, colunas) | Pendente | T13 entrega `planilha-inadimplencia-v1` (CSV/XLS genérico); leitores por modelo a definir. |

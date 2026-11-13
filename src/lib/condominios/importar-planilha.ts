@@ -124,6 +124,7 @@ function montarPayload(
       cidade: camposNormalizados.cidade.normalizado ?? "",
       estado: camposNormalizados.estado.normalizado ?? "",
       observacao: camposNormalizados.observacao.normalizado ?? "",
+      delinquencyTrackingDays: null,
     },
   };
 }
