@@ -59,6 +59,7 @@ model User {
   legalDocuments              LegalDocument[]          @relation("LegalDocumentRegisteredBy")
   internalNotifications       InternalNotification[]
   notificationFailures        NotificationFailure[]
+  pushTokens                  UserPushToken[]
 
   @@map("user")
 }
@@ -424,6 +425,20 @@ model NotificationFailure {
   recipient User @relation(fields: [recipientId], references: [id])
 
   @@map("notification_failure")
+}
+
+model UserPushToken {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("usuario_id")
+  fcmToken   String   @unique @map("fcm_token") @db.VarChar(512)
+  userAgent  String?  @map("user_agent") @db.VarChar(512)
+  createdAt  DateTime @map("criado_em")
+  lastUsedAt DateTime @map("ultimo_uso_em")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "user_push_token_usuario_id_idx")
+  @@map("user_push_token")
 }
 
 model AppSetting {

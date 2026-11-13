@@ -2,7 +2,7 @@ import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import {
   DistribuicaoServiceError,
   distribuirUnidades,
-  podeGerenciarDistribuicao,
+  podeGerenciarDistribuicaoAsync,
 } from "@/lib/distribuicao/service";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { requestMeta } from "@/lib/unidades/service";
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const session = await requireSession();
   if (isErrorResponse(session)) return session;
 
-  if (!podeGerenciarDistribuicao(session.userId)) {
+  if (!(await podeGerenciarDistribuicaoAsync(session.userId))) {
     return Response.json({ error: "Sem permissão para distribuir cobranças." }, { status: 403 });
   }
 

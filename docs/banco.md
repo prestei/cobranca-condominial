@@ -27,6 +27,7 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [audit_log](#audit_log) | Auditoria de alteração |
 | [internal_notification](#internal_notification) | Notificação in-app (T34) |
 | [notification_failure](#notification_failure) | Falha ao emitir notificação (T34) |
+| [user_push_token](#user_push_token) | Token FCM por colaborador (push web T34) |
 | [app_setting](#app_setting) | Configurações de app (chave/valor JSON) |
 
 ## Diagrama
@@ -374,11 +375,11 @@ Alertas in-app por colaborador (T34). Protótipo em `NotificacaoInterna` (`catal
 | --- | --- | --- | --- | --- |
 | id | INT | não | PK, autoincremento | |
 | chave_idempotencia | VARCHAR | não | único | Evita duplicidade por evento |
-| evento | VARCHAR | não | | retorno_agendado, retorno_lembrete_hoje, cobranca_atribuida |
+| evento | VARCHAR | não | | retorno_agendado, retorno_lembrete_hoje, cobranca_atribuida, inadimplencia_prazo_* (T03) |
 | destinatario_id | INT | não | FK → user.id | Caixa pessoal |
 | titulo | VARCHAR | não | | |
 | descricao | TEXT | sim | | |
-| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment |
+| entidade_tipo | VARCHAR | não | | service_ticket, collection_assignment, debt |
 | registro_id | VARCHAR | não | | ID do registro relacionado |
 | unidade_id | INT | sim | FK → unit.id | Para escopo e deep link |
 | condominio_id | INT | sim | FK → condominium.id | |
@@ -397,6 +398,19 @@ Falhas ao emitir notificação (não bloqueia fluxo principal).
 | destinatario_id | INT | sim | | |
 | erro | TEXT | não | | |
 | ocorrido_em | TIMESTAMP | não | | |
+
+## user_push_token
+
+Tokens FCM registrados por colaborador para push web (T34). Migration `20261113130000_user_push_token`.
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | INT | não | PK, autoincremento | |
+| usuario_id | INT | não | FK → user.id, ON DELETE CASCADE | Dono do dispositivo |
+| fcm_token | VARCHAR(512) | não | único | Token Firebase Cloud Messaging |
+| user_agent | VARCHAR(512) | sim | | Navegador/dispositivo no registro |
+| criado_em | TIMESTAMP | não | | Primeiro registro |
+| ultimo_uso_em | TIMESTAMP | não | | Última renovação do token |
 
 ## app_setting
 
@@ -438,3 +452,4 @@ Configurações persistidas do aplicativo (ex.: distribuição automática). Mig
 | audit_log | user | muitos para um | usuario_id |
 | internal_notification | user | muitos para um | destinatario_id |
 | internal_notification | unit | muitos para um | unidade_id |
+| user_push_token | user | muitos para um | usuario_id |

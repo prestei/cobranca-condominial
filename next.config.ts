@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // `pg` e afins só no servidor (proxy Node + APIs) — não empacotar no bundle do browser.
-  serverExternalPackages: ["@prisma/client", "prisma", "pdfjs-dist"],
+  serverExternalPackages: ["@prisma/client", "prisma", "pdfjs-dist", "firebase-admin"],
 };
 
 export default nextConfig;

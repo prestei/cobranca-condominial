@@ -1,5 +1,6 @@
 import { agoraIso, escopoCondominios, nomeCondominio, proximoNumero, situacaoCobrancaUnidade, type Debito, type Importacao } from "@/data/catalogo";
 import { getCadastros, registrarAuditoria, setDebitos, setUnidades } from "@/data/catalogo-store";
+import { situacaoDestinoAposDebitoEmAberto } from "@/lib/debitos/promover-unidade-cobranca";
 import {
   chaveDuplicidadeDebitoNoArquivo,
   detectarDuplicidadeDebito,
@@ -75,21 +76,20 @@ export function montarResumoLinhaDebitoImportacao(row: DebitoImportRow): Record<
   };
 }
 
-import { montarResumoDebitoDeDadosOriginais } from "@/lib/importacao-centro/adaptadores/debitos-resumo";
+import {
+  mesclarResumoLinhaImportacao,
+  montarResumoDebitoDeDadosOriginais,
+} from "@/lib/importacao-centro/adaptadores/debitos-resumo";
 
 export { montarResumoDebitoDeDadosOriginais };
 
 export function enriquecerLinhasConferenciaDebitos(
   linhas: LinhaConferencia<DebitoImportRow>[],
 ): LinhaConferencia<DebitoImportRow>[] {
-  return linhas.map((item) => {
-    if (item.resumo && Object.values(item.resumo).some((valor) => valor.trim() && valor !== "—")) {
-      return item;
-    }
-    const dados = item.validacao?.dadosOriginais;
-    if (!dados || Object.keys(dados).length === 0) return item;
-    return { ...item, resumo: montarResumoDebitoDeDadosOriginais(dados) };
-  });
+  return linhas.map((item) => ({
+    ...item,
+    resumo: mesclarResumoLinhaImportacao(item.resumo, item.validacao?.dadosOriginais),
+  }));
 }
 
 function debitoEquivalente(a: Debito, row: DebitoImportRow): boolean {
@@ -271,8 +271,9 @@ export const adaptadorImportacaoDebitos: AdaptadorImportacao<DebitoImportRow, Co
     setUnidades((current) =>
       current.map((item) => {
         if (!idsPromover.has(item.id)) return item;
-        if (situacaoCobrancaUnidade(item) !== "Sem cobrança") return item;
-        return { ...item, situacao: "Em cobrança" };
+        const destino = situacaoDestinoAposDebitoEmAberto(item);
+        if (!destino) return item;
+        return { ...item, situacao: destino };
       }),
     );
 

@@ -93,7 +93,7 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, persistedDebtBalanceAmount, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
 import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
 import { rotuloSituacaoListagemUnidade } from "@/lib/unidades/situacao-listagem";
 import { delinquencyTrackingDaysCaptionForCondominiumId } from "@/lib/inadimplencia/delinquency-tracking";
@@ -304,7 +304,10 @@ function UnidadesPage() {
   const diasAtrasoMax = new Map<number, number>();
   for (const item of cadastros.debitos) {
     if (item.status !== "Pendente" && item.status !== "Vencido") continue;
-    debitosAbertos.set(item.unidadeId, (debitosAbertos.get(item.unidadeId) ?? 0) + Number(item.valorAtualizado || 0));
+    debitosAbertos.set(
+      item.unidadeId,
+      (debitosAbertos.get(item.unidadeId) ?? 0) + persistedDebtBalanceAmount(item),
+    );
     const dias = diasDeAtraso(item.dataVencimento);
     diasAtrasoMax.set(item.unidadeId, Math.max(diasAtrasoMax.get(item.unidadeId) ?? 0, dias));
   }

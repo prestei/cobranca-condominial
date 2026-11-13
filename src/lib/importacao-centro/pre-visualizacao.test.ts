@@ -20,6 +20,13 @@ test("indicadorLinhaPreVisualizacao prioriza erro de parse e do motor", () => {
       situacao: "duplicado",
       validacao: { resultado: "valido" } as never,
     }),
+    "valido",
+  );
+  assert.equal(
+    indicadorLinhaPreVisualizacao({
+      situacao: "duplicado",
+      validacao: { resultado: "atencao" } as never,
+    }),
     "atencao",
   );
 });
@@ -36,10 +43,10 @@ test("contarPreVisualizacao agrega válidos, atenção, erros e duplicidades", (
     },
   ];
   const contagens = contarPreVisualizacao(linhas);
-  assert.equal(contagens.validos, 1);
+  assert.equal(contagens.validos, 2);
   assert.equal(contagens.duplicidades, 1);
   assert.equal(contagens.erros, 1);
-  assert.equal(contagens.atencao, 2);
+  assert.equal(contagens.atencao, 1);
 });
 
 test("linhaSeraGravada considera apenas novos e atualizações sem erro", () => {

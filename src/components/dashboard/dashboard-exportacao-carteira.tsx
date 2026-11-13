@@ -5,20 +5,12 @@ import { TableExport, type TableExportFormat } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { usePermissao } from "@/hooks/use-permissao";
+import { downloadBlob } from "@/lib/download-blob";
 
 type Props = {
   filtrosQuery: string;
   className?: string;
 };
-
-function baixarBlob(blob: Blob, nome: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nome;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 export function DashboardExportacaoCarteira({ filtrosQuery, className }: Props) {
   const { pode } = usePermissao();
@@ -57,7 +49,7 @@ export function DashboardExportacaoCarteira({ filtrosQuery, className }: Props) 
       const blob = await response.blob();
       const ext = formato === "csv" ? "csv" : "xls";
       const prefix = listagem === "fila" ? "carteira-fila-dashboard" : "carteira-atendimentos-dashboard";
-      baixarBlob(blob, `${prefix}.${ext}`);
+      downloadBlob(blob, `${prefix}.${ext}`);
       toast({
         variant: "success",
         title: formato === "csv" ? "CSV baixado" : "Planilha baixada",

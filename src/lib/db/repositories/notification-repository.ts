@@ -5,15 +5,20 @@ import {
   mapNotificationFailureToFalha,
   mapNotificationToNotificacao,
 } from "@/lib/db/mappers";
+import {
+  isPrismaUniqueOnField,
+  retryCreateAfterIdSequenceBump,
+} from "@/lib/db/repositories/prisma-insert-retry";
+
+export type InternalNotificationCreateInput = Omit<NotificacaoInterna, "id">;
 
 function texto(value: string | null | undefined): string | null {
   const t = value?.trim();
   return t ? t : null;
 }
 
-function notificacaoToData(item: NotificacaoInterna) {
+function notificacaoPersistFields(item: InternalNotificationCreateInput) {
   return {
-    id: item.id,
     idempotencyKey: item.chaveIdempotencia,
     event: item.evento,
     recipientId: item.destinatarioId,
@@ -26,6 +31,10 @@ function notificacaoToData(item: NotificacaoInterna) {
     createdAt: dateFromIsoDateTime(item.criadoEm) ?? new Date(),
     readAt: item.lidaEm ? dateFromIsoDateTime(item.lidaEm) : null,
   };
+}
+
+function notificacaoToData(item: NotificacaoInterna) {
+  return { id: item.id, ...notificacaoPersistFields(item) };
 }
 
 function falhaToData(item: NotificacaoFalha) {
@@ -64,14 +73,20 @@ export async function findInternalNotificationByIdempotencyKey(
   return row ? mapNotificationToNotificacao(row) : null;
 }
 
-export async function nextInternalNotificationId(): Promise<number> {
-  const agg = await prisma.internalNotification.aggregate({ _max: { id: true } });
-  return (agg._max.id ?? 0) + 1;
-}
-
-export async function createInternalNotification(item: NotificacaoInterna): Promise<NotificacaoInterna> {
-  const row = await prisma.internalNotification.create({ data: notificacaoToData(item) });
-  return mapNotificationToNotificacao(row);
+export async function createInternalNotification(item: InternalNotificationCreateInput): Promise<NotificacaoInterna> {
+  const data = notificacaoPersistFields(item);
+  try {
+    const row = await retryCreateAfterIdSequenceBump("internal_notification", () =>
+      prisma.internalNotification.create({ data }),
+    );
+    return mapNotificationToNotificacao(row);
+  } catch (error) {
+    if (isPrismaUniqueOnField(error, "idempotencyKey") || isPrismaUniqueOnField(error, "chave_idempotencia")) {
+      const existente = await findInternalNotificationByIdempotencyKey(item.chaveIdempotencia);
+      if (existente) return existente;
+    }
+    throw error;
+  }
 }
 
 export async function updateInternalNotification(item: NotificacaoInterna): Promise<NotificacaoInterna> {

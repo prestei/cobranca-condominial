@@ -18,6 +18,14 @@ export async function register() {
   const { hidratarConfigDistribuicaoDoPostgres } = await import("@/lib/distribuicao/service");
   await hidratarConfigDistribuicaoDoPostgres();
 
+  const { hidratarConfigAlertasPrazoDoPostgres } = await import(
+    "@/lib/notificacoes/alertas-prazo-inadimplencia-service"
+  );
+  await hidratarConfigAlertasPrazoDoPostgres();
+
   const { agendarDistribuicaoAutomaticaPeriodica } = await import("@/lib/distribuicao/job-periodico");
   agendarDistribuicaoAutomaticaPeriodica();
+
+  const { agendarAlertasPrazoInadimplenciaPeriodicos } = await import("@/lib/notificacoes/job-alertas-prazo");
+  agendarAlertasPrazoInadimplenciaPeriodicos();
 }

@@ -36,6 +36,7 @@ import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
+import { useFirebasePush } from "@/hooks/use-firebase-push";
 import { useNotificacoes } from "@/hooks/use-notificacoes";
 import { usePermissao } from "@/hooks/use-permissao";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
@@ -182,11 +183,15 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       ? undefined
       : usuarioSessaoApp(cadastros, sessao.userId, sessao);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
+  const recarregarNotificacoes = useCallback(() => {
+    void recarregar();
+  }, [recarregar]);
+  useFirebasePush(recarregarNotificacoes);
 
   const rotaAtendimentos =
     pathname === "/atendimentos" || (pathname?.startsWith("/atendimentos/") ?? false);
-  const visaoGestaoAtendimentos = rotaAtendimentos && pode("usuarios", "criar");
-  const layoutInboxAtendimentos = rotaAtendimentos && !visaoGestaoAtendimentos;
+  /** Fila operacional (admin e atendente): viewport fixa para rolagem só no conteúdo. */
+  const layoutViewportFilaAtendimentos = rotaAtendimentos;
 
   const handleAbrirNotificacao = useCallback(
     async (id: number) => {
@@ -208,7 +213,7 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
 
   return (
     <AppShell
-      viewportLocked={layoutInboxAtendimentos}
+      viewportLocked={layoutViewportFilaAtendimentos}
       onLogout={logout}
       headerCarregando={sessaoCarregando}
       notificationCount={naoLidas}
@@ -265,7 +270,9 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
     >
       <AppShellMain
         className={
-          layoutInboxAtendimentos ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-card" : undefined
+          layoutViewportFilaAtendimentos
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-card"
+            : undefined
         }
       >
         {children}

@@ -6,7 +6,7 @@ Registro de requisitos que dependem de aprovação antes de implementação comp
 | --- | --- | --- |
 | **Prazo de inadimplência** quando o condomínio não configura dias | Definido | Padrão **60 dias** (`LIMITE_AMIGAVEL_DIAS`); contagem por débito na data-base do painel. |
 | Algoritmo de **distribuição automática** da carteira (rodízio, carga, condomínio, volume ou outro) | Implementado (protótipo) | Quatro estratégias em `executarDistribuicaoAutomatica`; config em memória até persistência PostgreSQL. |
-| Regra de **entrada automática** na cobrança ao importar débitos | Parcial | Importação de inadimplência promove unidade em **Sem cobrança** → **Em cobrança** na **confirmação** (quando os débitos são gravados); demais transições operacionais seguem manuais. |
+| Regra de **entrada automática** na cobrança ao importar débitos | Parcial | Importação de inadimplência e cadastro/edição manual de débito **Pendente/Vencido** promovem unidade em **Sem cobrança** ou **Quitada** → **Em cobrança**; demais transições (ex.: sair da fila sem quitação formal) seguem manuais. |
 | **Formato(s) oficial(is)** de relatório por administradora (PDF, Excel proprietário, colunas) | Pendente | T13 entrega `planilha-inadimplencia-v1` (CSV/XLS genérico); leitores por modelo a definir. |
 | **Política de atualização** quando o saldo da fonte difere do cadastro | Pendente | T13 atualiza só com identificador externo ou equivalência explícita; não sobrescreve manual sem ID. |
 | **Débitos que desaparecem** do arquivo da administradora | Pendente | T13 não cancela nem exclui débitos ausentes na importação. |

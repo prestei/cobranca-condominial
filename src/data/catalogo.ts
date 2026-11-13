@@ -289,11 +289,17 @@ export type Auditoria = {
 export type NotificacaoInterna = {
   id: number;
   chaveIdempotencia: string;
-  evento: "retorno_agendado" | "retorno_lembrete_hoje" | "cobranca_atribuida";
+  evento:
+    | "retorno_agendado"
+    | "retorno_lembrete_hoje"
+    | "cobranca_atribuida"
+    | "inadimplencia_prazo_antecedencia"
+    | "inadimplencia_prazo_atingido"
+    | "inadimplencia_prazo_ultrapassado";
   destinatarioId: number;
   titulo: string;
   descricao: string;
-  entidadeTipo: "service_ticket" | "collection_assignment";
+  entidadeTipo: "service_ticket" | "collection_assignment" | "debt";
   registroId: string;
   unidadeId: number;
   condominioId: number | null;
@@ -811,6 +817,26 @@ export function usuarioSessaoApp(
 
 export function debitoEmAberto(item: { status: string }) {
   return item.status === "Pendente" || item.status === "Vencido";
+}
+
+type DebtBalanceFields = Pick<Debito, "valorAtualizado" | "valor" | "valorOriginal">;
+
+/** Saldo para totais e colunas: `valorAtualizado`, depois `valor`, depois `valorOriginal` (só campos gravados). */
+export function persistedDebtBalance(item: DebtBalanceFields): string {
+  for (const campo of [item.valorAtualizado, item.valor, item.valorOriginal]) {
+    const raw = (campo ?? "").trim();
+    if (!raw) continue;
+    const n = Number(raw.replace(",", "."));
+    if (Number.isFinite(n)) return raw.replace(",", ".");
+  }
+  return "";
+}
+
+export function persistedDebtBalanceAmount(item: DebtBalanceFields): number {
+  const canon = persistedDebtBalance(item);
+  if (!canon) return 0;
+  const n = Number(canon);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /** Unidade quitada permanece consultável, mas não entra na fila operacional de cobrança. */

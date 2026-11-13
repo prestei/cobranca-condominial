@@ -1,4 +1,12 @@
-import { agoraIso, debitoEmAberto, origensDebito, statusDebito, type Debito, type FonteValoresDebito } from "@/data/catalogo";
+import {
+  agoraIso,
+  debitoEmAberto,
+  origensDebito,
+  persistedDebtBalance,
+  statusDebito,
+  type Debito,
+  type FonteValoresDebito,
+} from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
@@ -7,7 +15,6 @@ import {
   findDebtById,
   listDebts,
   listDebtsByUnit,
-  nextDebtId,
   updateDebt,
 } from "@/lib/db/repositories/debt-repository";
 import { findUnitById, updateUnit } from "@/lib/db/repositories/unit-repository";
@@ -17,8 +24,9 @@ import {
   type DebitoIndicadores,
   type DebitoIndicadoresInput,
 } from "@/lib/debitos/indicadores";
+import { promoverUnidadeParaCobrancaSeDebitoEmAberto } from "@/lib/debitos/promover-unidade-cobranca";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class DebitoServiceError extends Error {
   constructor(
@@ -128,10 +136,27 @@ async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "
     throw new DebitoServiceError("Valores monetários inválidos.", 400, Object.values(erros));
   }
 
+  const quitado = status === "Pago";
+  const dataPagamento = (input.dataPagamento ?? "").trim();
+  const valorPagoCanon = canonMoeda(input.valorPago);
+  if (quitado) {
+    if (!dataPagamento) {
+      throw new DebitoServiceError("Informe a data do pagamento.", 400);
+    }
+    if (!valorPagoCanon) {
+      throw new DebitoServiceError("Informe o valor pago.", 400);
+    }
+  }
+
   const origem = (input.origem ?? "").trim();
   if (origem && !origensDebito.includes(origem as (typeof origensDebito)[number])) {
     throw new DebitoServiceError("Origem dos dados inválida.", 400);
   }
+
+  const valor = canonMoeda(input.valor);
+  const valorOriginal = canonMoeda(input.valorOriginal);
+  const valorAtualizadoInformado = canonMoeda(input.valorAtualizado);
+  const valorAtualizado = valorAtualizadoInformado || persistedDebtBalance({ valorAtualizado: "", valor, valorOriginal });
 
   return {
     condominioId: input.condominioId,
@@ -139,15 +164,15 @@ async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "
     referencia,
     descricao: (input.descricao ?? "").trim(),
     dataVencimento: input.dataVencimento.trim(),
-    valor: canonMoeda(input.valor),
-    valorOriginal: canonMoeda(input.valorOriginal),
+    valor,
+    valorOriginal,
     multa: canonMoeda(input.multa),
     juros: canonMoeda(input.juros),
     correcao: canonMoeda(input.correcao),
-    valorAtualizado: canonMoeda(input.valorAtualizado),
+    valorAtualizado,
     status,
-    dataPagamento: (input.dataPagamento ?? "").trim(),
-    valorPago: canonMoeda(input.valorPago),
+    dataPagamento: quitado ? dataPagamento : "",
+    valorPago: quitado ? valorPagoCanon : "",
     origem,
     identificadorExterno: (input.identificadorExterno ?? "").trim(),
   };
@@ -228,7 +253,7 @@ export async function criarDebito(
   input: DebitoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Debito> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "debitos", "criar")) {
     throw new DebitoServiceError("Sem permissão para cadastrar débitos.", 403);
   }
@@ -236,10 +261,8 @@ export async function criarDebito(
   const dados = await validarEntrada(input);
   await assertDebitoNoEscopo(userId, dados);
 
-  const id = await nextDebtId();
   const fonteValores: FonteValoresDebito = "manual";
-  const registro: Debito = {
-    id,
+  const registro = {
     ...dados,
     fonteValores,
     atualizadoEm: agoraIso(),
@@ -248,7 +271,7 @@ export async function criarDebito(
   const criado = await createDebt(registro);
   await writeAuditLog({
     entity: "debt",
-    recordId: String(id),
+    recordId: String(criado.id),
     action: "INSERT",
     previousData: "",
     newData: serializarDebitoAuditoria(criado),
@@ -257,6 +280,7 @@ export async function criarDebito(
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+  await promoverUnidadeParaCobrancaSeDebitoEmAberto(criado.unidadeId, criado, meta);
   return criado;
 }
 
@@ -266,7 +290,7 @@ export async function atualizarDebito(
   input: DebitoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<Debito> {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "debitos", "editar")) {
     throw new DebitoServiceError("Sem permissão para editar débitos.", 403);
   }
@@ -302,11 +326,12 @@ export async function atualizarDebito(
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+  await promoverUnidadeParaCobrancaSeDebitoEmAberto(salvo.unidadeId, salvo, meta);
   return salvo;
 }
 
 export async function excluirDebito(userId: number, id: number, meta?: { ip?: string; userAgent?: string }) {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "debitos", "excluir")) {
     throw new DebitoServiceError("Sem permissão para excluir débitos.", 403);
   }
@@ -337,7 +362,7 @@ export async function confirmarQuitacaoUnidade(
   opcoes?: { forcar?: boolean },
   meta?: { ip?: string; userAgent?: string },
 ) {
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "debitos", "editar") && !temPermissao(perm, "unidades", "editar")) {
     throw new DebitoServiceError("Sem permissão para confirmar quitação.", 403);
   }
