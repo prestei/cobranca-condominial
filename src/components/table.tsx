@@ -40,6 +40,12 @@ const formatosExportacao: Array<{ id: string; label: string; description: string
 
 export type TableExportFormat = "csv" | "xls" | "pdf";
 
+function contemNoMenuOuBotao(node: Node | null, path: EventTarget[], button: HTMLButtonElement | null, menu: HTMLDivElement | null) {
+  if (!node) return false;
+  if (button?.contains(node) || menu?.contains(node)) return true;
+  return path.some((alvo) => alvo instanceof Node && (button?.contains(alvo) || menu?.contains(alvo)));
+}
+
 function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => void }) {
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -90,8 +96,9 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
 
     function onPointerDown(event: PointerEvent) {
       const target = event.target;
+      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
       if (!(target instanceof Node)) return;
-      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      if (contemNoMenuOuBotao(target, path, buttonRef.current, menuRef.current)) return;
       setOpen(false);
     }
 
@@ -112,6 +119,11 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
     return () => window.removeEventListener("resize", closeIfHidden);
   }, [open]);
 
+  function selecionarFormato(formato: TableExportFormat) {
+    onExport?.(formato);
+    setOpen(false);
+  }
+
   function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const menu = menuRef.current;
     if (!menu) return;
@@ -130,6 +142,15 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
     } else if (event.key === "End") {
       event.preventDefault();
       items[items.length - 1]?.focus();
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      const ativo = document.activeElement;
+      const item = items.find((entry) => entry === ativo);
+      if (item) {
+        const index = items.indexOf(item);
+        const formato = formatosExportacao[index]?.id as TableExportFormat | undefined;
+        if (formato) selecionarFormato(formato);
+      }
     } else if (event.key === "Escape") {
       event.preventDefault();
       setOpen(false);
@@ -139,6 +160,8 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
     }
   }
 
+  const exportDesabilitado = !onExport;
+
   return (
     <>
       <Button
@@ -146,6 +169,7 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
         type="button"
         variant="surface"
         size="sm"
+        disabled={exportDesabilitado}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -181,9 +205,10 @@ function TableExport({ onExport }: { onExport?: (format: TableExportFormat) => v
                   type="button"
                   role="menuitem"
                   className="flex w-full cursor-pointer items-center gap-sm px-md py-sm text-left hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass"
-                  onClick={() => {
-                    onExport?.(formato.id as TableExportFormat);
-                    setOpen(false);
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    selecionarFormato(formato.id as TableExportFormat);
                   }}
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-primary-container">
@@ -235,7 +260,7 @@ function TableDataBar({
   return (
     <div className={`flex flex-wrap justify-end gap-sm ${className ?? ""}`}>
       {showImport && onImport ? <TableImport onImport={onImport} disabled={importDisabled} /> : null}
-      <TableExport onExport={onExport} />
+      {onExport ? <TableExport onExport={onExport} /> : null}
     </div>
   );
 }
@@ -265,7 +290,7 @@ export function Table({
 }: TableProps) {
   return (
     <div className="flex min-w-0 w-full flex-col gap-sm">
-      {showExport ? (
+      {showExport && (onExport || (showImport && onImport)) ? (
         <TableDataBar
           onExport={onExport}
           onImport={onImport}

@@ -121,10 +121,10 @@ function validarCadastralDebito(row: DebitoImportRow, contexto: ContextoImportac
     );
   }
   const detecao = detectarDuplicidadeDebito(row, contexto.debitos);
-  if (detecao.correspondencia === "exata" || detecao.correspondencia === "possivel") {
+  if (detecao.correspondencia === "possivel") {
     itens.push(
       inconsistenciaRegistroFinanceiroDuplicado(
-        "Já existe débito equivalente na base; a conferência definirá se atualiza ou ignora.",
+        "Já existe débito semelhante na base com diferenças; revise antes de atualizar.",
       ),
     );
   }

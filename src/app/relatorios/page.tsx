@@ -65,6 +65,7 @@ import {
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { downloadBlob } from "@/lib/download-blob";
 import { exportarPdf } from "@/lib/exportar";
 import type { RelatorioExportPayload } from "@/lib/relatorios/service";
 import { acimaDoLimite, canaisAtendimento, debitoAbertoNaData, diasDeAtraso, escopoCondominios, escopoUnidades, faixasAtraso, formatarData, opcoesAdvogadosResponsaveis, grupoDebito, gruposDebito, hojeIso, LIMITE_AMIGAVEL_DIAS, motivosPendencia, nomeUnidade, nomeUsuario, situacaoRetorno, type Atendimento, type Condominio, type Debito } from "@/data/catalogo";
@@ -363,15 +364,6 @@ function nomeColaboradorId(cadastros: ReturnType<typeof useCadastros>, usuarioId
   return codigoReDoUsuario(usuario) ?? nomeUsuario(usuarioId);
 }
 
-function baixarBlob(blob: Blob, nome: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nome;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 function RelatoriosPage() {
   const { pode } = usePermissao();
   const { toast } = useToast();
@@ -512,7 +504,7 @@ function RelatoriosPage() {
       const ext = formato === "xls" ? "xls" : "csv";
       const disposition = response.headers.get("Content-Disposition") ?? "";
       const nomeMatch = disposition.match(/filename="([^"]+)"/);
-      baixarBlob(blob, nomeMatch?.[1] ?? `relatorio-${relatorio}.${ext}`);
+      downloadBlob(blob, nomeMatch?.[1] ?? `relatorio-${relatorio}.${ext}`);
       toast({
         variant: "success",
         title: formato === "csv" ? "CSV baixado" : "Planilha baixada",

@@ -8,7 +8,10 @@ import {
   atualizarConfigDistribuicaoAutomatica,
   obterConfigDistribuicaoAutomatica,
 } from "@/lib/distribuicao/service";
-import { provisionarCadastrosImportacaoDebitos } from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
+import {
+  provisionarCadastrosImportacaoDebitos,
+  resolverEnderecoPadraoCondominioProvisionamento,
+} from "@/lib/importacoes/inadimplencia/provisionar-cadastros-debitos";
 import { interpretarPdfInadimplencia } from "@/lib/importacoes/inadimplencia/pdf-para-matriz-inadimplencia";
 
 const MATRIZ = [
@@ -23,6 +26,137 @@ const MATRIZ = [
   ["Condomínio Novo Import", "A-101", "Maria Silva", "09/2026", "05/09/2026", "R$ 100,00"],
   ["Condomínio Novo Import", "A-102", "João Souza", "09/2026", "06/09/2026", "R$ 200,00"],
 ];
+
+test("provisionamento replica cidade predominante da carteira no condomínio IMPORT", async () => {
+  resetCadastrosParaTestes();
+  setCondominios([
+    {
+      id: 1,
+      nome: "Condomínio Solar das Palmeiras",
+      identificadorExterno: "COND-0001",
+      status: "Ativo",
+      advogados: ["Dra. Thamires"],
+      administradora: "Carteira",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      cidade: "Feira de Santana",
+      estado: "BA",
+      observacao: "",
+      delinquencyTrackingDays: null,
+    },
+    {
+      id: 2,
+      nome: "Residencial Parque das Flores",
+      identificadorExterno: "COND-0002",
+      status: "Ativo",
+      advogados: ["Dra. Thamires"],
+      administradora: "Carteira",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      cidade: "Feira de Santana",
+      estado: "BA",
+      observacao: "",
+      delinquencyTrackingDays: null,
+    },
+    {
+      id: 99,
+      nome: "Legado outra região",
+      identificadorExterno: "LEG-01",
+      status: "Ativo",
+      advogados: ["Outro Advogado"],
+      administradora: "X",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      cidade: "Salvador",
+      estado: "BA",
+      observacao: "",
+      delinquencyTrackingDays: null,
+    },
+  ]);
+  setUnidades([]);
+  setResponsaveis([]);
+  setVinculos([]);
+
+  assert.deepEqual(resolverEnderecoPadraoCondominioProvisionamento(1), {
+    cidade: "Feira de Santana",
+    estado: "BA",
+  });
+
+  const matrizMar = [
+    ["Condomínio", "Unidade", "Responsável", "Referência", "Vencimento", "Valor atualizado"],
+    ["Residencial do Mar", "MB-0102", "Maria Silva", "09/2026", "05/09/2026", "R$ 100,00"],
+  ];
+  await provisionarCadastrosImportacaoDebitos(matrizMar, 1, "PDF");
+  const mar = getCadastros().condominios.find((item) => item.nome === "Residencial do Mar");
+  assert.equal(mar?.cidade, "Feira de Santana");
+  assert.equal(mar?.estado, "BA");
+});
+
+test("provisionamento completa cidade em condomínio IMPORT existente sem município", async () => {
+  resetCadastrosParaTestes();
+  setCondominios([
+    {
+      id: 1,
+      nome: "Condomínio Solar das Palmeiras",
+      identificadorExterno: "COND-0001",
+      status: "Ativo",
+      advogados: ["Dra. Thamires"],
+      administradora: "Carteira",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      cidade: "Feira de Santana",
+      estado: "BA",
+      observacao: "",
+      delinquencyTrackingDays: null,
+    },
+    {
+      id: 3,
+      nome: "Residencial do Mar",
+      identificadorExterno: "IMPORT-RESIDENCIAL-DO-MAR",
+      status: "Ativo",
+      advogados: ["Dra. Thamires"],
+      administradora: "PDF",
+      cep: "",
+      logradouro: "",
+      numero: "",
+      complemento: "",
+      cidade: "",
+      estado: "",
+      observacao: "Cadastro criado automaticamente na importação de inadimplência.",
+      delinquencyTrackingDays: null,
+    },
+  ]);
+  setUnidades([
+    {
+      id: 10,
+      condominioId: 3,
+      identificacao: "MB-0102",
+      bloco: "MB",
+      tipo: "Apartamento",
+      status: "Ativa",
+      situacao: "Sem cobrança",
+    },
+  ]);
+  setResponsaveis([]);
+  setVinculos([]);
+
+  const matrizMar = [
+    ["Condomínio", "Unidade", "Responsável", "Referência", "Vencimento", "Valor atualizado"],
+    ["Residencial do Mar", "MB-0102", "Maria Silva", "09/2026", "05/09/2026", "R$ 100,00"],
+  ];
+  await provisionarCadastrosImportacaoDebitos(matrizMar, 1, "PDF");
+  const mar = getCadastros().condominios.find((item) => item.id === 3);
+  assert.equal(mar?.cidade, "Feira de Santana");
+  assert.equal(mar?.estado, "BA");
+});
 
 test("provisionarCadastrosImportacaoDebitos cria condomínio, unidades e responsáveis ausentes", async () => {
   resetCadastrosParaTestes();

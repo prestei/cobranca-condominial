@@ -46,7 +46,7 @@ export default function NotificacoesPage() {
       <PageHeader
         icon={Bell}
         title="Notificações internas"
-        description="Alertas de retornos e distribuição de cobrança. Canais externos (e-mail, SMS, WhatsApp) permanecem desativados."
+        description="Alertas de retornos, prazo de inadimplência e distribuição de cobrança. Canais externos (e-mail, SMS, WhatsApp) permanecem desativados."
         actions={
           <Button type="button" size="md" variant="secondary" disabled={naoLidas === 0} onClick={() => void marcarTodasLidas().then(() => carregarLista())}>
             Marcar todas como lidas
@@ -60,7 +60,7 @@ export default function NotificacoesPage() {
           <EmptyState
             icon={<Icon icon={Bell} size="lg" />}
             title="Nenhuma notificação"
-            description="Quando houver retornos ou redistribuições, os alertas aparecem aqui."
+            description="Quando houver retornos, prazos de inadimplência ou redistribuições, os alertas aparecem aqui."
           />
         ) : (
           <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-card">

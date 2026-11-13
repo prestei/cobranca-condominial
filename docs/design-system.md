@@ -160,7 +160,7 @@ Pill com `text-body-sm` e variantes de status/marca. Use `neutral` para etiqueta
 
 ## Tabela
 
-Acima da tabela, alinhado à direita, o controle **Exportar** abre o menu de formato (CSV, XLS e PDF). Por enquanto o menu é só visual: escolher um formato fecha o painel e não gera arquivo. No celular, o mesmo controle fica acima dos cards.
+Acima da tabela, alinhado à direita, o controle **Exportar** abre o menu de formato (CSV, XLS e PDF). A listagem deve passar `onExport` para gerar o arquivo; sem handler o botão não aparece. No celular, o mesmo controle fica acima dos cards.
 
 Cabeçalho compacto (`py-sm`, `text-label-md`), fundo `surface-subtle`. **Alinhamento:** `TableHead` e `TableCell` usam `align="left"` por padrão (texto, datas, badges e status). Valores numéricos e monetários usam `align="right"` com `tabular-nums`. Só a coluna de seleção e a de ações (`TableHead actions` / `TableActionsCell`) permanecem centralizadas.
 

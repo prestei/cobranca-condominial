@@ -131,6 +131,41 @@ function divergenciaMonetaria(a: number, b: number, tolerancia = 0.05): boolean 
   return Math.abs(a - b) > tolerancia;
 }
 
+/** Layout Gestão Condominial: código da unidade em uma linha e nome do responsável na seguinte. */
+function linhaPareceNomeResponsavel(linha: string): boolean {
+  const compacta = normalizarLinhaLayout(linha);
+  if (compacta.length < 3 || compacta.length > 100) return false;
+  if (/\d/.test(compacta)) return false;
+  if (REGEX_UNIDADE.test(compacta) || /^Unidade:/i.test(compacta)) return false;
+  if (categoriaDebitoReconhecida(compacta) || REGEX_DEBITO.test(compacta)) return false;
+  if (/^(Total|Mês|Proj\.|Juros|Correção|Data Base|Condomínio|UNIDADES|Inadimplência)/i.test(compacta)) {
+    return false;
+  }
+  return /^[\p{L}\s&'.-]+$/u.test(compacta);
+}
+
+/** Continuação de categoria partida em duas linhas (ex.: CHAMADA DE CAPA (PINTURA + 01/05)). */
+function linhaPareceContinuacaoCategoriaDebito(linha: string): boolean {
+  const compacta = normalizarLinhaLayout(linha);
+  if (!compacta || REGEX_DEBITO.test(compacta)) return false;
+  if (linhaPareceNomeResponsavel(compacta)) return false;
+  if (REGEX_UNIDADE.test(compacta) || /^Unidade:/i.test(compacta)) return false;
+  if (/\([^)]*$/.test(compacta)) return true;
+  const prefixo = compacta.split(/\s+\d{2}\/\d{4}\b/)[0]?.trim() ?? compacta;
+  if (categoriaDebitoReconhecida(prefixo)) return false;
+  if (/^[A-ZÀ-Ü0-9][A-ZÀ-Ü0-9\s()./&-]{2,}$/.test(compacta) && compacta === compacta.toUpperCase()) {
+    return true;
+  }
+  return false;
+}
+
+function proximaLinhaPareceDebitoCompleto(linha: string): boolean {
+  const compacta = normalizarLinhaLayout(linha);
+  if (REGEX_DEBITO.test(compacta)) return true;
+  const prefixo = compacta.split(/\s+\d{2}\/\d{4}\b/)[0]?.trim() ?? "";
+  return Boolean(prefixo) && categoriaDebitoReconhecida(prefixo) && /\d{2}\/\d{4}\s+\d{2}\/\d{2}\/\d{4}/.test(compacta);
+}
+
 /** PDFs do Daniel Jorge às vezes quebram a descrição do lançamento em duas linhas antes dos valores. */
 function unirLinhasDebitoQuebradas(linhasTexto: string[]): string[] {
   const resultado: string[] = [];
@@ -149,9 +184,11 @@ function unirLinhasDebitoQuebradas(linhasTexto: string[]): string[] {
       ) {
         break;
       }
+      if (linhaPareceNomeResponsavel(compacta)) break;
       const proxima = normalizarLinhaLayout(linhasTexto[i + 1]);
       const proximaPareceContinuacaoDebito =
-        /\d{2}\/\d{4}\s+\d{2}\/\d{2}\/\d{4}\s+[\d.]+,\d{2}/.test(proxima) &&
+        linhaPareceContinuacaoCategoriaDebito(compacta) &&
+        proximaLinhaPareceDebitoCompleto(proxima) &&
         !REGEX_DEBITO.test(compacta) &&
         !/^Unidade:/i.test(proxima);
       if (!proximaPareceContinuacaoDebito) break;

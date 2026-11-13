@@ -1,18 +1,11 @@
+import { downloadBlob } from "@/lib/download-blob";
+
 function escaparXml(valor: string) {
   return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function escaparHtml(valor: string) {
   return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function baixar(nome: string, conteudo: Blob) {
-  const url = URL.createObjectURL(conteudo);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nome;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function escaparCsv(valor: string) {
@@ -27,7 +20,7 @@ export function exportarCsv(nome: string, colunas: string[], linhas: string[][])
   const cabecalho = colunas.map(escaparCsv).join(";");
   const corpo = linhas.map((linha) => linha.map(escaparCsv).join(";")).join("\n");
   const conteudo = `\uFEFF${cabecalho}\n${corpo}`;
-  baixar(nome.endsWith(".csv") ? nome : `${nome}.csv`, new Blob([conteudo], { type: "text/csv;charset=utf-8" }));
+  downloadBlob(new Blob([conteudo], { type: "text/csv;charset=utf-8" }), nome.endsWith(".csv") ? nome : `${nome}.csv`);
 }
 
 export function exportarExcel(nome: string, colunas: string[], linhas: string[][]) {
@@ -41,7 +34,7 @@ ${linha(colunas)}
 ${linhas.map(linha).join("\n")}
 </Table></Worksheet>
 </Workbook>`;
-  baixar(nome.endsWith(".xls") ? nome : `${nome}.xls`, new Blob([xml], { type: "application/vnd.ms-excel" }));
+  downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel" }), nome.endsWith(".xls") ? nome : `${nome}.xls`);
 }
 
 export function exportarPdf(titulo: string, nome: string, secoes: Array<{ titulo: string; colunas: string[]; linhas: string[][] }>) {
@@ -74,6 +67,6 @@ th{background:#F4F1EA}
     janela.print();
     return true;
   }
-  baixar(nome.endsWith(".html") ? nome : `${nome}.html`, new Blob([html], { type: "text/html" }));
+  downloadBlob(new Blob([html], { type: "text/html" }), nome.endsWith(".html") ? nome : `${nome}.html`);
   return false;
 }

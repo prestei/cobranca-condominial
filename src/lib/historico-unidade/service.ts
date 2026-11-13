@@ -3,6 +3,7 @@ import {
   escopoCondominios,
   formatarData,
   formatarMoeda,
+  persistedDebtBalanceAmount,
   type Atendimento,
   type AtribuicaoCobranca,
   type Cadastros,
@@ -482,7 +483,10 @@ export async function obterHistoricoUnidade(
   const atendimentos = base.atendimentos.filter((item) => Number(item.unidadeId) === unidadeId);
   const debitos = base.debitos.filter((item) => item.unidadeId === unidadeId);
   const debitosAbertos = debitos.filter(debitoEmAberto);
-  const valorAberto = debitosAbertos.reduce((sum, item) => sum + Number(item.valorAtualizado || 0), 0);
+  const valorAberto = debitosAbertos.reduce(
+    (sum, item) => sum + persistedDebtBalanceAmount(item),
+    0,
+  );
   const ultimoContato =
     atendimentos.length > 0
       ? [...atendimentos].sort((a, b) => b.dataHora.localeCompare(a.dataHora))[0]?.dataHora ?? null

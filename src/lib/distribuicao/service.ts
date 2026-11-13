@@ -1,6 +1,6 @@
 import { agoraIso, debitoEmAberto, escopoCondominios, escopoUnidades, unidadeNaFilaCobrancaAtiva, type AtribuicaoCobranca, type Cadastros, type Unidade } from "@/data/catalogo";
 import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
-import { getRequestCatalog, mutateRequestCatalog, runWithCatalogAsync } from "@/lib/db/request-catalog";
+import { getRequestCatalog, mutateRequestCatalog, runWithCatalogAsync, tryGetRequestCatalog } from "@/lib/db/request-catalog";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import {
   listCollectionAssignments,
@@ -15,6 +15,7 @@ import { codigoReDoUsuario, listarAtendentesComRe, usuarioEhAtendente } from "@/
 import { emitirNotificacaoCobrancaAtribuida } from "@/lib/notificacoes/service";
 import { listarFilaCobranca } from "@/lib/fila/service";
 import { temPermissao } from "@/lib/permissions/check";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export class DistribuicaoServiceError extends Error {
@@ -128,7 +129,7 @@ export async function atualizarConfigDistribuicaoAutomatica(
   userId: number,
   patch: Partial<DistribuicaoAutomaticaConfig>,
 ): Promise<DistribuicaoAutomaticaConfig> {
-  assertGerenciaDistribuicao(userId);
+  await assertGerenciaDistribuicao(userId);
   configDistribuicaoAutomatica = {
     ...configDistribuicaoAutomatica,
     ...patch,
@@ -455,7 +456,7 @@ export async function executarDistribuicaoAutomatica(
   meta?: { ip?: string; userAgent?: string },
 ): Promise<ExecutarDistribuicaoAutomaticaResultado> {
   return withDistribuicaoCatalog(async () => {
-    assertGerenciaDistribuicao(userId);
+    await assertGerenciaDistribuicao(userId);
     if (!configDistribuicaoAutomatica.ativada) {
       throw new DistribuicaoServiceError("Ative a distribuição automática antes de distribuir.", 400);
     }
@@ -485,12 +486,25 @@ export async function dispararDistribuicaoAutomaticaSeAtivada(
 }
 
 export function podeGerenciarDistribuicao(userId: number, cadastros?: Cadastros) {
-  const perm = permissoesDoUsuarioId(userId, cadastros ?? cadastrosMemoria ?? undefined);
+  const base = cadastros ?? cadastrosMemoria ?? tryGetRequestCatalog();
+  if (!base) return false;
+  const perm = permissoesDoUsuarioId(userId, base);
   return temPermissao(perm, "usuarios", "criar");
 }
 
-function assertGerenciaDistribuicao(userId: number) {
-  if (!podeGerenciarDistribuicao(userId, cadastrosMemoria ?? undefined)) {
+/** Checagem de permissão fora do catálogo em memória (rotas API e persistência de config). */
+export async function podeGerenciarDistribuicaoAsync(userId: number): Promise<boolean> {
+  const perm = await resolverPermissoesUsuario(userId);
+  return temPermissao(perm, "usuarios", "criar");
+}
+
+async function assertGerenciaDistribuicao(userId: number) {
+  // Só o catálogo do escopo da requisição (ALS); `cadastrosMemoria` pode ficar de execuções anteriores.
+  const requestCatalog = tryGetRequestCatalog();
+  const permitido = requestCatalog
+    ? podeGerenciarDistribuicao(userId, requestCatalog)
+    : await podeGerenciarDistribuicaoAsync(userId);
+  if (!permitido) {
     throw new DistribuicaoServiceError("Sem permissão para distribuir ou redistribuir cobranças.", 403);
   }
 }
@@ -559,7 +573,7 @@ function montarHistoricoItem(registro: AtribuicaoCobranca): HistoricoAtribuicaoI
 
 export async function listarCarteiraPorRe(userId: number): Promise<CarteiraReResumo[]> {
   return withDistribuicaoCatalog(async () => {
-    assertGerenciaDistribuicao(userId);
+    await assertGerenciaDistribuicao(userId);
     const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
     const contagem = new Map<number, number>();
 
@@ -584,7 +598,7 @@ export async function listarHistoricoAtribuicoes(
   opcoes?: { unidadeId?: number; limit?: number },
 ): Promise<HistoricoAtribuicaoItem[]> {
   return withDistribuicaoCatalog(async () => {
-    assertGerenciaDistribuicao(userId);
+    await assertGerenciaDistribuicao(userId);
     const idsEscopo = new Set(escopoUnidades(cadastrosAtual(), userId).map((item) => item.id));
     const limit = Math.min(200, Math.max(1, opcoes?.limit ?? 50));
 
@@ -613,7 +627,7 @@ export async function distribuirUnidades(
   opcoes?: DistribuirUnidadesOpcoes,
 ): Promise<DistribuirResultado> {
   return withDistribuicaoCatalog(async () => {
-  assertGerenciaDistribuicao(userId);
+  await assertGerenciaDistribuicao(userId);
 
   const ids = [...new Set(input.unidadeIds.filter((id) => Number.isFinite(id) && id > 0))];
   if (ids.length === 0) {
