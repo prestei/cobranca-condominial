@@ -1,86 +1,44 @@
 "use client";
 
-import { SkeletonListPage } from "@/components/skeleton";
+import { SkeletonAtendimentosOperacao } from "@/components/skeleton";
 
-import { useEffect, useId, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
-import {
-  Building2,
-  CalendarClock,
-  Flag,
-  Reply,
-  ClipboardList,
-  DoorOpen,
-  FileText,
-  LayoutGrid,
-  Network,
-  Phone,
-} from "lucide-react";
-import { DistribuicaoAutomaticaSheet } from "@/components/atendimentos/distribuicao-automatica-sheet";
 import { FilaCobrancasPanel } from "@/components/atendimentos/fila-cobrancas-panel";
 import { OperacionalAtendimentosPanel } from "@/components/atendimentos/operacional-atendimentos-panel";
-import { Alert } from "@/components/alert";
-import { Button } from "@/components/button";
-import { FormSteps } from "@/components/form-steps";
-import { Icon } from "@/components/icon";
-import { FormField, Input, Select, Textarea } from "@/components/input";
-import { PageContent, PageHeader } from "@/components/page-header";
 import {
-  Sheet,
-  SheetBody,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooterForm,
-  SheetForm,
-  SheetHeader,
-  SheetHeaderIcon,
-  SheetHeaderLead,
-  SheetHeaderText,
-  SheetHelpText,
-  SheetTitle,
-} from "@/components/sheet";
+  RegistrarContatoSheet,
+  registrarContatoFormVazio,
+  registrarContatoTemAlteracao,
+  statusRegistrarContato,
+  validarRegistrarContato,
+} from "@/components/atendimentos/registrar-contato-sheet";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { canaisAtendimento, condominioAtivo, debitoEmAberto, diasDeAtraso, formatarMoeda, motivosPendencia, statusAtendimento, type Atendimento } from "@/data/catalogo";
+import { canaisAtendimento, montarMotivoPendencia, type Atendimento } from "@/data/catalogo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
-import { usePermissao } from "@/hooks/use-permissao";
-
-const etapas = ["Registro", "Retorno"] as const;
-const formularioVazio = {
-  condominioId: "",
-  unidadeId: "",
-  responsavelId: "",
-  canal: "",
-  respondeu: "",
-  motivo: "",
-  assunto: "",
-  descricao: "",
-  status: "",
-  dataProximaAcao: "",
-  proximaAcao: "",
-};
-
 function AtendimentosPage() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const formId = useId();
   const cadastros = useCadastros();
   const { refetch } = useCadastrosStatus();
-  const { pode } = usePermissao();
-  const podeDistribuir = pode("usuarios", "criar");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [distribuicaoSheetOpen, setDistribuicaoSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(formularioVazio);
+  const [form, setForm] = useState(() => registrarContatoFormVazio());
   const [errors, setErrors] = useState<
-    Partial<Record<"condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo", string>>
+    Partial<
+      Record<
+        "condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo" | "motivoOutro",
+        string
+      >
+    >
   >({});
   const [salvando, setSalvando] = useState(false);
+  /** Unidade já definida ao abrir pela fila — oculta condomínio/unidade no sheet. */
+  const [unidadeContextoFixo, setUnidadeContextoFixo] = useState(false);
 
   useEffect(() => {
     if (!searchParams || searchParams.get("novo") !== "1") return;
@@ -103,9 +61,15 @@ function AtendimentosPage() {
         responsavelId = vinculo ? String(vinculo.responsavelId) : "";
       }
     }
-    setForm({ ...formularioVazio, condominioId, unidadeId, responsavelId, canal });
+    setForm({
+      ...registrarContatoFormVazio(),
+      condominioId,
+      unidadeId,
+      responsavelId,
+      canais: canal ? [canal] : ["WhatsApp"],
+    });
+    setUnidadeContextoFixo(Boolean(unidadeId));
     setErrors({});
-    setStep(0);
     setSheetOpen(true);
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("novo");
@@ -126,97 +90,65 @@ function AtendimentosPage() {
     router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
   }, [router, searchParams]);
 
-  const debitosDaUnidade = cadastros.debitos.filter(
-    (item) => String(item.unidadeId) === form.unidadeId && debitoEmAberto(item),
-  );
-  const condominiosOrdenados = [...cadastros.condominios]
-    .filter((item) => condominioAtivo(item))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  const unidadesDoCondominio = cadastros.unidades.filter((item) => String(item.condominioId) === form.condominioId);
-
   function closeSheet() {
-    const preenchido = Object.values(form).some((value) => value.trim() !== "");
-    if (preenchido) {
+    if (registrarContatoTemAlteracao(form, unidadeContextoFixo)) {
       setLeaveConfirmOpen(true);
       return;
     }
     setSheetOpen(false);
+    setUnidadeContextoFixo(false);
   }
 
   function confirmLeave() {
     setLeaveConfirmOpen(false);
     setSheetOpen(false);
-  }
-
-  function escolherCondominio(condominioId: string) {
-    setForm((current) => ({ ...current, condominioId, unidadeId: "", responsavelId: "" }));
-  }
-
-  function escolherUnidade(unidadeId: string) {
-    const vinculo = cadastros.vinculos.find((item) => String(item.unidadeId) === unidadeId && item.principal);
-    setForm((current) => ({
-      ...current,
-      unidadeId,
-      responsavelId: vinculo ? String(vinculo.responsavelId) : "",
-    }));
+    setUnidadeContextoFixo(false);
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (salvando) return;
-    const nextErrors: Partial<Record<"condominioId" | "unidadeId" | "status" | "canal" | "respondeu" | "motivo", string>> = {};
-    if (!form.condominioId) nextErrors.condominioId = "Selecione o condomínio.";
-    if (!form.unidadeId) nextErrors.unidadeId = "Selecione a unidade.";
-    if (!form.canal) nextErrors.canal = "Selecione o canal.";
-    if (!form.respondeu) nextErrors.respondeu = "Informe se o condômino respondeu.";
-    if (form.respondeu === "Sim" && !form.motivo) nextErrors.motivo = "Selecione o motivo.";
-    if (!form.status) nextErrors.status = "Selecione a situação.";
-
-    if (step === 0) {
-      setErrors(nextErrors);
-      if (Object.keys(nextErrors).length > 0) return;
-      setStep(1);
-      return;
-    }
-
+    const nextErrors = validarRegistrarContato(form);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      setStep(0);
-      return;
-    }
+    if (Object.keys(nextErrors).length > 0) return;
 
-    const body = {
+    const base = {
       condominioId: Number(form.condominioId),
       unidadeId: Number(form.unidadeId),
       responsavelId: form.responsavelId ? Number(form.responsavelId) : null,
-      canal: form.canal,
       respondeu: form.respondeu,
-      motivo: form.respondeu === "Sim" ? form.motivo : "",
+      motivo:
+        form.respondeu === "Sim" ? montarMotivoPendencia(form.motivo, form.motivoOutro) : "",
       assunto: form.assunto.trim(),
       descricao: form.descricao.trim(),
-      status: form.status,
+      status: statusRegistrarContato(form),
       dataProximaAcao: form.dataProximaAcao,
       proximaAcao: form.proximaAcao.trim(),
     };
 
     setSalvando(true);
     try {
-      const response = await fetch("/api/atendimentos", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      let salvos = 0;
+      for (const canal of form.canais) {
+        const response = await fetch("/api/atendimentos", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...base, canal }),
+        });
+        const payload = (await response.json()) as { error?: string; atendimento?: Atendimento };
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Não foi possível salvar o atendimento.");
+        }
+        if (payload.atendimento) salvos += 1;
+      }
+      if (salvos > 0) void refetch();
+      toast({
+        variant: "success",
+        title: salvos > 1 ? `${salvos} tentativas registradas` : "Atendimento registrado",
       });
-      const payload = (await response.json()) as { error?: string; atendimento?: Atendimento };
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Não foi possível salvar o atendimento.");
-      }
-      if (payload.atendimento) {
-        void refetch()
-      }
-      toast({ variant: "success", title: "Atendimento registrado" });
-      setForm(formularioVazio);
-      setStep(0);
+      setForm(registrarContatoFormVazio());
+      setUnidadeContextoFixo(false);
       setSheetOpen(false);
     } catch (error) {
       toast({
@@ -231,226 +163,24 @@ function AtendimentosPage() {
 
   return (
     <WorkspaceShell>
-      <PageHeader
-        icon={ClipboardList}
-        title="Fila de cobranças"
-        description="Acompanhe, distribua e gerencie as cobranças em um só lugar."
-        className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
-        actions={
-          podeDistribuir ? (
-            <Button size="md" onClick={() => setDistribuicaoSheetOpen(true)}>
-              <Icon icon={Network} size="sm" />
-              Configurar Distribuição
-            </Button>
-          ) : undefined
-        }
-      />
-      <PageContent className="max-md:gap-md max-md:py-md">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-surface-card">
         <OperacionalAtendimentosPanel />
-        <FilaCobrancasPanel />
-      </PageContent>
+        <FilaCobrancasPanel className="min-h-0 w-full flex-1 overflow-hidden" />
+      </div>
 
-      {podeDistribuir ? (
-        <DistribuicaoAutomaticaSheet
-          open={distribuicaoSheetOpen}
-          onOpenChange={setDistribuicaoSheetOpen}
-        />
-      ) : null}
-
-      <Sheet
+      <RegistrarContatoSheet
         open={sheetOpen}
-        onOpenChange={(open) => {
-          if (open) setSheetOpen(true);
-          else closeSheet();
-        }}
-      >
-        <SheetContent aria-labelledby={`${formId}-title`} aria-describedby={`${formId}-desc`}>
-          <SheetForm onSubmit={handleSave}>
-            <SheetHeader>
-              <SheetHeaderLead>
-                <SheetHeaderIcon>
-                  <Icon icon={ClipboardList} size="md" />
-                </SheetHeaderIcon>
-                <SheetHeaderText>
-                  <SheetTitle id={`${formId}-title`}>Registrar contato</SheetTitle>
-                  <SheetDescription id={`${formId}-desc`}>
-                    Tentativa de cobrança da unidade. Quem registra é o login atual.
-                  </SheetDescription>
-                </SheetHeaderText>
-              </SheetHeaderLead>
-              <SheetClose />
-            </SheetHeader>
-            <SheetBody>
-              <FormSteps steps={etapas} current={step} />
-              {step === 0 ? (
-                <>
-                  <FormField label="Condomínio" htmlFor={`${formId}-condominio`} required error={errors.condominioId}>
-                    <Select
-                      id={`${formId}-condominio`}
-                      icon={Building2}
-                      value={form.condominioId}
-                      invalid={Boolean(errors.condominioId)}
-                      onChange={(event) => escolherCondominio(event.target.value)}
-                    >
-                      <option value="">Selecione</option>
-                      {condominiosOrdenados.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.nome}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Unidade" htmlFor={`${formId}-unidade`} required error={errors.unidadeId}>
-                    <Select
-                      id={`${formId}-unidade`}
-                      icon={DoorOpen}
-                      value={form.unidadeId}
-                      invalid={Boolean(errors.unidadeId)}
-                      disabled={!form.condominioId}
-                      onChange={(event) => escolherUnidade(event.target.value)}
-                    >
-                      <option value="">Selecione</option>
-                      {unidadesDoCondominio.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.identificacao}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  {form.unidadeId ? (
-                    <Alert variant={debitosDaUnidade.length > 0 ? "warning" : "success"} title="Débitos em aberto">
-                      {debitosDaUnidade.length === 0
-                        ? "Esta unidade não tem débito em aberto."
-                        : debitosDaUnidade
-                            .map(
-                              (item) =>
-                                `${item.descricao || item.referencia}: ${formatarMoeda(item.valorAtualizado)} · ${diasDeAtraso(item.dataVencimento)} dias`,
-                            )
-                            .join(" · ")}
-                    </Alert>
-                  ) : null}
-                  <FormField label="Canal" htmlFor={`${formId}-canal`} required error={errors.canal}>
-                    <Select
-                      id={`${formId}-canal`}
-                      icon={Phone}
-                      value={form.canal}
-                      invalid={Boolean(errors.canal)}
-                      onChange={(event) => setForm((current) => ({ ...current, canal: event.target.value }))}
-                    >
-                      <option value="">Selecione</option>
-                      {canaisAtendimento.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="O condômino respondeu?" htmlFor={`${formId}-respondeu`} required error={errors.respondeu}>
-                    <Select
-                      id={`${formId}-respondeu`}
-                      icon={Reply}
-                      value={form.respondeu}
-                      invalid={Boolean(errors.respondeu)}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          respondeu: event.target.value,
-                          motivo: event.target.value === "Sim" ? current.motivo : "",
-                        }))
-                      }
-                    >
-                      <option value="">Selecione</option>
-                      <option value="Sim">Sim</option>
-                      <option value="Não">Não</option>
-                    </Select>
-                  </FormField>
-                  {form.respondeu === "Sim" ? (
-                    <FormField label="Motivo da pendência" htmlFor={`${formId}-motivo`} required error={errors.motivo}>
-                      <Select
-                        id={`${formId}-motivo`}
-                        icon={LayoutGrid}
-                        value={form.motivo}
-                        invalid={Boolean(errors.motivo)}
-                        onChange={(event) => setForm((current) => ({ ...current, motivo: event.target.value }))}
-                      >
-                        <option value="">Selecione</option>
-                        {motivosPendencia.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  ) : null}
-                  {form.motivo === "Doença / problema de saúde" ? (
-                    <SheetHelpText>
-                      Registre só a categoria. Não anote diagnóstico nem detalhes de saúde.
-                    </SheetHelpText>
-                  ) : null}
-                  <FormField label="Situação" htmlFor={`${formId}-status`} required error={errors.status}>
-                    <Select
-                      id={`${formId}-status`}
-                      icon={Flag}
-                      value={form.status}
-                      invalid={Boolean(errors.status)}
-                      onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                    >
-                      <option value="">Selecione</option>
-                      {statusAtendimento.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  <FormField label="Assunto" htmlFor={`${formId}-assunto`}>
-                    <Input
-                      id={`${formId}-assunto`}
-                      icon={FileText}
-                      value={form.assunto}
-                      onChange={(event) => setForm((current) => ({ ...current, assunto: event.target.value }))}
-                    />
-                  </FormField>
-                </>
-              ) : (
-                <>
-                  <FormField label="Descrição" htmlFor={`${formId}-descricao`}>
-                    <Textarea
-                      icon={FileText}
-                      id={`${formId}-descricao`}
-                      value={form.descricao}
-                      onChange={(event) => setForm((current) => ({ ...current, descricao: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Data da próxima ação" htmlFor={`${formId}-proxima-data`}>
-                    <Input
-                      id={`${formId}-proxima-data`}
-                      icon={CalendarClock}
-                      type="datetime-local"
-                      value={form.dataProximaAcao.includes("T") ? form.dataProximaAcao.slice(0, 16) : form.dataProximaAcao}
-                      onChange={(event) => setForm((current) => ({ ...current, dataProximaAcao: event.target.value }))}
-                    />
-                  </FormField>
-                  <FormField label="Próxima ação" htmlFor={`${formId}-proxima`}>
-                    <Input
-                      id={`${formId}-proxima`}
-                      icon={FileText}
-                      value={form.proximaAcao}
-                      onChange={(event) => setForm((current) => ({ ...current, proximaAcao: event.target.value }))}
-                    />
-                  </FormField>
-                </>
-              )}
-            </SheetBody>
-            <SheetFooterForm
-              onClose={closeSheet}
-              onBack={step > 0 ? () => setStep(0) : undefined}
-              saveLabel={step === 0 ? "Continuar" : salvando ? "Salvando…" : "Salvar"}
-              saveDisabled={salvando}
-            />
-          </SheetForm>
-        </SheetContent>
-      </Sheet>
+        onOpenChange={setSheetOpen}
+        form={form}
+        setForm={setForm}
+        errors={errors}
+        setErrors={setErrors}
+        salvando={salvando}
+        unidadeContextoFixo={unidadeContextoFixo}
+        cadastros={cadastros}
+        onSubmit={handleSave}
+        onClose={closeSheet}
+      />
 
       <ConfirmDialog
         open={leaveConfirmOpen}
@@ -468,7 +198,7 @@ function AtendimentosPage() {
 
 export default function AtendimentosPageRoute() {
   return (
-    <Suspense fallback={<SkeletonListPage metrics={4} label="Carregando" />}>
+    <Suspense fallback={<SkeletonAtendimentosOperacao label="Carregando atendimentos" />}>
       <AtendimentosPage />
     </Suspense>
   );

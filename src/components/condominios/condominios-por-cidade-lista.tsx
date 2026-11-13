@@ -4,6 +4,13 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { Building2, ChevronDown, MapPin } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Icon } from "@/components/icon";
+import {
+  listGroupAccordionPanelClassName,
+  listGroupAccordionToggleClassName,
+  listGroupEmbeddedTableContainerClassName,
+  listGroupEmbeddedTableHeaderClassName,
+  listGroupEmbeddedTableRowClassName,
+} from "@/components/list-group-accordion";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
@@ -81,9 +88,9 @@ function TabelaDesktop({
     <Table
       aria-label="Condomínios da cidade"
       showExport={false}
-      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+      containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
-      <TableHeader>
+      <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Condomínio</TableHead>
           <TableHead>Situação</TableHead>
@@ -102,7 +109,11 @@ function TabelaDesktop({
           itens.map((item) => (
             <TableRow
               key={item.id}
-              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              className={
+                embutida
+                  ? listGroupEmbeddedTableRowClassName
+                  : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              }
             >
               <TableCell className="font-medium">
                 <div className="flex items-center gap-sm">
@@ -128,11 +139,7 @@ function TabelaDesktop({
               <TableCell align="right" className="tabular-nums">
                 {contarUnidades(item.id)}
               </TableCell>
-              <TableActionsCell
-                label={`Ações de ${item.nome}`}
-                actions={acoes(item)}
-                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
-              />
+              <TableActionsCell label={`Ações de ${item.nome}`} actions={acoes(item)} />
             </TableRow>
           ))
         )}
@@ -243,7 +250,7 @@ function PainelCidade({
       <h3 className="text-label-lg text-on-surface">
         <button
           type="button"
-          className="flex w-full cursor-pointer items-center justify-between gap-md bg-surface-dim px-md py-md text-left transition-[filter] hover:brightness-[0.97] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          className={listGroupAccordionToggleClassName}
           aria-expanded={aberto}
           aria-controls={painelId}
           onClick={onToggle}
@@ -277,7 +284,7 @@ function PainelCidade({
           id={painelId}
           role="region"
           aria-label={`Condomínios em ${grupo.cidade}`}
-          className="flex flex-col gap-md border-t border-border-subtle p-md"
+          className={listGroupAccordionPanelClassName}
         >
           {variante === "desktop" ? (
             <TabelaDesktop
@@ -301,7 +308,11 @@ function PainelCidade({
               totalItens={total}
             />
           )}
-          {total > 0 ? <Pagination page={currentPage} total={total} onPageChange={setPage} /> : null}
+          {total > 0 ? (
+            <div className="px-md pb-md">
+              <Pagination page={currentPage} total={total} onPageChange={setPage} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

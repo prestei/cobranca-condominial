@@ -61,7 +61,10 @@ export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProt
         </dl>
       </section>
 
-      <CardMetricRow aria-label="Resultado da gravação" desktopCols={4}>
+      <CardMetricRow
+        aria-label="Resultado da gravação"
+        desktopCols={exibirManualProtegido ? 3 : 4}
+      >
         <CardMetric
           accent="primary"
           rotulo="Novos"
@@ -80,11 +83,11 @@ export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProt
         />
         <CardMetric
           accent="tertiary"
-          rotulo="Duplicados/ignorados"
+          rotulo="Duplicados"
           valor={String(resultado.duplicados)}
-          detalhe="Não gravados"
-          icon={<Icon icon={Copy} size="md" className="text-on-surface-variant" />}
-          iconClassName="bg-surface-muted"
+          detalhe="Ignorados · não gravados"
+          icon={<Icon icon={Copy} size="md" className="text-tertiary-container" />}
+          iconClassName="bg-tertiary-fixed/40"
         />
         <CardMetric
           accent="critical"
@@ -101,7 +104,7 @@ export function ImportacaoResultado({ resultado, moduloDestino, exibirManualProt
             valor={String(resultado.manualProtegido)}
             detalhe="Não sobrescritos"
             icon={<Icon icon={FileWarning} size="md" className="text-on-surface-variant" />}
-            iconClassName="bg-surface-muted"
+            iconClassName="bg-surface-subtle"
           />
         ) : null}
       </CardMetricRow>

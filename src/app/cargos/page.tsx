@@ -486,11 +486,10 @@ export default function CargosPage() {
           <TableHead sortable sortDirection={directionFor("descricao")} onSort={() => handleSort("descricao")}>
             Descrição
           </TableHead>
-          <TableHead align="center" className="w-[6.5rem]">
+          <TableHead align="right" className="w-[6.5rem]">
             Colaboradores
           </TableHead>
           <TableHead
-            align="center"
             sortable
             sortDirection={directionFor("ativo")}
             onSort={() => handleSort("ativo")}
@@ -516,13 +515,13 @@ export default function CargosPage() {
                 {item.descricao || "—"}
               </TableCell>
               <TableCell
-                align="center"
+                align="right"
                 className="max-w-0 !align-middle py-sm text-body-md font-medium tabular-nums text-on-surface min-[768px]:py-md"
               >
                 {contagemColaboradores(item.id)}
               </TableCell>
-              <TableCell align="center" className="!align-middle py-md">
-                <div className="flex justify-center">
+              <TableCell className="!align-middle py-md">
+                <div className="flex justify-start">
                   <SituacaoCargoBadge ativo={item.ativo !== false} />
                 </div>
               </TableCell>

@@ -16,15 +16,15 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Fila de cobranças** — KPIs, filtros e listagem em abas: **Por condomínio** (padrão) e **Geral**; Administradora também tem **Por atendente**; **Configurar Distribuição** no header (Administradora) |
+| `/atendimentos` | **Atendimentos** — layout operação master–detail (fila + painel): KPIs resumidos, **fila** com prévia/horário, barra com três chips em grid: **Período** (`PeriodInput`: Hoje, Ontem, últimos 7/30 dias, este mês, mês anterior, todos e intervalo De/Até), **Sem retorno** e **Atrasados** (atalhos complementares ao período), painel com **linha do tempo** de eventos (`GET /api/unidades/:id/historico`), registro rápido e atalhos de contato. A query `?retorno=` pré-seleciona período e/ou chip rápido. |
 | `/minha-agenda` | **Agenda do atendente** — calendário mensal com todos os dias; contatos realizados e retornos agendados; navegação mês a mês (somente perfil atendente) |
-| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Filtro de retorno aplicado na fila (compromissos futuros na cobrança) |
+| `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Pré-seleciona filtros: `hoje` = Hoje; `atrasado` = chip Atrasados + até ontem; `semana` = de amanhã a 7 dias; `sem` = unidades sem data de retorno |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
 | `/atendimentos?novo=1&unidade=&canal=` | Mesmo sheet com canal pré-selecionado (`WhatsApp`, `E-mail`, …) — usado pelos atalhos do atendente |
 | `/fila`, `/distribuicao` | Atalhos legados → `/atendimentos` |
 | `/retornos` | Atalho legado → `/atendimentos?retorno=hoje` |
 
-Arquivos: `src/app/atendimentos/page.tsx`; agenda do atendente `src/app/minha-agenda/page.tsx` + `src/components/atendimentos/agenda-historico-visual.tsx` + `src/lib/atendimentos/agrupar-historico-por-dia.ts`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx`; agrupamentos `src/components/atendimentos/fila-por-grupos-lista.tsx`; atalhos do atendente `src/components/atendimentos/atalhos-contato-atendente.tsx` + `src/lib/contato-responsavel.ts`; sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx`. **Agendar atendimento** (sistema-wide): `AgendarAtendimentoProvider` em `Providers` (`src/app/providers.tsx`) + `AgendarAtendimentoSheet` (`src/components/atendimentos/agendar-atendimento-sheet.tsx`) — disponível no histórico/detalhe da unidade, unidades, débitos, minha agenda, home do atendente e central de pendências; na **fila** o fluxo permanece **Registrar contato** (palitagem). Histórico de palitagem por unidade: menu **Histórico** → `HistoricoUnidadeSheet`.
+Arquivos: `src/app/atendimentos/page.tsx`; painel principal `src/components/atendimentos/fila-cobrancas-panel.tsx` + visão `src/components/atendimentos/atendimento-operacao-view.tsx`, `atendimento-painel-caso.tsx`, `atendimento-linha-tempo-operacao.tsx`; legado compacto `atendimento-linha-tempo-compacta.tsx`; agenda do atendente `src/app/minha-agenda/page.tsx` + `src/components/atendimentos/agenda-historico-visual.tsx` + `src/lib/atendimentos/agrupar-historico-por-dia.ts`; legado de listagens agrupadas `src/components/atendimentos/fila-por-grupos-lista.tsx`; atalhos `src/components/atendimentos/atalhos-contato-atendente.tsx` + `src/lib/contato-responsavel.ts`; sheet de distribuição `src/components/atendimentos/distribuicao-automatica-sheet.tsx`. **Agendar atendimento** (sistema-wide): `AgendarAtendimentoProvider` em `Providers` + `AgendarAtendimentoSheet` — também no painel do caso; registro completo (palitagem em etapas) via **Formulário completo** ou query `?novo=1`. Histórico completo: menu **Histórico** → `HistoricoUnidadeSheet`.
 
 ## Perfis e permissões
 
@@ -71,11 +71,11 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 
 ## Fluxos
 
-1. Operador abre **Atendimentos** → identifica cobranças pelos KPIs e filtros. Abas **Por condomínio** (padrão — painéis recolhíveis) e **Geral** (tabela plana). **Administradora** também tem **Por atendente**. **Atendente:** só a própria carteira; cartões/linhas com visual brass/gold e atalhos **WhatsApp** / **E-mail**. Seção **Filtros**: busca, condomínio, situação, responsável (admin) e retorno; **Filtrar** no servidor (`GET /api/fila`).
-2. **Administradora** — **Configurar Distribuição** (ativar regra/estratégia). Com a opção **ativa**, a confirmação de inadimplência distribui automaticamente; se quem importou for atendente com RE, as unidades do lote vão para a **carteira dele**. Job a cada 5 min cobre pendências restantes.
-3. **Retornos** — filtro `Retorno` na fila (ex.: Hoje, Atrasados); conclusão pelo menu de ações → `POST …/concluir-retorno`.
+1. Operador abre **Atendimentos** → KPIs, contexto da carteira e **fila** à esquerda (chips **Período**, **Sem retorno** e **Atrasados**). Ao selecionar a unidade, o painel mostra **cabeçalho** com **WhatsApp** / **E-mail** à direita, **linha do tempo** e **Concluir retorno** quando houver retorno aberto; no **rodapé**: **Nova proposta**, **Encaminhar p/ jurídico** e **Registrar contato** (`GET /api/fila`, `GET /api/unidades/:id/historico`).
+2. **Administradora** — com a distribuição automática **ativa**, a confirmação de inadimplência distribui automaticamente; se quem importou for atendente com RE, as unidades do lote vão para a **carteira dele**. Job a cada 5 min cobre pendências restantes.
+3. **Retornos** — chips na fila e **Período** (`PeriodInput`); conclusão pelo botão **Concluir retorno** acima da linha do tempo → `POST …/concluir-retorno`. O período filtra a fila já carregada pela data do próximo retorno.
 4. **Histórico** — menu de ações da linha → `HistoricoUnidadeSheet` (substitui aba Registros).
-5. **Registrar contato** — menu de ações, atalho WhatsApp/E-mail do atendente ou `?novo=1&unidade=` (`&canal=` opcional) → `POST /api/atendimentos`.
+5. **Registrar contato** — menu de ações, atalho WhatsApp/E-mail do atendente ou `?novo=1&unidade=` (`&canal=` opcional) → `POST /api/atendimentos` (um registro por canal marcado). Sheet: débitos (linha), **assunto**/**descrição**; **respondeu**; **canais** em linha (multisseleção); motivo se Sim; data e próxima ação opcionais na mesma linha; situação `Pendente` automática.
 6. **Agendar atendimento** — ação com `atendimentos.criar` em unidades, débitos, detalhe/histórico da unidade, `/minha-agenda` e home do atendente (não na fila: lá o fluxo é **Registrar contato**). Abre sheet dedicado que cria um `service_ticket` com `data_proxima_acao` e `proxima_acao`; o compromisso entra na agenda e no filtro de retornos.
 7. Cada tentativa acrescenta um `service_ticket`; registros anteriores não são sobrescritos.
 

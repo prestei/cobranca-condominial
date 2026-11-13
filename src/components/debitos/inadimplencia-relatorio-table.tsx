@@ -3,6 +3,12 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { Building2, ChevronDown, Receipt } from "lucide-react";
 import { Icon } from "@/components/icon";
+import {
+  listGroupAccordionPanelClassName,
+  listGroupAccordionToggleClassName,
+  listGroupEmbeddedTableContainerClassName,
+  listGroupEmbeddedTableHeaderClassName,
+} from "@/components/list-group-accordion";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
@@ -147,7 +153,7 @@ function CelulaMoeda({
 }) {
   const texto = typeof valor === "number" ? moedaTotais(valor) : formatarMoeda(valor);
   return (
-    <TableCell align="center" className={`tabular-nums whitespace-nowrap ${destaque ? "font-semibold" : ""}`}>
+    <TableCell align="right" className={`tabular-nums whitespace-nowrap ${destaque ? "font-semibold" : ""}`}>
       {texto}
     </TableCell>
   );
@@ -179,18 +185,18 @@ export function InadimplenciaRelatorioDesktop({
     <Table
       aria-label="Inadimplência por condomínio"
       showExport={false}
-      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+      containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
-      <TableHeader>
+      <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Lançamento</TableHead>
-          <TableHead align="center">Mês ref.</TableHead>
-          <TableHead align="center">Vencimento</TableHead>
-          <TableHead align="center">Valor</TableHead>
-          <TableHead align="center">Juros</TableHead>
-          <TableHead align="center">Multa</TableHead>
-          <TableHead align="center">Correção</TableHead>
-          <TableHead align="center">Proj. rec.</TableHead>
+          <TableHead>Mês ref.</TableHead>
+          <TableHead>Vencimento</TableHead>
+          <TableHead align="right">Valor</TableHead>
+          <TableHead align="right">Juros</TableHead>
+          <TableHead align="right">Multa</TableHead>
+          <TableHead align="right">Correção</TableHead>
+          <TableHead align="right">Proj. rec.</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -241,10 +247,10 @@ export function InadimplenciaRelatorioDesktop({
                   <TableCell className="pl-lg">
                     {grupoDebito(item.descricao) || item.descricao || "—"}
                   </TableCell>
-                  <TableCell align="center" className="whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap">
                     {item.referencia || "—"}
                   </TableCell>
-                  <TableCell align="center" className="whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap">
                     {formatarData(item.dataVencimento)}
                   </TableCell>
                   <CelulaMoeda valor={item.valorOriginal || item.valor} />
@@ -503,7 +509,7 @@ function PainelCondominio({
           id={painelId}
           role="region"
           aria-label={`Débitos de ${condominio.nome}`}
-          className="flex flex-col gap-md border-t border-border-subtle p-md"
+          className={listGroupAccordionPanelClassName}
         >
           {variante === "desktop" ? (
             <InadimplenciaRelatorioDesktop
@@ -526,7 +532,9 @@ function PainelCondominio({
             />
           )}
           {qtdUnidades > 0 ? (
-            <Pagination page={currentPage} total={qtdUnidades} onPageChange={setPage} />
+            <div className="px-md pb-md">
+              <Pagination page={currentPage} total={qtdUnidades} onPageChange={setPage} />
+            </div>
           ) : null}
         </div>
       ) : null}

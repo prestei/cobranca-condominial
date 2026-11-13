@@ -3,6 +3,7 @@
 import { Mail, MessageCircle, UserRound } from "lucide-react";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
+import { WhatsappIcon } from "@/components/icons/whatsapp-icon";
 import { useToast } from "@/components/toast";
 import { nomeCondominio } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
@@ -21,6 +22,8 @@ type AtalhosContatoAtendenteProps = {
   identificacao: string;
   bloco?: string | null;
   compacto?: boolean;
+  /** Botões horizontais grandes do mock da tela de Atendimentos. */
+  operacao?: boolean;
   onIniciar: (canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
 };
 
@@ -35,6 +38,7 @@ export function AtalhosContatoAtendente({
   identificacao,
   bloco,
   compacto = false,
+  operacao = false,
   onIniciar,
 }: AtalhosContatoAtendenteProps) {
   const { toast } = useToast();
@@ -95,6 +99,38 @@ export function AtalhosContatoAtendente({
       variant: "success",
     });
     onIniciar("E-mail");
+  }
+
+  if (operacao) {
+    if (!linkWhats && !linkEmail) return null;
+    return (
+      <div className="flex shrink-0 items-center gap-0">
+        {linkWhats ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            className="!size-9 shrink-0 !p-0 hover:bg-surface-subtle"
+            onClick={iniciarWhatsApp}
+            aria-label={`Abrir WhatsApp — ${unidade}`}
+          >
+            <WhatsappIcon className="size-5 shrink-0 text-[#25D366]" />
+          </Button>
+        ) : null}
+        {linkEmail ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            className="!size-9 shrink-0 !p-0 hover:bg-surface-subtle"
+            onClick={iniciarEmail}
+            aria-label={`Enviar e-mail — ${unidade}`}
+          >
+            <Icon icon={Mail} size="md" className="text-on-surface-variant" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
+    );
   }
 
   if (compacto) {

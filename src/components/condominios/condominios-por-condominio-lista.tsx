@@ -21,6 +21,13 @@ import {
   TableRow,
   type TableAction,
 } from "@/components/table";
+import {
+  listGroupAccordionPanelClassName,
+  listGroupAccordionToggleClassName,
+  listGroupEmbeddedTableContainerClassName,
+  listGroupEmbeddedTableHeaderClassName,
+  listGroupEmbeddedTableRowClassName,
+} from "@/components/list-group-accordion";
 import type { Condominio, Unidade } from "@/data/catalogo";
 
 export type GrupoUnidadesCondominioCarteira = {
@@ -84,7 +91,7 @@ function TabelaDesktop({
       aria-label={`Unidades de ${grupo.nome}`}
       showExport={false}
       fitContainer
-      containerClassName={embutida ? "rounded-none border-0 shadow-none" : undefined}
+      containerClassName={embutida ? listGroupEmbeddedTableContainerClassName : undefined}
     >
       <colgroup>
         <col className="w-[12%]" />
@@ -95,14 +102,14 @@ function TabelaDesktop({
         <col className="w-[12%]" />
         <col className="w-[12%]" />
       </colgroup>
-      <TableHeader>
+      <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
           <TableHead>Unidade</TableHead>
-          <TableHead align="center">Responsável</TableHead>
-          <TableHead align="center">Cidade</TableHead>
-          <TableHead align="center">Administradora</TableHead>
-          <TableHead align="center">Advogado responsável</TableHead>
-          <TableHead align="center">Situações</TableHead>
+          <TableHead>Responsável</TableHead>
+          <TableHead>Cidade</TableHead>
+          <TableHead>Administradora</TableHead>
+          <TableHead>Advogado responsável</TableHead>
+          <TableHead>Situações</TableHead>
           <TableHead actions />
         </TableRow>
       </TableHeader>
@@ -113,7 +120,11 @@ function TabelaDesktop({
           itens.map((item) => (
             <TableRow
               key={item.id}
-              className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              className={
+                embutida
+                  ? listGroupEmbeddedTableRowClassName
+                  : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
+              }
             >
               <TableCell className="max-w-0 align-middle font-medium">
                 <div className="flex min-w-0 items-center gap-sm">
@@ -126,12 +137,12 @@ function TabelaDesktop({
                   <span className="truncate">{item.identificacao}</span>
                 </div>
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {renderResponsavel(item)}
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {cidade ? (
-                  <div className="flex min-w-0 items-center justify-center gap-sm">
+                  <div className="flex min-w-0 items-center justify-start gap-sm">
                     <Icon icon={MapPin} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span className="truncate">{cidade}</span>
                   </div>
@@ -139,9 +150,9 @@ function TabelaDesktop({
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {administradora ? (
-                  <div className="flex min-w-0 items-center justify-center gap-sm">
+                  <div className="flex min-w-0 items-center justify-start gap-sm">
                     <Icon icon={Briefcase} size="sm" className="shrink-0 text-on-surface-variant" aria-hidden="true" />
                     <span className="min-w-0 truncate">{administradora}</span>
                   </div>
@@ -149,16 +160,15 @@ function TabelaDesktop({
                   <span className="text-on-surface-variant">—</span>
                 )}
               </TableCell>
-              <TableCell align="center" className="max-w-0 align-middle">
+              <TableCell className="max-w-0 align-middle">
                 {renderAdvogados(condominio)}
               </TableCell>
-              <TableCell align="center" className="align-middle">
+              <TableCell className="align-middle">
                 {renderSituacao(item)}
               </TableCell>
               <TableActionsCell
                 label={`Ações da unidade ${item.identificacao}`}
                 actions={acoes(item, condominio)}
-                className="bg-surface-subtle/80 group-hover/row:bg-surface-subtle"
               />
             </TableRow>
           ))
@@ -335,7 +345,7 @@ function PainelCondominio({
           id={painelId}
           role="region"
           aria-label={`Unidades de ${grupo.nome}`}
-          className="flex flex-col gap-md border-t border-border-subtle p-md"
+          className={listGroupAccordionPanelClassName}
         >
           {variante === "desktop" ? (
             <TabelaDesktop
@@ -361,7 +371,11 @@ function PainelCondominio({
               totalItens={total}
             />
           )}
-          {total > 0 ? <Pagination page={currentPage} total={total} onPageChange={setPage} /> : null}
+          {total > 0 ? (
+            <div className="px-md pb-md">
+              <Pagination page={currentPage} total={total} onPageChange={setPage} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

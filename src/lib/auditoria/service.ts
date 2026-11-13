@@ -4,7 +4,7 @@ import { registroDentroDoPeriodo } from "@/lib/auditoria/periodo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { listAuditLogs } from "@/lib/db/repositories/audit-repository";
 import { temPermissao } from "@/lib/permissions/check";
-import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
+import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class AuditoriaServiceError extends Error {
   constructor(
@@ -25,8 +25,8 @@ export type AuditoriaFiltros = {
   autor?: string;
 };
 
-function assertPodeConsultar(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+async function assertPodeConsultar(userId: number) {
+  const perm = await resolverPermissoesUsuario(userId);
   if (!temPermissao(perm, "auditoria", "ler")) {
     throw new AuditoriaServiceError("Sem permissão para consultar a auditoria.", 403);
   }
@@ -49,7 +49,7 @@ function matchesBusca(registro: Auditoria, query: string, cadastros: Cadastros) 
 }
 
 export async function listarAuditoria(userId: number, filtros: AuditoriaFiltros = {}): Promise<Auditoria[]> {
-  assertPodeConsultar(userId);
+  await assertPodeConsultar(userId);
 
   const entidade = filtros.entidade?.trim();
   const acao = filtros.acao?.trim();

@@ -1,6 +1,7 @@
 import {
   debitoEmAberto,
   escopoCondominios,
+  formatarData,
   formatarMoeda,
   type Atendimento,
   type AtribuicaoCobranca,
@@ -158,6 +159,12 @@ function rotuloAutor(
   return { ator: usuario.nome.trim() || "Colaborador", atorPerfil: "outro" };
 }
 
+function rotuloDataProximaAcao(data: string) {
+  const limpa = data.trim();
+  if (!limpa) return "";
+  return formatarData(limpa);
+}
+
 function resultadoTentativa(atendimento: Atendimento) {
   const partes = [atendimento.respondeu === "Sim" ? "Respondeu" : "Sem resposta"];
   if (atendimento.motivo.trim()) partes.push(atendimento.motivo);
@@ -182,8 +189,10 @@ function eventosDeTentativa(atendimento: Atendimento, cadastros: Cadastros): Eve
       observacao: atendimento.descricao || undefined,
       proximoPasso:
         atendimento.dataProximaAcao.trim() && atendimento.proximaAcao.trim()
-          ? `${atendimento.proximaAcao} (${atendimento.dataProximaAcao})`
-          : atendimento.dataProximaAcao.trim() || atendimento.proximaAcao.trim() || undefined,
+          ? `${atendimento.proximaAcao} (${rotuloDataProximaAcao(atendimento.dataProximaAcao)})`
+          : atendimento.dataProximaAcao.trim()
+            ? rotuloDataProximaAcao(atendimento.dataProximaAcao)
+            : atendimento.proximaAcao.trim() || undefined,
       registroOrigemId: atendimento.id,
     },
   ];
@@ -199,7 +208,7 @@ function eventosDeTentativa(atendimento: Atendimento, cadastros: Cadastros): Eve
       atorPerfil: conclusao.atorPerfil,
       titulo: "Retorno agendado realizado",
       observacao: atendimento.dataProximaAcao.trim()
-        ? `Agendamento original: ${atendimento.dataProximaAcao}`
+        ? `Agendamento original: ${rotuloDataProximaAcao(atendimento.dataProximaAcao)}`
         : undefined,
       registroOrigemId: atendimento.id,
     });

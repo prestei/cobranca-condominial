@@ -99,7 +99,7 @@ export function OperacionalAtendimentosPanel() {
   return (
     <section
       aria-label={titulo}
-      className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
+      className="flex shrink-0 flex-col gap-md border-b border-border-subtle bg-surface-subtle p-md"
     >
       <div className="flex flex-wrap items-start justify-between gap-md">
         <div>

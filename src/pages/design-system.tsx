@@ -39,6 +39,7 @@ import { FormSteps } from "@/components/form-steps";
 import { Icon, iconSizes, iconStrokeWidths, type IconSize } from "@/components/icon";
 import {
   SkeletonAppHeader,
+  SkeletonAtendimentosOperacao,
   SkeletonCardList,
   SkeletonDashboard,
   SkeletonForm,
@@ -1317,6 +1318,12 @@ export default function DesignSystemPage() {
               <div>
                 <h3 className="mb-md text-label-lg text-on-surface">Página de listagem</h3>
                 <SkeletonListPage metrics={3} rows={4} cols={4} label="Exemplo de listagem" />
+              </div>
+              <div>
+                <h3 className="mb-md text-label-lg text-on-surface">Atendimentos (operação)</h3>
+                <div className="h-[min(28rem,70vh)] overflow-hidden rounded-xl border border-border-subtle">
+                  <SkeletonAtendimentosOperacao filaRows={6} showHeaderAction label="Exemplo de atendimentos" />
+                </div>
               </div>
               <div>
                 <h3 className="mb-md text-label-lg text-on-surface">Menu lateral</h3>
