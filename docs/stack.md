@@ -73,6 +73,8 @@ O Next.js compila e entrega a aplicação React. O TypeScript verifica o código
 | --- | --- | --- |
 | `AUTH_SECRET` | Produção | Segredo com pelo menos 32 caracteres para assinar a sessão. Em desenvolvimento, há fallback local documentado em `.env.example`. |
 | `DATABASE_URL` | Quando usar PostgreSQL | URL `postgresql://…` do banco do projeto. Copie `.env.example` → `.env`. |
+| `OPENROUTER_API_KEY` | Assistente de ajuda | Chave OpenRouter no servidor (`POST /api/ajuda/assistente`). Ver [ajuda-assistente](modulos/ajuda-assistente.md). |
+| `OPENROUTER_MODEL` | Não | Modelo OpenRouter (padrão `google/gemini-2.5-flash`). |
 
 ### Push Firebase (opcional)
 

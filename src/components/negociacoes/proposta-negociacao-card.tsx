@@ -1,5 +1,8 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/button";
+import { Icon } from "@/components/icon";
 import {
   formatarMoeda,
   hojeIso,
@@ -83,19 +86,41 @@ type Props = {
   resumo?: ResumoAcordo | null;
   selecionada?: boolean;
   onClick: () => void;
+  onEncaminharJuridico?: () => void;
 };
 
-export function PropostaNegociacaoCard({ proposta, cadastros, resumo, selecionada, onClick }: Props) {
+export function PropostaNegociacaoCard({
+  proposta,
+  cadastros,
+  resumo,
+  selecionada,
+  onClick,
+  onEncaminharJuridico,
+}: Props) {
   const condominio = nomeCondominio(proposta.condominioId, cadastros);
   const unidade = identificacaoUnidade(proposta.unidadeId, cadastros);
   const pill = pillStatus[proposta.status] ?? pillStatus["Em análise"]!;
 
   const aceita = proposta.status === "Aceita";
   const emAtraso = aceita && (resumo?.parcelasVencidas ?? 0) > 0;
-  const parcelasTotal = resumo?.parcelasTotal ?? proposta.quantidadeParcelas ?? 0;
-  const parcelasPagas = resumo?.parcelasPagas ?? 0;
+  const parcelasTotal = aceita
+    ? (resumo?.parcelasTotal ?? proposta.quantidadeParcelas ?? 0)
+    : (proposta.quantidadeParcelas ?? 0);
+  const parcelasPagas = aceita ? (resumo?.parcelasPagas ?? 0) : 0;
   const progresso =
     parcelasTotal > 0 ? Math.min(100, Math.round((parcelasPagas / parcelasTotal) * 100)) : 0;
+  const rotuloParcelas =
+    parcelasTotal > 0
+      ? `${parcelasPagas} de ${parcelasTotal} parcelas`
+      : (mensagemStatus[proposta.status] ??
+          (proposta.quantidadeParcelas
+            ? `Até ${proposta.quantidadeParcelas} parcelas propostas`
+            : "Proposta registrada"));
+  const corBarraParcelas = emAtraso
+    ? "bg-error"
+    : progresso > 0
+      ? "bg-[#198754]"
+      : "bg-on-surface-variant/25";
 
   const advogado =
     proposta.advogadoResponsavelId != null
@@ -103,17 +128,20 @@ export function PropostaNegociacaoCard({ proposta, cadastros, resumo, selecionad
       : "Sem advogado";
   const advogadoRotulo = advogado === "—" ? "Sem advogado" : advogado;
 
+  const cardSurface = [
+    "flex h-full min-h-[11.5rem] w-full flex-col rounded-xl border p-lg shadow-card transition-colors",
+    selecionada
+      ? "border-primary-container bg-surface-card ring-2 ring-primary-container/35"
+      : "border-border-subtle bg-surface-card hover:border-border-strong hover:shadow-popover",
+  ].join(" ");
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "flex h-full min-h-[11.5rem] w-full cursor-pointer flex-col gap-md rounded-xl border p-lg text-left shadow-card transition-colors",
-        selecionada
-          ? "border-primary-container bg-surface-card ring-2 ring-primary-container/35"
-          : "border-border-subtle bg-surface-card hover:border-border-strong hover:shadow-popover",
-      ].join(" ")}
-    >
+    <div className={cardSurface}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-h-0 flex-1 cursor-pointer flex-col gap-md text-left"
+      >
       <div className="flex items-center justify-between gap-sm">
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body-sm font-medium ${pill.fundo} ${pill.texto}`}
@@ -121,7 +149,11 @@ export function PropostaNegociacaoCard({ proposta, cadastros, resumo, selecionad
           <span className={`size-1.5 shrink-0 rounded-full ${pill.ponto}`} aria-hidden />
           {pill.rotulo}
         </span>
-        {emAtraso ? <span className="text-body-sm font-medium text-error">Em atraso</span> : <span className="size-4" aria-hidden />}
+        {emAtraso ? (
+          <span className="text-body-sm font-medium text-error">Em atraso</span>
+        ) : (
+          <span className="size-4 shrink-0" aria-hidden />
+        )}
       </div>
 
       <div className="flex flex-col gap-xs">
@@ -135,48 +167,58 @@ export function PropostaNegociacaoCard({ proposta, cadastros, resumo, selecionad
       </div>
 
       <div className="mt-auto flex flex-col gap-sm">
-        {aceita && parcelasTotal > 0 ? (
-          <>
-            <div className="flex items-baseline justify-between gap-sm text-body-sm">
-              <span className="text-on-surface-variant">
-                {parcelasPagas} de {parcelasTotal} parcelas
+        <div className="flex items-baseline justify-between gap-sm text-body-sm">
+          <span className="text-on-surface-variant">{rotuloParcelas}</span>
+          {aceita && parcelasTotal > 0 ? (
+            <span className="text-on-surface-variant">
+              Saldo{" "}
+              <span className="font-semibold tabular-nums text-on-surface">
+                {formatarMoeda(resumo?.saldoRestante ?? proposta.valorProposto)}
               </span>
-              <span className="text-on-surface-variant">
-                Saldo{" "}
-                <span className="font-semibold tabular-nums text-on-surface">
-                  {formatarMoeda(resumo?.saldoRestante ?? proposta.valorProposto)}
-                </span>
-              </span>
-            </div>
-            <div
-              className="h-1 overflow-hidden rounded-full bg-surface-container"
-              role="progressbar"
-              aria-valuenow={progresso}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className={`h-full rounded-full transition-all ${emAtraso ? "bg-error" : "bg-[#198754]"}`}
-                style={{ width: `${progresso}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <p className="text-body-sm text-on-surface-variant">
-            {mensagemStatus[proposta.status] ??
-              (proposta.quantidadeParcelas
-                ? `Até ${proposta.quantidadeParcelas} parcelas propostas`
-                : "Proposta registrada")}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-sm pt-xs text-body-sm text-on-surface-variant">
-          <span className="truncate">{advogadoRotulo}</span>
-          <time className="shrink-0 tabular-nums" dateTime={proposta.criadoEm}>
-            {formatarDataHoraCard(proposta.criadoEm)}
-          </time>
+            </span>
+          ) : null}
+        </div>
+        <div
+          className="h-1 overflow-hidden rounded-full bg-surface-container"
+          role="progressbar"
+          aria-valuenow={progresso}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Progresso das parcelas"
+        >
+          <div
+            className={`h-full rounded-full transition-all ${corBarraParcelas}`}
+            style={{ width: `${progresso}%` }}
+          />
         </div>
       </div>
-    </button>
+      </button>
+      <div className="mt-[calc(var(--spacing-sm)+4px)] flex shrink-0 items-end justify-between gap-sm">
+        <span className="min-w-0 truncate text-body-sm leading-none text-on-surface-variant">{advogadoRotulo}</span>
+        <div className="flex shrink-0 flex-col items-end gap-xs text-right">
+          <time
+            className="text-body-sm leading-none tabular-nums text-on-surface-variant"
+            dateTime={proposta.criadoEm}
+          >
+            {formatarDataHoraCard(proposta.criadoEm)}
+          </time>
+          {onEncaminharJuridico ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="!h-auto !min-h-0 gap-1 !px-0 !py-0 text-label-sm font-normal leading-none text-on-surface-variant hover:bg-transparent hover:text-on-surface"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEncaminharJuridico();
+              }}
+            >
+              <span>Encaminhar p/ jurídico</span>
+              <Icon icon={ArrowRight} size="sm" className="shrink-0" aria-hidden />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { Flag, FileText, FolderOpen, Scale, UserRound } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Select, Textarea } from "@/components/input";
+import { FormField, Input, Select, Switch, Textarea } from "@/components/input";
 import { SkeletonCardList } from "@/components/skeleton";
 import {
   Sheet,
@@ -21,7 +21,6 @@ import {
   SheetHeaderLead,
   SheetHeaderText,
   SheetHelpText,
-  SheetPanel,
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -102,6 +101,12 @@ export function EncaminhamentoJuridicoSheet({
     () => debitosUnidade.filter(debitoEmAberto),
     [debitosUnidade],
   );
+
+  function toggleDebito(debitoId: number) {
+    setDebitoIds((atual) =>
+      atual.includes(debitoId) ? atual.filter((id) => id !== debitoId) : [...atual, debitoId],
+    );
+  }
 
   const carregar = useCallback(async () => {
     if (encaminhamentoId) {
@@ -390,15 +395,15 @@ export function EncaminhamentoJuridicoSheet({
           </SheetHeaderLead>
           <SheetClose />
         </SheetHeader>
-        <SheetBody className="flex flex-col gap-md">
-          {podeCriar && !encaminhamentoId ? (
-            <SheetForm id={`${formId}-novo`} className="!flex-none" onSubmit={enviarNovo}>
-              <SheetPanel className="mb-md">
+        {podeCriar && !encaminhamentoId ? (
+          <SheetForm id={`${formId}-novo`} className="flex min-h-0 flex-1 flex-col" onSubmit={enviarNovo}>
+            <SheetBody className="flex flex-col gap-md">
+              <div className="flex flex-col gap-md">
                 <p className="text-label-md text-on-surface">Novo encaminhamento</p>
                 <SheetHelpText>
                   Registra análise jurídica sem ajuizar ações nem enviar documentos a tribunais automaticamente.
                 </SheetHelpText>
-                <div className="mt-md flex flex-col gap-md">
+                <div className="flex flex-col gap-md">
                   <FormField label="Advogado responsável">
                     <Select
                       icon={UserRound}
@@ -413,44 +418,69 @@ export function EncaminhamentoJuridicoSheet({
                     </Select>
                   </FormField>
                   {debitosSelecionaveis.length > 0 ? (
-                    <FormField label="Débitos incluídos">
-                      <div className="flex max-h-32 flex-col gap-xs overflow-y-auto rounded-md border border-border-subtle p-sm">
-                        {debitosSelecionaveis.map((debito) => (
-                          <label key={debito.id} className="flex items-center gap-sm text-body-sm">
-                            <input
-                              type="checkbox"
-                              checked={debitoIds.includes(debito.id)}
-                              onChange={(event) => {
-                                setDebitoIds((atual) =>
-                                  event.target.checked
-                                    ? [...atual, debito.id]
-                                    : atual.filter((id) => id !== debito.id),
-                                );
-                              }}
-                            />
-                            {debito.referencia} — {debito.status}
-                          </label>
-                        ))}
+                    <FormField label="Débitos incluídos" labelId={`${formId}-debitos`}>
+                      <div
+                        className="flex max-h-40 flex-col gap-xs overflow-y-auto"
+                        role="group"
+                        aria-labelledby={`${formId}-debitos`}
+                      >
+                        {debitosSelecionaveis.map((debito) => {
+                          const debitoInputId = `${formId}-debito-${debito.id}`;
+                          return (
+                            <label
+                              key={debito.id}
+                              htmlFor={debitoInputId}
+                              className="flex cursor-pointer items-center gap-sm py-0.5"
+                            >
+                              <Switch
+                                id={debitoInputId}
+                                className="shrink-0"
+                                checked={debitoIds.includes(debito.id)}
+                                onChange={() => toggleDebito(debito.id)}
+                              />
+                              <span className="min-w-0 flex-1 text-body-md leading-tight text-on-surface">
+                                {debito.referencia} — {debito.status}
+                              </span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </FormField>
                   ) : null}
                   <FormField label="Contexto adicional">
-                    <Textarea icon={FileText} value={resumoContexto} onChange={(event) => setResumoContexto(event.target.value)} rows={2} />
+                    <Textarea
+                      icon={FileText}
+                      value={resumoContexto}
+                      onChange={(event) => setResumoContexto(event.target.value)}
+                      rows={2}
+                      placeholder="Histórico de contatos, proposta recusada ou motivo do encaminhamento."
+                    />
                   </FormField>
                   <FormField label="Observações">
-                    <Textarea icon={FileText} value={observacoes} onChange={(event) => setObservacoes(event.target.value)} rows={3} />
+                    <Textarea
+                      icon={FileText}
+                      value={observacoes}
+                      onChange={(event) => setObservacoes(event.target.value)}
+                      rows={3}
+                      placeholder="Instruções internas para o advogado (opcional)."
+                    />
                   </FormField>
                 </div>
-              </SheetPanel>
-              <SheetFooterForm
-                onClose={onClose}
-                saveLabel={salvando ? "Encaminhando…" : "Encaminhar para análise"}
-                saveDisabled={salvando || condominioId === null}
-              />
-            </SheetForm>
-          ) : null}
-
-          <SheetPanel>
+              </div>
+              {loading ? (
+                <SkeletonCardList rows={3} label="Carregando encaminhamentos" />
+              ) : itens.length > 0 ? (
+                <div className="flex flex-col gap-md border-t border-border-subtle pt-md">{itens.map(renderItem)}</div>
+              ) : null}
+            </SheetBody>
+            <SheetFooterForm
+              onClose={onClose}
+              saveLabel={salvando ? "Encaminhando…" : "Encaminhar para análise"}
+              saveDisabled={salvando || condominioId === null}
+            />
+          </SheetForm>
+        ) : (
+          <SheetBody className="flex flex-col gap-md">
             {loading ? (
               <SkeletonCardList rows={3} label="Carregando encaminhamentos" />
             ) : itens.length === 0 ? (
@@ -458,8 +488,8 @@ export function EncaminhamentoJuridicoSheet({
             ) : (
               <div className="flex flex-col gap-md">{itens.map(renderItem)}</div>
             )}
-          </SheetPanel>
-        </SheetBody>
+          </SheetBody>
+        )}
       </SheetContent>
     </Sheet>
   );

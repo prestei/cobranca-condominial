@@ -1,29 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   Calendar,
-  CalendarX2,
-  CheckCircle2,
   ChevronDown,
-  ChevronUp,
-  Clock,
   DoorOpen,
   FileText,
+  Handshake,
+  ListOrdered,
+  Plus,
   Printer,
   Scale,
+  ScrollText,
   User,
+  Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { CardMetric } from "@/components/card-metric";
-import { GraficoRosca } from "@/components/charts";
-import { KpiMobileCard } from "@/components/kpi-mobile-card";
+import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { FormField, Input, Textarea } from "@/components/input";
+import { PageContent, PageHeader } from "@/components/page-header";
 import { SkeletonCardList } from "@/components/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/table";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetHeaderIcon,
+  SheetHeaderLead,
+  SheetHeaderText,
+  SheetTitle,
+} from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
 import {
@@ -53,6 +74,9 @@ const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral">
   Cancelada: "neutral",
 };
 
+const PARCELAS_PREVIEW = 5;
+const HISTORICO_PREVIEW = 4;
+
 function rotuloProposta(proposta: PropostaNegociacao) {
   const ano = proposta.criadoEm.slice(0, 4) || "2025";
   const sufixo = proposta.id.replace(/-/g, "").slice(0, 4).toUpperCase();
@@ -69,17 +93,38 @@ function centavos(valor: string): number {
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
+function formatarDataHoraPagamento(iso: string): string {
+  const data = formatarData(iso.slice(0, 10));
+  const hora = iso.includes("T") ? iso.slice(11, 16) : "";
+  return hora && hora !== "00:00" ? `${data} — ${hora}` : data;
+}
+
+function tituloEventoHistorico(acao: string, campos?: string) {
+  if (acao === "INSERT") return "Proposta criada";
+  if (acao === "UPDATE") {
+    if (campos?.toLowerCase().includes("status") && campos.toLowerCase().includes("aceita")) {
+      return "Proposta confirmada";
+    }
+    return "Condições alteradas";
+  }
+  return "Atualização registrada";
+}
+
 export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, onRecarregar }: Props) {
+  const formId = useId();
   const { toast } = useToast();
   const { refetch } = useCadastrosStatus();
   const { pode } = usePermissao();
   const podeEditar = pode("atendimentos", "editar") || pode("negociacoes", "editar");
+  const podeRegistrar = pode("atendimentos", "criar") || pode("negociacoes", "criar");
 
   const [detalhe, setDetalhe] = useState<PropostaNegociacaoDetalhe | null>(null);
   const [resumo, setResumo] = useState<ResumoAcordo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pendentesAbertos, setPendentesAbertos] = useState(false);
-  const [operacoesAbertas, setOperacoesAbertas] = useState(false);
+  const [parcelasExpandidas, setParcelasExpandidas] = useState(false);
+  const [sheetPagamentoAberto, setSheetPagamentoAberto] = useState(false);
+  const [sheetParcelaAberto, setSheetParcelaAberto] = useState(false);
+  const [historicoCompleto, setHistoricoCompleto] = useState(false);
 
   const [termos, setTermos] = useState("");
   const [termosErro, setTermosErro] = useState("");
@@ -116,7 +161,7 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   const historico = useMemo(() => {
     if (!detalhe) return [];
     const id = detalhe.proposta.id;
-    type Evento = { data: string; titulo: string; descricao: string; usuario: string };
+    type Evento = { data: string; titulo: string; usuario?: string; destaque: boolean };
     const eventos: Evento[] = [];
 
     for (const log of cadastros.auditoria) {
@@ -125,17 +170,13 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
       const usuario = Number.isFinite(userId)
         ? identificadorColaboradorPorId(userId, cadastros)
         : log.usuarioId;
-      const acao =
-        log.acao === "INSERT"
-          ? "Proposta criada"
-          : log.acao === "UPDATE"
-            ? "Proposta alterada"
-            : `Registro ${log.acao.toLowerCase()}`;
+      const titulo = tituloEventoHistorico(log.acao, log.camposAlterados);
+      const destaque = titulo === "Proposta confirmada" || titulo === "Proposta criada";
       eventos.push({
         data: log.dataHora,
-        titulo: acao,
-        descricao: log.camposAlterados || "Atualização registrada",
+        titulo,
         usuario,
+        destaque,
       });
     }
 
@@ -145,26 +186,29 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
           if (pagamento.confirmacao !== "Confirmado") continue;
           eventos.push({
             data: pagamento.dataPagamento,
-            titulo: "Pagamento confirmado",
-            descricao: `Parcela ${parcela.numero} · ${formatarMoeda(pagamento.valor)}`,
+            titulo: `Pagamento da ${parcela.numero}ª parcela`,
             usuario: identificadorColaboradorPorId(pagamento.registradoPorId, cadastros),
+            destaque: true,
           });
         }
       }
     }
 
+    if (detalhe.proposta.status === "Aceita") {
+      const jaConfirmou = eventos.some((item) => item.titulo === "Proposta confirmada");
+      if (!jaConfirmou) {
+        eventos.push({
+          data: detalhe.proposta.criadoEm,
+          titulo: "Proposta confirmada",
+          usuario: detalhe.advogadoResponsavelRotulo,
+          destaque: true,
+        });
+      }
+    }
+
     eventos.sort((a, b) => b.data.localeCompare(a.data));
-    return eventos.slice(0, 12);
+    return eventos;
   }, [cadastros, detalhe, resumo]);
-
-  const parcelasPagas = resumo?.parcelas.filter((item) => item.status === "Paga") ?? [];
-  const parcelasPendentes = resumo?.parcelas.filter((item) => item.status === "Pendente") ?? [];
-  const parcelasVencidas = resumo?.parcelas.filter((item) => item.status === "Vencida") ?? [];
-  const parcelasAguardando = [...parcelasPendentes, ...parcelasVencidas];
-
-  const valorPagasCent = parcelasPagas.reduce((s, p) => s + centavos(p.valorPagoConfirmado || p.valorPrevisto), 0);
-  const valorPendentesCent = parcelasAguardando.reduce((s, p) => s + centavos(p.valorPrevisto), 0);
-  const valorVencidasCent = parcelasVencidas.reduce((s, p) => s + centavos(p.valorPrevisto), 0);
 
   const percentualPago = useMemo(() => {
     if (!resumo) return 0;
@@ -172,6 +216,18 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
     if (acordado <= 0) return 0;
     return Math.round((centavos(resumo.valorPagoConfirmado) / acordado) * 100);
   }, [resumo]);
+
+  const parcelasVisiveis = useMemo(() => {
+    if (!resumo) return [];
+    const ordenadas = [...resumo.parcelas].sort((a, b) => a.numero - b.numero);
+    if (parcelasExpandidas) return ordenadas;
+    return ordenadas.slice(0, PARCELAS_PREVIEW);
+  }, [parcelasExpandidas, resumo]);
+
+  const historicoVisivel = useMemo(() => {
+    if (historicoCompleto) return historico;
+    return historico.slice(0, HISTORICO_PREVIEW);
+  }, [historico, historicoCompleto]);
 
   async function alterarStatus(status: string) {
     if (!detalhe || !podeEditar) return;
@@ -207,366 +263,521 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
     }
   }
 
+  function editarProposta() {
+    if (!detalhe) return;
+    if (detalhe.proposta.status === "Em análise") {
+      document.getElementById("decisao-proposta")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (detalhe.proposta.status === "Aceita") {
+      setSheetParcelaAberto(true);
+      document.getElementById("parcelas-negociacao")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
+  const acoesCabecalho = (propostaStatus?: string) => (
+    <div className="flex flex-wrap items-center gap-sm print:hidden">
+      <Button type="button" variant="ghost" size="sm" onClick={onVoltar}>
+        <Icon icon={ArrowLeft} size="sm" aria-hidden />
+        Voltar
+      </Button>
+      <Button type="button" variant="secondary" size="sm" onClick={() => window.print()}>
+        <Icon icon={Printer} size="sm" aria-hidden />
+        Imprimir
+      </Button>
+      {podeEditar && propostaStatus && (propostaStatus === "Em análise" || propostaStatus === "Aceita") ? (
+        <Button type="button" size="sm" onClick={editarProposta}>
+          Editar proposta
+        </Button>
+      ) : null}
+    </div>
+  );
+
   if (loading) {
-    return <SkeletonCardList rows={6} label="Carregando proposta" />;
+    return (
+      <>
+        <PageHeader
+          icon={Handshake}
+          title="Proposta de negociação"
+          description="Carregando detalhes da proposta."
+          actions={acoesCabecalho()}
+        />
+        <PageContent>
+          <SkeletonCardList rows={6} label="Carregando proposta" />
+        </PageContent>
+      </>
+    );
   }
 
   if (!detalhe) {
     return (
-      <div className="flex flex-col gap-md">
-        <Button type="button" variant="ghost" size="sm" onClick={onVoltar}>
-          <ArrowLeft className="size-icon-sm" aria-hidden />
-          Voltar
-        </Button>
-        <p className="text-body-sm text-on-surface-variant">Proposta não encontrada.</p>
-      </div>
+      <>
+        <PageHeader
+          icon={Handshake}
+          title="Proposta de negociação"
+          description="Proposta não encontrada."
+          actions={acoesCabecalho()}
+        />
+        <PageContent>
+          <p className="text-body-sm text-on-surface-variant">Verifique o identificador ou volte à listagem.</p>
+        </PageContent>
+      </>
     );
   }
 
   const { proposta } = detalhe;
   const codigo = rotuloProposta(proposta);
-
+  const totalParcelas = resumo?.parcelas.length ?? proposta.quantidadeParcelas ?? 0;
   const metas: { icon: typeof Building2; rotulo: string; valor: string }[] = [
     { icon: Building2, rotulo: "Condomínio", valor: detalhe.condominioNome },
     { icon: DoorOpen, rotulo: "Unidade", valor: detalhe.unidadeIdentificacao },
     { icon: User, rotulo: "Devedor", valor: detalhe.devedorNome },
     { icon: Scale, rotulo: "Advogado responsável", valor: detalhe.advogadoResponsavelRotulo },
-    { icon: Calendar, rotulo: "Data da criação", valor: formatarData(proposta.criadoEm) },
+    { icon: Calendar, rotulo: "Criada em", valor: formatarData(proposta.criadoEm) },
   ];
 
   return (
-    <div className="flex flex-col gap-md print:text-on-surface">
-      <div className="flex flex-wrap items-center justify-between gap-sm print:hidden">
-        <Button type="button" variant="ghost" size="sm" onClick={onVoltar}>
-          <ArrowLeft className="size-icon-sm" aria-hidden />
-          Voltar
-        </Button>
-        <div className="flex flex-wrap gap-sm">
-          <Button type="button" variant="secondary" size="sm" onClick={() => window.print()}>
-            <Printer className="size-icon-sm" aria-hidden />
-            Imprimir
-          </Button>
-          {proposta.status === "Em análise" && podeEditar ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => document.getElementById("decisao-proposta")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              Decidir proposta
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <article className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-card">
-        <header className="flex flex-col gap-md p-lg">
-          <div className="flex flex-wrap items-center gap-sm">
-            <h1 className="text-headline-lg text-on-surface">Proposta de Negociação #{codigo}</h1>
+    <>
+      <PageHeader
+        icon={Handshake}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-sm">
+            Proposta de negociação #{codigo}
             <Badge variant={badgeStatus[proposta.status] ?? "secondary"}>
               {rotuloStatusExibicao(proposta.status)}
             </Badge>
-          </div>
-          <dl className="grid gap-md min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
+          </span>
+        }
+        description="Acompanhe os detalhes da negociação, parcelas e histórico de pagamentos."
+        actions={acoesCabecalho(proposta.status)}
+      />
+
+      <PageContent className="print:text-on-surface">
+        <div className="flex flex-col gap-lg">
+          <dl className="grid gap-md min-[768px]:grid-cols-2 min-[1024px]:grid-cols-5">
             {metas.map((item) => (
-              <div key={item.rotulo} className="min-w-0">
-                <dt className="flex items-center gap-xs text-label-sm text-on-surface-variant">
-                  <Icon icon={item.icon} size="sm" aria-hidden />
+              <div
+                key={item.rotulo}
+                className="min-w-0 rounded-lg border border-border-subtle bg-surface-subtle px-md py-sm"
+              >
+                <dt className="flex items-center gap-xs text-label-sm text-primary-container">
+                  <Icon icon={item.icon} size="sm" className="text-primary-container" aria-hidden />
                   {item.rotulo}
                 </dt>
                 <dd className="mt-xs truncate text-body-md font-medium text-on-surface">{item.valor}</dd>
               </div>
             ))}
           </dl>
-        </header>
 
-        <section className="border-t border-border-subtle bg-gradient-to-br from-primary-fixed/30 via-surface-card to-surface-card p-lg">
-          <div className="flex flex-col gap-lg min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-label-sm text-on-surface-variant">Valor negociado</p>
-              <p className="mt-xs text-headline-xl tabular-nums text-on-surface">{formatarMoeda(proposta.valorProposto)}</p>
-              <dl className="mt-md grid gap-md min-[640px]:grid-cols-2 min-[960px]:grid-cols-4">
-                <div>
-                  <dt className="text-label-sm text-on-surface-variant">Valor original</dt>
-                  <dd className="text-body-md tabular-nums text-on-surface">
-                    {proposta.valorDividaOriginal ? formatarMoeda(proposta.valorDividaOriginal) : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-label-sm text-on-surface-variant">Valor atualizado</dt>
-                  <dd className="text-body-md tabular-nums text-on-surface">
-                    {proposta.valorDividaAtualizada ? formatarMoeda(proposta.valorDividaAtualizada) : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-label-sm text-on-surface-variant">Desconto ({detalhe.descontoPercent}%)</dt>
-                  <dd className="text-body-md tabular-nums text-on-surface">{detalhe.descontoConcedido}</dd>
-                </div>
-                <div>
-                  <dt className="text-label-sm text-on-surface-variant">Parcelamento</dt>
-                  <dd className="text-body-md text-on-surface">
-                    {proposta.quantidadeParcelas
-                      ? `${proposta.quantidadeParcelas}x de ${detalhe.valorParcelaIndicativo}`
-                      : "—"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            {resumo ? (
-              <div className="flex shrink-0 flex-col items-center gap-xs min-[1024px]:w-44">
-                <GraficoRosca
-                  chave={`negociacao-${propostaId}`}
-                  centro={`${percentualPago}%`}
-                  legenda="Recebido"
-                  fatias={[
-                    {
-                      nome: "Recebido",
-                      valor: centavos(resumo.valorPagoConfirmado),
-                      detalhe: formatarMoeda(resumo.valorPagoConfirmado),
-                      tom: "settled",
-                    },
-                    {
-                      nome: "Saldo",
-                      valor: centavos(resumo.saldoRestante),
-                      detalhe: formatarMoeda(resumo.saldoRestante),
-                      tom: "navy",
-                    },
-                  ]}
-                  vazio={<p className="text-body-sm text-on-surface-variant">Sem parcelas</p>}
-                  semLegenda
-                />
-                <p className="text-center text-body-sm text-on-surface-variant">
-                  Total recebido{" "}
-                  <span className="font-medium tabular-nums text-on-surface">
-                    {formatarMoeda(resumo.valorPagoConfirmado)}
-                  </span>
-                </p>
+          <section
+            className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card"
+            aria-label="Resumo financeiro da negociação"
+          >
+            <div className="grid grid-cols-2 gap-x-xl gap-y-lg min-[900px]:grid-cols-4">
+              <div className="min-w-0">
+                <ResumoMetrica rotulo="Valor negociado" valor={formatarMoeda(proposta.valorProposto)} />
+                <LinhaDescontoNegociado detalhe={detalhe} proposta={proposta} />
               </div>
-            ) : (
-              <p className="text-body-sm text-on-surface-variant">Cronograma ainda não gerado.</p>
-            )}
-          </div>
-        </section>
-
-        {resumo ? (
-          <section aria-label="Indicadores de parcelas" className="border-t border-border-subtle px-lg py-md">
-            <div className="grid grid-cols-1 gap-sm min-[768px]:hidden">
-              <KpiMobileCard
-                rotulo="Parcelas pagas"
-                valor={String(resumo.parcelasPagas).padStart(2, "0")}
-                detalhe={formatarMoeda((valorPagasCent / 100).toFixed(2))}
-                icon={CheckCircle2}
-                iconClassName="bg-badge-success-subtle text-badge-success-emphasis"
-              />
-              <KpiMobileCard
-                rotulo="Parcelas pendentes"
-                valor={String(resumo.parcelasPendentes).padStart(2, "0")}
-                detalhe={formatarMoeda((valorPendentesCent / 100).toFixed(2))}
-                icon={Clock}
-              />
-              <KpiMobileCard
-                rotulo="Parcelas vencidas"
-                valor={String(resumo.parcelasVencidas).padStart(2, "0")}
-                detalhe={formatarMoeda((valorVencidasCent / 100).toFixed(2))}
-                icon={CalendarX2}
-                destaque
-              />
+              {resumo ? (
+                <>
+                  <ResumoMetrica
+                    rotulo={`Total recebido · ${percentualPago}%`}
+                    valor={formatarMoeda(resumo.valorPagoConfirmado)}
+                    valorClassName="text-status-settled"
+                  />
+                  <ResumoMetrica rotulo="Saldo restante" valor={formatarMoeda(resumo.saldoRestante)} />
+                  <ResumoMetrica rotulo="Parcelas" valor={String(totalParcelas)} />
+                </>
+              ) : null}
             </div>
-            <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
-              <CardMetric
-                rotulo="Parcelas pagas"
-                valor={String(resumo.parcelasPagas).padStart(2, "0")}
-                detalhe={formatarMoeda((valorPagasCent / 100).toFixed(2))}
-                iconClassName="bg-badge-success-subtle text-badge-success-emphasis"
-                icon={<Icon icon={CheckCircle2} size="md" className="text-badge-success-emphasis" />}
-              />
-              <CardMetric
-                rotulo="Parcelas pendentes"
-                valor={String(resumo.parcelasPendentes).padStart(2, "0")}
-                detalhe={formatarMoeda((valorPendentesCent / 100).toFixed(2))}
-                iconClassName="bg-primary-fixed/50 text-primary-container"
-                icon={<Icon icon={Clock} size="md" className="text-primary-container" />}
-              />
-              <CardMetric
-                rotulo="Parcelas vencidas"
-                valor={String(resumo.parcelasVencidas).padStart(2, "0")}
-                detalhe={formatarMoeda((valorVencidasCent / 100).toFixed(2))}
-                iconClassName="bg-error-container text-status-critical"
-                icon={<Icon icon={CalendarX2} size="md" className="text-status-critical" />}
-              />
-            </div>
-          </section>
-        ) : null}
 
-        <div className="grid min-[1024px]:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
-          <section className="flex flex-col gap-md border-t border-border-subtle p-lg min-[1024px]:border-r">
-            <h2 className="text-headline-sm text-on-surface">Parcelas da negociação</h2>
-            {!resumo || resumo.parcelas.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">
-                Nenhuma parcela prevista. Confirme o acordo ou gere o cronograma.
-              </p>
-            ) : (
-              <ul className="flex flex-col divide-y divide-border-subtle rounded-lg bg-surface-subtle/50">
-                {parcelasPagas.map((parcela) => (
-                  <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} />
-                ))}
-                {parcelasAguardando.length > 0 ? (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-sm bg-surface-subtle px-md py-sm text-left transition-colors hover:brightness-[0.98]"
-                      onClick={() => setPendentesAbertos((v) => !v)}
-                    >
-                      <span className="text-body-md font-medium text-on-surface">
-                        Parcelas {parcelasAguardando[0]?.numero}
-                        {parcelasAguardando.length > 1
-                          ? ` a ${parcelasAguardando[parcelasAguardando.length - 1]?.numero}`
-                          : ""}{" "}
-                        · {parcelasAguardando.length} pendentes
-                      </span>
-                      {pendentesAbertos ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
-                    </button>
-                    {pendentesAbertos ? (
-                      <ul className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle">
-                        {parcelasAguardando.map((parcela) => (
-                          <LinhaParcela key={parcela.id} parcela={parcela} cadastros={cadastros} compacto />
-                        ))}
-                      </ul>
-                    ) : null}
-                  </li>
-                ) : null}
-              </ul>
-            )}
-          </section>
-
-          <aside className="flex flex-col gap-md border-t border-border-subtle p-lg min-[1024px]:border-t-0">
-            <h2 className="text-headline-sm text-on-surface">Histórico da negociação</h2>
-            {historico.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">Sem eventos auditados ainda.</p>
-            ) : (
-              <ol className="relative flex flex-col gap-md border-l border-border-subtle pl-md">
-                {historico.map((item, index) => (
-                  <li key={`${item.data}-${index}`} className="relative">
-                    <span className="absolute -left-[calc(0.5rem+5px)] top-1.5 size-2.5 rounded-full bg-primary-container" />
-                    <p className="text-label-sm text-on-surface">{item.titulo}</p>
-                    <p className="text-body-sm text-on-surface-variant">
-                      {formatarData(item.data)} · {item.usuario}
-                    </p>
-                    <p className="text-body-sm text-on-surface">{item.descricao}</p>
-                  </li>
-                ))}
-              </ol>
-            )}
             {resumo ? (
-              <p className="rounded-lg bg-surface-subtle px-md py-sm text-body-sm text-on-surface-variant">
-                A soma das parcelas corresponde ao valor negociado ({formatarMoeda(resumo.valorAcordado)}). Saldo em
-                aberto: {formatarMoeda(resumo.saldoRestante)}.
-              </p>
+              totalParcelas > 0 ? (
+                <div className="mt-lg flex flex-col gap-sm">
+                  <BarraProgressoParcelas resumo={resumo} />
+                  <LegendaParcelas resumo={resumo} />
+                </div>
+              ) : null
+            ) : (
+              <p className="mt-md text-body-sm text-on-surface-variant">Cronograma ainda não gerado.</p>
+            )}
+          </section>
+
+          <section
+            id="parcelas-negociacao"
+            aria-label="Parcelas da negociação"
+            className="flex min-w-0 flex-col gap-md"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
+                <Icon icon={ListOrdered} size="md" className="text-primary-container" aria-hidden />
+                Parcelas
+              </h2>
+              {proposta.status === "Aceita" && podeRegistrar ? (
+                <div className="flex flex-wrap gap-sm print:hidden">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!resumo?.parcelas.length}
+                    onClick={() => setSheetPagamentoAberto(true)}
+                  >
+                    <Icon icon={Wallet} size="sm" aria-hidden />
+                    Registrar pagamento
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => setSheetParcelaAberto(true)}>
+                    <Icon icon={Plus} size="sm" aria-hidden />
+                    Adicionar parcela
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <Table showExport={false} fitContainer aria-label="Parcelas da negociação">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Parcela</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead align="right">Pagamento</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!resumo || resumo.parcelas.length === 0 ? (
+                  <TableEmpty colSpan={4}>
+                    <EmptyState
+                      icon={<Icon icon={ListOrdered} size="lg" />}
+                      title="Nenhuma parcela prevista"
+                      description="Confirme o acordo ou gere o cronograma."
+                      action={
+                        proposta.status === "Aceita" && podeRegistrar ? (
+                          <Button type="button" size="sm" onClick={() => setSheetParcelaAberto(true)}>
+                            <Icon icon={Plus} size="sm" aria-hidden />
+                            Adicionar parcela
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  </TableEmpty>
+                ) : (
+                  parcelasVisiveis.map((parcela) => (
+                    <TableRow key={parcela.id}>
+                      <TableCell>{parcela.numero}ª parcela</TableCell>
+                      <TableCell className="tabular-nums">{formatarData(parcela.vencimentoEm)}</TableCell>
+                      <TableCell className="tabular-nums font-medium">{formatarMoeda(parcela.valorPrevisto)}</TableCell>
+                      <TableCell align="right">
+                        <CelulaStatusPagamento parcela={parcela} cadastros={cadastros} className="items-end" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {resumo && resumo.parcelas.length > PARCELAS_PREVIEW ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-xs text-brass hover:text-brass"
+                  onClick={() => setParcelasExpandidas((value) => !value)}
+                >
+                  {parcelasExpandidas ? "Mostrar menos" : `Ver todas as ${resumo.parcelas.length} parcelas`}
+                  <Icon icon={ChevronDown} size="sm" aria-hidden />
+                </Button>
+              </div>
             ) : null}
-          </aside>
-        </div>
+          </section>
 
-        {proposta.status === "Em análise" && podeEditar ? (
-          <section id="decisao-proposta" className="border-t border-border-subtle p-lg print:hidden">
-            <h2 className="text-headline-sm text-on-surface">Decisão da proposta</h2>
-            <div className="mt-md flex flex-col gap-sm">
-              <FormField label="1º vencimento do cronograma (opcional)">
-                <Input type="date" value={primeiroVencimento} onChange={(e) => setPrimeiroVencimento(e.target.value)} />
-              </FormField>
-              <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
-                <Textarea
-                  icon={FileText}
-                  value={termos}
-                  onChange={(e) => {
-                    setTermos(e.target.value);
-                    if (e.target.value.trim()) setTermosErro("");
-                  }}
-                  rows={3}
-                />
-              </FormField>
-              <div className="flex flex-wrap gap-sm">
-                <Button type="button" disabled={statusSalvando || !termos.trim()} onClick={() => void alterarStatus("Aceita")}>
-                  Confirmar acordo
+          <section aria-label="Histórico da negociação" className="flex min-w-0 flex-col gap-md">
+            <div className="flex items-center justify-between gap-sm">
+              <h2 className="flex items-center gap-sm text-headline-sm text-on-surface">
+                <Icon icon={ScrollText} size="md" className="text-primary-container" aria-hidden />
+                Histórico
+              </h2>
+              {historico.length > HISTORICO_PREVIEW ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-xs text-brass hover:text-brass"
+                  onClick={() => setHistoricoCompleto((value) => !value)}
+                >
+                  {historicoCompleto ? "Resumir" : "Ver completo"}
+                  <Icon icon={ArrowRight} size="sm" aria-hidden />
                 </Button>
-                <Button type="button" variant="secondary" disabled={statusSalvando} onClick={() => void alterarStatus("Recusada")}>
-                  Recusar
-                </Button>
-                <Button type="button" variant="ghost" disabled={statusSalvando} onClick={() => void alterarStatus("Cancelada")}>
-                  Cancelar proposta
-                </Button>
-              </div>
+              ) : null}
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-surface-card p-lg shadow-card">
+              {historico.length === 0 ? (
+                <p className="text-body-md text-on-surface-variant">Sem eventos auditados ainda.</p>
+              ) : (
+                <ol className="relative flex flex-col gap-lg border-l-2 border-primary-fixed/35 py-xs pl-md">
+                  {historicoVisivel.map((item, index) => (
+                    <li key={`${item.data}-${item.titulo}-${index}`} className="relative pl-sm">
+                      <span
+                        className={[
+                          "absolute -left-[calc(0.5rem+7px)] top-[0.45rem] size-2.5 rounded-full",
+                          item.destaque
+                            ? "bg-status-settled"
+                            : "border-2 border-border-subtle bg-surface-card",
+                        ].join(" ")}
+                        aria-hidden
+                      />
+                      <p className="text-body-md font-medium leading-snug text-on-surface">{item.titulo}</p>
+                      <p className="mt-xs text-body-md leading-snug text-on-surface-variant">
+                        <time dateTime={item.data.slice(0, 10)} className="tabular-nums">
+                          {formatarData(item.data.slice(0, 10))}
+                        </time>
+                        {item.usuario && item.usuario !== "—" ? (
+                          <>
+                            <span className="px-xs text-on-surface-variant/50" aria-hidden>
+                              ·
+                            </span>
+                            <span>{item.usuario}</span>
+                          </>
+                        ) : null}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
           </section>
-        ) : null}
 
-        {proposta.status === "Aceita" ? (
-          <section className="border-t border-border-subtle print:hidden">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-sm px-lg py-md text-left"
-              onClick={() => setOperacoesAbertas((v) => !v)}
+          {proposta.status === "Em análise" && podeEditar ? (
+            <section
+              id="decisao-proposta"
+              className="rounded-xl border border-border-subtle bg-surface-card p-lg shadow-card print:hidden"
             >
-              <span className="text-headline-sm text-on-surface">Registrar pagamento e cronograma</span>
-              {operacoesAbertas ? <ChevronUp className="size-icon-sm" /> : <ChevronDown className="size-icon-sm" />}
-            </button>
-            {operacoesAbertas ? (
-              <div className="border-t border-border-subtle px-lg pb-lg pt-md">
-                <AcordoAcompanhamentoBlock
-                  propostaId={proposta.id}
-                  podeRegistrar={pode("atendimentos", "criar") || pode("negociacoes", "criar")}
-                  podeCorrigir={podeEditar}
-                  onChanged={() => {
-                    void refetch();
-                    onRecarregar();
-                    void carregar();
-                  }}
-                />
+              <h2 className="text-headline-sm text-on-surface">Decisão da proposta</h2>
+              <div className="mt-md flex flex-col gap-sm">
+                <FormField label="1º vencimento do cronograma (opcional)">
+                  <Input type="date" value={primeiroVencimento} onChange={(e) => setPrimeiroVencimento(e.target.value)} />
+                </FormField>
+                <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
+                  <Textarea
+                    icon={FileText}
+                    value={termos}
+                    onChange={(e) => {
+                      setTermos(e.target.value);
+                      if (e.target.value.trim()) setTermosErro("");
+                    }}
+                    rows={3}
+                  />
+                </FormField>
+                <div className="flex flex-wrap gap-sm">
+                  <Button type="button" disabled={statusSalvando || !termos.trim()} onClick={() => void alterarStatus("Aceita")}>
+                    Confirmar acordo
+                  </Button>
+                  <Button type="button" variant="secondary" disabled={statusSalvando} onClick={() => void alterarStatus("Recusada")}>
+                    Recusar
+                  </Button>
+                  <Button type="button" variant="ghost" disabled={statusSalvando} onClick={() => void alterarStatus("Cancelada")}>
+                    Cancelar proposta
+                  </Button>
+                </div>
               </div>
-            ) : null}
-          </section>
-        ) : null}
-      </article>
+            </section>
+          ) : null}
+
+        </div>
+      </PageContent>
+
+      {proposta.status === "Aceita" ? (
+        <>
+          <Sheet open={sheetParcelaAberto} onOpenChange={setSheetParcelaAberto}>
+            <SheetContent aria-labelledby={`${formId}-nova-parcela-titulo`}>
+              <SheetHeader>
+                <SheetHeaderLead>
+                  <SheetHeaderIcon>
+                    <Icon icon={Plus} size="md" />
+                  </SheetHeaderIcon>
+                  <SheetHeaderText>
+                    <SheetTitle id={`${formId}-nova-parcela-titulo`}>Adicionar parcela</SheetTitle>
+                    <SheetDescription>Inclua uma parcela prevista no cronograma do acordo.</SheetDescription>
+                  </SheetHeaderText>
+                </SheetHeaderLead>
+                <SheetClose />
+              </SheetHeader>
+              <AcordoAcompanhamentoBlock
+                propostaId={proposta.id}
+                podeRegistrar={podeRegistrar}
+                podeCorrigir={podeEditar}
+                modo="nova-parcela"
+                onFechar={() => setSheetParcelaAberto(false)}
+                onConcluido={() => setSheetParcelaAberto(false)}
+                onChanged={() => {
+                  void refetch();
+                  onRecarregar();
+                  void carregar();
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+
+          <Sheet open={sheetPagamentoAberto} onOpenChange={setSheetPagamentoAberto}>
+            <SheetContent aria-labelledby={`${formId}-pagamento-titulo`}>
+              <SheetHeader>
+                <SheetHeaderLead>
+                  <SheetHeaderIcon>
+                    <Icon icon={Wallet} size="md" />
+                  </SheetHeaderIcon>
+                  <SheetHeaderText>
+                    <SheetTitle id={`${formId}-pagamento-titulo`}>Registrar pagamento</SheetTitle>
+                    <SheetDescription>Informe valor, data e confirmação do recebimento.</SheetDescription>
+                  </SheetHeaderText>
+                </SheetHeaderLead>
+                <SheetClose />
+              </SheetHeader>
+              <AcordoAcompanhamentoBlock
+                propostaId={proposta.id}
+                podeRegistrar={podeRegistrar}
+                podeCorrigir={podeEditar}
+                modo="registrar-pagamento"
+                onFechar={() => setSheetPagamentoAberto(false)}
+                onConcluido={() => setSheetPagamentoAberto(false)}
+                onChanged={() => {
+                  void refetch();
+                  onRecarregar();
+                  void carregar();
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function ResumoMetrica({
+  rotulo,
+  valor,
+  valorClassName = "text-on-surface",
+}: {
+  rotulo: ReactNode;
+  valor: ReactNode;
+  valorClassName?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-label-sm text-on-surface-variant">{rotulo}</p>
+      <p className={`mt-xs text-headline-lg font-bold tabular-nums tracking-tight ${valorClassName}`}>{valor}</p>
     </div>
   );
 }
 
-function LinhaParcela({
+function LinhaDescontoNegociado({
+  detalhe,
+  proposta,
+}: {
+  detalhe: PropostaNegociacaoDetalhe;
+  proposta: PropostaNegociacao;
+}) {
+  const base = proposta.valorDividaOriginal;
+  if (!base) return null;
+
+  const percentual = Number(detalhe.descontoPercent);
+  if (percentual > 0) {
+    const rotuloPercentual = Number.isInteger(percentual)
+      ? String(percentual)
+      : percentual.toFixed(2).replace(/\.?0+$/, "");
+    return (
+      <p className="mt-sm text-body-sm">
+        <span className="font-medium text-badge-success-emphasis">Desconto de {rotuloPercentual}%</span>
+        <span className="text-on-surface-variant"> sobre {formatarMoeda(base)}</span>
+      </p>
+    );
+  }
+
+  if (detalhe.descontoConcedido && detalhe.descontoConcedido !== "R$ 0,00") {
+    return (
+      <p className="mt-sm text-body-sm">
+        <span className="font-medium text-badge-success-emphasis">Desconto de {detalhe.descontoConcedido}</span>
+        <span className="text-on-surface-variant"> sobre {formatarMoeda(base)}</span>
+      </p>
+    );
+  }
+
+  return null;
+}
+
+function BarraProgressoParcelas({ resumo }: { resumo: ResumoAcordo }) {
+  const parcelas = [...resumo.parcelas].sort((a, b) => a.numero - b.numero);
+  return (
+    <div className="flex w-full gap-1" role="img" aria-label="Progresso das parcelas">
+      {parcelas.map((parcela) => {
+        const paga = parcela.status === "Paga";
+        const vencida = parcela.status === "Vencida";
+        const classe = paga
+          ? "bg-status-settled"
+          : vencida
+            ? "bg-status-critical"
+            : "bg-primary-fixed/35";
+        return (
+          <div
+            key={parcela.id}
+            className={`h-2.5 min-w-0 flex-1 rounded-full ${classe}`}
+            title={`Parcela ${parcela.numero}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function LegendaParcelas({ resumo }: { resumo: ResumoAcordo }) {
+  return (
+    <ul className="flex flex-wrap items-center gap-md text-body-sm text-on-surface-variant">
+      <li className="flex items-center gap-xs">
+        <span className="size-2 rounded-full bg-status-settled" aria-hidden />
+        {resumo.parcelasPagas} pagas
+      </li>
+      <li className="flex items-center gap-xs">
+        <span className="size-2 rounded-full bg-primary-container" aria-hidden />
+        {resumo.parcelasPendentes} pendentes
+      </li>
+      <li className="flex items-center gap-xs">
+        <span className="size-2 rounded-full bg-status-critical" aria-hidden />
+        {resumo.parcelasVencidas} vencidas
+      </li>
+    </ul>
+  );
+}
+
+function CelulaStatusPagamento({
   parcela,
   cadastros,
-  compacto,
+  className,
 }: {
   parcela: ParcelaAcordoEnriquecida;
   cadastros: Cadastros;
-  compacto?: boolean;
+  className?: string;
 }) {
   const pago = parcela.status === "Paga";
-  const confirmado = parcela.pagamentos.find((p) => p.confirmacao === "Confirmado");
+  const vencida = parcela.status === "Vencida";
+  const confirmado = parcela.pagamentos.find((item) => item.confirmacao === "Confirmado");
+
+  const rotulo = pago ? "Paga" : vencida ? "Vencida" : "Pendente";
 
   return (
-  <li
-    className={[
-      "flex flex-col gap-xs px-md py-sm",
-      pago ? "bg-success-container/10" : "bg-surface-card",
-      compacto ? "text-body-sm" : "",
-    ].join(" ")}
-  >
-      <div className="flex flex-wrap items-center justify-between gap-sm">
-        <span className="flex items-center gap-sm font-medium text-on-surface">
-          {pago ? <CheckCircle2 className="size-icon-sm text-success" aria-hidden /> : null}
-          {parcela.numero}ª parcela · venc. {formatarData(parcela.vencimentoEm)}
-        </span>
-        <span className="flex items-center gap-sm">
-          <span className="tabular-nums text-on-surface">{formatarMoeda(parcela.valorPrevisto)}</span>
-          <Badge variant={pago ? "success" : parcela.status === "Vencida" ? "error" : "secondary"}>
-            {parcela.status}
-          </Badge>
-        </span>
-      </div>
-      {pago && confirmado && !compacto ? (
+    <div className={`flex flex-col gap-xs ${className ?? ""}`}>
+      {pago || vencida ? (
+        <Badge variant={pago ? "success" : "error"} className="w-fit gap-1 font-medium">
+          <span aria-hidden>●</span>
+          {rotulo}
+        </Badge>
+      ) : (
+        <Badge variant="neutral" className="w-fit">
+          {rotulo}
+        </Badge>
+      )}
+      {pago && confirmado ? (
         <p className="text-body-sm text-on-surface-variant">
-          Pago em {formatarData(confirmado.dataPagamento)} · Por{" "}
+          {formatarDataHoraPagamento(confirmado.dataPagamento)} ·{" "}
           {identificadorColaboradorPorId(confirmado.registradoPorId, cadastros)}
         </p>
       ) : null}
-    </li>
+    </div>
   );
 }

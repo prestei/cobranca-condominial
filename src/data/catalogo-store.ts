@@ -1,7 +1,7 @@
 import "server-only";
 
 import { sanitizarCamposAlterados, sanitizarTextoAuditoria } from "@/lib/auditoria/sanitize";
-import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
+import { entradaLoginCoincideCodigo } from "@/lib/auth/codigo";
 import { getUsuarioLogadoIdOrNull } from "@/lib/auth/usuario-logado";
 import {
   agoraIso,
@@ -35,11 +35,9 @@ import {
   tryGetRequestCatalog,
 } from "@/lib/db/request-catalog";
 
-function usuarioCorrespondeAoLogin(item: Usuario, chave: string) {
+function usuarioCorrespondeAoLogin(item: Usuario, codigoEntrada: string) {
   if (item.ativo === false) return false;
-  if (normalizarCodigoUsuario(item.codigo) === chave) return true;
-  const re = item.codigoRe?.trim();
-  return Boolean(re && normalizarCodigoUsuario(re) === chave);
+  return entradaLoginCoincideCodigo(codigoEntrada, item.codigo, item.codigoRe);
 }
 
 /** Lê o catálogo do escopo de requisição (importação) ou do modo teste. */
@@ -49,13 +47,12 @@ export function getCadastros(): Cadastros {
 
 /** Login legado (sem PG): lê do escopo de teste. Com DATABASE_URL use repositório de identidade. */
 export function buscarUsuarioPorCodigoLogin(codigo: string) {
-  const chave = normalizarCodigoUsuario(codigo);
-  if (!chave) return undefined;
+  if (!codigo.trim()) return undefined;
   const cadastros = tryGetRequestCatalog();
-  const noEstado = cadastros?.usuarios.find((item) => usuarioCorrespondeAoLogin(item, chave));
+  const noEstado = cadastros?.usuarios.find((item) => usuarioCorrespondeAoLogin(item, codigo));
   if (noEstado) return noEstado;
   if (process.env.DATABASE_URL?.trim()) return undefined;
-  return usuariosLoginLegado().find((item) => usuarioCorrespondeAoLogin(item, chave));
+  return usuariosLoginLegado().find((item) => usuarioCorrespondeAoLogin(item, codigo));
 }
 
 function atualizar<K extends keyof Cadastros>(key: K, next: Cadastros[K] | ((current: Cadastros[K]) => Cadastros[K])) {

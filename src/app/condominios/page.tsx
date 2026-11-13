@@ -11,6 +11,7 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
+  ChevronRight,
   CircleOff,
   DoorOpen,
   Eye,
@@ -132,7 +133,14 @@ const estados = [
   "TO",
 ] as const;
 
-type SortKey = "nome" | "administradora" | "cidade" | "advogado" | "unidades" | "status";
+type SortKey =
+  | "nome"
+  | "administradora"
+  | "cidade"
+  | "advogado"
+  | "unidades"
+  | "status"
+  | "delinquencyTrackingDays";
 
 function DetalheCampo({ label, value }: { label: string; value: string }) {
   return (
@@ -327,6 +335,9 @@ export default function CondominiosPage() {
       if (sortKey === "unidades") {
         return (contarUnidades(a.id) - contarUnidades(b.id)) * factor;
       }
+      if (sortKey === "delinquencyTrackingDays") {
+        return (resolveDelinquencyTrackingDays(a) - resolveDelinquencyTrackingDays(b)) * factor;
+      }
       const left =
         sortKey === "administradora"
           ? a.administradora
@@ -386,6 +397,29 @@ export default function CondominiosPage() {
       return <Badge variant="error">Inadimplente</Badge>;
     }
     return <Badge variant="success">Em dia</Badge>;
+  }
+
+  function celulaPrazoInadimplencia(item: Condominio) {
+    const dias = resolveDelinquencyTrackingDays(item);
+    const usaPadrao = item.delinquencyTrackingDays == null;
+    const dicaPrazo = usaPadrao
+      ? `Prazo padrão (${DEFAULT_DELINQUENCY_TRACKING_DAYS} dias)`
+      : "Prazo configurado para o condomínio";
+
+    return (
+      <div className="flex items-center justify-between gap-xs">
+        <span className="tabular-nums text-on-surface">{dias} dias</span>
+        <button
+          type="button"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-subtle hover:text-on-surface focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"
+          title={dicaPrazo}
+          aria-label={`Consultar prazo de inadimplência de ${item.nome}`}
+          onClick={() => setDetalheId(item.id)}
+        >
+          <Icon icon={ChevronRight} size="sm" />
+        </button>
+      </div>
+    );
   }
   const metricValor = (n: number) => String(n).padStart(2, "0");
   const detalhe = detalheId === null ? null : (condominios.find((item) => item.id === detalheId) ?? null);
@@ -820,6 +854,14 @@ export default function CondominiosPage() {
           </TableHead>
           <TableHead>Inadimplência</TableHead>
           <TableHead
+            className="w-40"
+            sortable
+            sortDirection={directionFor("delinquencyTrackingDays")}
+            onSort={() => handleSort("delinquencyTrackingDays")}
+          >
+            Prazo de inadimplência
+          </TableHead>
+          <TableHead
             sortable
             sortDirection={directionFor("administradora")}
             onSort={() => handleSort("administradora")}
@@ -840,7 +882,7 @@ export default function CondominiosPage() {
       </TableHeader>
       <TableBody>
         {visible.length === 0 ? (
-          <TableEmpty colSpan={8}>{emptyState}</TableEmpty>
+          <TableEmpty colSpan={9}>{emptyState}</TableEmpty>
         ) : (
           pageRows.map((item) => (
             <TableRow key={item.id}>
@@ -875,6 +917,7 @@ export default function CondominiosPage() {
                 <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>
               </TableCell>
               <TableCell>{celulaInadimplencia(item)}</TableCell>
+              <TableCell>{celulaPrazoInadimplencia(item)}</TableCell>
               <TableCell>
                 {item.administradora.trim() ? (
                   <div className="flex min-w-0 items-center justify-start gap-sm">
@@ -935,6 +978,8 @@ export default function CondominiosPage() {
                 <div className="min-w-0">
                   <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
                   <div className="mt-xs">{celulaInadimplencia(item)}</div>
+                  <p className="mt-sm text-label-sm uppercase text-on-surface-variant">Prazo de inadimplência</p>
+                  <div className="mt-xs">{celulaPrazoInadimplencia(item)}</div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-xs">
                   <Badge variant={item.status === "Ativo" ? "success" : "secondary"}>{item.status}</Badge>

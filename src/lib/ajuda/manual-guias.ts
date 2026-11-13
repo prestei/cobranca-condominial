@@ -6,6 +6,7 @@ import {
   DoorOpen,
   FileBarChart,
   FileUp,
+  Handshake,
   LayoutDashboard,
   Scale,
   ScrollText,
@@ -15,12 +16,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ModuloPermissao } from "@/lib/permissions/modulos";
-export type PassoGuia = {
-  titulo: string;
-  descricao: string;
-};
 
-export type ElementoTelaGuia = {
+export type PassoGuia = {
   titulo: string;
   descricao: string;
 };
@@ -35,496 +32,384 @@ export type GuiaManual = {
   palavrasChave: string[];
   perfis?: Array<"administradora" | "atendente" | "advogado">;
   objetivo: string;
-  passos: PassoGuia[];
-  elementos: ElementoTelaGuia[];
-  dicas: string[];
+  /** Regras de negócio em linguagem simples — foco do manual. */
+  regras: string[];
+  /** Passos curtos e opcionais; só o essencial para começar a trabalhar na tela. */
+  passos?: PassoGuia[];
+  dicas?: string[];
 };
 
 export const GUIAS_MANUAL: GuiaManual[] = [
   {
     id: "inicio",
     titulo: "Início",
-    resumo: "Painel inicial com visão da carteira, pendências e atalhos conforme o seu perfil.",
+    resumo: "O que vale saber sobre os números e atalhos da página inicial.",
     href: "/",
     icon: LayoutDashboard,
     modulo: "dashboard",
-    palavrasChave: ["dashboard", "painel", "kpi", "métrica", "início", "home"],
+    palavrasChave: ["dashboard", "painel", "início", "home", "resumo"],
     objetivo:
-      "Dar uma visão rápida do dia: o que está na fila, quanto está em aberto e para onde ir em seguida — sem substituir as telas operacionais.",
+      "Ver um resumo do dia ou da carteira antes de ir para atendimentos, débitos ou relatórios — não é onde se registra contato.",
+    regras: [
+      "Cada perfil vê um recorte diferente: administradora a carteira ampla, atendente o foco do dia, advogado os condomínios sob sua responsabilidade.",
+      "Os números no topo refletem só o que seu cargo pode consultar; se algo não aparecer no menu, normalmente é falta de permissão.",
+      "Card com link leva para outra tela já com o filtro adequado — o valor do card não muda só porque você filtrou outra lista.",
+      "O painel não substitui a fila de atendimentos nem a lista de débitos: é orientação, não operação.",
+      "Notificações no sino são complemento: retornos e unidades novas na sua carteira.",
+    ],
     passos: [
       {
-        titulo: "Abra o Início pelo menu lateral",
-        descricao:
-          "O conteúdo muda automaticamente: administradora vê carteira ampla; atendente vê o comando do dia; advogado vê condomínios e resumo jurídico no escopo.",
+        titulo: "Confira os números do topo",
+        descricao: "Se algo chamar atenção, abra a tela indicada pelo card ou pelo menu lateral.",
       },
       {
-        titulo: "Leia os indicadores no topo",
-        descricao:
-          "Cada card resume um recorte (pendências, fila, inadimplência ou retornos). Clique quando o card tiver link — você será levado à tela correspondente com filtros coerentes.",
-      },
-      {
-        titulo: "Use os atalhos e listas do painel",
-        descricao:
-          "No perfil atendente, a home traz próximos compromissos e ações rápidas (agenda, fila, registrar contato). Detalhes completos ficam em Atendimentos e Inadimplência.",
+        titulo: "Atendente: priorize agenda e retornos",
+        descricao: "Antes de puxar caso novo, veja compromissos do dia e alertas no sino.",
       },
     ],
-    elementos: [
-      { titulo: "Cards de métricas", descricao: "Números persistidos no servidor, filtrados pelo seu escopo e permissões." },
-      { titulo: "Gráficos e tabelas", descricao: "No perfil administradora/advogado; atendente concentra gráficos em outras rotas." },
-      { titulo: "Sino de notificações", descricao: "No topo da página — complementa o painel com alertas de retorno e distribuição." },
-    ],
-    dicas: [
-      "Se um número parecer zerado, confira se seu cargo tem permissão de leitura no módulo relacionado.",
-      "Atendentes: priorize a agenda e o sino antes de iniciar contatos novos na fila.",
-    ],
+    dicas: ["Número zerado pode ser carteira vazia ou módulo que seu cargo não enxerga — confira com a administradora."],
   },
   {
     id: "atendimentos",
     titulo: "Atendimentos",
-    resumo: "Fila da carteira, registro de contatos (palitagem), retornos e linha do tempo da unidade.",
+    resumo: "Regras da fila de cobrança, do registro de contato e da distribuição de unidades.",
     href: "/atendimentos",
     icon: ClipboardList,
     modulo: "atendimentos",
-    palavrasChave: ["fila", "contato", "palitagem", "retorno", "whatsapp", "distribuição"],
+    palavrasChave: ["fila", "contato", "palitagem", "retorno", "distribuição", "cobrança"],
     objetivo:
-      "Concentrar a operação de cobrança: escolher a unidade na fila, entender o histórico e registrar cada tentativa de contato.",
+      "Registrar cada tentativa de cobrança da unidade e acompanhar retornos — o histórico da unidade nasce aqui.",
+    regras: [
+      "Cada contato registrado vira um registro novo; o sistema não apaga nem sobrescreve tentativas anteriores.",
+      "Quem está logado é sempre o autor do registro — não é permitido registrar em nome de outro colega.",
+      "Só entra na fila unidade em cobrança, em acordo, notificada ou ajuizada; quitada, inativa ou prescrita ficam de fora.",
+      "O valor em aberto exibido vem dos débitos cadastrados daquela unidade.",
+      "A unidade fica na carteira de um atendente (código RE); redistribuir muda o responsável atual, mas não altera quem registrou contatos antigos.",
+      "Distribuir várias unidades de uma vez: se uma falhar, nenhuma daquele lote é atribuída.",
+      "Data de retorno combinada com o devedor deve ser concluída após o contato — senão a agenda e os indicadores ficam desatualizados.",
+      "Proposta de negociação e encaminhamento jurídico são ações da unidade; negócio de acordo e pagamento ficam em Negociações.",
+    ],
     passos: [
       {
-        titulo: "Filtre a fila",
-        descricao:
-          "Use Período (hoje, intervalo personalizado), Sem retorno e Atrasados para focar no que importa agora. A URL pode guardar atalhos como ?retorno=hoje.",
-      },
-      {
-        titulo: "Selecione uma unidade",
-        descricao:
-          "O painel à direita (ou tela cheia no celular) mostra cabeçalho com contatos, linha do tempo de eventos e botões de ação no rodapé.",
+        titulo: "Escolha a unidade na fila",
+        descricao: "Use os filtros de período, sem retorno ou atrasados para focar no que é urgente.",
       },
       {
         titulo: "Registre o contato",
-        descricao:
-          "Registrar contato abre o formulário de palitagem: canais, se houve resposta, motivo, observações e próxima ação. Cada envio gera um novo registro — nada é sobrescrito.",
+        descricao: "Informe canal, se houve resposta, motivo e próximo passo. Cada envio gera histórico na linha do tempo.",
       },
-      {
-        titulo: "Conclua retornos em aberto",
-        descricao:
-          "Quando houver data de retorno pendente, use Concluir retorno após o contato efetivo. Isso mantém a agenda e os indicadores alinhados.",
-      },
-    ],
-    elementos: [
-      { titulo: "KPIs resumidos", descricao: "Totais da carteira no topo, independentes dos filtros da tabela." },
-      { titulo: "Fila master–detail", descricao: "Lista à esquerda; detalhe e linha do tempo à direita." },
-      { titulo: "Atalhos WhatsApp e e-mail", descricao: "Abrem o canal externo e podem pré-preencher o registro de contato." },
-      { titulo: "Distribuição (administradora)", descricao: "Atribui ou redistribui RE às unidades; gera notificação ao atendente." },
     ],
     dicas: [
-      "Atendente usa a fila master–detail com painel do caso; administradora vê abas Por condomínio, Por atendente e Geral com a carteira da equipe.",
-      "Negociação, jurídico e histórico completo ficam no menu de ações da linha ou do painel do caso.",
+      "Administradora enxerga a carteira da equipe e pode distribuir unidades; atendente vê só a própria carteira.",
     ],
   },
   {
     id: "agenda",
     titulo: "Minha agenda",
-    resumo: "Calendário mensal com contatos realizados e retornos agendados para o atendente.",
+    resumo: "Como retornos e contatos aparecem no calendário do atendente.",
     href: "/minha-agenda",
     icon: CalendarClock,
     modulo: "atendimentos",
-    palavrasChave: ["calendário", "retorno", "compromisso", "histórico", "mês"],
+    palavrasChave: ["calendário", "retorno", "compromisso", "mês"],
     perfis: ["atendente"],
-    objetivo: "Organizar o mês: ver o que já foi feito e o que ainda precisa de retorno, dia a dia.",
+    objetivo: "Organizar o mês: o que já foi feito e o que ainda depende de retorno ao devedor.",
+    regras: [
+      "Mostra contatos que você registrou e retornos que ainda estão pendentes ou já foram concluídos.",
+      "Compromisso agendado em outra tela aparece aqui e também na fila de atendimentos na data combinada.",
+      "Retorno vencido precisa ser tratado na fila — a agenda só avisa, não encerra sozinha.",
+      "Datas seguem o fuso de São Paulo, alinhado às notificações do sistema.",
+    ],
     passos: [
+      { titulo: "Navegue pelo mês", descricao: "Dias com movimento ficam destacados; clique no dia para ver a lista." },
       {
-        titulo: "Navegue entre os meses",
-        descricao: "Setas no cabeçalho do calendário alteram o período exibido sem perder o contexto da carteira.",
-      },
-      {
-        titulo: "Identifique os dias com movimento",
-        descricao: "Dias com contatos ou retornos ganham destaque; clique no dia para ver o detalhe abaixo ou ao lado.",
-      },
-      {
-        titulo: "Abra a unidade a partir do compromisso",
-        descricao: "Links levam à fila de atendimentos ou ao registro de contato com a unidade já selecionada.",
+        titulo: "Abra a unidade pelo compromisso",
+        descricao: "O atalho leva à fila com a unidade selecionada para registrar o contato.",
       },
     ],
-    elementos: [
-      { titulo: "Grade mensal", descricao: "Visão macro da produtividade e dos retornos futuros." },
-      { titulo: "Lista do dia", descricao: "Eventos agrupados por data com horário e tipo (contato, retorno)." },
-      { titulo: "Agendar atendimento", descricao: "Disponível em outras telas; o compromisso aparece aqui e na fila." },
-    ],
-    dicas: [
-      "Combine a agenda com o chip Atrasados em Atendimentos para não perder retornos vencidos.",
-      "Compromissos usam o fuso America/Sao_Paulo, alinhado às notificações do sistema.",
-    ],
+    dicas: ["Combine com o filtro Atrasados em Atendimentos para não perder retorno vencido."],
   },
   {
     id: "inadimplencia",
     titulo: "Inadimplência",
-    resumo: "KPIs, gráficos e listagem de débitos por condomínio ou visão geral da carteira.",
+    resumo: "Como débitos entram, como os valores são tratados e quando a unidade sai da cobrança.",
     href: "/debitos",
     icon: Wallet,
     modulo: "debitos",
-    palavrasChave: ["débito", "valor", "vencido", "gráfico", "quitação", "importar"],
-    objetivo: "Consultar valores em aberto, entender faixas de atraso e acionar cadastro, correção ou importação.",
+    palavrasChave: ["débito", "valor", "vencido", "importar", "quitação"],
+    objetivo: "Consultar o que a unidade deve, de onde veio o valor e quando atualizar por planilha ou correção.",
+    regras: [
+      "Os valores mostrados são os que estão gravados — o sistema não calcula juros, multa ou correção por conta própria.",
+      "Cada condomínio tem um prazo de acompanhamento da inadimplência (padrão 60 dias); isso orienta alertas, não muda o vencimento do boleto.",
+      "Atualizar a carteira pelo arquivo da administradora (importação) é o caminho preferido; correção manual fica registrada para auditoria.",
+      "Débito é a base do atendimento de cobrança: o que aparece aqui alimenta a fila e os relatórios.",
+      "Confirmar quitação da unidade tira ela da fila ativa, mas mantém histórico de débitos e contatos.",
+      "Cadastrar débito à mão só quando o escritório autoriza; quem pode criar ou editar depende do cargo.",
+    ],
+    passos: [
+      { titulo: "Confira totais e filtros", descricao: "Por condomínio agrupa em blocos; visão geral é uma lista única com busca." },
+      { titulo: "Atualize por importação", descricao: "Use Importar quando chegar planilha da administradora; revise a prévia antes de aprovar." },
+    ],
+    dicas: ["Mesma regra de valores vale para relatórios de carteira — números devem bater com esta tela."],
+  },
+  {
+    id: "negociacoes",
+    titulo: "Negociações",
+    resumo: "Proposta, acordo, parcelas e pagamentos — o que conta como dinheiro recebido.",
+    href: "/negociacoes",
+    icon: Handshake,
+    modulo: "negociacoes",
+    palavrasChave: ["proposta", "acordo", "parcela", "desconto", "pagamento"],
+    objetivo: "Registrar proposta com o devedor, confirmar acordo e acompanhar se as parcelas estão sendo pagas.",
+    regras: [
+      "Proposta aceita pelo escritório não significa que o dinheiro já entrou — só registra o combinado.",
+      "Proposta ligada à unidade e aos débitos dela; estados possíveis: em análise, aceita, recusada ou cancelada.",
+      "Advogado responsável do condomínio pode ter limite de desconto e de número de parcelas; administradora pode ultrapassar esses limites.",
+      "Só depois de aceita entram parcelas previstas e registros de pagamento.",
+      "Pagamento informado é anotação; só pagamento confirmado conta para quitar parcela e reduzir saldo do acordo.",
+      "Parcela vencida sem pagamento confirmado gera alerta de possível descumprimento — ainda não é regra automática de ‘acordo quebrado’.",
+      "Saldo do acordo não baixa automaticamente o débito na tela de inadimplência; são controles paralelos até o escritório definir política única.",
+      "Correção em parcela ou pagamento fica registrada em auditoria.",
+    ],
     passos: [
       {
-        titulo: "Confira os indicadores",
-        descricao:
-          "Totais e gráficos respeitam deduplicação por identificador externo e a data-base escolhida nos filtros.",
+        titulo: "Crie a proposta na unidade ou aqui",
+        descricao: "Informe valores, desconto e parcelas; aguarde análise ou confirme se for sua alçada.",
       },
       {
-        titulo: "Escolha a aba Por condomínio ou Geral",
-        descricao:
-          "Por condomínio agrupa painéis recolhíveis com prazo de acompanhamento; Geral mostra tabela plana com paginação.",
-      },
-      {
-        titulo: "Filtre e abra o detalhe",
-        descricao: "Busca, condomínio, situação e vencimento estreitam a lista. Sheets servem para cadastrar ou corrigir débitos manuais.",
-      },
-      {
-        titulo: "Importe ou confirme quitação",
-        descricao:
-          "Importar abre o assistente de inadimplência. Confirmar quitação atualiza a situação da unidade quando não há mais débitos em aberto.",
+        titulo: "Acompanhe o acordo aceito",
+        descricao: "Cadastre parcelas e, conforme o devedor paga, registre como informado ou confirmado.",
       },
     ],
-    elementos: [
-      { titulo: "Rosca e barras", descricao: "Distribuição de unidades e valores por faixa de dias de atraso." },
-      { titulo: "Fonte dos valores", descricao: "Origem (importação) ou correção manual — sem recálculo automático de encargos." },
-      { titulo: "Nova inadimplência", descricao: "Cadastro pontual quando a administradora autoriza criação manual." },
-    ],
-    dicas: [
-      "Correções manuais geram registro em auditoria; prefira importação quando houver arquivo da administradora.",
-      "Atendentes consultam dentro do escopo; criação e edição dependem do cargo.",
-    ],
+    dicas: ["Também é possível abrir proposta pelo painel da unidade em Atendimentos."],
   },
   {
     id: "juridico",
     titulo: "Jurídico",
-    resumo: "Encaminhamentos para análise jurídica, status e documentos — sem ajuizamento automático.",
+    resumo: "Encaminhamento para análise jurídica — sem automação de tribunal.",
     href: "/juridico",
     icon: Scale,
     modulo: "juridico",
-    palavrasChave: ["encaminhamento", "advogado", "processo", "documento", "ajuizamento"],
+    palavrasChave: ["encaminhamento", "advogado", "processo", "documento"],
     perfis: ["administradora", "advogado"],
-    objetivo: "Acompanhar casos encaminhados pela cobrança e registrar evolução jurídica no escopo do condomínio.",
+    objetivo: "Acompanhar casos que saíram da cobrança extrajudicial para o jurídico do escritório.",
+    regras: [
+      "O sistema não envia petição nem protocolo a tribunal — só organiza andamento interno.",
+      "Encaminhamento nasce na unidade em cobrança; o advogado sugerido vem do cadastro do condomínio.",
+      "Advogado só enxerga condomínios em que está vinculado no cadastro.",
+      "Atendente de cobrança não acessa este módulo; encaminhar é papel da gestão ou fluxo autorizado.",
+      "Mudanças de status e observações ficam visíveis para quem tem permissão; eventos também aparecem no histórico da unidade.",
+    ],
     passos: [
-      {
-        titulo: "Consulte Por advogados ou Geral",
-        descricao: "A aba padrão agrupa painéis por advogado responsável; Geral lista todos os encaminhamentos.",
-      },
-      {
-        titulo: "Encaminhe a partir da fila",
-        descricao: "Na unidade em cobrança, use Encaminhar p/ jurídico. O advogado sugerido vem do cadastro do condomínio.",
-      },
-      {
-        titulo: "Atualize status e observações",
-        descricao: "No sheet do encaminhamento, registre andamento, documentos e notas visíveis à equipe autorizada.",
-      },
+      { titulo: "Localize o encaminhamento", descricao: "Por advogado agrupa responsáveis; visão geral lista todos." },
+      { titulo: "Atualize andamento", descricao: "Registre situação e documentos conforme a equipe jurídica combinar." },
     ],
-    elementos: [
-      { titulo: "Status do encaminhamento", descricao: "Fluxo controlado — o sistema não envia petições a tribunais." },
-      { titulo: "Documentos", descricao: "Metadados e anexos conforme permissão juridico.ler / editar." },
-      { titulo: "Linha do tempo da unidade", descricao: "Eventos jurídicos também aparecem no histórico da unidade." },
-    ],
-    dicas: [
-      "Advogados só enxergam condomínios em que estão listados no cadastro.",
-      "Atendentes não acessam o módulo; o encaminhamento parte da administradora ou do fluxo autorizado.",
-    ],
+    dicas: ["Sem vínculo no condomínio, o advogado não vê dados daquele empreendimento em nenhuma tela."],
   },
   {
     id: "condominios",
     titulo: "Condomínios",
-    resumo: "Cadastro da carteira, endereço, administradora, advogados e métricas por empreendimento.",
+    resumo: "Cadastro da carteira que amarra unidades, débitos, cobrança e jurídico.",
     href: "/condominios",
     icon: Building2,
     modulo: "condominios",
-    palavrasChave: ["cadastro", "empreendimento", "administradora", "importar", "exportar"],
+    palavrasChave: ["cadastro", "empreendimento", "administradora", "prazo"],
     perfis: ["administradora", "advogado"],
-    objetivo: "Manter a base de condomínios usada por unidades, débitos, atendimentos e relatórios.",
+    objetivo: "Manter dados corretos de cada empreendimento atendido pelo escritório.",
+    regras: [
+      "Todo débito, unidade e atendimento pertence a um condomínio cadastrado.",
+      "Prazo de acompanhamento da inadimplência é configurado por condomínio (padrão 60 dias) e vale para alertas na carteira.",
+      "Advogados vinculados definem quem enxerga o condomínio no perfil jurídico.",
+      "Inativar condomínio preserva histórico; não apaga cobranças nem débitos passados.",
+      "Não é permitido excluir condomínio que ainda tenha unidades ou histórico de cobrança.",
+      "Identificador único evita duplicar o mesmo empreendimento em importações.",
+    ],
     passos: [
-      {
-        titulo: "Busque e filtre a listagem",
-        descricao: "Nome, status e cidade ajudam a localizar o empreendimento. Métricas resumem unidades e inadimplência.",
-      },
-      {
-        titulo: "Cadastre ou edite no painel lateral",
-        descricao: "O formulário em etapas cobre dados, endereço e observações. Inativar preserva histórico.",
-      },
-      {
-        titulo: "Acesse unidades do condomínio",
-        descricao: "Atalhos na linha abrem Unidades já filtradas, novo cadastro ou consulta do detalhe da unidade.",
-      },
+      { titulo: "Localize ou cadastre", descricao: "Busque por nome ou cidade; cadastro e edição abrem no painel lateral." },
+      { titulo: "Confira advogados e prazo", descricao: "Ajustes aqui impactam jurídico e alertas de inadimplência." },
     ],
-    elementos: [
-      { titulo: "Prazo de inadimplência", descricao: "Dias de acompanhamento configuráveis por condomínio (padrão 60)." },
-      { titulo: "Advogados vinculados", descricao: "Define escopo jurídico e visão do perfil advogado." },
-      { titulo: "Importar / exportar", descricao: "Planilha padronizada; importação exige permissão em Importações." },
-    ],
-    dicas: [
-      "Identificador externo único evita duplicidade com integrações e importações.",
-      "Exclusão só é permitida sem unidades nem histórico de cobrança.",
-    ],
+    dicas: ["Importação em massa de condomínios exige permissão no módulo Importações."],
   },
   {
     id: "unidades",
     titulo: "Unidades",
-    resumo: "Cadastro de unidades, responsáveis financeiros, situação de cobrança e vínculo com débitos.",
+    resumo: "Situação de cobrança, responsáveis e vínculo com débitos.",
     href: "/unidades",
     icon: DoorOpen,
     modulo: "unidades",
     palavrasChave: ["apartamento", "responsável", "cobrança", "prescrita", "quitada"],
     perfis: ["administradora", "advogado"],
-    objetivo: "Identificar cada unidade na carteira e sua situação operacional (fila, quitada, prescrita, etc.).",
+    objetivo: "Saber se a unidade está na fila, quem é o contato principal e qual o saldo em aberto.",
+    regras: [
+      "Situação da unidade define se ela entra na fila de atendimentos (em cobrança, acordo, etc.) ou fica fora (quitada, sem cobrança, prescrita).",
+      "Unidade nova começa sem cobrança até importação de débito ou mudança manual autorizada.",
+      "Responsável principal é o contato usado nos atalhos de WhatsApp e e-mail na operação.",
+      "Prescrita sai da fila ativa, mas débitos e histórico continuam consultáveis.",
+      "Dados sensíveis do responsável podem aparecer mascarados para quem só consulta.",
+      "Em dia na coluna de débito significa sem pendência registrada — não apaga histórico.",
+    ],
     passos: [
-      {
-        titulo: "Navegue por condomínio ou lista geral",
-        descricao: "Painéis recolhíveis por condomínio mostram prazo de inadimplência no subtítulo do bloco.",
-      },
-      {
-        titulo: "Abra o detalhe da unidade",
-        descricao: "Consulta traz responsáveis, débitos, atendimentos e atalhos para registrar contato ou ver débitos.",
-      },
-      {
-        titulo: "Ajuste situação e responsáveis",
-        descricao: "Edição em sheet; dados sensíveis de responsáveis são mascarados para perfis sem permissão de edição.",
-      },
+      { titulo: "Abra o detalhe da unidade", descricao: "Veja responsáveis, débitos e atalhos para contato ou negociação." },
+      { titulo: "Ajuste situação com critério", descricao: "Mudar para quitada ou prescrita tira da fila; confirme com a administradora se tiver dúvida." },
     ],
-    elementos: [
-      { titulo: "Situação de cobrança", descricao: "Define se a unidade entra na fila (Em cobrança, acordo, etc.) ou fica fora." },
-      { titulo: "Responsável principal", descricao: "Contato usado nos atalhos de WhatsApp e e-mail na operação." },
-      { titulo: "Coluna Débito", descricao: "Valores em aberto ou Em dia quando quitada — sem apagar histórico." },
-    ],
-    dicas: [
-      "Unidade prescrita sai da fila ativa, mas mantém débitos consultáveis.",
-      "Nova unidade inicia em Sem cobrança até importação ou ação que promova à fila.",
-    ],
+    dicas: ["Histórico completo da unidade também aparece em Atendimentos na linha do tempo."],
   },
   {
     id: "relatorios",
     titulo: "Relatórios",
-    resumo: "Hub de produtividade, retornos, efetividade e carteira com filtros e exportação.",
+    resumo: "Extração para reunião e conferência — mesmas regras das telas do dia a dia.",
     href: "/relatorios",
     icon: FileBarChart,
     modulo: "relatorios",
-    palavrasChave: ["exportar", "csv", "pdf", "produtividade", "carteira"],
+    palavrasChave: ["exportar", "produtividade", "carteira", "período"],
     perfis: ["administradora", "advogado"],
-    objetivo: "Analisar a operação em períodos definidos e extrair arquivos para arquivo ou reunião.",
+    objetivo: "Medir produtividade, retornos e carteira em um período e gerar arquivo para arquivo ou assembleia.",
+    regras: [
+      "Números seguem a mesma lógica das telas operacionais — não há ‘segundo cálculo’ escondido.",
+      "Filtros respeitam o escopo do cargo: advogado vê condomínios dele; atendente costuma não ter este módulo.",
+      "Exportar planilha ou PDF pode exigir permissão específica no cargo.",
+      "Valores de inadimplência no relatório de carteira obedecem aos débitos gravados, como na tela de Inadimplência.",
+      "Administradora pode comparar atendentes por código RE; demais perfis veem só recortes permitidos.",
+    ],
     passos: [
-      {
-        titulo: "Escolha o relatório no hub",
-        descricao: "Cada cartão abre um recorte (produtividade, retornos, efetividade ou carteira/inadimplência).",
-      },
-      {
-        titulo: "Ajuste filtros e período",
-        descricao: "Condomínio, colaborador (quando permitido), datas e situação refletem o escopo do seu cargo.",
-      },
-      {
-        titulo: "Exporte quando necessário",
-        descricao: "CSV, XLS ou PDF conforme o relatório; exportação exige permissão relatorios.exportar.",
-      },
-    ],
-    elementos: [
-      { titulo: "Tabelas e totais", descricao: "Agregações sobre dados persistidos — mesmas regras das telas operacionais." },
-      { titulo: "Filtro por RE", descricao: "Administradora pode comparar atendentes; demais perfis veem recortes próprios." },
-    ],
-    dicas: [
-      "URLs com ?relatorio= mantêm atalhos de relatórios específicos.",
-      "Valores monetários seguem a mesma deduplicação da tela de Inadimplência.",
+      { titulo: "Escolha o relatório", descricao: "Produtividade, retornos, efetividade ou carteira — cada um responde uma pergunta diferente." },
+      { titulo: "Defina período e filtros", descricao: "Depois exporte se precisar compartilhar fora do sistema." },
     ],
   },
   {
     id: "importacoes",
     titulo: "Importações",
-    resumo: "Envio de planilhas, prévia, correção e confirmação antes de gravar débitos e cadastros.",
+    resumo: "Planilha da administradora só vira dado real depois da aprovação.",
     href: "/importacoes",
     icon: FileUp,
     modulo: "importacoes",
-    palavrasChave: ["planilha", "prévia", "aprovar", "administradora", "upload"],
-    objetivo: "Atualizar a carteira a partir de arquivos das administradoras com validação e rastreio de quem importou.",
+    palavrasChave: ["planilha", "prévia", "aprovar", "upload"],
+    objetivo: "Atualizar débitos e cadastros em lote com revisão antes de gravar.",
+    regras: [
+      "Nada entra definitivo no sistema até alguém aprovar a prévia — erros devem ser corrigidos antes.",
+      "Cada tipo (débitos, condomínios, unidades, responsáveis) tem colunas obrigatórias; linha inválida não entra.",
+      "Débitos aprovados podem colocar a unidade em cobrança automaticamente, conforme regras do escritório.",
+      "Fica registrado quem enviou e quem aprovou, para consulta em auditoria.",
+      "Com distribuição automática ativa, unidades novas podem ganhar atendente (RE) sem passo manual.",
+      "Excluir histórico de importação é restrito — em dúvida, converse com a administradora.",
+    ],
     passos: [
-      {
-        titulo: "Escolha o tipo de importação",
-        descricao: "Débitos, condomínios, unidades ou responsáveis — cada fluxo tem colunas e regras próprias.",
-      },
-      {
-        titulo: "Envie o arquivo e revise a prévia",
-        descricao: "Linhas inválidas aparecem com motivo. Corrija na conferência quando tiver permissão de edição.",
-      },
-      {
-        titulo: "Aprove para gravar",
-        descricao: "Somente após aprovação os dados entram no catálogo. Débitos podem promover unidades à fila de cobrança.",
-      },
-      {
-        titulo: "Consulte o histórico",
-        descricao: "Cada importação registra usuário, data e resultado para auditoria posterior.",
-      },
+      { titulo: "Envie e revise a prévia", descricao: "Leia os erros linha a linha antes de aprovar." },
+      { titulo: "Aprove só quando estiver certo", descricao: "Em lotes grandes, não feche o navegador até terminar." },
     ],
-    elementos: [
-      { titulo: "Wizard em etapas", descricao: "Arquivo → conferência → resultado, com contadores de sucesso e proteção manual." },
-      { titulo: "Atalho nas listagens", descricao: "Botão Importar em Inadimplência, Condomínios e Unidades abre o módulo correto." },
-      { titulo: "Distribuição automática", descricao: "Após confirmar inadimplência, pode atribuir RE conforme configuração da carteira." },
-    ],
-    dicas: [
-      "Atendentes com criar/editar em Importações podem operar o fluxo; exclusão do histórico é restrita.",
-      "Não feche o navegador durante a aprovação de lotes grandes.",
-    ],
+    dicas: ["Atalho Importar nas telas de Inadimplência e cadastros abre o fluxo certo."],
   },
   {
     id: "colaboradores",
     titulo: "Colaboradores",
-    resumo: "Quem acessa o sistema, código de login, RE e vínculo de advogados a condomínios.",
+    resumo: "Quem acessa o sistema, com qual cargo e qual código na fila.",
     href: "/usuarios",
     icon: UserRound,
     modulo: "usuarios",
     palavrasChave: ["usuário", "login", "senha", "re", "ativo"],
     perfis: ["administradora"],
-    objetivo: "Gerir contas, cargos e identificação operacional (RE) usada na fila e nos relatórios.",
+    objetivo: "Gerir contas da equipe e o código RE usado na fila e nos relatórios.",
+    regras: [
+      "Cada pessoa entra com código e senha próprios — contas não devem ser compartilhadas.",
+      "Inativar colaborador bloqueia login na hora.",
+      "Cargo define o que a pessoa vê e pode fazer; mudança de cargo exige novo login para valer no navegador.",
+      "Código RE identifica o atendente na fila e nos relatórios, no formato combinado pelo escritório.",
+      "Advogado pode ter condomínios vinculados no cadastro — isso limita o que ele enxerga.",
+      "Atendimento registrado na sessão fica sempre ligado ao colaborador logado.",
+    ],
     passos: [
-      {
-        titulo: "Liste e filtre colaboradores",
-        descricao: "Situação ativa/inativa, cargo e busca por nome ou código.",
-      },
-      {
-        titulo: "Cadastre ou edite no sheet",
-        descricao: "Define cargo (permissões), contatos e, para advogados, condomínios vinculados. O RE é gerado pelo sistema.",
-      },
-      {
-        titulo: "Oriente o primeiro acesso",
-        descricao: "Login usa código e senha definida pela administradora; autoria de atendimentos vem sempre da sessão logada.",
-      },
+      { titulo: "Cadastre ou edite no painel", descricao: "Defina cargo, contatos e vínculos de advogado quando couber." },
+      { titulo: "Oriente o primeiro acesso", descricao: "Senha inicial é definida pela administradora; troca segue política interna." },
     ],
-    elementos: [
-      { titulo: "Código RE", descricao: "Formato RE-##### para todos os colaboradores; usado na fila em vez do nome pessoal." },
-      { titulo: "Situação", descricao: "Inativo bloqueia login imediatamente." },
-    ],
-    dicas: [
-      "Não compartilhe senhas; use cargos para limitar módulos em vez de contas genéricas.",
-      "Alterações de cargo exigem novo login para recarregar permissões no cliente.",
-    ],
+    dicas: ["Prefira ajustar cargo a criar usuário genérico compartilhado."],
   },
   {
     id: "cargos",
     titulo: "Cargos",
-    resumo: "Perfis e matriz de permissões (ver, criar, editar, excluir, exportar) por módulo.",
+    resumo: "O que cada perfil pode ver, criar, editar e exportar.",
     href: "/cargos",
     icon: Shield,
     modulo: "cargos",
-    palavrasChave: ["permissão", "perfil", "matriz", "administrador", "atendente"],
+    palavrasChave: ["permissão", "perfil", "atendente", "advogado"],
     perfis: ["administradora"],
-    objetivo: "Controlar o que cada perfil pode fazer sem alterar código — alinhado às regras de negócio do escritório.",
+    objetivo: "Alinhar acesso ao sistema às funções do escritório sem depender de suporte técnico.",
+    regras: [
+      "Quem não pode ver um módulo não deve receber orientação para usá-lo — a matriz aqui é a referência.",
+      "Ver é pré-requisito para criar, editar ou excluir naquele módulo.",
+      "Liberar criar ou editar em Importações permite mudar a carteira inteira — conceda com critério.",
+      "Perfis padrão (administradora, atendente, advogado) vêm com conjunto inicial; ajustes devem refletir o combinado com o cliente.",
+      "Auditoria de leitura costuma ficar só com a gestão.",
+    ],
     passos: [
-      {
-        titulo: "Selecione um cargo",
-        descricao: "Lista mostra quantos colaboradores usam cada perfil.",
-      },
-      {
-        titulo: "Marque permissões por módulo",
-        descricao: "Ver é pré-requisito implícito para ações de escrita; exportar aparece onde o módulo permite.",
-      },
-      {
-        titulo: "Salve e comunique a equipe",
-        descricao: "Usuários já logados podem precisar atualizar a página para refletir mudanças.",
-      },
+      { titulo: "Escolha o cargo", descricao: "Veja quantas pessoas usam aquele perfil antes de mudar." },
+      { titulo: "Salve e avise a equipe", descricao: "Quem já está logado pode precisar atualizar a página." },
     ],
-    elementos: [
-      { titulo: "Descrição do módulo", descricao: "Texto de ajuda em cada linha da matriz para evitar excesso de privilégio." },
-      { titulo: "Seeds padrão", descricao: "Administradora, Atendente e Advogado vêm com conjuntos iniciais documentados." },
-    ],
-    dicas: [
-      "Conceda importações com critério: criar/editar permite alterar a carteira em massa.",
-      "Auditoria de leitura costuma ficar só com a administradora.",
-    ],
+    dicas: ["Texto de ajuda em cada linha da matriz resume o risco de marcar demais."],
   },
   {
     id: "auditoria",
     titulo: "Auditoria",
-    resumo: "Histórico de alterações: quem mudou o quê, quando e valores anterior/novo.",
+    resumo: "Rastreio de quem alterou cadastros sensíveis.",
     href: "/auditoria",
     icon: ScrollText,
     modulo: "auditoria",
-    palavrasChave: ["log", "alteração", "histórico", "compliance"],
+    palavrasChave: ["alteração", "histórico", "quem", "quando"],
     perfis: ["administradora"],
-    objetivo: "Investigar correções manuais, importações e ações sensíveis com linguagem clara e detalhe técnico opcional.",
+    objetivo: "Investigar correção manual, importação ou mudança que precise explicação.",
+    regras: [
+      "Registra inclusão, alteração e exclusão feitas pelos colaboradores no sistema.",
+      "Correção manual de débito deve sempre gerar registro aqui.",
+      "Mostra autor da ação naquele momento — não aceita ‘em nome de’ na tela.",
+      "Não substitui backup nem arquivo oficial de longo prazo; use exportações dos módulos quando precisar guardar histórico.",
+      "Detalhe técnico existe para suporte; o resumo em linguagem clara vem primeiro.",
+    ],
     passos: [
-      {
-        titulo: "Filtre por entidade ou período",
-        descricao: "Reduza o volume para débitos, unidades, atendimentos, importações, etc.",
-      },
-      {
-        titulo: "Abra o detalhe no painel",
-        descricao: "Ícone de visualização mostra resumo legível; Ver detalhes técnicos exibe JSON para suporte.",
-      },
+      { titulo: "Filtre por tipo ou período", descricao: "Reduza o volume até achar o evento que procura." },
+      { titulo: "Abra o detalhe", descricao: "Confira valor anterior e novo quando for alteração financeira." },
     ],
-    elementos: [
-      { titulo: "Ação", descricao: "Inclusão, alteração ou exclusão registrada automaticamente pelos serviços." },
-      { titulo: "Autor", descricao: "Colaborador da sessão no momento da operação." },
-    ],
-    dicas: [
-      "Correção manual de débito sempre deve gerar evento aqui — ausência indica falha a reportar.",
-      "Não é backup: use exportações dos módulos para arquivo histórico de longo prazo.",
-    ],
+    dicas: ["Ausência de evento após correção manual deve ser reportada à gestão."],
   },
   {
     id: "notificacoes",
     titulo: "Notificações",
-    resumo: "Alertas de retorno, lembretes do dia e cobranças atribuídos à sua carteira.",
+    resumo: "Alertas de retorno e de unidade na sua carteira.",
     href: "/notificacoes",
     icon: Bell,
     modulo: "dashboard",
-    palavrasChave: ["sino", "alerta", "lida", "retorno", "distribuição"],
-    objetivo: "Evitar perder retornos e saber quando novas unidades entraram na sua carteira — apenas dentro do sistema.",
+    palavrasChave: ["sino", "alerta", "retorno", "distribuição"],
+    objetivo: "Não perder retorno combinado nem ignorar unidade recém-atribuída.",
+    regras: [
+      "Só avisa dentro do sistema — e-mail e SMS externos ainda não fazem parte do fluxo padrão.",
+      "Tipos principais: retorno na data, lembrete no dia e unidade atribuída ou redistribuída na sua carteira.",
+      "O mesmo evento não deve gerar alerta duplicado.",
+      "Ao abrir o alerta, o sistema leva ao contexto (fila ou unidade) se você ainda tiver permissão.",
+      "Marcar como lida não substitui registrar o contato na fila.",
+    ],
     passos: [
-      {
-        titulo: "Confira o sino no topo",
-        descricao: "Badge com quantidade de não lidas; prévia dos últimos itens sem sair da tela atual.",
-      },
-      {
-        titulo: "Abra a lista completa",
-        descricao: "Menu Notificações ou página dedicada com histórico e marcação de lidas.",
-      },
-      {
-        titulo: "Clique para ir ao contexto",
-        descricao: "Cada alerta valida escopo e leva à fila ou unidade relacionada, marcando como lida.",
-      },
-    ],
-    elementos: [
-      { titulo: "Tipos de evento", descricao: "Retorno agendado, lembrete no dia e cobrança atribuída/redistribuída." },
-      { titulo: "Idempotência", descricao: "O mesmo evento não duplica alertas." },
-    ],
-    dicas: [
-      "Canais externos (e-mail, SMS) permanecem desligados até configuração futura.",
-      "Marque todas como lidas apenas após revisar retornos urgentes.",
+      { titulo: "Use o sino no topo", descricao: "Veja quantas não lidas há e abra a lista completa se precisar." },
+      { titulo: "Clique no alerta urgente", descricao: "Priorize retorno do dia antes de marcar tudo como lido." },
     ],
   },
   {
     id: "conta",
     titulo: "Minha conta",
-    resumo: "Dados da sessão, cargo e orientações de segurança do seu acesso.",
+    resumo: "Identidade da sessão e limites do que você pode mudar sozinho.",
     href: "/conta",
     icon: UserRound,
     modulo: "dashboard",
     palavrasChave: ["sessão", "perfil", "senha", "cargo"],
-    objetivo: "Confirmar com qual identidade você está operando e onde pedir ajuda em caso de divergência.",
+    objetivo: "Confirmar com qual usuário você opera e onde pedir correção de acesso.",
+    regras: [
+      "Nome, e-mail, telefone e foto você atualiza aqui; cargo, permissões e código RE só a administradora altera em Colaboradores.",
+      "Lista resumida de permissões vem do cargo — útil para entender tela que sumiu do menu.",
+      "Sair encerra o acesso neste navegador; não deixe sessão aberta em computador compartilhado.",
+      "Acesso errado ou dados desatualizados: fale com a administradora do escritório.",
+      "Autoria de qualquer ação na operação segue o usuário logado nesta conta.",
+    ],
     passos: [
-      {
-        titulo: "Revise nome, cargo e RE",
-        descricao: "Devem coincidir com o colaborador cadastrado pela administradora.",
-      },
-      {
-        titulo: "Confira permissões resumidas",
-        descricao: "Lista derivada do cargo — útil para entender telas ausentes no menu.",
-      },
-      {
-        titulo: "Reporte inconsistências",
-        descricao: "Acesso errado ou dados desatualizados vão para a administradora, não para suporte externo.",
-      },
+      { titulo: "Confira cargo e RE", descricao: "Se não bater com sua função, peça ajuste antes de operar." },
+      { titulo: "Atualize seus contatos", descricao: "Mantém a equipe alinhada para retorno e comunicação interna." },
     ],
-    elementos: [
-      { titulo: "Sessão ativa", descricao: "Cookie seguro; sair encerra o acesso neste navegador." },
-      { titulo: "Link para Ajuda", descricao: "Retorna ao manual e atalhos do sistema." },
-    ],
-    dicas: [
-      "Troca de senha e políticas de bloqueio seguem o fluxo definido pelo escritório.",
-      "Nunca compartilhe o dispositivo logado com outro atendente.",
-    ],
+    dicas: ["Link para Ajuda traz as regras por tela quando surgir dúvida de processo."],
   },
 ];
 

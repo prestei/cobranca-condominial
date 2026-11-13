@@ -1,17 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { Briefcase, CalendarX2, CircleCheck, Clock, Handshake, TriangleAlert, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { EncaminhamentoJuridicoSheet } from "@/components/juridico/encaminhamento-juridico-sheet";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PropostaNegociacaoCard } from "@/components/negociacoes/proposta-negociacao-card";
-import { PropostaNegociacaoExclusiva } from "@/components/negociacoes/proposta-negociacao-exclusiva";
 import {
+  nomeCondominio,
   statusPropostaNegociacao,
   type Cadastros,
   type PropostaNegociacao,
 } from "@/data/catalogo";
+import { usePermissao } from "@/hooks/use-permissao";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
 
 type Metricas = {
@@ -87,22 +90,30 @@ export function NegociacoesPainel({
   status,
   onStatusChange,
 }: Props) {
+  const { pode } = usePermissao();
+  const podeEncaminharJuridico = pode("juridico", "criar");
+  const [juridicoContexto, setJuridicoContexto] = useState<{
+    unidadeId: number;
+    condominioId: number;
+    tituloUnidade: string;
+    tituloCondominio: string;
+  } | null>(null);
+
   const metricValor = (n: number) => String(n).padStart(2, "0");
+
+  function abrirJuridico(proposta: PropostaNegociacao) {
+    const unidade = cadastros.unidades.find((item) => item.id === proposta.unidadeId);
+    setJuridicoContexto({
+      unidadeId: proposta.unidadeId,
+      condominioId: proposta.condominioId,
+      tituloUnidade: unidade?.identificacao?.trim() || "—",
+      tituloCondominio: nomeCondominio(proposta.condominioId, cadastros),
+    });
+  }
 
   function selecionarChip(novoStatus: string) {
     onStatusChange(novoStatus);
     onPageChange(1);
-  }
-
-  if (selecionadaId) {
-    return (
-      <PropostaNegociacaoExclusiva
-        propostaId={selecionadaId}
-        cadastros={cadastros}
-        onVoltar={() => onSelecionar(null)}
-        onRecarregar={onRecarregar}
-      />
-    );
   }
 
   return (
@@ -199,6 +210,7 @@ export function NegociacoesPainel({
                 resumo={resumoPorProposta.get(item.id)}
                 selecionada={false}
                 onClick={() => onSelecionar(item.id)}
+                onEncaminharJuridico={podeEncaminharJuridico ? () => abrirJuridico(item) : undefined}
               />
             ))
           )}
@@ -207,6 +219,17 @@ export function NegociacoesPainel({
           <Pagination page={page} pageSize={PAGE_SIZE} total={totalFiltradas} onPageChange={onPageChange} />
         ) : null}
       </section>
+
+      <EncaminhamentoJuridicoSheet
+        unidadeId={juridicoContexto?.unidadeId ?? null}
+        condominioId={juridicoContexto?.condominioId ?? null}
+        tituloUnidade={juridicoContexto?.tituloUnidade}
+        tituloCondominio={juridicoContexto?.tituloCondominio}
+        onClose={() => setJuridicoContexto(null)}
+        onSalvo={() => {
+          onRecarregar();
+        }}
+      />
     </div>
   );
 }

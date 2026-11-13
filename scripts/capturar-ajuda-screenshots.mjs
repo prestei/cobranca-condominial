@@ -18,6 +18,7 @@ const telasAdmin = [
   { id: "inicio", path: "/" },
   { id: "atendimentos", path: "/atendimentos" },
   { id: "inadimplencia", path: "/debitos" },
+  { id: "negociacoes", path: "/negociacoes" },
   { id: "juridico", path: "/juridico" },
   { id: "condominios", path: "/condominios" },
   { id: "unidades", path: "/unidades" },

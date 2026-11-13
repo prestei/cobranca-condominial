@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { PAGE_SIZE } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
@@ -11,6 +9,7 @@ import { SkeletonListPage } from "@/components/skeleton";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { NegociacaoNovaPropostaSheet } from "@/components/negociacoes/negociacao-nova-proposta-sheet";
 import { NegociacoesPainel } from "@/components/negociacoes/negociacoes-painel";
+import { PropostaNegociacaoExclusiva } from "@/components/negociacoes/proposta-negociacao-exclusiva";
 import { type PropostaNegociacao } from "@/data/catalogo";
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
@@ -37,8 +36,9 @@ export default function NegociacoesPage() {
   const [status, setStatus] = useState("todos");
   const [page, setPage] = useState(1);
 
-  const [selecionadaId, setSelecionadaId] = useState<string | null>(null);
   const [novaOpen, setNovaOpen] = useState(false);
+
+  const propostaSelecionadaId = searchParams?.get("proposta")?.trim() || null;
   const carregar = useCallback(async () => {
     if (!podeLer) {
       setPropostas([]);
@@ -64,24 +64,20 @@ export default function NegociacoesPage() {
     }
   }, [podeLer, status]);
 
-  function selecionarProposta(id: string | null) {
-    setSelecionadaId(id);
-  }
+  const selecionarProposta = useCallback(
+    (id: string | null) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (id) params.set("proposta", id);
+      else params.delete("proposta");
+      const qs = params.toString();
+      router.replace(qs ? `/negociacoes?${qs}` : "/negociacoes", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   useEffect(() => {
     void carregar();
   }, [carregar]);
-
-  useEffect(() => {
-    const id = searchParams?.get("proposta")?.trim();
-    if (!id) return;
-    selecionarProposta(id);
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.delete("proposta");
-    const qs = params.toString();
-    router.replace(qs ? `/negociacoes?${qs}` : "/negociacoes");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deep link único na montagem
-  }, [router, searchParams]);
 
   useEffect(() => {
     if (searchParams?.get("novo") === "1" && podeCriar) {
@@ -147,44 +143,48 @@ export default function NegociacoesPage() {
 
   return (
     <WorkspaceShell>
-      {!selecionadaId ? (
-        <PageHeader
-          title="Negociações"
-          description="Centro exclusivo de propostas, alçada e acompanhamento de parcelas."
-          actions={
-            podeCriar ? (
-              <Button type="button" onClick={() => setNovaOpen(true)}>
-                <Plus className="size-icon-sm" aria-hidden />
-                Novo
-              </Button>
-            ) : undefined
-          }
+      {propostaSelecionadaId ? (
+        <PropostaNegociacaoExclusiva
+          propostaId={propostaSelecionadaId}
+          cadastros={cadastros}
+          onVoltar={() => selecionarProposta(null)}
+          onRecarregar={() => {
+            void refetch();
+            void carregar();
+          }}
         />
-      ) : null}
-      <PageContent>
-        {carregando ? (
-          <SkeletonListPage />
-        ) : (
-          <NegociacoesPainel
-            cadastros={cadastros}
-            metricas={metricas}
-            propostasPagina={propostasPagina}
-            totalFiltradas={filtradas.length}
-            page={page}
-            onPageChange={setPage}
-            resumoPorProposta={resumoPorProposta}
-            selecionadaId={selecionadaId}
-            onSelecionar={selecionarProposta}
-            onRecarregar={() => {
-              void refetch();
-              void carregar();
-            }}
-            erro={erro}
-            status={status}
-            onStatusChange={setStatus}
+      ) : (
+        <>
+          <PageHeader
+            title="Negociações"
+            description="Centro exclusivo de propostas, alçada e acompanhamento de parcelas."
           />
-        )}
-      </PageContent>
+          <PageContent>
+            {carregando ? (
+              <SkeletonListPage />
+            ) : (
+              <NegociacoesPainel
+                cadastros={cadastros}
+                metricas={metricas}
+                propostasPagina={propostasPagina}
+                totalFiltradas={filtradas.length}
+                page={page}
+                onPageChange={setPage}
+                resumoPorProposta={resumoPorProposta}
+                selecionadaId={propostaSelecionadaId}
+                onSelecionar={selecionarProposta}
+                onRecarregar={() => {
+                  void refetch();
+                  void carregar();
+                }}
+                erro={erro}
+                status={status}
+                onStatusChange={setStatus}
+              />
+            )}
+          </PageContent>
+        </>
+      )}
 
       <NegociacaoNovaPropostaSheet
         open={novaOpen}

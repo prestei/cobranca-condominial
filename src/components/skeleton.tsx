@@ -371,7 +371,7 @@ export function SkeletonProfileCard({
 }) {
   return (
     <SkeletonStatus label={label} className={className}>
-      <section className="w-full max-w-[32rem] rounded-card border border-outline-variant bg-surface-card p-lg shadow-card">
+      <section className="w-full rounded-card border border-outline-variant bg-surface-card p-lg shadow-card">
         <div className="flex items-center gap-md">
           <Skeleton className="size-14 shrink-0 rounded-full" />
           <div className="flex min-w-0 flex-1 flex-col gap-sm">

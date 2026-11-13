@@ -71,11 +71,17 @@ function mesAnoRotulo(diaIso: string) {
   return `${nome} de ${y}`;
 }
 
+function rotuloMesAno(mes: number, ano: number) {
+  const nome = MESES[mes - 1] ?? "";
+  if (!nome) return String(ano);
+  return `${nome.charAt(0).toLocaleUpperCase("pt-BR")}${nome.slice(1)} de ${ano}`;
+}
+
 export function inicioFimDoMes(ano: number, mes: number) {
   const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
   const ultimo = new Date(ano, mes, 0).getDate();
   const fim = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimo).padStart(2, "0")}`;
-  return { inicio, fim, rotulo: `${MESES[mes - 1] ?? ""} de ${ano}` };
+  return { inicio, fim, rotulo: rotuloMesAno(mes, ano) };
 }
 
 export function listarDiasDoPeriodo(inicioIso: string, fimIso: string): string[] {

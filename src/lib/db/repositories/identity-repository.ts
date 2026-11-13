@@ -1,7 +1,7 @@
 import { Cargo, Usuario } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import { mapRoleToCargo, mapUserToUsuario } from "@/lib/db/mappers";
-import { normalizarCodigoUsuario } from "@/lib/auth/codigo";
+import { entradaLoginCoincideCodigo } from "@/lib/auth/codigo";
 import {
   PERMISSAO_JSON_ADMIN,
   PERMISSAO_JSON_ADVOGADO,
@@ -71,17 +71,12 @@ export async function findUserById(id: number): Promise<Usuario | null> {
 }
 
 export async function findUserByLoginCode(codigo: string): Promise<Usuario | null> {
-  const chave = normalizarCodigoUsuario(codigo);
-  if (!chave) return null;
+  if (!codigo.trim()) return null;
   const rows = await prisma.user.findMany({
     where: { active: true },
     orderBy: { id: "asc" },
   });
-  const found = rows.find((row) => {
-    const code = normalizarCodigoUsuario(row.code);
-    const re = row.reCode ? normalizarCodigoUsuario(row.reCode) : "";
-    return code === chave || (re !== "" && re === chave);
-  });
+  const found = rows.find((row) => entradaLoginCoincideCodigo(codigo, row.code, row.reCode));
   return found ? mapUserToUsuario(found) : null;
 }
 
