@@ -1,6 +1,6 @@
 "use client";
 
-import { HelpCircle, Send, Sparkles, X } from "lucide-react";
+import { Send, Sparkles, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/input";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { captureScreenContext } from "@/lib/ajuda/capture-screen-context";
+import { AssistantMessageContent } from "@/components/ajuda/assistant-message-content";
 import type { MensagemHistorico } from "@/lib/ajuda/assistant-prompt";
 
 const ROTAS_SEM_ASSISTENTE = ["/login", "/design-system"];
@@ -154,7 +155,7 @@ export function AssistenteFlutuante() {
   const painel = (
     <div
       data-assistente-ajuda
-      className="pointer-events-none fixed bottom-[5.5rem] right-md z-[60] flex flex-col items-end gap-sm min-[768px]:bottom-[4.5rem]"
+      className="pointer-events-none fixed bottom-[4.25rem] right-md z-[60] flex flex-col items-end gap-sm min-[768px]:bottom-[3.25rem]"
     >
       {aberto ? (
         <div
@@ -212,8 +213,11 @@ export function AssistenteFlutuante() {
                 </div>
               ) : (
                 <LinhaAssistente key={msg.id}>
-                  <div className="rounded-lg rounded-tl-sm border border-border-subtle bg-background px-sm py-xs text-body-sm text-on-surface">
-                    {msg.content}
+                  <div className="whitespace-pre-wrap rounded-lg rounded-tl-sm border border-border-subtle bg-background px-sm py-xs text-body-sm text-on-surface">
+                    <AssistantMessageContent
+                      content={msg.content}
+                      onNavegar={() => setAberto(false)}
+                    />
                   </div>
                 </LinhaAssistente>
               ),
@@ -257,18 +261,17 @@ export function AssistenteFlutuante() {
           aberto ? "h-12 w-12 justify-center p-0" : "h-12 min-w-12 pl-3 pr-4"
         }`}
         aria-expanded={aberto}
-        aria-label={aberto ? "Fechar assistente" : "Abrir assistente de ajuda"}
+        aria-label={aberto ? "Fechar assistente" : "Abrir assistente"}
         onClick={() => setAberto((v) => !v)}
       >
         {aberto ? (
           <Icon icon={X} size="lg" />
         ) : (
           <>
-            <span className="relative flex size-9 items-center justify-center rounded-full bg-on-primary/15">
-              <Icon icon={HelpCircle} size="lg" />
-              <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-primary-container bg-brass" />
+            <span className="flex size-9 items-center justify-center rounded-full bg-on-primary/15">
+              <Icon icon={Sparkles} size="lg" className="text-brass" />
             </span>
-            <span className="hidden text-label-md font-semibold min-[480px]:inline">Ajuda</span>
+            <span className="hidden text-label-md font-semibold min-[480px]:inline">Assistente</span>
           </>
         )}
       </button>

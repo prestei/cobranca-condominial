@@ -23,6 +23,7 @@ Sem `dashboard.ler` → rota `/` e APIs do dashboard retornam **403** ou redirec
 | `editar` | Alterar | Edição em sheet, PATCH, aprovação de importação |
 | `excluir` | Excluir | Exclusão com confirmação, DELETE |
 | `exportar` | Exportar dados | Relatórios e exportação CSV/XLS autorizada |
+| `confirmar` / `recusar` / `cancelar` | (só módulo Negociações) | Decisão de proposta **Em análise** — `PATCH /api/propostas/[id]` |
 
 A matriz na tela lista **todas** as ações possíveis por módulo (incluindo CRUD onde o módulo suporta). Cargos restritos marcam só o subconjunto abaixo — não é bug exibir checkboxes desmarcados.
 
@@ -46,6 +47,8 @@ A matriz na tela lista **todas** as ações possíveis por módulo (incluindo CR
 | Auditoria | ✓ | — | — | — | — |
 
 **Início:** painel administrativo (`DashboardAdministradoraView`) — KPIs da carteira, fila, operação 7 dias, gráficos e retornos da equipe.
+
+**Negociações (decisão de proposta):** confirmar acordo, recusar e cancelar proposta (**Em análise**) — os três marcados no cargo Administrador.
 
 ## Atendente
 
@@ -93,6 +96,7 @@ A matriz na tela lista **todas** as ações possíveis por módulo (incluindo CR
 | `garantirIdentidadeInicialPg` | Grava cargos se tabela vazia; repara JSON `{}` |
 | `docs/migrations/dump-role-user.sql` | Snapshot de referência |
 | `docs/migrations/2026-11-13-permissoes-negociacoes-demo-advogado.sql` | Negociações nos cargos 1–3 + vínculo advogada demo |
+| `docs/migrations/2026-11-26-negociacoes-decisao-proposta-permissoes.sql` | Decisão de proposta no Administrador (`confirmar` / `recusar` / `cancelar`) |
 
 ## Login de demonstração
 

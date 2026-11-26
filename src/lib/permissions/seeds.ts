@@ -13,7 +13,7 @@ const admin: PermissoesCargo = {
   usuarios: { ler: true, criar: true, editar: true, excluir: true },
   cargos: { ler: true, criar: true, editar: true, excluir: true },
   auditoria: { ler: true },
-  negociacoes: { ler: true, criar: true, editar: true },
+  negociacoes: { ler: true, criar: true, editar: true, confirmar: true, recusar: true, cancelar: true },
 };
 
 const atendente: PermissoesCargo = {

@@ -35,7 +35,10 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 | --- | --- |
 | Listar propostas / parcelas / pagamentos | `atendimentos.ler` **ou** `negociacoes.ler` |
 | Registrar proposta, parcela ou pagamento | `atendimentos.criar` / `negociacoes.criar` |
-| Confirmar acordo, corrigir ou cancelar parcela / pagamento | `atendimentos.editar` **ou** `negociacoes.editar` |
+| Confirmar acordo (`Aceita`) | `negociacoes.confirmar` |
+| Recusar proposta (`Recusada`) | `negociacoes.recusar` |
+| Cancelar proposta (`Cancelada`) | `negociacoes.cancelar` |
+| Corrigir parcela / pagamento | `atendimentos.editar` **ou** `negociacoes.editar` |
 | Configurar alçada por advogado | `usuarios.criar` (administradora) — `PATCH /api/negociacoes/regras-advogado` |
 
 ## API
@@ -47,7 +50,7 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 | GET | `/api/propostas` | `atendimentos.ler` | Query: `unidadeId`, `status` |
 | POST | `/api/propostas` | `atendimentos.criar` | Nova proposta — status **Em análise** |
 | GET | `/api/propostas/[id]` | `atendimentos.ler` | Detalhe |
-| PATCH | `/api/propostas/[id]` | `atendimentos.editar` | Status; `termosAprovados` obrigatório se **Aceita** |
+| PATCH | `/api/propostas/[id]` | `negociacoes.confirmar` / `recusar` / `cancelar` conforme destino | Status; `termosAprovados` obrigatório se **Aceita** |
 
 ### Parcelas e pagamentos (T16)
 
@@ -68,7 +71,7 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 
 - Vinculada à unidade, autor e débitos da mesma unidade.
 - Estados: **Em análise**, **Aceita**, **Recusada**, **Cancelada**.
-- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento. Ao confirmar o acordo, a unidade **sai** da fila de `/atendimentos` e a `collection_assignment` vigente é encerrada (`src/lib/fila/unidade-fila-atendimento.ts`, `encerrar-carteira-vigente.ts`).
+- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento. Decisões **Em análise** usam flags do cargo em `role.permissao_json`: `negociacoes.confirmar`, `negociacoes.recusar`, `negociacoes.cancelar` (matriz em `/cargos`). Padrão de fábrica: só **Administrador** com as três; atendente e advogado sem decisão até a gestão liberar. Ao confirmar o acordo, a unidade **sai** da fila de `/atendimentos` e a `collection_assignment` vigente é encerrada (`src/lib/fila/unidade-fila-atendimento.ts`, `encerrar-carteira-vigente.ts`).
 - **Alçada do advogado:** ao registrar ou aprovar, o servidor valida desconto máximo (`lawyer_negotiation_rule`, padrão 30%) e quantidade máxima de parcelas (padrão 24) do advogado principal do condomínio. Administradora ignora limites.
 - **Responsáveis:** `valores_definidos_por_id` (registro), `valores_aprovados_por_id` (confirmação), `advogado_responsavel_id` (condomínio).
 - **Detalhe:** valores original/atualizado da dívida, desconto, quantidade de parcelas, cronograma opcional ao confirmar (`primeiroVencimento` + geração automática).

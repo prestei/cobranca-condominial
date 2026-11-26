@@ -12,6 +12,10 @@ import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acomp
 import { PropostaDetalheResumo } from "@/components/negociacoes/proposta-detalhe-resumo";
 import { useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import {
+  podeDecidirPropostaEmAnalise,
+  podeDecidirStatusProposta,
+} from "@/lib/negociacoes/proposta-status-permission";
 import type { PropostaNegociacaoDetalhe } from "@/lib/negociacoes/detalhe";
 
 const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral"> = {
@@ -37,8 +41,12 @@ export function PropostaNegociacaoDetalheConteudo({
 }: Props) {
   const { toast } = useToast();
   const { refetch } = useCadastrosStatus();
-  const { pode } = usePermissao();
+  const { pode, permissoes } = usePermissao();
   const podeEditar = pode("atendimentos", "editar") || pode("negociacoes", "editar");
+  const podeConfirmarAcordo = podeDecidirStatusProposta(permissoes, "Aceita");
+  const podeRecusarProposta = podeDecidirStatusProposta(permissoes, "Recusada");
+  const podeCancelarProposta = podeDecidirStatusProposta(permissoes, "Cancelada");
+  const podeDecidirEmAnalise = podeDecidirPropostaEmAnalise(permissoes);
 
   const [detalhe, setDetalhe] = useState<PropostaNegociacaoDetalhe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +92,7 @@ export function PropostaNegociacaoDetalheConteudo({
   }, [ativo, propostaId, carregar]);
 
   async function alterarStatus(status: string) {
-    if (!detalhe || !podeEditar) return;
+    if (!detalhe || !podeDecidirStatusProposta(permissoes, status)) return;
     const termosAprovados = termos.trim();
     if (status === "Aceita" && !termosAprovados) {
       setTermosErro("Informe os termos aprovados do acordo.");
@@ -178,57 +186,67 @@ export function PropostaNegociacaoDetalheConteudo({
             }}
           />
         ) : null}
-        {proposta.status === "Em análise" && podeEditar ? (
+        {proposta.status === "Em análise" && podeDecidirEmAnalise ? (
           <div className="flex flex-col gap-sm rounded-md border border-border-subtle bg-surface px-md py-md">
-            <p className="text-label-md text-on-surface">Decisão do advogado / gestão</p>
-            <FormField label="1º vencimento do cronograma (opcional)">
-              <Input
-                type="date"
-                value={primeiroVencimento}
-                onChange={(event) => setPrimeiroVencimento(event.target.value)}
-              />
-            </FormField>
-            <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
-              <Textarea
-                icon={FileText}
-                value={termos}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setTermos(value);
-                  if (value.trim()) setTermosErro("");
-                }}
-                rows={3}
-                placeholder="Descreva o que foi aprovado."
-                aria-invalid={termosErro ? true : undefined}
-              />
-            </FormField>
+            <p className="text-label-md text-on-surface">Decisão da proposta</p>
+            {podeConfirmarAcordo ? (
+              <>
+                <FormField label="1º vencimento do cronograma (opcional)">
+                  <Input
+                    type="date"
+                    value={primeiroVencimento}
+                    onChange={(event) => setPrimeiroVencimento(event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Termos do acordo (obrigatório ao aceitar)" error={termosErro} required>
+                  <Textarea
+                    icon={FileText}
+                    value={termos}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTermos(value);
+                      if (value.trim()) setTermosErro("");
+                    }}
+                    rows={3}
+                    placeholder="Descreva o que foi aprovado."
+                    aria-invalid={termosErro ? true : undefined}
+                  />
+                </FormField>
+              </>
+            ) : null}
             <div className="flex flex-wrap gap-sm">
-              <Button
-                type="button"
-                size="sm"
-                disabled={statusSalvando || !termos.trim()}
-                onClick={() => void alterarStatus("Aceita")}
-              >
-                {statusSalvando ? "Salvando…" : "Confirmar acordo"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={statusSalvando}
-                onClick={() => void alterarStatus("Recusada")}
-              >
-                Recusar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={statusSalvando}
-                onClick={() => void alterarStatus("Cancelada")}
-              >
-                Cancelar proposta
-              </Button>
+              {podeConfirmarAcordo ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={statusSalvando || !termos.trim()}
+                  onClick={() => void alterarStatus("Aceita")}
+                >
+                  {statusSalvando ? "Salvando…" : "Confirmar acordo"}
+                </Button>
+              ) : null}
+              {podeRecusarProposta ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={statusSalvando}
+                  onClick={() => void alterarStatus("Recusada")}
+                >
+                  Recusar
+                </Button>
+              ) : null}
+              {podeCancelarProposta ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={statusSalvando}
+                  onClick={() => void alterarStatus("Cancelada")}
+                >
+                  Cancelar proposta
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : null}

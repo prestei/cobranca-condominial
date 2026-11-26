@@ -1,4 +1,6 @@
 import { montarConhecimentoAssistente } from "@/lib/ajuda/assistant-knowledge";
+import { avaliarPerguntaAssistente } from "@/lib/ajuda/assistant-guard";
+import { montarSnapshotOperacionalAssistente } from "@/lib/ajuda/assistant-operational-snapshot";
 import { montarMensagensAssistente, type MensagemHistorico } from "@/lib/ajuda/assistant-prompt";
 import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
@@ -61,11 +63,19 @@ export async function POST(request: Request) {
       : null;
   const historico = parseHistorico(body.historico);
 
+  const avaliacao = avaliarPerguntaAssistente(pergunta);
+  if (!avaliacao.permitida) {
+    return Response.json({ resposta: avaliacao.resposta });
+  }
+
   const permissoes = await resolverPermissoesUsuario(session.userId);
   const perfil = resolverPerfilOperacional(permissoes);
 
   try {
-    const conhecimento = await montarConhecimentoAssistente({ pathname, permissoes, perfil });
+    const [conhecimento, dadosOperacionais] = await Promise.all([
+      montarConhecimentoAssistente({ pathname, permissoes, perfil }),
+      montarSnapshotOperacionalAssistente({ userId: session.userId, permissoes, perfil }),
+    ]);
     const messages = montarMensagensAssistente({
       user: session,
       perfil,
@@ -74,6 +84,7 @@ export async function POST(request: Request) {
       pergunta,
       historico,
       conhecimento,
+      dadosOperacionais,
     });
     const resposta = await chatCompletion(messages);
     return Response.json({ resposta });

@@ -16,6 +16,10 @@ import {
 } from "@/lib/db/repositories/negotiation-repository";
 import { openAssignmentForUnit, requireUnitInScope } from "@/lib/db/service-context";
 import { temPermissao } from "@/lib/permissions/check";
+import {
+  acaoNegociacoesParaStatusProposta,
+  mensagemSemPermissaoDecisaoProposta,
+} from "@/lib/negociacoes/proposta-status-permission";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 import {
   calcularTotaisDebitos,
@@ -339,11 +343,6 @@ export async function atualizarStatusPropostaNegociacao(
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PropostaNegociacao> {
   const perm = await permissoesUsuario(userId);
-  const podeEditarAtendimento = temPermissao(perm, "atendimentos", "editar");
-  const podeEditarNegociacao = temPermissao(perm, "negociacoes", "editar");
-  if (!podeEditarAtendimento && !podeEditarNegociacao) {
-    throw new PropostaNegociacaoServiceError("Sem permissão para alterar o status da proposta.", 403);
-  }
 
   const anterior = await findNegotiationProposalById(id);
   if (!anterior) {
@@ -357,34 +356,9 @@ export async function atualizarStatusPropostaNegociacao(
   }
   validarTransicaoStatus(anterior.status, status);
 
-  const pularAlcada = await usuarioAdministradora(userId);
-  if (status === "Aceita") {
-    const { regra } = await carregarRegraAdvogadoResponsavel(anterior.condominioId);
-    const alcada = validarAlcadaNegociacao(
-      regra,
-      {
-        valorDividaAtualizada: anterior.valorDividaAtualizada || "0",
-        valorProposto: anterior.valorProposto,
-        quantidadeParcelas: anterior.quantidadeParcelas,
-      },
-      { pularValidacao: pularAlcada },
-    );
-    if (!alcada.ok) {
-      throw new PropostaNegociacaoServiceError(
-        alcada.mensagens[0] ?? "Não é possível aprovar condições fora da alçada.",
-        403,
-        alcada.mensagens,
-      );
-    }
-    if (
-      podeEditarNegociacao &&
-      !podeEditarAtendimento &&
-      anterior.advogadoResponsavelId != null &&
-      anterior.advogadoResponsavelId !== userId &&
-      !pularAlcada
-    ) {
-      throw new PropostaNegociacaoServiceError("Apenas o advogado responsável pode confirmar este acordo.", 403);
-    }
+  const acaoDecisao = acaoNegociacoesParaStatusProposta(status);
+  if (!acaoDecisao || !temPermissao(perm, "negociacoes", acaoDecisao)) {
+    throw new PropostaNegociacaoServiceError(mensagemSemPermissaoDecisaoProposta(status), 403);
   }
 
   let termosAprovados = anterior.termosAprovados;

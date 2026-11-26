@@ -128,6 +128,9 @@ const ROTULO_ACAO: Record<AcaoPermissao, string> = {
   editar: "editar",
   excluir: "excluir",
   exportar: "exportar",
+  confirmar: "confirmar acordo",
+  recusar: "recusar proposta",
+  cancelar: "cancelar proposta",
 };
 
 export type ResumoModuloPermissao = {

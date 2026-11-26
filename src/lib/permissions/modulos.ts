@@ -4,6 +4,9 @@ export const ACOES_PERMISSAO = [
   { id: "editar", label: "Editar" },
   { id: "excluir", label: "Excluir" },
   { id: "exportar", label: "Exportar" },
+  { id: "confirmar", label: "Confirmar acordo" },
+  { id: "recusar", label: "Recusar proposta" },
+  { id: "cancelar", label: "Cancelar proposta" },
 ] as const;
 
 export type AcaoPermissao = (typeof ACOES_PERMISSAO)[number]["id"];
@@ -36,8 +39,9 @@ export const MODULOS_PERMISSAO = [
   {
     id: "negociacoes",
     label: "Negociações",
-    description: "Propostas de acordo, alçada do advogado e acompanhamento de parcelas.",
-    acoes: ["ler", "criar", "editar"] as const,
+    description:
+      "Propostas de acordo, decisão (confirmar, recusar ou cancelar), alçada do advogado e acompanhamento de parcelas.",
+    acoes: ["ler", "criar", "editar", "confirmar", "recusar", "cancelar"] as const,
   },
   {
     id: "condominios",

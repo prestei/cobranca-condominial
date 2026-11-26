@@ -9,6 +9,9 @@ Botão fixo no canto inferior esquerdo para o colaborador tirar dúvidas de **us
 - Prioriza **regras de negócio por tela** do manual (`/ajuda`), em linguagem simples; complementa com `docs/modulos/` quando necessário.
 - Respeita o **perfil operacional** (administradora, atendente, advogado) e as permissões reais do cargo.
 - Usa contexto da rota (`pathname`) e captura leve do DOM (títulos, **indicadores/KPIs** com valor e rótulo, filtros preenchidos, paginação da listagem, botões e colunas na área principal).
+- Em cada pergunta, o **servidor** consulta um resumo operacional (mesma base do `/api/dashboard`) **só para o usuário logado** e com as permissões do cargo — sem expor senhas, tokens ou carteira de terceiros.
+- Perguntas invasivas ou fora do produto são **bloqueadas no servidor** antes da chamada ao modelo (senhas, SQL/código, burlar permissão, dados pessoais de terceiros, assuntos gerais).
+- Links clicáveis para rotas internas aparecem **só quando faz sentido** sugerir outra tela ou o manual — não é obrigatório em cada resposta.
 
 ## O que o assistente não faz
 

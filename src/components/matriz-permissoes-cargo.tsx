@@ -48,6 +48,9 @@ const LABEL_ACAO_LEIGO: Record<AcaoPermissao, string> = {
   editar: "Alterar",
   excluir: "Excluir",
   exportar: "Exportar dados",
+  confirmar: "Confirmar acordo",
+  recusar: "Recusar proposta",
+  cancelar: "Cancelar proposta",
 };
 
 type MatrizPermissoesCargoProps = {

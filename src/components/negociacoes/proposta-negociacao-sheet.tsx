@@ -31,6 +31,10 @@ import { NegociacaoProximoPassoDialog } from "@/components/negociacoes/negociaca
 import { PropostaDetalheResumo } from "@/components/negociacoes/proposta-detalhe-resumo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import {
+  podeDecidirPropostaEmAnalise,
+  podeDecidirStatusProposta,
+} from "@/lib/negociacoes/proposta-status-permission";
 import { montarResumoCamposProposta } from "@/lib/negociacoes/resumo-campos";
 
 type Props = {
@@ -64,9 +68,13 @@ export function PropostaNegociacaoSheet({
   const { refetch } = useCadastrosStatus();
   const formId = useId();
   const { toast } = useToast();
-  const { pode } = usePermissao();
+  const { pode, permissoes } = usePermissao();
   const podeCriar = pode("atendimentos", "criar") || pode("negociacoes", "criar");
   const podeEditar = pode("atendimentos", "editar") || pode("negociacoes", "editar");
+  const podeConfirmarAcordo = podeDecidirStatusProposta(permissoes, "Aceita");
+  const podeRecusarProposta = podeDecidirStatusProposta(permissoes, "Recusada");
+  const podeCancelarProposta = podeDecidirStatusProposta(permissoes, "Cancelada");
+  const podeDecidirEmAnalise = podeDecidirPropostaEmAnalise(permissoes);
 
   const [propostas, setPropostas] = useState<PropostaNegociacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -180,7 +188,8 @@ export function PropostaNegociacaoSheet({
   }
 
   async function alterarStatus(proposta: PropostaNegociacao, status: string) {
-    if (!podeEditar || statusSalvandoId !== null) return;
+    if (statusSalvandoId !== null) return;
+    if (!podeDecidirStatusProposta(permissoes, status)) return;
     const termosAprovados = (termosPorId[proposta.id] ?? "").trim();
     if (status === "Aceita" && !termosAprovados) {
       const mensagem = "Informe os termos aprovados do acordo antes de confirmar.";
@@ -304,72 +313,82 @@ export function PropostaNegociacaoSheet({
                         }}
                       />
                     ) : null}
-                    {item.status === "Em análise" && podeEditar ? (
+                    {item.status === "Em análise" && podeDecidirEmAnalise ? (
                       <div className="flex flex-col gap-sm border-t border-border-subtle pt-sm">
-                        <FormField label="1º vencimento do cronograma (opcional)">
-                          <Input
-                            type="date"
-                            value={primeiroVencimentoPorId[item.id] ?? ""}
-                            onChange={(event) =>
-                              setPrimeiroVencimentoPorId((current) => ({
-                                ...current,
-                                [item.id]: event.target.value,
-                              }))
-                            }
-                          />
-                        </FormField>
-                        <FormField
-                          label="Termos do acordo (obrigatório ao aceitar)"
-                          error={termosErroPorId[item.id]}
-                          required
-                        >
-                          <Textarea
-                            icon={FileText}
-                            value={termosPorId[item.id] ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setTermosPorId((current) => ({ ...current, [item.id]: value }));
-                              if (value.trim()) {
-                                setTermosErroPorId((current) => {
-                                  if (!current[item.id]) return current;
-                                  const next = { ...current };
-                                  delete next[item.id];
-                                  return next;
-                                });
-                              }
-                            }}
-                            rows={2}
-                            placeholder="Descreva o que foi aprovado (sem parcelas automáticas)."
-                            aria-invalid={termosErroPorId[item.id] ? true : undefined}
-                          />
-                        </FormField>
+                        {podeConfirmarAcordo ? (
+                          <>
+                            <FormField label="1º vencimento do cronograma (opcional)">
+                              <Input
+                                type="date"
+                                value={primeiroVencimentoPorId[item.id] ?? ""}
+                                onChange={(event) =>
+                                  setPrimeiroVencimentoPorId((current) => ({
+                                    ...current,
+                                    [item.id]: event.target.value,
+                                  }))
+                                }
+                              />
+                            </FormField>
+                            <FormField
+                              label="Termos do acordo (obrigatório ao aceitar)"
+                              error={termosErroPorId[item.id]}
+                              required
+                            >
+                              <Textarea
+                                icon={FileText}
+                                value={termosPorId[item.id] ?? ""}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setTermosPorId((current) => ({ ...current, [item.id]: value }));
+                                  if (value.trim()) {
+                                    setTermosErroPorId((current) => {
+                                      if (!current[item.id]) return current;
+                                      const next = { ...current };
+                                      delete next[item.id];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                rows={2}
+                                placeholder="Descreva o que foi aprovado (sem parcelas automáticas)."
+                                aria-invalid={termosErroPorId[item.id] ? true : undefined}
+                              />
+                            </FormField>
+                          </>
+                        ) : null}
                         <div className="flex flex-wrap gap-sm">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={statusSalvandoId === item.id || !(termosPorId[item.id] ?? "").trim()}
-                            onClick={() => void alterarStatus(item, "Aceita")}
-                          >
-                            {statusSalvandoId === item.id ? "Salvando…" : "Confirmar acordo"}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={statusSalvandoId === item.id}
-                            onClick={() => void alterarStatus(item, "Recusada")}
-                          >
-                            Recusar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={statusSalvandoId === item.id}
-                            onClick={() => void alterarStatus(item, "Cancelada")}
-                          >
-                            Cancelar
-                          </Button>
+                          {podeConfirmarAcordo ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={statusSalvandoId === item.id || !(termosPorId[item.id] ?? "").trim()}
+                              onClick={() => void alterarStatus(item, "Aceita")}
+                            >
+                              {statusSalvandoId === item.id ? "Salvando…" : "Confirmar acordo"}
+                            </Button>
+                          ) : null}
+                          {podeRecusarProposta ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              disabled={statusSalvandoId === item.id}
+                              onClick={() => void alterarStatus(item, "Recusada")}
+                            >
+                              Recusar
+                            </Button>
+                          ) : null}
+                          {podeCancelarProposta ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              disabled={statusSalvandoId === item.id}
+                              onClick={() => void alterarStatus(item, "Cancelada")}
+                            >
+                              Cancelar
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}

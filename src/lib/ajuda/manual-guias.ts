@@ -163,7 +163,8 @@ export const GUIAS_MANUAL: GuiaManual[] = [
     regras: [
       "Proposta aceita pelo escritório não significa que o dinheiro já entrou — só registra o combinado.",
       "Proposta ligada à unidade e aos débitos dela; estados possíveis: em análise, aceita, recusada ou cancelada.",
-      "Advogado responsável do condomínio pode ter limite de desconto e de número de parcelas; administradora pode ultrapassar esses limites.",
+      "Confirmar, recusar ou cancelar proposta depende das permissões do seu cargo em Negociações (matriz em Cargos).",
+      "Advogado responsável do condomínio pode ter limite de desconto e de número de parcelas na criação da proposta; administradora pode ultrapassar esses limites.",
       "Só depois de aceita entram parcelas previstas e registros de pagamento.",
       "Pagamento informado é anotação; só pagamento confirmado conta para quitar parcela e reduzir saldo do acordo.",
       "Parcela vencida sem pagamento confirmado gera alerta de possível descumprimento — ainda não é regra automática de ‘acordo quebrado’.",
@@ -173,7 +174,7 @@ export const GUIAS_MANUAL: GuiaManual[] = [
     passos: [
       {
         titulo: "Crie a proposta na unidade ou aqui",
-        descricao: "Informe valores, desconto e parcelas; aguarde análise ou confirme se for sua alçada.",
+        descricao: "Informe valores, desconto e parcelas; aguarde a administradora confirmar o acordo.",
       },
       {
         titulo: "Acompanhe o acordo aceito",
