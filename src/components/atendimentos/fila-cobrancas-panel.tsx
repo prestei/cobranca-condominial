@@ -105,6 +105,7 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
   } | null>(null);
   const [concluirAtendimentoId, setConcluirAtendimentoId] = useState<string | null>(null);
   const [destaqueUnidadeId, setDestaqueUnidadeId] = useState<number | null>(null);
+  const unidadeDeepLinkTratadoRef = useRef<number | null>(null);
 
   const aplicarQueryInicial = useCallback(() => {
     const retornoQuery = searchParams?.get("retorno");
@@ -126,6 +127,12 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
     const unidadeNum = Number(unidadeQuery);
     if (Number.isFinite(unidadeNum) && unidadeNum > 0) {
       setDestaqueUnidadeId(unidadeNum);
+      if (unidadeDeepLinkTratadoRef.current !== unidadeNum) {
+        unidadeDeepLinkTratadoRef.current = unidadeNum;
+        setAppliedPeriodo(periodoTodos);
+        setAppliedSemRetorno(false);
+        setFiltroRapido("nenhum");
+      }
     }
     const atendimentoQuery = searchParams?.get("atendimento")?.trim();
     if (atendimentoQuery) {
@@ -143,10 +150,17 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
   useEffect(() => {
     if (!destaqueUnidadeId || carregando) return;
     const idDestaque = destaqueUnidadeId;
+    if (!itens.some((item) => item.unidadeId === idDestaque)) return;
     const alvo = document.getElementById(`fila-unidade-${idDestaque}`);
     alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
     setDestaqueUnidadeId(null);
-  }, [carregando, destaqueUnidadeId, itens]);
+    if (searchParams?.get("unidade")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("unidade");
+      const qs = params.toString();
+      router.replace(qs ? `/atendimentos?${qs}` : "/atendimentos");
+    }
+  }, [carregando, destaqueUnidadeId, itens, router, searchParams]);
 
   const recarregar = useCallback(async () => {
     setCarregando(true);

@@ -82,7 +82,6 @@ function AtendimentosPage() {
     setSheetOpen(true);
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("novo");
-    params.delete("unidade");
     params.delete("canal");
     params.delete("aba");
     const qs = params.toString();

@@ -75,8 +75,8 @@ function avanco(progresso: number, indice: number) {
 function ListaOculta({ itens }: { itens: Array<{ nome: string; detalhe: string }> }) {
   return (
     <ul className="sr-only">
-      {itens.map((item) => (
-        <li key={item.nome}>
+      {itens.map((item, indice) => (
+        <li key={`${item.nome}-${indice}`}>
           {item.nome}: {item.detalhe}
         </li>
       ))}
@@ -103,7 +103,7 @@ export function GraficoBarras({
         {itens.map((item, indice) => {
           const largura = item.valor <= 0 ? 0 : Math.max(2, (item.valor / maximo) * 100) * avanco(progresso, indice);
           return (
-            <li key={item.nome} className="flex flex-col gap-xs" title={`${item.nome}: ${item.detalhe}`}>
+            <li key={`${item.nome}-${indice}`} className="flex flex-col gap-xs" title={`${item.nome}: ${item.detalhe}`}>
               <div className="flex items-baseline justify-between gap-sm">
                 <span className="truncate text-body-md text-on-surface">{item.nome}</span>
                 <span className="shrink-0 text-body-sm tabular-nums text-on-surface-variant">{item.detalhe}</span>
@@ -247,7 +247,7 @@ export function GraficoEmpilhado({
             const largura = (soma / maximo) * 100 * avanco(progresso, indice);
             const parteAte = soma > 0 ? (item.ate / soma) * 100 : 0;
             return (
-              <li key={item.nome} className="flex flex-col gap-xs" title={`${item.nome}: ${item.detalhe}`}>
+              <li key={`${item.nome}-${indice}`} className="flex flex-col gap-xs" title={`${item.nome}: ${item.detalhe}`}>
                 <div className="flex items-baseline justify-between gap-sm">
                   <span className="truncate text-body-md text-on-surface">{item.nome}</span>
                   <span className="shrink-0 text-body-sm tabular-nums text-on-surface-variant">{item.detalhe}</span>

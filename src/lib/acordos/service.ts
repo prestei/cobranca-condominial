@@ -13,6 +13,7 @@ import {
 import { openAssignmentForUnit } from "@/lib/db/service-context";
 import { obterPropostaNegociacao, PropostaNegociacaoServiceError } from "@/lib/negociacoes/service";
 import { temPermissao } from "@/lib/permissions/check";
+import type { PermissoesCargo } from "@/lib/permissions/modulos";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 import { calcularResumoAcordo, somaPagamentosParcela, type ResumoAcordo } from "@/lib/acordos/resumo";
 import { centavosMonetarios, parcelasCoerentesComValorAcordado } from "@/lib/negociacoes/parcelamento";
@@ -54,13 +55,22 @@ export type PagamentoAcordoCorrecaoInput = {
   confirmacao?: string;
 };
 
-async function usuarioVeCarteiraGeral(userId: number) {
-  const perm = await resolverPermissoesUsuario(userId);
-  return temPermissao(perm, "usuarios", "criar");
+/** Incluir parcela ou pagamento no cronograma (cadastrar ou ajustar negociação). */
+function podeRegistrarCronogramaAcordo(perm: PermissoesCargo): boolean {
+  return (
+    temPermissao(perm, "atendimentos", "criar") ||
+    temPermissao(perm, "negociacoes", "criar") ||
+    temPermissao(perm, "atendimentos", "editar") ||
+    temPermissao(perm, "negociacoes", "editar")
+  );
 }
 
 async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
-  if (await usuarioVeCarteiraGeral(userId)) return;
+  const perm = await resolverPermissoesUsuario(userId);
+  if (temPermissao(perm, "usuarios", "criar")) return;
+  if (temPermissao(perm, "negociacoes", "editar") && !temPermissao(perm, "atendimentos", "criar")) {
+    return;
+  }
   const vigente = await openAssignmentForUnit(unidadeId);
   if (!vigente || vigente.atendenteId !== userId) {
     throw new AcordoServiceError(
@@ -161,7 +171,7 @@ export async function registrarParcelasAcordo(
   meta?: { ip?: string; userAgent?: string },
 ): Promise<ParcelaAcordo[]> {
   const perm = await resolverPermissoesUsuario(userId);
-  if (!temPermissao(perm, "atendimentos", "criar")) {
+  if (!podeRegistrarCronogramaAcordo(perm)) {
     throw new AcordoServiceError("Sem permissão para registrar parcelas.", 403);
   }
 
@@ -337,7 +347,7 @@ export async function registrarPagamentoAcordo(
   meta?: { ip?: string; userAgent?: string },
 ): Promise<PagamentoAcordo> {
   const perm = await resolverPermissoesUsuario(userId);
-  if (!temPermissao(perm, "atendimentos", "criar")) {
+  if (!podeRegistrarCronogramaAcordo(perm)) {
     throw new AcordoServiceError("Sem permissão para registrar pagamentos.", 403);
   }
 

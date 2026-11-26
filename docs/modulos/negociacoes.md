@@ -50,14 +50,14 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 | GET | `/api/propostas` | `atendimentos.ler` | Query: `unidadeId`, `status` |
 | POST | `/api/propostas` | `atendimentos.criar` | Nova proposta — status **Em análise** |
 | GET | `/api/propostas/[id]` | `atendimentos.ler` | Detalhe |
-| PATCH | `/api/propostas/[id]` | `negociacoes.confirmar` / `recusar` / `cancelar` conforme destino | Status; `termosAprovados` obrigatório se **Aceita** |
+| PATCH | `/api/propostas/[id]` | Status: `negociacoes.confirmar` / `recusar` / `cancelar` conforme destino. Conteúdo (**Em análise**): `negociacoes.editar` ou `atendimentos.editar` | Status; `termosAprovados` obrigatório se **Aceita**. Ajuste: `valorProposto`, `debitoIds`, `quantidadeParcelas`, `observacoes` |
 
 ### Parcelas e pagamentos (T16)
 
 | Método | Path | Permissão | Descrição |
 | --- | --- | --- | --- |
 | GET | `/api/propostas/[id]/parcelas` | `atendimentos.ler` | Proposta **Aceita**: parcelas + `resumo`; caso contrário `200` com `{ parcelas: [], resumo: null }` (sem 409 na leitura) |
-| POST | `/api/propostas/[id]/parcelas` | `atendimentos.criar` | Body: `{ parcelas: [{ numero, valorPrevisto, vencimentoEm }] }` — só proposta **Aceita** |
+| POST | `/api/propostas/[id]/parcelas` | `atendimentos.criar` ou `negociacoes.criar` ou `editar` no módulo equivalente | Body: `{ parcelas: [{ numero, valorPrevisto, vencimentoEm }] }` — só proposta **Aceita** |
 | GET | `/api/propostas/[id]/pagamentos` | `atendimentos.ler` | Pagamentos + `resumo` |
 | POST | `/api/propostas/[id]/pagamentos` | `atendimentos.criar` | Body: `parcelaId`, `valor`, `dataPagamento`, `referenciaComprovante?`, `confirmacao?` (`Informado` \| `Confirmado`) |
 | PATCH | `/api/parcelas-acordo/[id]` | `atendimentos.editar` | Correção auditada: `valorPrevisto`, `vencimentoEm` |
@@ -71,7 +71,7 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 
 - Vinculada à unidade, autor e débitos da mesma unidade.
 - Estados: **Em análise**, **Aceita**, **Recusada**, **Cancelada**.
-- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento. Decisões **Em análise** usam flags do cargo em `role.permissao_json`: `negociacoes.confirmar`, `negociacoes.recusar`, `negociacoes.cancelar` (matriz em `/cargos`). Padrão de fábrica: só **Administrador** com as três; atendente e advogado sem decisão até a gestão liberar. Ao confirmar o acordo, a unidade **sai** da fila de `/atendimentos` e a `collection_assignment` vigente é encerrada (`src/lib/fila/unidade-fila-atendimento.ts`, `encerrar-carteira-vigente.ts`).
+- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento. Decisões **Em análise** usam flags do cargo em `role.permissao_json`: `negociacoes.confirmar`, `negociacoes.recusar`, `negociacoes.cancelar` (matriz em `/cargos`). Padrão de fábrica: **Administrador** e **Advogado** com as três; atendente sem decisão até a gestão liberar. Consultar e ajustar proposta usam `negociacoes.ler` / `negociacoes.editar` (advogado já tem no seed). Com proposta **Aceita** ou unidade em acordo, o caso **sai** de `/atendimentos`, da agenda de retornos e de **Próximos atendimentos** — acompanhamento só em `/negociacoes` (`unidadeEmNegociacaoOperacional`, `unidade-fila-atendimento.ts`). Ao confirmar o acordo, a `collection_assignment` vigente é encerrada (`encerrar-carteira-vigente.ts`).
 - **Alçada do advogado:** ao registrar ou aprovar, o servidor valida desconto máximo (`lawyer_negotiation_rule`, padrão 30%) e quantidade máxima de parcelas (padrão 24) do advogado principal do condomínio. Administradora ignora limites.
 - **Responsáveis:** `valores_definidos_por_id` (registro), `valores_aprovados_por_id` (confirmação), `advogado_responsavel_id` (condomínio).
 - **Detalhe:** valores original/atualizado da dívida, desconto, quantidade de parcelas, cronograma opcional ao confirmar (`primeiroVencimento` + geração automática).

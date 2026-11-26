@@ -27,29 +27,36 @@ const propostaBase = (partial?: Partial<PropostaNegociacao>): PropostaNegociacao
     ...partial,
   }) as PropostaNegociacao;
 
-test("unidade em cobrança sem acordo confirmado permanece na fila de atendimento", () => {
-  assert.equal(
-    unidadeElegivelFilaAtendimento(unidadeBase(), { propostasNegociacao: [] }),
-    true,
-  );
+const cadastroVazio = { propostasNegociacao: [] as PropostaNegociacao[], debitos: [] };
+
+test("unidade em cobrança sem negociação permanece na fila de atendimento", () => {
+  assert.equal(unidadeElegivelFilaAtendimento(unidadeBase(), cadastroVazio), true);
 });
 
-test("unidade com proposta aceita e acordo confirmado sai da fila de atendimento", () => {
+test("unidade com proposta aceita ou em acordo sai da fila de atendimento", () => {
   assert.equal(
     unidadeElegivelFilaAtendimento(unidadeBase({ situacao: "Em acordo" }), {
       propostasNegociacao: [propostaBase()],
+      debitos: [],
+    }),
+    false,
+  );
+  assert.equal(
+    unidadeElegivelFilaAtendimento(unidadeBase(), {
+      propostasNegociacao: [propostaBase({ acordoConfirmadoEm: "" })],
+      debitos: [],
     }),
     false,
   );
 });
 
-test("proposta em análise ou aceita sem confirmação não remove a unidade da fila", () => {
+test("proposta em análise sem encaminhamento à negociação permanece na fila", () => {
   assert.equal(
     unidadeElegivelFilaAtendimento(unidadeBase(), {
       propostasNegociacao: [
-        propostaBase({ status: "Em análise", acordoConfirmadoEm: "" }),
-        propostaBase({ status: "Aceita", acordoConfirmadoEm: "" }),
+        propostaBase({ status: "Em análise", acordoConfirmadoEm: "", filaNegociacaoEm: "" }),
       ],
+      debitos: [],
     }),
     true,
   );

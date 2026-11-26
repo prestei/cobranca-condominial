@@ -80,8 +80,8 @@ export function AtendimentoPainelCaso({
 
   if (!item) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-surface-container-low p-lg text-center">
-        <p className="max-w-sm text-body-md text-on-surface-variant">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center bg-surface-container-low p-lg">
+        <p className="max-w-sm text-balance text-center text-body-md text-on-surface-variant">
           Escolha uma unidade na fila para ver a linha do tempo e registrar contato.
         </p>
       </div>

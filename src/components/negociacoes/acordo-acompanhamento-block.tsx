@@ -52,6 +52,7 @@ export function AcordoAcompanhamentoBlock({
   const [resumo, setResumo] = useState<ResumoAcordo | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const podeIncluirParcela = podeRegistrar || podeCorrigir;
 
   const [novaNumero, setNovaNumero] = useState("1");
   const [novaValor, setNovaValor] = useState("");
@@ -93,7 +94,7 @@ export function AcordoAcompanhamentoBlock({
   }, [carregar]);
 
   async function registrarParcela() {
-    if (!podeRegistrar) return;
+    if (!podeIncluirParcela) return;
     setSalvando(true);
     try {
       const response = await fetch(`/api/propostas/${propostaId}/parcelas`, {
@@ -182,7 +183,7 @@ export function AcordoAcompanhamentoBlock({
   }
 
   const camposNovaParcela =
-    podeRegistrar ? (
+    podeIncluirParcela ? (
       <div className="flex flex-col gap-md">
         <FormField label="Número da parcela">
           <Input
@@ -265,7 +266,7 @@ export function AcordoAcompanhamentoBlock({
     ) : null;
 
   const formularioNovaParcela =
-    podeRegistrar ? (
+    podeIncluirParcela ? (
       <div className="flex flex-col gap-sm">
         {camposNovaParcela}
         <Button type="button" disabled={salvando} onClick={() => void registrarParcela()}>
@@ -298,11 +299,30 @@ export function AcordoAcompanhamentoBlock({
   }
 
   if (!resumo) {
-    return null;
+    if (modo === "completo") return null;
+    return (
+      <>
+        <SheetBody>
+          <p className="text-body-sm text-on-surface-variant">
+            Não foi possível carregar o cronograma do acordo. Confirme se a proposta está aceita e tente novamente.
+          </p>
+        </SheetBody>
+        {onFechar ? <SheetFooterForm onClose={() => onFechar()} saveLabel="Adicionar parcela" saveDisabled /> : null}
+      </>
+    );
   }
 
   if (modo === "nova-parcela") {
-    if (!podeRegistrar) return null;
+    if (!podeIncluirParcela) {
+      return (
+        <>
+          <SheetBody>
+            <p className="text-body-sm text-on-surface-variant">Sem permissão para incluir parcelas neste acordo.</p>
+          </SheetBody>
+          <SheetFooterForm onClose={() => onFechar?.()} saveLabel="Adicionar parcela" saveDisabled />
+        </>
+      );
+    }
     return (
       <SheetForm
         onSubmit={(event) => {

@@ -5,6 +5,7 @@ import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { ehAdministradora } from "@/lib/permissions/check";
 import { Clock, FileText, Pencil, Scale, Trash2 } from "lucide-react";
 import { Badge } from "@/components/badge";
+import { Button } from "@/components/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
@@ -42,6 +43,12 @@ import {
   JuridicoPorGruposLista,
   type JuridicoLinhaAcao,
 } from "@/components/juridico/juridico-por-grupos-lista";
+import { JuridicoAdvogadoPainel } from "@/components/juridico/juridico-advogado-painel";
+import {
+  ETAPAS_JURIDICO_ADVOGADO,
+  encaminhamentoNaEtapa,
+  type EtapaJuridicoFiltro,
+} from "@/lib/juridico/etapas-advogado";
 import {
   escopoCondominios,
   formatarData,
@@ -121,6 +128,8 @@ export default function JuridicoPage() {
   const [page, setPage] = useState(1);
   const [detalhe, setDetalhe] = useState<DetalheAberto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EncaminhamentoJuridicoDetalhe | null>(null);
+  const [etapaAdvogado, setEtapaAdvogado] = useState<EtapaJuridicoFiltro>("todos");
+  const [selecionadoAdvogadoId, setSelecionadoAdvogadoId] = useState<string | null>(null);
 
   const condominiosEscopo = useMemo(
     () => escopoCondominios(cadastros, sessao?.userId),
@@ -233,6 +242,11 @@ export default function JuridicoPage() {
 
   const emAnalise = visible.filter((item) => item.status === "Em análise").length;
   const comDocumentos = visible.filter((item) => (item.documentos?.length ?? 0) > 0).length;
+
+  const visibleAdvogado = useMemo(
+    () => visible.filter((item) => encaminhamentoNaEtapa(item.status, etapaAdvogado)),
+    [visible, etapaAdvogado],
+  );
 
   function directionFor(key: SortKey): TableSortDirection {
     return sortKey === key ? sortDirection : "none";
@@ -507,7 +521,7 @@ export default function JuridicoPage() {
         title="Jurídico"
         description={
           visaoAdvogado
-            ? "Seus encaminhamentos e status dos casos nos condomínios da sua carteira."
+            ? "Acompanhe, analise e defina as ações jurídicas dos casos encaminhados à sua carteira."
             : "Encaminhamentos jurídicos e acompanhamento pelos advogados."
         }
         className="max-md:py-sm max-md:[&_h1]:leading-tight max-md:[&_p]:leading-snug"
@@ -520,6 +534,116 @@ export default function JuridicoPage() {
         ) : null}
         {carregando && encaminhamentos.length === 0 ? (
           <SkeletonListPage metrics={3} rows={8} cols={6} label="Carregando encaminhamentos" />
+        ) : visaoAdvogado ? (
+          <>
+            <section aria-label="Resumo jurídico">
+              <div className="grid grid-cols-1 gap-sm min-[480px]:grid-cols-3 min-[768px]:hidden">
+                <KpiMobileCard
+                  rotulo="Encaminhamentos"
+                  valor={metricValor(visible.length)}
+                  icon={Scale}
+                  destaque
+                />
+                <KpiMobileCard rotulo="Em análise" valor={metricValor(emAnalise)} icon={Clock} />
+                <KpiMobileCard rotulo="Com documentos" valor={metricValor(comDocumentos)} icon={FileText} />
+              </div>
+              <div className="hidden grid-cols-1 gap-md min-[768px]:grid min-[768px]:grid-cols-3">
+                <CardMetric
+                  accent="primary"
+                  rotulo="Encaminhamentos"
+                  valor={metricValor(visible.length)}
+                  detalhe="Com os filtros aplicados"
+                  iconClassName="bg-primary-fixed/50 text-primary-container"
+                  icon={<Icon icon={Scale} size="md" className="text-primary-container" />}
+                />
+                <CardMetric
+                  accent="tertiary"
+                  rotulo="Em análise"
+                  valor={metricValor(emAnalise)}
+                  detalhe="Aguardando análise"
+                  iconClassName="bg-tertiary-fixed/40 text-tertiary-container"
+                  icon={<Icon icon={Clock} size="md" className="text-tertiary-container" />}
+                />
+                <CardMetric
+                  accent="brass"
+                  rotulo="Com documentos"
+                  valor={metricValor(comDocumentos)}
+                  detalhe="Com arquivo anexado"
+                  iconClassName="bg-gold-subtle text-brass"
+                  icon={<Icon icon={FileText} size="md" className="text-brass" />}
+                />
+              </div>
+            </section>
+
+            <FiltrosSection>
+              <FilterBar
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar unidade ou condomínio…"
+                onApply={handleApply}
+                onClear={handleClear}
+                fields={[
+                  {
+                    id: "status",
+                    label: "Status",
+                    value: status,
+                    onChange: setStatus,
+                    options: [
+                      { value: "todos", label: "Todos" },
+                      ...statusEncaminhamentoJuridico
+                        .filter((item) => item !== "Aguardando aprovação" && item !== "Rejeitado")
+                        .map((item) => ({ value: item, label: item })),
+                    ],
+                  },
+                  {
+                    id: "condominio",
+                    label: "Condomínio",
+                    value: condominio,
+                    onChange: setCondominio,
+                    options: [
+                      { value: "todos", label: "Todos" },
+                      ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome })),
+                    ],
+                  },
+                ]}
+              />
+              <div
+                className="flex flex-wrap gap-xs border-t border-border-subtle pt-md"
+                role="group"
+                aria-label="Filtrar por etapa do processo"
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={etapaAdvogado === "todos" ? "primary" : "secondary"}
+                  onClick={() => setEtapaAdvogado("todos")}
+                >
+                  Todas as etapas
+                </Button>
+                {ETAPAS_JURIDICO_ADVOGADO.map((etapa) => (
+                  <Button
+                    key={etapa.id}
+                    type="button"
+                    size="sm"
+                    variant={etapaAdvogado === etapa.id ? "primary" : "secondary"}
+                    onClick={() => setEtapaAdvogado(etapa.id)}
+                  >
+                    {etapa.rotulo}
+                  </Button>
+                ))}
+              </div>
+            </FiltrosSection>
+
+            <JuridicoAdvogadoPainel
+              itens={visibleAdvogado}
+              cadastros={cadastros}
+              selecionadoId={selecionadoAdvogadoId}
+              onSelecionar={setSelecionadoAdvogadoId}
+              podeEditar={podeEditarJuridico}
+              onAbrirAcompanhamento={abrirDetalhe}
+              vazioPorFiltro={visible.length > 0 && visibleAdvogado.length === 0}
+            />
+          </>
         ) : (
           <>
         <section aria-label="Resumo jurídico">
@@ -597,60 +721,47 @@ export default function JuridicoPage() {
                   ...condominiosEscopo.map((item) => ({ value: String(item.id), label: item.nome })),
                 ],
               },
-              ...(visaoAdvogado
-                ? []
-                : [
-                    {
-                      id: "advogado",
-                      label: "Advogado",
-                      value: advogado,
-                      onChange: setAdvogado,
-                      options: [
-                        { value: "todos", label: "Todos" },
-                        ...advogadosFiltro.map((item) => ({ value: item, label: item })),
-                      ],
-                    },
-                  ]),
+              {
+                id: "advogado",
+                label: "Advogado",
+                value: advogado,
+                onChange: setAdvogado,
+                options: [
+                  { value: "todos", label: "Todos" },
+                  ...advogadosFiltro.map((item) => ({ value: item, label: item })),
+                ],
+              },
             ]}
           />
         </FiltrosSection>
 
-        {visaoAdvogado ? (
-          <>
+        <Tabs
+          value={visao}
+          onValueChange={(value) => {
+            setVisao(value as VisaoListagem);
+            setPage(1);
+          }}
+          defaultValue="advogado"
+          className="flex flex-col gap-md"
+        >
+          <TabsList>
+            <TabsTrigger value="advogado">Por advogados</TabsTrigger>
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+          </TabsList>
+          <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
+            <ResponsiveTable
+              desktop={desktopTableAdvogado}
+              mobile={mobileTableAdvogado}
+              showExport={false}
+            />
+          </TabsContent>
+          <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
             <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
             {visible.length > 0 ? (
               <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
             ) : null}
-          </>
-        ) : (
-          <Tabs
-            value={visao}
-            onValueChange={(value) => {
-              setVisao(value as VisaoListagem);
-              setPage(1);
-            }}
-            defaultValue="advogado"
-            className="flex flex-col gap-md"
-          >
-            <TabsList>
-              <TabsTrigger value="advogado">Por advogados</TabsTrigger>
-              <TabsTrigger value="geral">Geral</TabsTrigger>
-            </TabsList>
-            <TabsContent value="advogado" className="flex flex-col gap-md !bg-transparent !p-0">
-              <ResponsiveTable
-                desktop={desktopTableAdvogado}
-                mobile={mobileTableAdvogado}
-                showExport={false}
-              />
-            </TabsContent>
-            <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
-              <ResponsiveTable desktop={desktopTableGeral} mobile={mobileTableGeral} showExport={false} />
-              {visible.length > 0 ? (
-                <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
-              ) : null}
-            </TabsContent>
-          </Tabs>
-        )}
+          </TabsContent>
+        </Tabs>
           </>
         )}
       </PageContent>

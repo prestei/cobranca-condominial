@@ -8,10 +8,10 @@ import {
   formatarMoeda,
   hojeIso,
   persistedDebtBalanceAmount,
-  retornoPendente,
   situacaoRetorno,
 } from "@/data/catalogo";
 import { situacaoOperacionalFila, type SituacaoFilaOperacional } from "@/lib/fila/situacao-operacional";
+import { atendimentoComRetornoAberto } from "@/lib/fila/escopo-retorno-operacional";
 import { unidadeElegivelFilaAtendimento } from "@/lib/fila/unidade-fila-atendimento";
 import { debitoInadimplenciaAtiva } from "@/lib/debitos/operational-situation";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
@@ -109,7 +109,7 @@ function resumoAtendimentosUnidade(cadastros: Cadastros, unidadeId: number) {
     .filter((item) => Number(item.unidadeId) === unidadeId)
     .sort((a, b) => b.dataHora.localeCompare(a.dataHora));
   const ultimo = lista[0]?.dataHora ?? null;
-  const pendentesRetorno = lista.filter(retornoPendente).sort((a, b) => {
+  const pendentesRetorno = lista.filter(atendimentoComRetornoAberto).sort((a, b) => {
     const da = a.dataProximaAcao || "";
     const db = b.dataProximaAcao || "";
     return da.localeCompare(db);

@@ -933,7 +933,7 @@ export function unidadeNaFilaCobrancaAtiva(item: { situacao?: string }) {
 export function unidadeComDebitoOperacional(item: { situacao?: string }, temDebitoVencidoAberto: boolean) {
   if (!temDebitoVencidoAberto) return false;
   const situacao = situacaoCobrancaUnidade(item);
-  if (situacao === "Quitada" || situacao === SITUACAO_COBRANCA_PRESCRITA) return false;
+  if (situacao === "Quitada") return false;
   return true;
 }
 

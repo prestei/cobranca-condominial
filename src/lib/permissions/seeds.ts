@@ -32,7 +32,7 @@ const advogado: PermissoesCargo = {
   debitos: { ler: true },
   juridico: { ler: true, editar: true },
   relatorios: { ler: true, exportar: true },
-  negociacoes: { ler: true, editar: true },
+  negociacoes: { ler: true, editar: true, confirmar: true, recusar: true, cancelar: true },
 };
 
 export const PERMISSAO_JSON_ADMIN = serializarPermissoes(admin);

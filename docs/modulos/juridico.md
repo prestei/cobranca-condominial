@@ -17,11 +17,11 @@ Registrar encaminhamentos de cobrança para análise jurídica, associar advogad
 
 | Onde | Descrição |
 | --- | --- |
-| `/juridico` | **Administradora:** abas **Por advogados** (padrão) e **Geral**. **Advogado:** só tabela plana dos encaminhamentos em que consta como responsável (filtro automático), sem aba por advogado |
+| `/juridico` | **Administradora:** abas **Por advogados** (padrão) e **Geral**. **Advogado:** painel com indicadores, filtros por **etapa** (status oficiais T17 agrupados), lista + resumo lateral; sheet para acompanhamento completo — sem aba por advogado |
 | Fila de cobranças | Ação **Jurídico** por unidade |
 | Histórico da unidade (T12) | Botão **Jurídico** e eventos na linha do tempo |
 
-Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/components/juridico/juridico-por-grupos-lista.tsx`, `src/lib/juridico/service.ts`.
+Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/juridico-advogado-painel.tsx`, `src/components/juridico/encaminhamento-juridico-painel-detalhe.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/components/juridico/juridico-por-grupos-lista.tsx`, `src/lib/juridico/etapas-advogado.ts`, `src/lib/juridico/service.ts`.
 
 ## Perfis e permissões
 

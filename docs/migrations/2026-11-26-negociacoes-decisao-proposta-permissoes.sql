@@ -1,5 +1,5 @@
 -- Decisão de proposta: confirmar, recusar e cancelar (flags em negociacoes no role.permissao_json).
--- Cargos de fábrica: só Administrador recebe as três ações; Atendente e Advogado não.
+-- Cargos de fábrica: Administrador e Advogado recebem as três ações; Atendente não.
 -- Demais cargos: ajuste manual em /cargos.
 
 UPDATE role
@@ -19,4 +19,4 @@ SET permissao_json = jsonb_set(
   'true'::jsonb,
   true
 )::text
-WHERE lower(trim(nome)) = 'administrador';
+WHERE lower(trim(nome)) IN ('administrador', 'advogado');

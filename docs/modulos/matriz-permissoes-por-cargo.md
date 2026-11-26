@@ -84,6 +84,8 @@ A matriz na tela lista **todas** as ações possíveis por módulo (incluindo CR
 | Relatórios | ✓ | — | — | — | ✓ |
 | *Demais módulos* | — | — | — | — | — |
 
+**Negociações (decisão de proposta):** confirmar acordo, recusar e cancelar proposta (**Em análise**) — os três marcados no cargo Advogado (junto com consultar e alterar na tabela).
+
 **Início:** `DashboardAdvogadoView` — condomínios no escopo, indicadores, ranking, resumo jurídico e negociações.
 
 **Menu:** Rotina (Início, Jurídico, Negociações, Notificações), Carteira (consulta), Análise (relatórios), Ajuda.
@@ -96,7 +98,7 @@ A matriz na tela lista **todas** as ações possíveis por módulo (incluindo CR
 | `garantirIdentidadeInicialPg` | Grava cargos se tabela vazia; repara JSON `{}` |
 | `docs/migrations/dump-role-user.sql` | Snapshot de referência |
 | `docs/migrations/2026-11-13-permissoes-negociacoes-demo-advogado.sql` | Negociações nos cargos 1–3 + vínculo advogada demo |
-| `docs/migrations/2026-11-26-negociacoes-decisao-proposta-permissoes.sql` | Decisão de proposta no Administrador (`confirmar` / `recusar` / `cancelar`) |
+| `docs/migrations/2026-11-26-negociacoes-decisao-proposta-permissoes.sql` | Decisão de proposta no Administrador e Advogado (`confirmar` / `recusar` / `cancelar`) |
 
 ## Login de demonstração
 

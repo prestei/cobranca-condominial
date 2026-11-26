@@ -58,6 +58,13 @@ export type PropostaNegociacaoStatusInput = {
   primeiroVencimento?: string;
 };
 
+export type PropostaNegociacaoConteudoInput = {
+  valorProposto: string;
+  observacoes?: string;
+  debitoIds: number[];
+  quantidadeParcelas?: number | null;
+};
+
 export type PropostaNegociacaoFiltros = {
   unidadeId?: number;
   status?: string;
@@ -334,6 +341,74 @@ export async function criarPropostaNegociacao(
     ...meta,
   });
   return criada;
+}
+
+export async function atualizarConteudoPropostaNegociacao(
+  userId: number,
+  id: string,
+  input: PropostaNegociacaoConteudoInput,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<PropostaNegociacao> {
+  const perm = await permissoesUsuario(userId);
+  if (!temPermissao(perm, "negociacoes", "editar") && !temPermissao(perm, "atendimentos", "editar")) {
+    throw new PropostaNegociacaoServiceError("Sem permissão para alterar a proposta.", 403);
+  }
+
+  const anterior = await findNegotiationProposalById(id);
+  if (!anterior) {
+    throw new PropostaNegociacaoServiceError("Proposta não encontrada.", 404);
+  }
+  await assertLeituraProposta(userId, anterior);
+
+  if (anterior.status !== "Em análise") {
+    throw new PropostaNegociacaoServiceError("Só é possível ajustar propostas em análise.", 409);
+  }
+
+  const pularAlcada = await usuarioAdministradora(userId);
+  const entrada: PropostaNegociacaoInput = {
+    condominioId: anterior.condominioId,
+    unidadeId: anterior.unidadeId,
+    valorProposto: input.valorProposto,
+    observacoes: input.observacoes,
+    debitoIds: input.debitoIds,
+    quantidadeParcelas: input.quantidadeParcelas,
+  };
+  const dados = await validarEntrada(entrada, userId, pularAlcada);
+
+  const atualizado: PropostaNegociacao = {
+    ...anterior,
+    valorProposto: dados.valorProposto,
+    observacoes: dados.observacoes,
+    debitoIds: dados.debitoIds,
+    quantidadeParcelas: dados.quantidadeParcelas,
+    valorDividaOriginal: dados.totais.original,
+    valorDividaAtualizada: dados.totais.atualizado,
+  };
+
+  const salvo = await updateNegotiationProposal(atualizado);
+  await writeAuditLog({
+    entity: "negotiation_proposal",
+    recordId: id,
+    action: "UPDATE",
+    previousData: JSON.stringify({
+      valorProposto: anterior.valorProposto,
+      observacoes: anterior.observacoes,
+      debitoIds: anterior.debitoIds,
+      quantidadeParcelas: anterior.quantidadeParcelas,
+    }),
+    newData: JSON.stringify({
+      valorProposto: salvo.valorProposto,
+      observacoes: salvo.observacoes,
+      debitoIds: salvo.debitoIds,
+      quantidadeParcelas: salvo.quantidadeParcelas,
+    }),
+    changedFields: "valor_proposto, observacoes, debito_ids, quantidade_parcelas, valor_divida_original, valor_divida_atualizada",
+    userId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+
+  return salvo;
 }
 
 export async function atualizarStatusPropostaNegociacao(

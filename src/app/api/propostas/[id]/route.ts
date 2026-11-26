@@ -2,10 +2,11 @@ import { isErrorResponse, requireSession } from "@/lib/api/require-auth";
 import { requirePropostaEditar, requirePropostaLer } from "@/lib/api/require-proposta-auth";
 import {
   PropostaNegociacaoServiceError,
+  atualizarConteudoPropostaNegociacao,
   atualizarStatusPropostaNegociacao,
-  obterPropostaNegociacao,
   obterPropostaNegociacaoDetalhe,
   requestMeta,
+  type PropostaNegociacaoConteudoInput,
   type PropostaNegociacaoStatusInput,
 } from "@/lib/negociacoes/service";
 
@@ -18,6 +19,25 @@ function parseStatusBody(body: unknown): PropostaNegociacaoStatusInput | null {
     typeof record.primeiroVencimento === "string" ? record.primeiroVencimento : undefined;
   if (!status.trim()) return null;
   return { status, termosAprovados, primeiroVencimento };
+}
+
+function parseConteudoBody(body: unknown): PropostaNegociacaoConteudoInput | null {
+  if (!body || typeof body !== "object") return null;
+  const record = body as Record<string, unknown>;
+  if (typeof record.status === "string" && record.status.trim()) return null;
+  const valorProposto = typeof record.valorProposto === "string" ? record.valorProposto : "";
+  const observacoes = typeof record.observacoes === "string" ? record.observacoes : undefined;
+  const debitoIdsRaw = record.debitoIds;
+  const debitoIds = Array.isArray(debitoIdsRaw)
+    ? debitoIdsRaw.map((item) => Number(item)).filter((id) => Number.isFinite(id) && id > 0)
+    : [];
+  const quantidadeParcelasRaw = record.quantidadeParcelas;
+  const quantidadeParcelas =
+    quantidadeParcelasRaw == null || quantidadeParcelasRaw === ""
+      ? null
+      : Number(quantidadeParcelasRaw);
+  if (!valorProposto.trim() || debitoIds.length === 0) return null;
+  return { valorProposto, observacoes, debitoIds, quantidadeParcelas };
 }
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -62,13 +82,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     return Response.json({ error: "Corpo da requisição inválido." }, { status: 400 });
   }
 
-  const input = parseStatusBody(body);
-  if (!input) {
-    return Response.json({ error: "Dados de status inválidos." }, { status: 400 });
+  const statusInput = parseStatusBody(body);
+  const conteudoInput = statusInput ? null : parseConteudoBody(body);
+  if (!statusInput && !conteudoInput) {
+    return Response.json({ error: "Dados da alteração inválidos." }, { status: 400 });
   }
 
   try {
-    const proposta = await atualizarStatusPropostaNegociacao(session.userId, id, input, requestMeta(request));
+    const proposta = statusInput
+      ? await atualizarStatusPropostaNegociacao(session.userId, id, statusInput, requestMeta(request))
+      : await atualizarConteudoPropostaNegociacao(session.userId, id, conteudoInput!, requestMeta(request));
     return Response.json({ proposta });
   } catch (error) {
     if (error instanceof PropostaNegociacaoServiceError) {

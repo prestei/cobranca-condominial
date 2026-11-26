@@ -47,6 +47,7 @@ import {
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
+import { PropostaEdicaoSheet } from "@/components/negociacoes/proposta-edicao-sheet";
 import {
   formatarData,
   formatarMoeda,
@@ -124,7 +125,11 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   const podeRecusarProposta = podeDecidirStatusProposta(permissoes, "Recusada");
   const podeCancelarProposta = podeDecidirStatusProposta(permissoes, "Cancelada");
   const podeDecidirEmAnalise = podeDecidirPropostaEmAnalise(permissoes);
-  const podeRegistrar = pode("atendimentos", "criar") || pode("negociacoes", "criar");
+  const podeRegistrar =
+    pode("atendimentos", "criar") ||
+    pode("negociacoes", "criar") ||
+    pode("atendimentos", "editar") ||
+    pode("negociacoes", "editar");
 
   const [detalhe, setDetalhe] = useState<PropostaNegociacaoDetalhe | null>(null);
   const [resumo, setResumo] = useState<ResumoAcordo | null>(null);
@@ -132,6 +137,7 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   const [parcelasExpandidas, setParcelasExpandidas] = useState(false);
   const [sheetPagamentoAberto, setSheetPagamentoAberto] = useState(false);
   const [sheetParcelaAberto, setSheetParcelaAberto] = useState(false);
+  const [sheetEdicaoAberto, setSheetEdicaoAberto] = useState(false);
   const [historicoCompleto, setHistoricoCompleto] = useState(false);
 
   const [termos, setTermos] = useState("");
@@ -282,15 +288,8 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   }
 
   function editarProposta() {
-    if (!detalhe) return;
-    if (detalhe.proposta.status === "Em análise") {
-      document.getElementById("decisao-proposta")?.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
-    if (detalhe.proposta.status === "Aceita") {
-      setSheetParcelaAberto(true);
-      document.getElementById("parcelas-negociacao")?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (!detalhe || detalhe.proposta.status !== "Em análise") return;
+    setSheetEdicaoAberto(true);
   }
 
   const acoesCabecalho = (propostaStatus?: string) => (
@@ -303,7 +302,7 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
         <Icon icon={Printer} size="sm" aria-hidden />
         Imprimir
       </Button>
-      {podeEditar && propostaStatus && (propostaStatus === "Em análise" || propostaStatus === "Aceita") ? (
+      {podeEditar && propostaStatus === "Em análise" ? (
         <Button type="button" size="sm" onClick={editarProposta}>
           Editar proposta
         </Button>
@@ -483,7 +482,7 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
                       <TableCell className="tabular-nums">{formatarData(parcela.vencimentoEm)}</TableCell>
                       <TableCell className="tabular-nums font-medium">{formatarMoeda(parcela.valorPrevisto)}</TableCell>
                       <TableCell align="right">
-                        <CelulaStatusPagamento parcela={parcela} cadastros={cadastros} className="items-end" />
+                        <CelulaStatusPagamento parcela={parcela} className="items-end" />
                       </TableCell>
                     </TableRow>
                   ))
@@ -610,6 +609,18 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
 
         </div>
       </PageContent>
+
+      <PropostaEdicaoSheet
+        open={sheetEdicaoAberto}
+        onOpenChange={setSheetEdicaoAberto}
+        detalhe={detalhe}
+        cadastros={cadastros}
+        onSalvo={() => {
+          void refetch();
+          onRecarregar();
+          void carregar();
+        }}
+      />
 
       {proposta.status === "Aceita" ? (
         <>
@@ -779,11 +790,9 @@ function LegendaParcelas({ resumo }: { resumo: ResumoAcordo }) {
 
 function CelulaStatusPagamento({
   parcela,
-  cadastros,
   className,
 }: {
   parcela: ParcelaAcordoEnriquecida;
-  cadastros: Cadastros;
   className?: string;
 }) {
   const pago = parcela.status === "Paga";
@@ -806,8 +815,7 @@ function CelulaStatusPagamento({
       )}
       {pago && confirmado ? (
         <p className="text-body-sm text-on-surface-variant">
-          {formatarDataHoraPagamento(confirmado.dataPagamento)} ·{" "}
-          {identificadorColaboradorPorId(confirmado.registradoPorId, cadastros)}
+          {formatarDataHoraPagamento(confirmado.dataPagamento)}
         </p>
       ) : null}
     </div>

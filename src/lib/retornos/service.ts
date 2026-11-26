@@ -3,6 +3,8 @@ import { escopoCondominios, situacaoRetorno } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
 import { temPermissao } from "@/lib/permissions/check";
+import { unidadeNoEscopoRetornoOperacional } from "@/lib/fila/escopo-retorno-operacional";
+import { unidadeEmNegociacaoOperacional } from "@/lib/debitos/unidade-em-negociacao";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
 export class RetornoServiceError extends Error {
@@ -63,15 +65,6 @@ function usuarioVeCarteiraGeral(userId: number, cadastros: Cadastros) {
 
 function atribuicaoVigente(cadastros: Cadastros, unidadeId: number): AtribuicaoCobranca | undefined {
   return cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
-}
-
-function unidadeIdsNaCarteira(cadastros: Cadastros, userId: number): Set<number> | null {
-  if (usuarioVeCarteiraGeral(userId, cadastros)) return null;
-  const ids = new Set<number>();
-  for (const item of cadastros.atribuicoesCobranca) {
-    if (!item.encerradoEm && item.atendenteId === userId) ids.add(item.unidadeId);
-  }
-  return ids;
 }
 
 function identificadorColaborador(cadastros: Cadastros, userId: number): string {
@@ -146,15 +139,15 @@ export async function listarRetornosAgenda(
   const cadastros = await loadFullOperationalCadastros();
 
   const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
-  const carteiraIds = unidadeIdsNaCarteira(cadastros, userId);
 
   const listaEscopo = cadastros.atendimentos
     .filter((item) => item.dataProximaAcao.trim())
     .filter((item) => {
-      const unidade = cadastros.unidades.find((u) => u.id === Number(item.unidadeId));
+      const unidadeId = Number(item.unidadeId);
+      const unidade = cadastros.unidades.find((u) => u.id === unidadeId);
       if (!unidade || !idsCondominio.has(unidade.condominioId)) return false;
-      if (carteiraIds && !carteiraIds.has(unidade.id)) return false;
-      return true;
+      if (unidadeEmNegociacaoOperacional(cadastros, unidadeId)) return false;
+      return unidadeNoEscopoRetornoOperacional(cadastros, userId, unidadeId);
     });
 
   const todosNoEscopo = listaEscopo

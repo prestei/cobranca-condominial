@@ -142,8 +142,14 @@ export function AtendimentoOperacaoView({
     if (filtroRapido === "atrasados") {
       lista = lista.filter((item) => item.retornoSituacao === "atrasado");
     }
+    if (destaqueUnidadeId) {
+      const alvo = itens.find((item) => item.unidadeId === destaqueUnidadeId);
+      if (alvo && !lista.some((item) => item.unidadeId === destaqueUnidadeId)) {
+        lista = [alvo, ...lista];
+      }
+    }
     return lista;
-  }, [itens, periodo, semRetorno, filtroRapido]);
+  }, [destaqueUnidadeId, itens, periodo, semRetorno, filtroRapido]);
 
   useEffect(() => {
     if (!destaqueUnidadeId) {
@@ -171,7 +177,9 @@ export function AtendimentoOperacaoView({
 
   const selecionada =
     selecionadaId != null
-      ? (itensFiltrados.find((item) => item.unidadeId === selecionadaId) ?? null)
+      ? (itensFiltrados.find((item) => item.unidadeId === selecionadaId) ??
+          itens.find((item) => item.unidadeId === selecionadaId) ??
+          null)
       : null;
 
   const periodoAberto =

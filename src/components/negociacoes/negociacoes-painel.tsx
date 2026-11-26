@@ -197,6 +197,7 @@ export function NegociacoesPainel({
         <div className="grid gap-md min-[768px]:grid-cols-2 min-[1280px]:grid-cols-3">
           {propostasPagina.length === 0 ? (
             <EmptyState
+              className="col-span-full"
               icon={<Icon icon={Handshake} size="md" />}
               title="Nenhuma proposta"
               description="Altere o status no topo ou registre uma nova tratativa."
