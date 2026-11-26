@@ -1,5 +1,3 @@
-import "server-only";
-
 import { type Cadastros } from "@/data/catalogo";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { getAppSetting, setAppSetting } from "@/lib/db/repositories/app-setting-repository";

@@ -12,6 +12,35 @@ fi
 APP_DIR="${APP_DIR:-/opt/cobranca-condominial}"
 cd "$APP_DIR"
 
+# Build válido anterior (rollback se migrate/build/healthcheck falhar).
+NEXT_BACKUP_DIR=".next-deploy-backup"
+
+next_runnable() {
+  [[ -d .next ]] && [[ -f .next/BUILD_ID ]] && [[ -f .next/prerender-manifest.json ]]
+}
+
+rollback_next_and_restart() {
+  local code="${1:-1}"
+  if [[ "${DEPLOY_HAD_NEXT_BACKUP:-0}" -eq 1 && -d "$NEXT_BACKUP_DIR" ]]; then
+    echo "==> Rollback: restaurando .next anterior e subindo cobranca-app" >&2
+    rm -rf .next 2>/dev/null || true
+    mv "$NEXT_BACKUP_DIR" .next
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl restart cobranca-app.service >/dev/null 2>&1 \
+      || systemctl start cobranca-app.service >/dev/null 2>&1 \
+      || true
+  fi
+  trap - ERR
+  exit "$code"
+}
+
+deploy_trap_err() {
+  echo "==> Deploy falhou — executando rollback (se houver build anterior)" >&2
+  rollback_next_and_restart "$?"
+}
+
+trap deploy_trap_err ERR
+
 ENV_FILE="deploy/.env.production"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: falta ${ENV_FILE}" >&2
@@ -33,11 +62,23 @@ if [[ -z "${AUTH_SECRET:-}" || ${#AUTH_SECRET} -lt 32 ]]; then
 fi
 
 echo "==> Dependências"
-# Para o app para não travar remoção de node_modules (.next/arquivos abertos).
+# Para o app para não travar remoção de node_modules.
 systemctl stop cobranca-app.service >/dev/null 2>&1 || true
+
+DEPLOY_HAD_NEXT_BACKUP=0
+if next_runnable; then
+  rm -rf "$NEXT_BACKUP_DIR"
+  mv .next "$NEXT_BACKUP_DIR"
+  DEPLOY_HAD_NEXT_BACKUP=1
+  echo "==> Backup do build em uso: ${NEXT_BACKUP_DIR}"
+elif [[ -d .next ]]; then
+  # Resíduo de build interrompido — não serve para rollback.
+  rm -rf .next
+fi
+
 # Evita ENOTEMPTY/ENOENT residual de installs interrompidos ou em corrida.
 chmod -R u+w node_modules 2>/dev/null || true
-rm -rf node_modules .next
+rm -rf node_modules
 # Preferir npm ci; se o cache/extracao falhar, limpa cache e tenta de novo.
 if ! npm ci; then
   echo "==> npm ci falhou; limpando cache e retentando"
@@ -60,6 +101,11 @@ fi
 
 echo "==> Build Next.js"
 npm run build
+
+if ! next_runnable; then
+  echo "ERROR: build não gerou .next utilizável (BUILD_ID / prerender-manifest)" >&2
+  rollback_next_and_restart 1
+fi
 
 echo "==> Permissões do usuário do serviço"
 id -u cobranca >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin cobranca
@@ -91,8 +137,13 @@ done
 if [[ "$ok" -ne 1 ]]; then
   echo "ERROR: app não respondeu em :3000" >&2
   journalctl -u cobranca-app.service -n 80 --no-pager || true
-  exit 1
+  rollback_next_and_restart 1
 fi
+
+if [[ "${DEPLOY_HAD_NEXT_BACKUP:-0}" -eq 1 ]]; then
+  rm -rf "$NEXT_BACKUP_DIR"
+fi
+trap - ERR
 
 echo "Deploy OK (Node + PostgreSQL, sem Docker)"
 systemctl --no-pager --full status cobranca-app.service | head -n 20 || true

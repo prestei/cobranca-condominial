@@ -161,7 +161,7 @@ export async function obterOpcoesFiltrosRelatorio(userId: number): Promise<Relat
   return {
     condominios,
     advogados: advogadosLista.length ? advogadosLista : [...advogados],
-    atendentesRe: listarAtendentesComRe().map((item) => ({ codigoRe: item.codigoRe, nome: item.nome })),
+    atendentesRe: listarAtendentesComRe(cadastros).map((item) => ({ codigoRe: item.codigoRe, nome: item.nome })),
     podeFiltrarPorRe,
   };
 }

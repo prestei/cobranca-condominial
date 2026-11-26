@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { PAGE_SIZE } from "@/components/pagination";
@@ -17,7 +17,7 @@ import { usePermissao } from "@/hooks/use-permissao";
 import { calcularResumoAcordo } from "@/lib/acordos/resumo";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 
-export default function NegociacoesPage() {
+function NegociacoesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user: sessao } = useAuth();
@@ -33,7 +33,8 @@ export default function NegociacoesPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
-  const [status, setStatus] = useState("todos");
+  const statusInicial = searchParams?.get("status")?.trim() || "todos";
+  const [status, setStatus] = useState(statusInicial);
   const [page, setPage] = useState(1);
 
   const [novaOpen, setNovaOpen] = useState(false);
@@ -157,7 +158,11 @@ export default function NegociacoesPage() {
         <>
           <PageHeader
             title="Negociações"
-            description="Centro exclusivo de propostas, alçada e acompanhamento de parcelas."
+            description={
+              perfil === "advogado"
+                ? "Propostas sob sua alçada, decisões e acompanhamento de acordos nos seus condomínios."
+                : "Centro exclusivo de propostas, alçada e acompanhamento de parcelas."
+            }
           />
           <PageContent>
             {carregando ? (
@@ -195,5 +200,13 @@ export default function NegociacoesPage() {
         }}
       />
     </WorkspaceShell>
+  );
+}
+
+export default function NegociacoesPage() {
+  return (
+    <Suspense fallback={<SkeletonListPage label="Carregando negociações" />}>
+      <NegociacoesPageContent />
+    </Suspense>
   );
 }

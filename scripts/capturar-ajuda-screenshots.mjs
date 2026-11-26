@@ -65,7 +65,7 @@ async function main() {
 
   const adminContext = await browser.newContext({ viewport, deviceScaleFactor });
   const admin = await adminContext.newPage();
-  await login(admin, "12345", "12345");
+  await login(admin, "MILENA", "12345");
   await capturar(admin, telasAdmin);
   await adminContext.close();
 

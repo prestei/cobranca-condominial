@@ -17,7 +17,7 @@ Registrar encaminhamentos de cobrança para análise jurídica, associar advogad
 
 | Onde | Descrição |
 | --- | --- |
-| `/juridico` | Listagem em abas: **Por advogados** (padrão — painéis recolhíveis com tabela e paginação por advogado) e **Geral** (última — tabela plana) |
+| `/juridico` | **Administradora:** abas **Por advogados** (padrão) e **Geral**. **Advogado:** só tabela plana dos encaminhamentos em que consta como responsável (filtro automático), sem aba por advogado |
 | Fila de cobranças | Ação **Jurídico** por unidade |
 | Histórico da unidade (T12) | Botão **Jurídico** e eventos na linha do tempo |
 

@@ -1,5 +1,3 @@
-import "server-only";
-
 function textoEnv(chave: string): string | null {
   const valor = process.env[chave]?.trim();
   return valor ? valor : null;

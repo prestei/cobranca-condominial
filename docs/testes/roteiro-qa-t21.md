@@ -2,7 +2,7 @@
 
 Cenários cobertos por **`npm run test:integracao`** exercitam serviços e permissões no catálogo em memória. Use este roteiro para validar a **interface** e cookies de sessão quando necessário.
 
-**Pré-requisitos:** `npm run dev`, navegador, seed padrão (`catalogo.ts`). Senha demo: `12345`. Códigos: `MILENA` (admin), `RAQUEL` / `TASSIA` (atendentes), `ADRYELLE` (advogado).
+**Pré-requisitos:** `npm run dev`, navegador, seed padrão (`catalogo.ts`). Senha demo: `12345`. Códigos: `MILENA` (admin), `RAQUEL` / `TASSIA` (atendentes), `ADRYELLE` (advogado). O login em localhost **não** pré-preenche credenciais (ver hint na tela). Matriz por cargo: [matriz-permissoes-por-cargo.md](../modulos/matriz-permissoes-por-cargo.md). Relatório 360°: [relatorio-360-perfis-2026-11-13.md](relatorio-360-perfis-2026-11-13.md).
 
 | # | Cenário | Passos resumidos | Resultado esperado |
 | --- | --- | --- | --- |
@@ -27,6 +27,7 @@ Anote data, build/commit, perfil usado e capturas de tela para falhas. Não regi
 
 ```bash
 npm test
+node scripts/e2e-t21-http.mjs   # T21 via API (requer `npm run dev` + PostgreSQL)
 ```
 
-Mapeamento cenário → teste: [`fluxos-permissoes.integracao.test.ts`](../../src/test/fluxos-permissoes.integracao.test.ts).
+Mapeamento cenário → teste: [`fluxos-permissoes.integracao.test.ts`](../../src/test/fluxos-permissoes.integracao.test.ts). Relatório HTTP: [`relatorio-e2e-t21-*.md`](relatorio-e2e-t21-2026-11-13.md).
