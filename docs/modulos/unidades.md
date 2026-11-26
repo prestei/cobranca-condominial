@@ -35,7 +35,7 @@ Dados pessoais de responsáveis (CPF/CNPJ, telefone, e-mail, endereço) só são
 
 Protótipo em memória (`src/data/catalogo.ts`), com mutações validadas no servidor via API. Identificador primário da unidade: `id` numérico; unicidade operacional: `identificacao` + `condominio_id`.
 
-Campos da unidade: condomínio, identificação, bloco, tipo, status cadastral (`Ativa`/`Inativa`), situação de cobrança (`Sem cobrança` no cadastro novo; `Em cobrança`, `Em acordo`, `Notificada`, `Ajuizada`, `Unidade prescrita`, `Quitada`). Valores canônicos em `situacoesUnidade` (`src/data/catalogo.ts`); alias `PRESCRITA` normalizado para `Unidade prescrita`.
+Campos da unidade: condomínio, identificação, bloco, tipo, status cadastral (`Ativa`/`Inativa`), situação de cobrança (`Sem cobrança` no cadastro novo; `Em cobrança`, `Em acordo`, `Notificada`, `Ajuizada`, `Quitada`). Prescrição jurídica não é atributo da unidade — ver classificação por débito em [debitos.md](debitos.md).
 
 Vínculos: `unit_responsible_party` com tipo (`Proprietario`, `Inquilino`, …) e flag `principal` (responsável financeiro principal).
 
@@ -49,6 +49,7 @@ Todas exigem cookie de sessão (`lc_session`).
 | POST | `/api/unidades` | `criar` | Cria unidade; body: `condominioId`, `identificacao`, `bloco`, `tipo`, `status`, `situacao?` |
 | GET | `/api/unidades/:id` | `ler` | Detalhe, vínculos, resumo de débitos/atendimentos |
 | GET | `/api/unidades/:id/historico` | `unidades.ler` **ou** `atendimentos.ler` | Linha do tempo consolidada (T12); atendente só com unidade na carteira vigente |
+| GET | `/api/unidades/:id/periodos-inadimplencia` | `unidades.ler` | Períodos em que a unidade ficou inadimplente (T24) |
 | PATCH | `/api/unidades/:id` | `editar` | Atualiza cadastro (preserva histórico) |
 | DELETE | `/api/unidades/:id` | `excluir` | Remove só se não houver vínculos/débitos/atendimentos (409 caso contrário) |
 | POST | `/api/unidades/:id/vinculos` | `editar` | Vincula responsável existente ou novo |
@@ -80,7 +81,7 @@ Nenhuma direta; importações futuras podem criar unidades e vínculos (ver [imp
 
 ## Estados de interface
 
-Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor; resposta inclui `unidades`, `vinculos` e `responsaveis` do recorte) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor` + responsáveis; também recarrega débitos (`GET /api/debitos`) para exibir valores em aberto após importação. Colunas de desktop (visão **Geral**): Unidade, Condomínio, Responsável, Cadastro, Dias em atraso, **Situações** (Em dia, Inadimplente, Unidade prescrita, Aguardando débitos) e **Débito** (somente valor em aberto ou `—`). Na visão **Por condomínio**, as colunas são Unidade, Responsável, Cadastro, Dias em atraso, Situações e Débito. A situação de cobrança cadastral (`Em cobrança`, `Quitada`, etc.) permanece no filtro **Cobrança** e no formulário da unidade. Layout alinhado às demais telas de carteira: `PageHeader` com descrição, quatro indicadores (`CardMetric` + `CardMetricRow`) sobre o recorte filtrado, seção **Filtros** com `FilterBar`, tabela responsiva com exportação/importação, paginação de 20. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
+Ao abrir `/unidades`, a listagem sincroniza com `GET /api/unidades` (escopo e permissões no servidor; resposta inclui `unidades`, `vinculos` e `responsaveis` do recorte) e mescla no catálogo do cliente via `sincronizarUnidadesDoServidor` + responsáveis; também recarrega débitos (`GET /api/debitos`) para exibir valores em aberto após importação. Colunas de desktop (visão **Geral**): Unidade, Condomínio, Responsável, Cadastro, Dias em atraso, **Situações** (Em dia, Inadimplente, Inadimplência prescrita, Aguardando débitos) e **Débito** (somente valor em aberto ou `—`). Na visão **Por condomínio**, as colunas são Unidade, Responsável, Cadastro, Dias em atraso, Situações e Débito. A situação de cobrança cadastral (`Em cobrança`, `Quitada`, etc.) permanece no filtro **Cobrança** e no formulário da unidade. Layout alinhado às demais telas de carteira: `PageHeader` com descrição, quatro indicadores (`CardMetric` + `CardMetricRow`) sobre o recorte filtrado, seção **Filtros** com `FilterBar`, tabela responsiva com exportação/importação, paginação de 20. Loading no detalhe (`UnidadeDetalheSheet`), validação no formulário, toasts de erro da API, `EmptyState` na listagem.
 
 ## Pendências e decisões
 

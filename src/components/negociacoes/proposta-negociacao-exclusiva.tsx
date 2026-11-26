@@ -134,21 +134,31 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [detRes, parRes] = await Promise.all([
-        fetch(`/api/propostas/${propostaId}`, { credentials: "same-origin" }),
-        fetch(`/api/propostas/${propostaId}/parcelas`, { credentials: "same-origin" }),
-      ]);
+      const detRes = await fetch(`/api/propostas/${propostaId}`, { credentials: "same-origin" });
       const detPayload = (await detRes.json()) as { error?: string; detalhe?: PropostaNegociacaoDetalhe };
-      const parPayload = (await parRes.json()) as { error?: string; resumo?: ResumoAcordo };
       if (!detRes.ok || !detPayload.detalhe) {
         setDetalhe(null);
+        setResumo(null);
         toast({ variant: "error", title: "Proposta", description: detPayload.error });
         return;
       }
       setDetalhe(detPayload.detalhe);
-      setResumo(parPayload.resumo ?? null);
       setTermos("");
       setTermosErro("");
+
+      if (detPayload.detalhe.proposta.status !== "Aceita") {
+        setResumo(null);
+        return;
+      }
+
+      const parRes = await fetch(`/api/propostas/${propostaId}/parcelas`, { credentials: "same-origin" });
+      const parPayload = (await parRes.json()) as { error?: string; resumo?: ResumoAcordo | null };
+      if (!parRes.ok) {
+        setResumo(null);
+        toast({ variant: "error", title: "Parcelas", description: parPayload.error ?? "Erro ao carregar parcelas." });
+        return;
+      }
+      setResumo(parPayload.resumo ?? null);
     } finally {
       setLoading(false);
     }
@@ -599,19 +609,21 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
                 </SheetHeaderLead>
                 <SheetClose />
               </SheetHeader>
-              <AcordoAcompanhamentoBlock
-                propostaId={proposta.id}
-                podeRegistrar={podeRegistrar}
-                podeCorrigir={podeEditar}
-                modo="nova-parcela"
-                onFechar={() => setSheetParcelaAberto(false)}
-                onConcluido={() => setSheetParcelaAberto(false)}
-                onChanged={() => {
-                  void refetch();
-                  onRecarregar();
-                  void carregar();
-                }}
-              />
+              {sheetParcelaAberto ? (
+                <AcordoAcompanhamentoBlock
+                  propostaId={proposta.id}
+                  podeRegistrar={podeRegistrar}
+                  podeCorrigir={podeEditar}
+                  modo="nova-parcela"
+                  onFechar={() => setSheetParcelaAberto(false)}
+                  onConcluido={() => setSheetParcelaAberto(false)}
+                  onChanged={() => {
+                    void refetch();
+                    onRecarregar();
+                    void carregar();
+                  }}
+                />
+              ) : null}
             </SheetContent>
           </Sheet>
 
@@ -629,19 +641,21 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
                 </SheetHeaderLead>
                 <SheetClose />
               </SheetHeader>
-              <AcordoAcompanhamentoBlock
-                propostaId={proposta.id}
-                podeRegistrar={podeRegistrar}
-                podeCorrigir={podeEditar}
-                modo="registrar-pagamento"
-                onFechar={() => setSheetPagamentoAberto(false)}
-                onConcluido={() => setSheetPagamentoAberto(false)}
-                onChanged={() => {
-                  void refetch();
-                  onRecarregar();
-                  void carregar();
-                }}
-              />
+              {sheetPagamentoAberto ? (
+                <AcordoAcompanhamentoBlock
+                  propostaId={proposta.id}
+                  podeRegistrar={podeRegistrar}
+                  podeCorrigir={podeEditar}
+                  modo="registrar-pagamento"
+                  onFechar={() => setSheetPagamentoAberto(false)}
+                  onConcluido={() => setSheetPagamentoAberto(false)}
+                  onChanged={() => {
+                    void refetch();
+                    onRecarregar();
+                    void carregar();
+                  }}
+                />
+              ) : null}
             </SheetContent>
           </Sheet>
         </>

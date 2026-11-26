@@ -1,4 +1,5 @@
-import { Debito } from "@/data/catalogo";
+import { Debito, SITUACAO_INADIMPLENCIA_ATIVA, agoraIso } from "@/data/catalogo";
+import { SITUACAO_OPERACIONAL_EM_ABERTO } from "@/lib/debitos/operational-situation";
 import { prisma } from "@/lib/db/prisma";
 import {
   dateFromIsoDate,
@@ -35,6 +36,15 @@ function debitoPersistFields(item: Omit<Debito, "id">) {
     externalId: texto(item.identificadorExterno),
     updatedAt: atualizadoEm,
     valueSource: item.fonteValores === "manual" ? "manual" : "origem",
+    delinquencySituation: item.situacaoInadimplencia?.trim() || SITUACAO_INADIMPLENCIA_ATIVA,
+    prescriptionUserId: item.usuarioPrescricaoId ?? null,
+    prescribedAt: item.prescritoEm?.trim() ? new Date(item.prescritoEm) : null,
+    prescriptionJustification: texto(item.justificativaPrescricao),
+    operationalSituation: item.situacaoOperacional?.trim() || SITUACAO_OPERACIONAL_EM_ABERTO,
+    operationalSituationChangedAt: item.situacaoOperacionalAlteradaEm?.trim()
+      ? new Date(item.situacaoOperacionalAlteradaEm)
+      : new Date(agoraIso()),
+    operationalSituationUserId: item.usuarioSituacaoOperacionalId ?? null,
   };
 }
 

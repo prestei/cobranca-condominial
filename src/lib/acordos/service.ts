@@ -16,6 +16,7 @@ import { temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 import { calcularResumoAcordo, somaPagamentosParcela, type ResumoAcordo } from "@/lib/acordos/resumo";
 import { centavosMonetarios, parcelasCoerentesComValorAcordado } from "@/lib/negociacoes/parcelamento";
+import { sincronizarFinanceiroPagamentosAcordo } from "@/lib/debitos/negotiation-financial-sync";
 
 export class AcordoServiceError extends Error {
   constructor(
@@ -134,6 +135,23 @@ export async function obterResumoAcordo(userId: number, propostaId: string): Pro
   const parcelas = await listAgreementInstallmentsByProposal(propostaId);
   const pagamentos = await pagamentosDaProposta(propostaId);
   return calcularResumoAcordo(proposta, parcelas, pagamentos);
+}
+
+/** Leitura do cronograma: retorna vazio sem erro enquanto a proposta não estiver Aceita. */
+export async function consultarCronogramaAcordo(
+  userId: number,
+  propostaId: string,
+): Promise<{ parcelas: ParcelaAcordo[]; resumo: ResumoAcordo | null }> {
+  const proposta = await obterPropostaNegociacao(userId, propostaId);
+  if (proposta.status !== "Aceita") {
+    return { parcelas: [], resumo: null };
+  }
+  const parcelas = await listAgreementInstallmentsByProposal(propostaId);
+  const pagamentos = await pagamentosDaProposta(propostaId);
+  return {
+    parcelas,
+    resumo: calcularResumoAcordo(proposta, parcelas, pagamentos),
+  };
 }
 
 export async function registrarParcelasAcordo(
@@ -342,6 +360,18 @@ export async function registrarPagamentoAcordo(
 
   const pagamentosAtuais = await pagamentosDaProposta(propostaId);
   const valorPago = normalizarValorMonetario(input.valor, "valor pago");
+  const dataPagamentoNorm = normalizarDataPagamento(input.dataPagamento);
+  const duplicado = pagamentosAtuais.find(
+    (item) =>
+      item.parcelaId === parcela.id &&
+      item.confirmacao === "Confirmado" &&
+      confirmacao === "Confirmado" &&
+      centavosMonetarios(item.valor) === centavosMonetarios(valorPago) &&
+      item.dataPagamento.slice(0, 10) === dataPagamentoNorm.slice(0, 10),
+  );
+  if (duplicado) {
+    throw new AcordoServiceError("Este pagamento confirmado já foi registrado e não pode ser duplicado.", 409);
+  }
   if (confirmacao === "Confirmado") {
     const confirmadoCent = somaPagamentosParcela(parcela.id, pagamentosAtuais, "Confirmado");
     const previstoCent = centavosMonetarios(parcela.valorPrevisto);
@@ -360,7 +390,7 @@ export async function registrarPagamentoAcordo(
     parcelaId: parcela.id,
     unidadeId: proposta.unidadeId,
     valor: valorPago,
-    dataPagamento: normalizarDataPagamento(input.dataPagamento),
+    dataPagamento: dataPagamentoNorm,
     referenciaComprovante: (input.referenciaComprovante ?? "").trim(),
     confirmacao,
     criadoEm: agoraIso(),
@@ -385,6 +415,9 @@ export async function registrarPagamentoAcordo(
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+  if (confirmacao === "Confirmado") {
+    await sincronizarFinanceiroPagamentosAcordo(propostaId, { userId, ...meta });
+  }
   return criado;
 }
 
@@ -448,6 +481,11 @@ export async function corrigirPagamentoAcordo(
     ip: meta?.ip,
     userAgent: meta?.userAgent,
   });
+  const confirmacaoMudou =
+    anterior.confirmacao !== salvo.confirmacao || centavosMonetarios(anterior.valor) !== centavosMonetarios(salvo.valor);
+  if (salvo.confirmacao === "Confirmado" && confirmacaoMudou) {
+    await sincronizarFinanceiroPagamentosAcordo(anterior.propostaId, { userId, ...meta });
+  }
   return salvo;
 }
 

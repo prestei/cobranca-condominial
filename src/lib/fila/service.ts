@@ -1,5 +1,19 @@
 import { AtribuicaoCobranca, Cadastros, Unidade } from "@/data/catalogo";
-import { debitoEmAberto, diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, hojeIso, retornoPendente, situacaoCobrancaUnidade, situacaoRetorno, unidadeNaFilaCobrancaAtiva } from "@/data/catalogo";
+import {
+  debitoAbertoNaData,
+  debitoEmAberto,
+  diasDeAtraso,
+  escopoCondominios,
+  escopoUnidades,
+  formatarMoeda,
+  hojeIso,
+  persistedDebtBalanceAmount,
+  retornoPendente,
+  situacaoRetorno,
+} from "@/data/catalogo";
+import { situacaoOperacionalFila, type SituacaoFilaOperacional } from "@/lib/fila/situacao-operacional";
+import { unidadeElegivelFilaAtendimento } from "@/lib/fila/unidade-fila-atendimento";
+import { debitoInadimplenciaAtiva } from "@/lib/debitos/operational-situation";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re";
 import { temPermissao } from "@/lib/permissions/check";
@@ -19,7 +33,8 @@ export type FilaCobrancaItem = {
   condominioId: number;
   identificacao: string;
   bloco: string;
-  situacao: string;
+  /** Novo | Em cobrança | Em negociação — ver `situacao-operacional.ts`. */
+  situacao: SituacaoFilaOperacional;
   codigoRe: string | null;
   nomeAtendente: string | null;
   atendenteId: number | null;
@@ -67,23 +82,26 @@ function atribuicaoVigente(cadastros: Cadastros, unidadeId: number): AtribuicaoC
   return cadastros.atribuicoesCobranca.find((item) => item.unidadeId === unidadeId && !item.encerradoEm);
 }
 
-function unidadeElegivelFila(unidade: Unidade) {
-  if (unidade.status === "Inativa") return false;
-  return unidadeNaFilaCobrancaAtiva(unidade);
+function unidadeElegivelFila(cadastros: Cadastros, unidade: Unidade) {
+  return unidadeElegivelFilaAtendimento(unidade, cadastros);
 }
 
 function resumoInadimplenciaUnidade(cadastros: Cadastros, unidadeId: number) {
   const hoje = hojeIso();
-  const debitos = cadastros.debitos.filter((item) => item.unidadeId === unidadeId && debitoEmAberto(item));
+  const debitos = cadastros.debitos.filter(
+    (item) =>
+      item.unidadeId === unidadeId &&
+      debitoInadimplenciaAtiva(item) &&
+      debitoAbertoNaData(item, hoje),
+  );
   if (debitos.length === 0) return { valor: null as string | null, diasMax: 0 };
   let total = 0;
   let diasMax = 0;
   for (const debito of debitos) {
-    const valor = Number.parseFloat(debito.valorAtualizado || debito.valor || "0");
-    if (Number.isFinite(valor)) total += valor;
+    total += persistedDebtBalanceAmount(debito);
     diasMax = Math.max(diasMax, diasDeAtraso(debito.dataVencimento, hoje));
   }
-  return { valor: formatarMoeda(total.toFixed(2)), diasMax };
+  return { valor: total > 0 ? formatarMoeda(total.toFixed(2)) : null, diasMax };
 }
 
 function resumoAtendimentosUnidade(cadastros: Cadastros, unidadeId: number) {
@@ -116,7 +134,7 @@ function montarItem(cadastros: Cadastros, unidade: Unidade): FilaCobrancaItem {
     condominioId: unidade.condominioId,
     identificacao: unidade.identificacao,
     bloco: unidade.bloco,
-    situacao: situacaoCobrancaUnidade(unidade),
+    situacao: situacaoOperacionalFila(cadastros, unidade, Boolean(vigente)),
     codigoRe: atendente ? codigoReDoUsuario(atendente) : null,
     nomeAtendente: atendente?.nome.trim() || null,
     atendenteId: vigente?.atendenteId ?? null,
@@ -141,7 +159,7 @@ export async function resumoFilaCobranca(userId: number, filtros?: FilaCobrancaF
 function unidadesBase(cadastros: Cadastros, userId: number) {
   const ids = new Set(escopoCondominios(cadastros, userId).map((item) => item.id));
   return escopoUnidades(cadastros, userId).filter(
-    (item) => ids.has(item.condominioId) && unidadeElegivelFila(item),
+    (item) => ids.has(item.condominioId) && unidadeElegivelFila(cadastros, item),
   );
 }
 

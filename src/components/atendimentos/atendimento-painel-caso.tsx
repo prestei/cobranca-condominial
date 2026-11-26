@@ -5,7 +5,7 @@ import { Check, ChevronLeft, ClipboardList, Handshake, Scale } from "lucide-reac
 import { AtendimentoLinhaTempoOperacao } from "@/components/atendimentos/atendimento-linha-tempo-operacao";
 import { UnidadeIdentificacaoCirculo } from "@/components/atendimentos/unidade-identificacao-circulo";
 import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-contato-atendente";
-import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
+import { BadgeSituacaoFila } from "@/components/badge-situacao-fila";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import { nomeCondominio } from "@/data/catalogo";
@@ -32,16 +32,9 @@ function rotuloUnidade(item: FilaCobrancaItem) {
 }
 
 function ChipSituacao({ situacao }: { situacao: string }) {
-  if (situacao === "Em cobrança") {
-    return (
-      <span className="inline-flex shrink-0 rounded-full bg-secondary-fixed px-2.5 py-0.5 text-body-sm font-semibold text-on-secondary-fixed-variant">
-        {situacao}
-      </span>
-    );
-  }
   return (
     <span className="shrink-0">
-      <BadgeSituacaoCobranca situacao={situacao} />
+      <BadgeSituacaoFila situacao={situacao} />
     </span>
   );
 }

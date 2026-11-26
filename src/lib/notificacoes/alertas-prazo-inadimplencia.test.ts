@@ -62,6 +62,10 @@ function debito(id: number, vencimento: string, status: Debito["status"] = "Venc
     identificadorExterno: "",
     fonteValores: "origem",
     atualizadoEm: vencimento,
+    situacaoInadimplencia: "Ativa",
+    usuarioPrescricaoId: null,
+    prescritoEm: "",
+    justificativaPrescricao: "",
   };
 }
 

@@ -1,4 +1,13 @@
-import { agoraIso, escopoCondominios, nomeCondominio, proximoNumero, situacaoCobrancaUnidade, type Debito, type Importacao } from "@/data/catalogo";
+import {
+  agoraIso,
+  escopoCondominios,
+  nomeCondominio,
+  proximoNumero,
+  SITUACAO_INADIMPLENCIA_ATIVA,
+  situacaoCobrancaUnidade,
+  type Debito,
+  type Importacao,
+} from "@/data/catalogo";
 import { getCadastros, registrarAuditoria, setDebitos, setUnidades } from "@/data/catalogo-store";
 import { situacaoDestinoAposDebitoEmAberto } from "@/lib/debitos/promover-unidade-cobranca";
 import {
@@ -123,6 +132,13 @@ function aplicarRow(debitos: Debito[], row: DebitoImportRow, origem: string): { 
       origem,
       fonteValores: "origem",
       atualizadoEm: agoraIso(),
+      situacaoInadimplencia: SITUACAO_INADIMPLENCIA_ATIVA,
+      usuarioPrescricaoId: null,
+      prescritoEm: "",
+      justificativaPrescricao: "",
+      situacaoOperacional: "Em aberto",
+      situacaoOperacionalAlteradaEm: agoraIso(),
+      usuarioSituacaoOperacionalId: null,
     };
     return { debitos: [...debitos, novo], acao: "novo" };
   }

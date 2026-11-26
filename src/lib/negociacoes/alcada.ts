@@ -2,7 +2,9 @@ import {
   NEGOCIACAO_DESCONTO_MAX_PADRAO,
   NEGOCIACAO_PARCELAS_MAX_PADRAO,
   advogadoPrincipalCondominio,
+  persistedDebtBalanceAmount,
   type Condominio,
+  type Debito,
   type RegraNegociacaoAdvogado,
 } from "@/data/catalogo";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
@@ -107,13 +109,13 @@ export async function carregarRegraAdvogadoResponsavel(condominioId: number): Pr
 }
 
 export function calcularTotaisDebitos(
-  debitos: Array<{ valorOriginal: string; valorAtualizado: string }>,
+  debitos: Array<Pick<Debito, "valorOriginal" | "valorAtualizado" | "valor">>,
 ): { original: string; atualizado: string } {
   let originalCent = 0;
   let atualizadoCent = 0;
   for (const item of debitos) {
     originalCent += centavosMonetarios(item.valorOriginal || "0");
-    atualizadoCent += centavosMonetarios(item.valorAtualizado || item.valorOriginal || "0");
+    atualizadoCent += centavosMonetarios(persistedDebtBalanceAmount(item));
   }
   return {
     original: (originalCent / 100).toFixed(2),

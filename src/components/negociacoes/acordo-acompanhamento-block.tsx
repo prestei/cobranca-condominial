@@ -67,10 +67,14 @@ export function AcordoAcompanhamentoBlock({
     setLoading(true);
     try {
       const response = await fetch(`/api/propostas/${propostaId}/parcelas`, { credentials: "same-origin" });
-      const payload = (await response.json()) as { error?: string; resumo?: ResumoAcordo };
-      if (!response.ok || !payload.resumo) {
+      const payload = (await response.json()) as { error?: string; resumo?: ResumoAcordo | null };
+      if (!response.ok) {
         setResumo(null);
         toast({ variant: "error", title: "Acordo", description: payload.error ?? "Erro ao carregar parcelas." });
+        return;
+      }
+      if (!payload.resumo) {
+        setResumo(null);
         return;
       }
       setResumo(payload.resumo);

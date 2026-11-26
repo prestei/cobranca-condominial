@@ -106,6 +106,14 @@ describe("T35 — consulta de referência e conciliação", () => {
       acordoConfirmadoEm: "",
       acordoConfirmadoPorId: null,
       termosAprovados: "",
+      advogadoResponsavelId: null,
+      valorDividaOriginal: "",
+      valorDividaAtualizada: "",
+      quantidadeParcelas: null,
+      valoresDefinidosPorId: null,
+      valoresAprovadosPorId: null,
+      filaNegociacaoEm: "",
+      filaNegociacaoPorId: null,
     });
     getCadastros().propostasNegociacao.push({
       id: "prop-t35-ok",
@@ -120,6 +128,14 @@ describe("T35 — consulta de referência e conciliação", () => {
       acordoConfirmadoEm: "",
       acordoConfirmadoPorId: null,
       termosAprovados: "",
+      advogadoResponsavelId: null,
+      valorDividaOriginal: "",
+      valorDividaAtualizada: "",
+      quantidadeParcelas: null,
+      valoresDefinidosPorId: null,
+      valoresAprovadosPorId: null,
+      filaNegociacaoEm: "",
+      filaNegociacaoPorId: null,
     });
     const filtros = { ...filtrosPadrao(), de: "2031-01-01", ate: "2031-01-31", codigoRe: "RE-10000" };
     const ref = consultarReferenciaIndicador(ADMIN_ID, "negociacoes_criadas", filtros);

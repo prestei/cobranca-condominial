@@ -1,8 +1,23 @@
-import { debitoEmAberto, formatarData, persistedDebtBalanceAmount, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposUnidade, tiposVinculo, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import {
+  debitoEmAberto,
+  formatarData,
+  persistedDebtBalanceAmount,
+  SITUACAO_COBRANCA_PADRAO,
+  situacaoCobrancaUnidade,
+  situacoesUnidade,
+  statusUnidade,
+  tiposUnidade,
+  tiposVinculo,
+  type Responsavel,
+  type Unidade,
+  type Vinculo,
+} from "@/data/catalogo";
+import { debitoInadimplenciaAtiva } from "@/lib/debitos/operational-situation";
 import { invalidateServiceContextCache, scopeCondominiumIds } from "@/lib/db/service-context";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
 import { listDebtsByUnit } from "@/lib/db/repositories/debt-repository";
+import { listDelinquencyPeriodsByUnit } from "@/lib/db/repositories/unit-delinquency-period-repository";
 import {
   createResponsibleParty,
   findResponsiblePartyByTaxId,
@@ -133,7 +148,9 @@ export async function obterUnidadeDetalhe(userId: number, unidadeId: number) {
   const atendimentos = (await listServiceTickets()).filter(
     (item) => String(item.unidadeId) === String(unidadeId),
   );
-  const debitosAbertos = debitos.filter(debitoEmAberto);
+  const debitosAbertos = debitos.filter(
+    (item) => debitoInadimplenciaAtiva(item) && debitoEmAberto(item),
+  );
   const valorAberto = debitosAbertos.reduce(
     (sum, item) => sum + persistedDebtBalanceAmount(item),
     0,
@@ -405,6 +422,17 @@ export async function removerVinculo(
 /** Lista vínculos (escopo administrativo). */
 export async function listarVinculosUnidades(): Promise<Vinculo[]> {
   return listUnitLinks();
+}
+
+/** Períodos em que a unidade ficou inadimplente (T24). */
+export async function listarPeriodosInadimplenciaUnidade(userId: number, unidadeId: number) {
+  const unidade = await findUnitById(unidadeId);
+  if (!unidade) {
+    throw new UnidadeServiceError("Unidade não encontrada.", 404);
+  }
+  await unidadeNoEscopo(userId, unidade);
+  const periodos = await listDelinquencyPeriodsByUnit(unidadeId);
+  return { unidadeId, periodos };
 }
 
 export function requestMeta(request: Request) {

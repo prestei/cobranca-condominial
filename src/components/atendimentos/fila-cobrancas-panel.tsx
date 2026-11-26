@@ -95,6 +95,7 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
     condominioId: number;
     unidade: string;
     condominio: string;
+    debitoIds?: number[];
   } | null>(null);
   const [juridicoContexto, setJuridicoContexto] = useState<{
     unidadeId: number;
@@ -213,12 +214,13 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
     router.push(`/atendimentos?${params.toString()}`);
   }
 
-  function abrirProposta(item: FilaCobrancaItem) {
+  function abrirProposta(item: FilaCobrancaItem, debitoIds?: number[]) {
     setPropostaContexto({
       unidadeId: item.unidadeId,
       condominioId: item.condominioId,
       unidade: rotuloUnidade(item),
       condominio: nomeCondominio(item.condominioId),
+      debitoIds,
     });
   }
 
@@ -309,6 +311,7 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
         condominioId={propostaContexto?.condominioId ?? null}
         tituloUnidade={propostaContexto?.unidade}
         tituloCondominio={propostaContexto?.condominio}
+        debitoIdsIniciais={propostaContexto?.debitoIds ?? null}
         onClose={() => setPropostaContexto(null)}
       />
       <EncaminhamentoJuridicoSheet

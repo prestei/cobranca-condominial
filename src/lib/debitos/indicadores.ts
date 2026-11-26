@@ -1,5 +1,6 @@
 import {
   debitoAbertoNaData,
+  debitoAbertoOperacionalNaData,
   diasDeAtraso,
   persistedDebtBalanceAmount,
   type Cadastros,
@@ -90,7 +91,10 @@ export function calcularIndicadoresInadimplencia(input: DebitoIndicadoresInput):
     ),
   );
 
-  const unidadesDevedoras = new Set(emAbertoNaData.map((item) => item.unidadeId)).size;
+  const emAbertoOperacionalNaData = emAbertoNaData.filter((item) =>
+    debitoAbertoOperacionalNaData(item, dataBase),
+  );
+  const unidadesDevedoras = new Set(emAbertoOperacionalNaData.map((item) => item.unidadeId)).size;
   const percentualUnidades = unidadesCarteira > 0 ? (unidadesDevedoras / unidadesCarteira) * 100 : null;
 
   return {

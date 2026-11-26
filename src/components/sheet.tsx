@@ -124,7 +124,8 @@ export function SheetContent({ children, className, size = "default", ...props }
     };
   }, []);
 
-  if (!isClient) return null;
+  // Sem portal quando fechado: evita <dialog> fechado visível no top layer (faixa estreita com texto vertical).
+  if (!isClient || !open) return null;
 
   return createPortal(
     <dialog

@@ -1,13 +1,12 @@
 import {
   unidadeComDebitoOperacional,
   unidadeNaFilaCobrancaAtiva,
-  unidadePrescrita,
   type Unidade,
 } from "@/data/catalogo";
 
 /** Rótulos da coluna Situações nas listagens de unidade (Unidades, Condomínios por condomínio). */
 export const rotulosSituacaoListagemUnidade = [
-  "Unidade prescrita",
+  "Inadimplência prescrita",
   "Inadimplente",
   "Aguardando débitos",
   "Em dia",
@@ -17,10 +16,11 @@ export type RotuloSituacaoListagemUnidade = (typeof rotulosSituacaoListagemUnida
 
 export function rotuloSituacaoListagemUnidade(
   unidade: Unidade,
-  temDebitoVencidoAberto: boolean,
+  temDebitoOperacionalAberto: boolean,
+  temDebitoPrescritoAberto: boolean,
 ): RotuloSituacaoListagemUnidade {
-  if (unidadePrescrita(unidade)) return "Unidade prescrita";
-  if (unidadeComDebitoOperacional(unidade, temDebitoVencidoAberto)) return "Inadimplente";
+  if (unidadeComDebitoOperacional(unidade, temDebitoOperacionalAberto)) return "Inadimplente";
+  if (temDebitoPrescritoAberto) return "Inadimplência prescrita";
   if (unidadeNaFilaCobrancaAtiva(unidade)) return "Aguardando débitos";
   return "Em dia";
 }

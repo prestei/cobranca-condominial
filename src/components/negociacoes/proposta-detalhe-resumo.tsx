@@ -42,12 +42,18 @@ export function PropostaDetalheResumo({
       </div>
       <div>
         <dt className="text-on-surface-variant">Valor original da dívida</dt>
-        <dd className="tabular-nums">{proposta.valorDividaOriginal ? formatarMoeda(proposta.valorDividaOriginal) : "—"}</dd>
+        <dd className="tabular-nums">
+          {proposta.valorDividaOriginal != null && proposta.valorDividaOriginal !== ""
+            ? formatarMoeda(proposta.valorDividaOriginal)
+            : "—"}
+        </dd>
       </div>
       <div>
         <dt className="text-on-surface-variant">Valor atualizado</dt>
         <dd className="tabular-nums">
-          {proposta.valorDividaAtualizada ? formatarMoeda(proposta.valorDividaAtualizada) : "—"}
+          {proposta.valorDividaAtualizada != null && proposta.valorDividaAtualizada !== ""
+            ? formatarMoeda(proposta.valorDividaAtualizada)
+            : "—"}
         </dd>
       </div>
       <div>

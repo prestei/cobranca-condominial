@@ -60,6 +60,16 @@ model User {
   internalNotifications       InternalNotification[]
   notificationFailures        NotificationFailure[]
   pushTokens                  UserPushToken[]
+  debtOperationalSituationAuthored Debt[] @relation("DebtOperationalSituationUser")
+  debtOperationalSituationChanges DebtOperationalSituationChange[]
+  unitDelinquencyPeriodsOpened UnitDelinquencyPeriod[] @relation("DelinquencyPeriodOpenedBy")
+  unitDelinquencyPeriodsClosed UnitDelinquencyPeriod[] @relation("DelinquencyPeriodClosedBy")
+  debtSettlementsConfirmed     DebtSettlement[]        @relation("DebtSettlementConfirmedBy")
+  proposalDebtsFormalized     NegotiationProposalDebt[] @relation("ProposalDebtFormalizedBy")
+  proposalDebtFinancialChanges NegotiationProposalDebtFinancialChange[] @relation("ProposalDebtFinancialChangeUser")
+  proposalsNegotiationQueued NegotiationProposal[] @relation("ProposalNegotiationQueueBy")
+  negotiationNextStepDecisions NegotiationNextStepDecision[] @relation("NextStepDecisionUser")
+  negotiationNextStepResponsible NegotiationNextStepDecision[] @relation("NextStepDecisionResponsible")
 
   @@map("user")
 }
@@ -85,6 +95,7 @@ model Condominium {
   negotiationProposals  NegotiationProposal[]
   agreementInstallments AgreementInstallment[]
   legalReferrals        LegalCaseReferral[]
+  negotiationNextStepDecisions NegotiationNextStepDecision[]
 
   @@map("condominium")
 }
@@ -107,6 +118,9 @@ model Unit {
   agreementInstallments AgreementInstallment[]
   agreementPayments     AgreementPayment[]
   legalReferrals        LegalCaseReferral[]
+  delinquencyPeriods    UnitDelinquencyPeriod[]
+  negotiationNextStepDecisions NegotiationNextStepDecision[]
+  debtSettlements       DebtSettlement[]
 
   @@map("unit")
 }
@@ -162,12 +176,74 @@ model Debt {
   externalId       String?   @map("identificador_externo") @db.VarChar(255)
   updatedAt        DateTime? @map("atualizado_em")
   valueSource      String?   @map("fonte_valores") @db.VarChar(32)
+  delinquencySituation String @default("Ativa") @map("situacao_inadimplencia") @db.VarChar(64)
+  prescriptionUserId   Int?     @map("usuario_prescricao_id")
+  prescribedAt         DateTime? @map("prescrito_em")
+  prescriptionJustification String? @map("justificativa_prescricao") @db.Text
+  operationalSituation String @default("Em aberto") @map("situacao_operacional") @db.VarChar(32)
+  operationalSituationChangedAt DateTime? @map("situacao_operacional_alterada_em")
+  operationalSituationUserId Int? @map("usuario_situacao_operacional_id")
 
   condominium Condominium              @relation(fields: [condominiumId], references: [id])
   unit        Unit                     @relation(fields: [unitId], references: [id])
   proposals   NegotiationProposalDebt[]
+  proposalDebtFinancialChanges NegotiationProposalDebtFinancialChange[]
+  operationalSituationUser User? @relation("DebtOperationalSituationUser", fields: [operationalSituationUserId], references: [id])
+  situationChanges DebtOperationalSituationChange[]
+  settlements       DebtSettlement[]
 
   @@map("debt")
+}
+
+model DebtSettlement {
+  id                   Int       @id @default(autoincrement())
+  debtId               Int       @map("debt_id")
+  unitId               Int       @map("unit_id")
+  settledAt            DateTime  @map("settled_at")
+  paidAmount           Decimal   @map("paid_amount") @db.Decimal(12, 2)
+  proposalId           String?   @map("proposal_id") @db.VarChar(64)
+  confirmedByUserId    Int?      @map("confirmed_by_user_id")
+  unitSituationBefore  String?   @map("unit_situation_before") @db.VarChar(64)
+  unitSituationAfter   String?   @map("unit_situation_after") @db.VarChar(64)
+  source               String    @db.VarChar(32)
+  notes                String?   @db.Text
+
+  debt     Debt                 @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  unit     Unit                 @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  proposal NegotiationProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  confirmedBy User?             @relation("DebtSettlementConfirmedBy", fields: [confirmedByUserId], references: [id])
+
+  @@map("debt_settlement")
+}
+
+model DebtOperationalSituationChange {
+  id                 Int      @id @default(autoincrement())
+  debtId             Int      @map("debito_id")
+  previousSituation  String?  @map("situacao_anterior") @db.VarChar(32)
+  newSituation       String   @map("situacao_nova") @db.VarChar(32)
+  userId             Int?     @map("usuario_id")
+  changedAt          DateTime @default(now()) @map("alterado_em")
+  notes              String?  @map("observacoes") @db.Text
+
+  debt Debt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("debt_operational_situation_change")
+}
+
+model UnitDelinquencyPeriod {
+  id              Int       @id @default(autoincrement())
+  unitId          Int       @map("unidade_id")
+  startedAt       DateTime  @map("inicio_em") @db.Date
+  endedAt         DateTime? @map("fim_em") @db.Date
+  openedByUserId  Int?      @map("usuario_abertura_id")
+  closedByUserId  Int?      @map("usuario_encerramento_id")
+
+  unit     Unit  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  openedBy User? @relation("DelinquencyPeriodOpenedBy", fields: [openedByUserId], references: [id])
+  closedBy User? @relation("DelinquencyPeriodClosedBy", fields: [closedByUserId], references: [id])
+
+  @@map("unit_delinquency_period")
 }
 
 model Import {
@@ -288,6 +364,8 @@ model NegotiationProposal {
   installmentCount    Int?      @map("quantidade_parcelas")
   valuesDefinedByUserId Int?    @map("valores_definidos_por_id")
   valuesApprovedByUserId Int?   @map("valores_aprovados_por_id")
+  negotiationQueueAt    DateTime? @map("negotiation_queue_at")
+  negotiationQueueByUserId Int? @map("negotiation_queue_by_user_id")
 
   condominium      Condominium              @relation(fields: [condominiumId], references: [id])
   unit             Unit                     @relation(fields: [unitId], references: [id])
@@ -297,22 +375,80 @@ model NegotiationProposal {
   valuesDefinedBy  User?                    @relation("ProposalValuesDefinedBy", fields: [valuesDefinedByUserId], references: [id])
   valuesApprovedBy User?                    @relation("ProposalValuesApprovedBy", fields: [valuesApprovedByUserId], references: [id])
   debts            NegotiationProposalDebt[]
+  debtFinancialChanges NegotiationProposalDebtFinancialChange[]
   installments     AgreementInstallment[]
   payments         AgreementPayment[]
+  negotiationQueueBy User? @relation("ProposalNegotiationQueueBy", fields: [negotiationQueueByUserId], references: [id])
+  nextStepDecision NegotiationNextStepDecision?
+  debtSettlements  DebtSettlement[]
 
   @@map("negotiation_proposal")
 }
 
-model NegotiationProposalDebt {
-  id         Int    @id @default(autoincrement())
-  proposalId String @map("proposta_id") @db.VarChar(64)
-  debtId     Int    @map("debito_id")
+model NegotiationNextStepDecision {
+  id                 String    @id @db.VarChar(64)
+  proposalId         String    @unique @map("proposal_id") @db.VarChar(64)
+  condominiumId      Int       @map("condominio_id")
+  unitId             Int       @map("unidade_id")
+  userId             Int       @map("usuario_id")
+  decidedAt          DateTime  @map("decided_at")
+  action             String    @db.VarChar(64)
+  analysisTarget     String?   @map("analysis_target") @db.VarChar(32)
+  destinationLabel   String    @map("destination_label") @db.VarChar(255)
+  responsibleUserId  Int?      @map("responsible_user_id")
+  legalReferralId    String?   @map("legal_referral_id") @db.VarChar(64)
+  notes              String?   @db.Text
+  idempotencyKey     String    @unique @map("idempotency_key") @db.VarChar(128)
 
-  proposal NegotiationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  debt     Debt                @relation(fields: [debtId], references: [id])
+  proposal         NegotiationProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  condominium      Condominium          @relation(fields: [condominiumId], references: [id])
+  unit             Unit                 @relation(fields: [unitId], references: [id])
+  user             User                 @relation("NextStepDecisionUser", fields: [userId], references: [id])
+  responsibleUser  User?                @relation("NextStepDecisionResponsible", fields: [responsibleUserId], references: [id])
+  legalReferral    LegalCaseReferral?   @relation(fields: [legalReferralId], references: [id])
+
+  @@map("negotiation_next_step_decision")
+}
+
+model NegotiationProposalDebt {
+  id                      Int       @id @default(autoincrement())
+  proposalId              String    @map("proposta_id") @db.VarChar(64)
+  debtId                  Int       @map("debito_id")
+  registeredOriginalAmount Decimal? @map("valor_original_registrado") @db.Decimal(12, 2)
+  allocatedNegotiatedAmount Decimal? @map("valor_negociado_alocado") @db.Decimal(12, 2)
+  grantedDiscount         Decimal?  @map("desconto_concedido") @db.Decimal(12, 2)
+  confirmedPaidAmount     Decimal   @default(0) @map("valor_pago_confirmado") @db.Decimal(12, 2)
+  remainingBalance        Decimal?  @map("saldo_restante") @db.Decimal(12, 2)
+  formalizedAt            DateTime? @map("formalizado_em")
+  formalizedByUserId      Int?      @map("formalizado_por_id")
+
+  proposal     NegotiationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  debt         Debt                @relation(fields: [debtId], references: [id])
+  formalizedBy User?               @relation("ProposalDebtFormalizedBy", fields: [formalizedByUserId], references: [id])
+  financialChanges NegotiationProposalDebtFinancialChange[]
 
   @@unique([proposalId, debtId], map: "negotiation_proposal_debt_proposta_id_debito_id_key")
   @@map("negotiation_proposal_debt")
+}
+
+model NegotiationProposalDebtFinancialChange {
+  id             Int      @id @default(autoincrement())
+  linkId         Int      @map("vinculo_id")
+  debtId         Int      @map("debito_id")
+  proposalId     String   @map("proposta_id") @db.VarChar(64)
+  fieldName      String   @map("campo") @db.VarChar(64)
+  previousValue  String?  @map("valor_anterior") @db.Text
+  newValue       String?  @map("valor_novo") @db.Text
+  userId         Int?     @map("usuario_id")
+  changedAt      DateTime @default(now()) @map("alterado_em")
+  notes          String?  @map("observacoes") @db.Text
+
+  link     NegotiationProposalDebt @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  debt     Debt                    @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  proposal NegotiationProposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user     User?                   @relation("ProposalDebtFinancialChangeUser", fields: [userId], references: [id])
+
+  @@map("negotiation_proposal_debt_financial_change")
 }
 
 model AgreementInstallment {
@@ -376,6 +512,7 @@ model LegalCaseReferral {
   user        User            @relation("LegalReferralUser", fields: [userId], references: [id])
   updatedBy   User            @relation("LegalReferralUpdatedBy", fields: [updatedById], references: [id])
   documents   LegalDocument[]
+  negotiationNextStepDecisions NegotiationNextStepDecision[]
 
   @@map("legal_case_referral")
 }

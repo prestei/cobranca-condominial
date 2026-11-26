@@ -1,8 +1,7 @@
 import {
-  debitoEmAberto,
+  debitoEmAbertoOperacional,
   situacaoCobrancaUnidade,
   situacoesUnidade,
-  unidadePrescrita,
   type Debito,
   type Unidade,
 } from "@/data/catalogo";
@@ -19,7 +18,6 @@ const SITUACOES_PROMOVER_PARA_COBRANCA = new Set<SituacaoCobranca>(["Sem cobran√
 export function situacaoDestinoAposDebitoEmAberto(
   unidade: Pick<Unidade, "situacao">,
 ): SituacaoCobranca | null {
-  if (unidadePrescrita(unidade)) return null;
   const situacao = situacaoCobrancaUnidade(unidade);
   if (SITUACOES_PROMOVER_PARA_COBRANCA.has(situacao)) return "Em cobran√ßa";
   return null;
@@ -27,10 +25,10 @@ export function situacaoDestinoAposDebitoEmAberto(
 
 export async function promoverUnidadeParaCobrancaSeDebitoEmAberto(
   unidadeId: number,
-  debito: Pick<Debito, "status">,
+  debito: Pick<Debito, "status" | "situacaoInadimplencia">,
   meta?: { userId?: number; ip?: string; userAgent?: string },
 ): Promise<Unidade | null> {
-  if (!debitoEmAberto(debito)) return null;
+  if (!debitoEmAbertoOperacional(debito)) return null;
 
   const unidade = await findUnitById(unidadeId);
   if (!unidade) return null;
