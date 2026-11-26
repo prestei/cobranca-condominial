@@ -1,4 +1,10 @@
-import { agoraIso, escopoUnidades, statusPropostaNegociacao, type PropostaNegociacao } from "@/data/catalogo";
+import {
+  agoraIso,
+  debitoEmAbertoOperacional,
+  escopoUnidades,
+  statusPropostaNegociacao,
+  type PropostaNegociacao,
+} from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findDebtById } from "@/lib/db/repositories/debt-repository";
@@ -18,6 +24,9 @@ import {
 } from "@/lib/negociacoes/alcada";
 import { montarDetalheProposta, type PropostaNegociacaoDetalhe } from "@/lib/negociacoes/detalhe";
 import { gerarCronogramaParcelasPadrao } from "@/lib/negociacoes/gerar-cronograma";
+import { encerrarCarteiraVigente } from "@/lib/atendimentos/encerrar-carteira-vigente";
+import { formalizarFinanceiroNegociacao } from "@/lib/debitos/negotiation-financial-sync";
+import { sincronizarSituacaoOperacionalUnidade } from "@/lib/debitos/operational-situation-sync";
 
 export class PropostaNegociacaoServiceError extends Error {
   constructor(
@@ -85,7 +94,7 @@ async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condomin
   }
 }
 
-async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
+export async function assertCarteiraParaRegistrar(userId: number, unidadeId: number) {
   if (await usuarioAdministradora(userId)) return;
   const perm = await permissoesUsuario(userId);
   if (temPermissao(perm, "negociacoes", "editar") && !temPermissao(perm, "atendimentos", "criar")) {
@@ -166,6 +175,12 @@ async function validarDebitos(unidadeId: number, debitoIds: number[]) {
     }
     if (debito.unidadeId !== unidadeId) {
       throw new PropostaNegociacaoServiceError("Todos os débitos devem pertencer à mesma unidade.", 400);
+    }
+    if (!debitoEmAbertoOperacional(debito)) {
+      throw new PropostaNegociacaoServiceError(
+        `O débito "${debito.descricao || id}" não está elegível para negociação (prescrito ou quitado).`,
+        400,
+      );
     }
     debitos.push(debito);
   }
@@ -286,6 +301,8 @@ export async function criarPropostaNegociacao(
     quantidadeParcelas: dados.quantidadeParcelas,
     valoresDefinidosPorId: userId,
     valoresAprovadosPorId: null,
+    filaNegociacaoEm: "",
+    filaNegociacaoPorId: null,
   };
 
   const criada = await createNegotiationProposal(registro);
@@ -306,6 +323,11 @@ export async function criarPropostaNegociacao(
     userId,
     ip: meta?.ip,
     userAgent: meta?.userAgent,
+  });
+  await sincronizarSituacaoOperacionalUnidade(criada.unidadeId, {
+    userId,
+    observacao: "Proposta de negociação criada",
+    ...meta,
   });
   return criada;
 }
@@ -420,6 +442,22 @@ export async function atualizarStatusPropostaNegociacao(
       );
     }
   }
+
+  if (status === "Aceita") {
+    await formalizarFinanceiroNegociacao(salvo, { userId, ...meta });
+    await encerrarCarteiraVigente(
+      userId,
+      salvo.unidadeId,
+      `Acordo confirmado (proposta ${salvo.id})`,
+      meta,
+    );
+  }
+
+  await sincronizarSituacaoOperacionalUnidade(salvo.unidadeId, {
+    userId,
+    observacao: `Status da proposta: ${salvo.status}`,
+    ...meta,
+  });
 
   return salvo;
 }

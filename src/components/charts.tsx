@@ -530,6 +530,177 @@ export function GraficoLinha({
   );
 }
 
+type SerieLinha = {
+  nome: string;
+  valores: number[];
+  tom?: TomGrafico;
+  /** Preenche área sob a linha (só a primeira série costuma usar). */
+  area?: boolean;
+};
+
+export function GraficoLinhasMultiplas({
+  categorias,
+  series,
+  vazio,
+  chave,
+}: {
+  categorias: string[];
+  series: SerieLinha[];
+  vazio: ReactNode;
+  chave: string;
+}) {
+  const progresso = useProgresso(chave);
+  const maximo = Math.max(...series.flatMap((item) => item.valores), 0);
+  if (categorias.length === 0 || series.length === 0 || maximo <= 0) return vazio;
+
+  const largura = 640;
+  const altura = 220;
+  const margem = { topo: 20, direita: 20, base: 36, esquerda: 36 };
+  const internoLargura = largura - margem.esquerda - margem.direita;
+  const internoAltura = altura - margem.topo - margem.base;
+  const base = margem.topo + internoAltura;
+  const passo = categorias.length === 1 ? 0 : internoLargura / (categorias.length - 1);
+
+  const linhas = series.map((serie) => {
+    const pontos = categorias.map((_, indice) => {
+      const x = margem.esquerda + passo * indice;
+      const valor = serie.valores[indice] ?? 0;
+      const y =
+        maximo <= 0
+          ? base
+          : margem.topo + internoAltura - (valor / maximo) * internoAltura * progresso;
+      return { x: casa(x), y: casa(y), valor };
+    });
+    const path = pontos
+      .map((ponto, indice) => `${indice === 0 ? "M" : "L"} ${ponto.x.toFixed(1)} ${ponto.y.toFixed(1)}`)
+      .join(" ");
+    const area =
+      serie.area && pontos.length > 0
+        ? `${path} L ${pontos[pontos.length - 1]?.x.toFixed(1)} ${base} L ${pontos[0]?.x.toFixed(1)} ${base} Z`
+        : null;
+    return { serie, pontos, path, area };
+  });
+
+  return (
+    <div className="flex flex-col gap-md">
+      <p className="flex flex-wrap gap-md text-body-sm text-on-surface-variant">
+        {series.map((item, indice) => (
+          <span key={item.nome} className="inline-flex items-center gap-xs">
+            <span className={`size-2.5 rounded-full ${preenchimento[item.tom ?? tomPorIndice(indice)]}`} />
+            {item.nome}
+          </span>
+        ))}
+      </p>
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-56 w-full" role="img" aria-label="Evolução por situação">
+        {[0.25, 0.5, 0.75, 1].map((marca) => {
+          const y = margem.topo + internoAltura * (1 - marca);
+          return (
+            <line
+              key={marca}
+              x1={margem.esquerda}
+              x2={largura - margem.direita}
+              y1={y}
+              y2={y}
+              className="stroke-border-subtle"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+            />
+          );
+        })}
+        {linhas.map(({ serie, path, area, pontos }) => {
+          const tom = serie.tom ?? "navy";
+          return (
+            <g key={serie.nome}>
+              {area ? <path d={area} className={`${preenchimentoSvg[tom]} opacity-15`} /> : null}
+              <path
+                d={path}
+                fill="none"
+                className={traco[tom]}
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              {pontos.map((ponto, indice) => (
+                <circle
+                  key={`${serie.nome}-${indice}`}
+                  cx={ponto.x}
+                  cy={ponto.y}
+                  r="3.5"
+                  className={`fill-surface-card ${traco[tom]}`}
+                  strokeWidth="2"
+                >
+                  <title>{`${categorias[indice] ?? ""} · ${serie.nome}: ${ponto.valor}`}</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
+        {categorias.map((nome, indice) => (
+          <text
+            key={nome}
+            x={margem.esquerda + passo * indice}
+            y={altura - 10}
+            textAnchor="middle"
+            className="fill-on-surface-variant font-sans text-[11px]"
+          >
+            {nome}
+          </text>
+        ))}
+      </svg>
+      <ListaOculta
+        itens={categorias.flatMap((nome, indice) =>
+          series.map((serie) => ({
+            nome: `${nome} — ${serie.nome}`,
+            detalhe: String(serie.valores[indice] ?? 0),
+          })),
+        )}
+      />
+    </div>
+  );
+}
+
+export function Sparkline({
+  valores,
+  tom = "navy",
+  chave,
+  className,
+}: {
+  valores: number[];
+  tom?: TomGrafico;
+  chave: string;
+  className?: string;
+}) {
+  const progresso = useProgresso(chave);
+  const maximo = Math.max(...valores, 0);
+  if (valores.length === 0 || maximo <= 0) {
+    return <div className={`h-8 w-full rounded-sm bg-surface-subtle ${className ?? ""}`} aria-hidden="true" />;
+  }
+
+  const largura = 120;
+  const altura = 32;
+  const margem = 2;
+  const internoLargura = largura - margem * 2;
+  const internoAltura = altura - margem * 2;
+  const passo = valores.length === 1 ? 0 : internoLargura / (valores.length - 1);
+  const pontos = valores.map((valor, indice) => {
+    const x = margem + passo * indice;
+    const y = margem + internoAltura - (valor / maximo) * internoAltura * progresso;
+    return `${indice === 0 ? "M" : "L"} ${casa(x).toFixed(1)} ${casa(y).toFixed(1)}`;
+  });
+  const path = pontos.join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${largura} ${altura}`}
+      className={`h-8 w-full min-w-[5rem] ${className ?? ""}`}
+      role="img"
+      aria-hidden="true"
+    >
+      <path d={path} fill="none" className={traco[tom]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function intensidadeCalor(valor: number, maximo: number) {
   if (valor <= 0 || maximo <= 0) return 0.06;
   return 0.18 + (valor / maximo) * 0.82;

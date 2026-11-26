@@ -25,7 +25,9 @@ import {
   formatarData,
   formatarMoeda,
   nomeUnidade,
+  type PropostaNegociacao,
 } from "@/data/catalogo";
+import { NegociacaoProximoPassoDialog } from "@/components/negociacoes/negociacao-proximo-passo-dialog";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
 
@@ -48,6 +50,8 @@ export function NegociacaoNovaPropostaSheet({ open, onOpenChange, onSalvo }: Pro
   const [observacoes, setObservacoes] = useState("");
   const [debitoIds, setDebitoIds] = useState<number[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [proximoPassoAberto, setProximoPassoAberto] = useState(false);
+  const [propostaRegistrada, setPropostaRegistrada] = useState<PropostaNegociacao | null>(null);
 
   const condominios = useMemo(
     () => cadastros.condominios.filter(condominioAtivo).sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -124,8 +128,8 @@ export function NegociacaoNovaPropostaSheet({ open, onOpenChange, onSalvo }: Pro
           quantidadeParcelas: quantidadeParcelas ? Number(quantidadeParcelas) : undefined,
         }),
       });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
+      const payload = (await response.json()) as { error?: string; proposta?: PropostaNegociacao };
+      if (!response.ok || !payload.proposta) {
         toast({ variant: "error", title: "Proposta", description: payload.error });
         return;
       }
@@ -133,13 +137,16 @@ export function NegociacaoNovaPropostaSheet({ open, onOpenChange, onSalvo }: Pro
       void refetch();
       onSalvo?.();
       closeSheet();
+      setPropostaRegistrada(payload.proposta);
+      setProximoPassoAberto(true);
     } finally {
       setSalvando(false);
     }
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+    <Sheet open={open && !proximoPassoAberto} onOpenChange={onOpenChange}>
       <SheetContent aria-labelledby={`${formId}-nova-title`}>
         <SheetHeader>
           <SheetHeaderLead>
@@ -250,5 +257,23 @@ export function NegociacaoNovaPropostaSheet({ open, onOpenChange, onSalvo }: Pro
         </SheetForm>
       </SheetContent>
     </Sheet>
+      <NegociacaoProximoPassoDialog
+        open={proximoPassoAberto}
+        onOpenChange={setProximoPassoAberto}
+        proposta={propostaRegistrada}
+        tituloUnidade={
+          propostaRegistrada ? nomeUnidade(propostaRegistrada.unidadeId, cadastros) : undefined
+        }
+        tituloCondominio={
+          propostaRegistrada
+            ? cadastros.condominios.find((item) => item.id === propostaRegistrada.condominioId)?.nome
+            : undefined
+        }
+        onConcluido={() => {
+          void refetch();
+          onSalvo?.();
+        }}
+      />
+    </>
   );
 }

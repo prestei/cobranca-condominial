@@ -53,7 +53,7 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 
 | Método | Path | Permissão | Descrição |
 | --- | --- | --- | --- |
-| GET | `/api/propostas/[id]/parcelas` | `atendimentos.ler` | Parcelas + `resumo` (valores acordado/pago/saldo) |
+| GET | `/api/propostas/[id]/parcelas` | `atendimentos.ler` | Proposta **Aceita**: parcelas + `resumo`; caso contrário `200` com `{ parcelas: [], resumo: null }` (sem 409 na leitura) |
 | POST | `/api/propostas/[id]/parcelas` | `atendimentos.criar` | Body: `{ parcelas: [{ numero, valorPrevisto, vencimentoEm }] }` — só proposta **Aceita** |
 | GET | `/api/propostas/[id]/pagamentos` | `atendimentos.ler` | Pagamentos + `resumo` |
 | POST | `/api/propostas/[id]/pagamentos` | `atendimentos.criar` | Body: `parcelaId`, `valor`, `dataPagamento`, `referenciaComprovante?`, `confirmacao?` (`Informado` \| `Confirmado`) |
@@ -68,7 +68,7 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 
 - Vinculada à unidade, autor e débitos da mesma unidade.
 - Estados: **Em análise**, **Aceita**, **Recusada**, **Cancelada**.
-- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento.
+- **Aceita** grava termos e origem do acordo; não baixa débito nem registra pagamento. Ao confirmar o acordo, a unidade **sai** da fila de `/atendimentos` e a `collection_assignment` vigente é encerrada (`src/lib/fila/unidade-fila-atendimento.ts`, `encerrar-carteira-vigente.ts`).
 - **Alçada do advogado:** ao registrar ou aprovar, o servidor valida desconto máximo (`lawyer_negotiation_rule`, padrão 30%) e quantidade máxima de parcelas (padrão 24) do advogado principal do condomínio. Administradora ignora limites.
 - **Responsáveis:** `valores_definidos_por_id` (registro), `valores_aprovados_por_id` (confirmação), `advogado_responsavel_id` (condomínio).
 - **Detalhe:** valores original/atualizado da dívida, desconto, quantidade de parcelas, cronograma opcional ao confirmar (`primeiroVencimento` + geração automática).
@@ -81,8 +81,16 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 - **Pendente / Paga / Vencida / Cancelada:** status calculado (quitação só com pagamentos **Confirmados** ≥ valor previsto; cancelamento sem pagamento confirmado).
 - **Integridade:** soma das parcelas ativas = valor negociado (±1 centavo); pagamento confirmado duplicado na mesma parcela é rejeitado.
 - **Potencial descumprimento:** indício quando há parcela **Vencida** sem quitação confirmada — **não** equivale a “acordo quebrado” (regra oficial pendente).
-- **Saldo restante:** valor acordado (soma das parcelas ou, se ausentes, `valorProposto`) menos pagamentos **Confirmados** — regra financeira definitiva pendente; **não** altera saldo de débitos automaticamente.
+- **Saldo restante (T25):** ao confirmar acordo, o sistema grava snapshot financeiro por débito em `negotiation_proposal_debt` (valor original registrado, valor negociado alocado, desconto, pago confirmado e saldo restante) e atualiza o **valor atualizado exibido** no painel `/debitos` sem nova importação. Pagamentos **Confirmados** recalculam o saldo; **Informado** não conta. Importação não sobrescreve `valor_original` nem `valor_atualizado` de débitos em acordo formalizado (`Aceita`). Histórico em `negotiation_proposal_debt_financial_change` e `audit_log` (`debt`).
 - Correções administrativas geram `audit_log` com estado anterior (`agreement_installment`, `agreement_payment`).
+
+### Próximo passo após registrar proposta (T26)
+
+- Após `POST /api/propostas`, o atendente confirma o destino em `POST /api/propostas/:id/proximo-passo` (diálogo na fila e em **Nova proposta** em `/negociacoes`).
+- **Encaminhar para negociação:** encerra atribuição vigente; proposta com `negotiation_queue_at` visível em `/negociacoes`.
+- **Continuar atendimento:** sem alterar `collection_assignment`.
+- **Encaminhar para análise:** encerra carteira após confirmação; destino advogado (proposta) ou `legal_case_referral` (exige `juridico.criar`).
+- Uma decisão por proposta (`negotiation_next_step_decision`); duplicidade bloqueada por `idempotency_key` e validação no servidor.
 
 ## Fluxos
 

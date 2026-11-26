@@ -1,4 +1,4 @@
-import { Atendimento, AtribuicaoCobranca, Auditoria, Cargo, Condominio, Debito, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo } from "@/data/catalogo";
+import { Atendimento, AtribuicaoCobranca, Auditoria, Cargo, Condominio, Debito, DecisaoProximoPassoNegociacao, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo } from "@/data/catalogo";
 import type {
   AgreementInstallment,
   AgreementPayment,
@@ -10,6 +10,7 @@ import type {
   InternalNotification,
   LegalCaseReferral,
   LegalDocument,
+  NegotiationNextStepDecision,
   NegotiationProposal,
   NotificationFailure,
   ResponsibleParty,
@@ -26,7 +27,7 @@ function money(value: Decimal | null | undefined): string {
   return value.toFixed(2);
 }
 
-function isoDate(value: Date | null | undefined): string {
+export function isoDate(value: Date | null | undefined): string {
   if (!value) return "";
   return value.toISOString().slice(0, 10);
 }
@@ -145,6 +146,13 @@ export function mapDebtToDebito(row: Debt): Debito {
     identificadorExterno: row.externalId ?? "",
     atualizadoEm: isoDateTime(row.updatedAt),
     fonteValores: row.valueSource === "manual" ? "manual" : "origem",
+    situacaoInadimplencia: row.delinquencySituation,
+    usuarioPrescricaoId: row.prescriptionUserId ?? null,
+    prescritoEm: isoDateTime(row.prescribedAt),
+    justificativaPrescricao: row.prescriptionJustification ?? "",
+    situacaoOperacional: row.operationalSituation ?? "Em aberto",
+    situacaoOperacionalAlteradaEm: isoDateTime(row.operationalSituationChangedAt),
+    usuarioSituacaoOperacionalId: row.operationalSituationUserId ?? null,
   };
 }
 
@@ -250,6 +258,26 @@ export function mapProposalToProposta(row: NegotiationProposal): PropostaNegocia
     quantidadeParcelas: row.installmentCount ?? null,
     valoresDefinidosPorId: row.valuesDefinedByUserId ?? null,
     valoresAprovadosPorId: row.valuesApprovedByUserId ?? null,
+    filaNegociacaoEm: row.negotiationQueueAt ? isoDateTime(row.negotiationQueueAt) : "",
+    filaNegociacaoPorId: row.negotiationQueueByUserId ?? null,
+  };
+}
+
+export function mapNextStepDecisionToDecisao(row: NegotiationNextStepDecision): DecisaoProximoPassoNegociacao {
+  return {
+    id: row.id,
+    propostaId: row.proposalId,
+    condominioId: row.condominiumId,
+    unidadeId: row.unitId,
+    usuarioId: row.userId,
+    decididoEm: isoDateTime(row.decidedAt),
+    acao: row.action as DecisaoProximoPassoNegociacao["acao"],
+    destinoAnalise: (row.analysisTarget ?? "") as DecisaoProximoPassoNegociacao["destinoAnalise"],
+    destinoRotulo: row.destinationLabel,
+    responsavelUsuarioId: row.responsibleUserId ?? null,
+    encaminhamentoJuridicoId: row.legalReferralId ?? "",
+    observacoes: row.notes ?? "",
+    idempotencyKey: row.idempotencyKey,
   };
 }
 

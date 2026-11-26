@@ -34,6 +34,10 @@ function parseDebitoBody(body: unknown): DebitoInput | null {
     valorPago: typeof record.valorPago === "string" ? record.valorPago : undefined,
     origem: typeof record.origem === "string" ? record.origem : undefined,
     identificadorExterno: typeof record.identificadorExterno === "string" ? record.identificadorExterno : undefined,
+    situacaoInadimplencia:
+      typeof record.situacaoInadimplencia === "string" ? record.situacaoInadimplencia : undefined,
+    justificativaPrescricao:
+      typeof record.justificativaPrescricao === "string" ? record.justificativaPrescricao : undefined,
   };
 }
 

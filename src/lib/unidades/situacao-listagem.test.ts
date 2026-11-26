@@ -1,50 +1,49 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { SITUACAO_COBRANCA_PRESCRITA } from "@/data/catalogo";
-import type { Unidade } from "@/data/catalogo";
+import { SITUACAO_COBRANCA_PADRAO, type Unidade } from "@/data/catalogo";
 import {
   rotuloSituacaoListagemUnidade,
   variantBadgeSituacaoListagemUnidade,
 } from "@/lib/unidades/situacao-listagem";
 
-function unidadeBase(overrides: Partial<Unidade> = {}): Unidade {
+function unidadeBase(partial: Partial<Unidade> = {}): Unidade {
   return {
     id: 1,
     condominioId: 1,
     identificacao: "101",
-    situacao: "Em cobrança",
+    bloco: "",
+    tipo: "Apartamento",
     status: "Ativa",
-    ...overrides,
-  } as Unidade;
+    situacao: SITUACAO_COBRANCA_PADRAO,
+    ...partial,
+  };
 }
 
 describe("rotuloSituacaoListagemUnidade", () => {
-  test("prioriza Unidade prescrita", () => {
-    const u = unidadeBase({ situacao: SITUACAO_COBRANCA_PRESCRITA });
-    assert.equal(rotuloSituacaoListagemUnidade(u, true), "Unidade prescrita");
-    assert.equal(rotuloSituacaoListagemUnidade(u, false), "Unidade prescrita");
-  });
-
-  test("inadimplente quando há débito vencido/pendente operacional", () => {
+  test("prioriza inadimplente operacional", () => {
     const u = unidadeBase({ situacao: "Em cobrança" });
-    assert.equal(rotuloSituacaoListagemUnidade(u, true), "Inadimplente");
+    assert.equal(rotuloSituacaoListagemUnidade(u, true, true), "Inadimplente");
   });
 
-  test("aguardando débitos na fila ativa sem débito aberto", () => {
+  test("exibe inadimplência prescrita sem débito operacional", () => {
+    const u = unidadeBase({ situacao: "Sem cobrança" });
+    assert.equal(rotuloSituacaoListagemUnidade(u, false, true), "Inadimplência prescrita");
+  });
+
+  test("aguardando débitos na fila sem saldo operacional", () => {
     const u = unidadeBase({ situacao: "Em cobrança" });
-    assert.equal(rotuloSituacaoListagemUnidade(u, false), "Aguardando débitos");
+    assert.equal(rotuloSituacaoListagemUnidade(u, false, false), "Aguardando débitos");
   });
 
-  test("em dia quando quitada e sem débito aberto", () => {
-    const u = unidadeBase({ situacao: "Quitada" });
-    assert.equal(rotuloSituacaoListagemUnidade(u, false), "Em dia");
+  test("em dia fora da fila", () => {
+    const u = unidadeBase({ situacao: "Sem cobrança" });
+    assert.equal(rotuloSituacaoListagemUnidade(u, false, false), "Em dia");
   });
 
-  test("variantes de badge alinhadas aos rótulos", () => {
+  test("variantes de badge", () => {
     assert.equal(variantBadgeSituacaoListagemUnidade("Em dia"), "success");
     assert.equal(variantBadgeSituacaoListagemUnidade("Inadimplente"), "error");
-    assert.equal(variantBadgeSituacaoListagemUnidade("Aguardando débitos"), "secondary");
-    assert.equal(variantBadgeSituacaoListagemUnidade("Unidade prescrita"), "secondary");
+    assert.equal(variantBadgeSituacaoListagemUnidade("Inadimplência prescrita"), "secondary");
   });
 });

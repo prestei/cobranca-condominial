@@ -1,8 +1,13 @@
 import {
   agoraIso,
   debitoEmAberto,
+  debitoPrescrito,
   origensDebito,
   persistedDebtBalance,
+  situacaoInadimplenciaDebito,
+  situacoesInadimplencia,
+  SITUACAO_INADIMPLENCIA_ATIVA,
+  SITUACAO_INADIMPLENCIA_PRESCRITA,
   statusDebito,
   type Debito,
   type FonteValoresDebito,
@@ -24,6 +29,13 @@ import {
   type DebitoIndicadores,
   type DebitoIndicadoresInput,
 } from "@/lib/debitos/indicadores";
+import { sincronizarSituacaoOperacionalAposGravarDebito } from "@/lib/debitos/operational-situation-sync";
+import { SITUACAO_OPERACIONAL_EM_ABERTO } from "@/lib/debitos/operational-situation";
+import {
+  mapaNegociacaoFinanceiraPorDebito,
+  type DebitoNegociacaoFinanceira,
+} from "@/lib/debitos/negotiation-financial-sync";
+import { listFormalizedProposalDebtLinksByDebtIds } from "@/lib/db/repositories/negotiation-proposal-debt-repository";
 import { promoverUnidadeParaCobrancaSeDebitoEmAberto } from "@/lib/debitos/promover-unidade-cobranca";
 import { temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
@@ -55,6 +67,12 @@ export type DebitoInput = {
   valorPago?: string;
   origem?: string;
   identificadorExterno?: string;
+  situacaoInadimplencia?: string;
+  justificativaPrescricao?: string;
+};
+
+export type DebitoComNegociacao = Debito & {
+  negociacaoFinanceira?: DebitoNegociacaoFinanceira;
 };
 
 export type DebitoFiltros = {
@@ -65,6 +83,7 @@ export type DebitoFiltros = {
   busca?: string;
   vencimentoDe?: string;
   vencimentoAte?: string;
+  situacaoInadimplencia?: string;
 };
 
 const DINHEIRO = /^\d+([.,]\d{1,2})?$/;
@@ -104,7 +123,50 @@ function validarMoedaOpcional(campo: string, valor: string | undefined, erros: R
   }
 }
 
-async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "atualizadoEm" | "fonteValores">> {
+function aplicarCamposPrescricao(
+  input: DebitoInput,
+  anterior: Pick<
+    Debito,
+    "situacaoInadimplencia" | "usuarioPrescricaoId" | "prescritoEm" | "justificativaPrescricao"
+  > | null,
+  userId: number,
+): Pick<Debito, "situacaoInadimplencia" | "usuarioPrescricaoId" | "prescritoEm" | "justificativaPrescricao"> {
+  const situacaoInformada = situacaoInadimplenciaDebito({
+    situacaoInadimplencia: input.situacaoInadimplencia ?? SITUACAO_INADIMPLENCIA_ATIVA,
+  });
+  if (!situacoesInadimplencia.includes(situacaoInformada)) {
+    throw new DebitoServiceError("Situação da inadimplência inválida.", 400);
+  }
+
+  if (situacaoInformada === SITUACAO_INADIMPLENCIA_PRESCRITA) {
+    const justificativa = (input.justificativaPrescricao ?? anterior?.justificativaPrescricao ?? "").trim();
+    if (justificativa.length < 10) {
+      throw new DebitoServiceError(
+        "Informe a justificativa da prescrição com pelo menos 10 caracteres.",
+        400,
+      );
+    }
+    const prescritoAnterior = anterior ? debitoPrescrito(anterior) : false;
+    return {
+      situacaoInadimplencia: SITUACAO_INADIMPLENCIA_PRESCRITA,
+      usuarioPrescricaoId: prescritoAnterior ? (anterior!.usuarioPrescricaoId ?? userId) : userId,
+      prescritoEm: prescritoAnterior && anterior?.prescritoEm ? anterior.prescritoEm : agoraIso(),
+      justificativaPrescricao: justificativa,
+    };
+  }
+
+  return {
+    situacaoInadimplencia: SITUACAO_INADIMPLENCIA_ATIVA,
+    usuarioPrescricaoId: null,
+    prescritoEm: "",
+    justificativaPrescricao: "",
+  };
+}
+
+async function validarEntrada(
+  input: DebitoInput,
+  meta?: { userId: number; anterior?: Debito | null },
+): Promise<Omit<Debito, "id" | "atualizadoEm" | "fonteValores">> {
   const referencia = input.referencia.trim();
   const erros: Record<string, string> = {};
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
@@ -158,6 +220,15 @@ async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "
   const valorAtualizadoInformado = canonMoeda(input.valorAtualizado);
   const valorAtualizado = valorAtualizadoInformado || persistedDebtBalance({ valorAtualizado: "", valor, valorOriginal });
 
+  const prescricao = meta?.userId
+    ? aplicarCamposPrescricao(input, meta.anterior ?? null, meta.userId)
+    : {
+        situacaoInadimplencia: SITUACAO_INADIMPLENCIA_ATIVA,
+        usuarioPrescricaoId: null,
+        prescritoEm: "",
+        justificativaPrescricao: "",
+      };
+
   return {
     condominioId: input.condominioId,
     unidadeId: input.unidadeId,
@@ -175,6 +246,7 @@ async function validarEntrada(input: DebitoInput): Promise<Omit<Debito, "id" | "
     valorPago: quitado ? valorPagoCanon : "",
     origem,
     identificadorExterno: (input.identificadorExterno ?? "").trim(),
+    ...prescricao,
   };
 }
 
@@ -186,10 +258,14 @@ function serializarDebitoAuditoria(debito: Debito) {
     origem: debito.origem,
     fonteValores: debito.fonteValores,
     atualizadoEm: debito.atualizadoEm,
+    situacaoInadimplencia: debito.situacaoInadimplencia,
+    justificativaPrescricao: debito.justificativaPrescricao,
+    prescritoEm: debito.prescritoEm,
+    usuarioPrescricaoId: debito.usuarioPrescricaoId,
   });
 }
 
-export async function listarDebitos(userId: number, filtros?: DebitoFiltros): Promise<Debito[]> {
+export async function listarDebitos(userId: number, filtros?: DebitoFiltros): Promise<DebitoComNegociacao[]> {
   const idsCondominio = await scopeCondominiumIds(userId);
   let lista = (await listDebts()).filter((item) => idsCondominio.has(item.condominioId));
 
@@ -201,6 +277,11 @@ export async function listarDebitos(userId: number, filtros?: DebitoFiltros): Pr
   }
   if (filtros?.status && filtros.status !== "todos") {
     lista = lista.filter((item) => item.status === filtros.status);
+  }
+  if (filtros?.situacaoInadimplencia && filtros.situacaoInadimplencia !== "todas") {
+    lista = lista.filter(
+      (item) => situacaoInadimplenciaDebito(item) === filtros.situacaoInadimplencia,
+    );
   }
   if (filtros?.origem && filtros.origem !== "todas") {
     lista = lista.filter((item) => item.origem === filtros.origem);
@@ -221,7 +302,13 @@ export async function listarDebitos(userId: number, filtros?: DebitoFiltros): Pr
     });
   }
 
-  return [...lista].sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id);
+  const ordenada = [...lista].sort((a, b) => b.dataVencimento.localeCompare(a.dataVencimento) || a.id - b.id);
+  const vinculos = await listFormalizedProposalDebtLinksByDebtIds(ordenada.map((item) => item.id));
+  const mapa = mapaNegociacaoFinanceiraPorDebito(vinculos);
+  return ordenada.map((item) => ({
+    ...item,
+    negociacaoFinanceira: mapa.get(item.id),
+  }));
 }
 
 export async function obterDebito(userId: number, debitoId: number): Promise<Debito> {
@@ -258,7 +345,10 @@ export async function criarDebito(
     throw new DebitoServiceError("Sem permissão para cadastrar débitos.", 403);
   }
 
-  const dados = await validarEntrada(input);
+  const dados = await validarEntrada(input, { userId, anterior: null });
+  if (debitoPrescrito(dados) && !temPermissao(perm, "debitos", "editar")) {
+    throw new DebitoServiceError("Sem permissão para classificar inadimplência prescrita.", 403);
+  }
   await assertDebitoNoEscopo(userId, dados);
 
   const fonteValores: FonteValoresDebito = "manual";
@@ -266,6 +356,9 @@ export async function criarDebito(
     ...dados,
     fonteValores,
     atualizadoEm: agoraIso(),
+    situacaoOperacional: SITUACAO_OPERACIONAL_EM_ABERTO,
+    situacaoOperacionalAlteradaEm: agoraIso(),
+    usuarioSituacaoOperacionalId: userId,
   };
 
   const criado = await createDebt(registro);
@@ -281,6 +374,7 @@ export async function criarDebito(
     userAgent: meta?.userAgent,
   });
   await promoverUnidadeParaCobrancaSeDebitoEmAberto(criado.unidadeId, criado, meta);
+  await sincronizarSituacaoOperacionalAposGravarDebito(criado, { userId, ...meta });
   return criado;
 }
 
@@ -301,8 +395,11 @@ export async function atualizarDebito(
   }
   await assertDebitoNoEscopo(userId, anterior);
 
-  const dados = await validarEntrada(input);
+  const dados = await validarEntrada(input, { userId, anterior });
   await assertDebitoNoEscopo(userId, dados);
+  if (debitoPrescrito(dados) && !temPermissao(perm, "debitos", "editar")) {
+    throw new DebitoServiceError("Sem permissão para classificar inadimplência prescrita.", 403);
+  }
 
   const fonteValores: FonteValoresDebito = "manual";
 
@@ -327,6 +424,7 @@ export async function atualizarDebito(
     userAgent: meta?.userAgent,
   });
   await promoverUnidadeParaCobrancaSeDebitoEmAberto(salvo.unidadeId, salvo, meta);
+  await sincronizarSituacaoOperacionalAposGravarDebito(salvo, { userId, ...meta });
   return salvo;
 }
 

@@ -11,12 +11,17 @@ import {
   type PagamentoAcordo,
   type EncaminhamentoJuridico,
   type PropostaNegociacao,
+  type DecisaoProximoPassoNegociacao,
   type Unidade,
 } from "@/data/catalogo";
 import { getCadastros } from "@/data/catalogo-store";
 import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { calcularResumoAcordo, type ResumoAcordo } from "@/lib/acordos/resumo";
 import { codigoReDoUsuario } from "@/lib/colaboradores/re-server";
+import { listDebtOperationalSituationChangesByDebtIds } from "@/lib/db/repositories/debt-operational-situation-repository";
+import { listSettlementsByUnit } from "@/lib/db/repositories/debt-settlement-repository";
+import { listNextStepDecisionsByUnit } from "@/lib/db/repositories/negotiation-next-step-repository";
+import { rotuloAcaoProximoPassoNegociacao } from "@/lib/negociacoes/next-step-decision-labels";
 import { temPermissao } from "@/lib/permissions/check";
 import { permissoesDoUsuarioId } from "@/lib/permissions/usuario";
 
@@ -69,6 +74,7 @@ export type EventoHistoricoUnidade = {
     | "pagamento"
     | "pagamento_acordo"
     | "negociacao"
+    | "decisao_proximo_passo_negociacao"
     | "encaminhamento_juridico"
     | "correcao_atendimento"
     | "correcao_unidade"
@@ -79,6 +85,7 @@ export type EventoHistoricoUnidade = {
     | "collection_assignment"
     | "debt"
     | "negotiation_proposal"
+    | "negotiation_next_step_decision"
     | "agreement_payment"
     | "legal_case_referral"
     | "audit_log"
@@ -269,6 +276,31 @@ function eventoEncaminhamentoJuridico(
     resultado: `Status: ${encaminhamento.status}`,
     observacao: observacao || undefined,
     registroOrigemId: encaminhamento.id,
+  };
+}
+
+function eventoDecisaoProximoPasso(
+  decisao: DecisaoProximoPassoNegociacao,
+  cadastros: Cadastros,
+): EventoHistoricoUnidade {
+  const { ator, atorPerfil } = rotuloAutor(decisao.usuarioId, cadastros);
+  const partes = [
+    `Destino: ${decisao.destinoRotulo}`,
+    decisao.observacoes.trim() ? decisao.observacoes.trim() : "",
+    decisao.propostaId ? `Proposta: ${decisao.propostaId}` : "",
+  ].filter(Boolean);
+  return {
+    id: `decisao-negociacao-${decisao.id}`,
+    tipo: "decisao_proximo_passo_negociacao",
+    origem: "negotiation_next_step_decision",
+    dataHora: decisao.decididoEm,
+    ator,
+    atorPerfil,
+    titulo: rotuloAcaoProximoPassoNegociacao(decisao.acao),
+    resultado: decisao.destinoRotulo,
+    observacao: partes.join(" · ") || undefined,
+    proximoPasso: decisao.destinoRotulo,
+    registroOrigemId: decisao.propostaId,
   };
 }
 
@@ -549,6 +581,11 @@ export async function obterHistoricoUnidade(
     eventos.push(eventoEncaminhamentoJuridico(encaminhamento, base));
   }
 
+  const decisoesProximoPasso = await listNextStepDecisionsByUnit(unidadeId);
+  for (const decisao of decisoesProximoPasso) {
+    eventos.push(eventoDecisaoProximoPasso(decisao, base));
+  }
+
   for (const proposta of propostas) {
     eventos.push(eventoPropostaNegociacao(proposta, base));
     if (proposta.status === "Aceita") {
@@ -579,6 +616,52 @@ export async function obterHistoricoUnidade(
   for (const debito of debitos) {
     const pagamento = eventoPagamento(debito);
     if (pagamento) eventos.push(pagamento);
+  }
+
+  const debtIdsUnidade = debitos.map((item) => item.id);
+  const alteracoesSituacao = await listDebtOperationalSituationChangesByDebtIds(debtIdsUnidade);
+  for (const registro of alteracoesSituacao) {
+    const debitoRef = debitos.find((item) => item.id === registro.debtId);
+    const { ator, atorPerfil } = rotuloAutor(registro.usuarioId, base);
+    eventos.push({
+      id: `sit-operacional-${registro.id}`,
+      tipo: "correcao_unidade",
+      origem: "debt",
+      dataHora: registro.alteradoEm,
+      ator,
+      atorPerfil,
+      titulo: `Situação operacional — ${debitoRef?.referencia ?? `débito ${registro.debtId}`}`,
+      resultado: `${registro.situacaoAnterior ?? "—"} → ${registro.situacaoNova}`,
+      observacao: registro.observacoes.trim() || undefined,
+      registroOrigemId: String(registro.debtId),
+    });
+  }
+
+  const idsPagamentoDebito = new Set(
+    eventos
+      .filter((item) => item.tipo === "pagamento" && item.origem === "debt")
+      .map((item) => item.registroOrigemId),
+  );
+  const quitacoes = await listSettlementsByUnit(unidadeId);
+  for (const quitacao of quitacoes) {
+    if (idsPagamentoDebito.has(String(quitacao.debtId))) continue;
+    const debitoRef = debitos.find((item) => item.id === quitacao.debtId);
+    const { ator, atorPerfil } = rotuloAutor(quitacao.confirmedByUserId, base);
+    const observacao = [quitacao.notes?.trim(), quitacao.proposalId ? `Proposta ${quitacao.proposalId}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    eventos.push({
+      id: `quitacao-debito-${quitacao.debtId}-${quitacao.settledAt}`,
+      tipo: "pagamento",
+      origem: "debt",
+      dataHora: quitacao.settledAt,
+      ator,
+      atorPerfil,
+      titulo: `Quitação confirmada — ${debitoRef?.referencia ?? `débito ${quitacao.debtId}`}`,
+      resultado: `Valor quitado: ${formatarMoeda(quitacao.paidAmount)}`,
+      observacao: observacao || undefined,
+      registroOrigemId: String(quitacao.debtId),
+    });
   }
 
   eventos.push(...eventosAuditoriaUnidade(unidadeId, idsAtendimento, idsProposta, idsEncaminhamento, base));

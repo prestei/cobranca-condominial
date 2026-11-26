@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { FileText, Handshake, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
@@ -27,15 +27,19 @@ import { useToast } from "@/components/toast";
 import { debitoEmAberto, formatarData, formatarMoeda, type PropostaNegociacao } from "@/data/catalogo";
 import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
 import { AcordoAcompanhamentoBlock } from "@/components/negociacoes/acordo-acompanhamento-block";
+import { NegociacaoProximoPassoDialog } from "@/components/negociacoes/negociacao-proximo-passo-dialog";
 import { PropostaDetalheResumo } from "@/components/negociacoes/proposta-detalhe-resumo";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { montarResumoCamposProposta } from "@/lib/negociacoes/resumo-campos";
 
 type Props = {
   unidadeId: number | null;
   condominioId: number | null;
   tituloUnidade?: string;
   tituloCondominio?: string;
+  /** Débitos pré-selecionados ao abrir (ex.: expansão da fila de atendimentos). */
+  debitoIdsIniciais?: number[] | null;
   onClose: () => void;
   onSalvo?: () => void;
 };
@@ -52,6 +56,7 @@ export function PropostaNegociacaoSheet({
   condominioId,
   tituloUnidade,
   tituloCondominio,
+  debitoIdsIniciais = null,
   onClose,
   onSalvo,
 }: Props) {
@@ -74,6 +79,8 @@ export function PropostaNegociacaoSheet({
   const [statusSalvandoId, setStatusSalvandoId] = useState<string | null>(null);
   const [quantidadeParcelas, setQuantidadeParcelas] = useState("");
   const [primeiroVencimentoPorId, setPrimeiroVencimentoPorId] = useState<Record<string, string>>({});
+  const [proximoPassoAberto, setProximoPassoAberto] = useState(false);
+  const [propostaParaProximoPasso, setPropostaParaProximoPasso] = useState<PropostaNegociacao | null>(null);
 
   const debitosUnidade = useMemo(() => {
     if (unidadeId === null) return [];
@@ -107,16 +114,29 @@ export function PropostaNegociacaoSheet({
       setValorProposto("");
       setObservacoes("");
       setDebitoIds([]);
+      setProximoPassoAberto(false);
+      setPropostaParaProximoPasso(null);
       return;
     }
     void carregar();
   }, [carregar, unidadeId]);
 
+  const chaveDebitosIniciais = debitoIdsIniciais?.slice().sort((a, b) => a - b).join(",") ?? "";
+  const aplicouDebitosIniciaisRef = useRef("");
+
   useEffect(() => {
-    if (debitoIds.length === 0 && debitosSelecionaveis.length > 0) {
-      setDebitoIds(debitosSelecionaveis.map((item) => item.id));
+    if (unidadeId === null) {
+      aplicouDebitosIniciaisRef.current = "";
+      return;
     }
-  }, [debitoIds.length, debitosSelecionaveis]);
+    if (debitosSelecionaveis.length === 0) return;
+    const chave = `${unidadeId}:${chaveDebitosIniciais}`;
+    if (aplicouDebitosIniciaisRef.current === chave) return;
+    const permitidos = new Set(debitosSelecionaveis.map((item) => item.id));
+    const filtrados = (debitoIdsIniciais ?? []).filter((id) => permitidos.has(id));
+    setDebitoIds(filtrados.length > 0 ? filtrados : debitosSelecionaveis.map((item) => item.id));
+    aplicouDebitosIniciaisRef.current = chave;
+  }, [unidadeId, chaveDebitosIniciais, debitosSelecionaveis, debitoIdsIniciais]);
 
   function toggleDebito(id: number) {
     setDebitoIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -145,12 +165,14 @@ export function PropostaNegociacaoSheet({
         toast({ variant: "error", title: "Não foi possível salvar", description: payload.error });
         return;
       }
-      void refetch()
+      void refetch();
       toast({ variant: "success", title: "Proposta registrada" });
       setValorProposto("");
       setObservacoes("");
       setDebitoIds(debitosSelecionaveis.map((item) => item.id));
       await carregar();
+      setPropostaParaProximoPasso(payload.proposta);
+      setProximoPassoAberto(true);
       onSalvo?.();
     } finally {
       setSalvando(false);
@@ -203,14 +225,16 @@ export function PropostaNegociacaoSheet({
   }
 
   const aberto = unidadeId !== null && condominioId !== null;
+  const sheetVisivel = aberto && !proximoPassoAberto;
   const titulo = tituloUnidade ?? "Unidade";
   const condominio = tituloCondominio ?? "";
 
   return (
+    <>
     <Sheet
-      open={aberto}
+      open={sheetVisivel}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !proximoPassoAberto) onClose();
       }}
     >
       <SheetContent aria-labelledby={`${formId}-proposta-title`}>
@@ -239,7 +263,9 @@ export function PropostaNegociacaoSheet({
               <p className="mt-sm text-body-sm text-on-surface-variant">Nenhuma proposta registrada.</p>
             ) : (
               <ul className="mt-sm flex flex-col gap-sm">
-                {propostas.map((item) => (
+                {propostas.map((item) => {
+                  const resumo = montarResumoCamposProposta(item, cadastros);
+                  return (
                   <li
                     key={item.id}
                     className="flex flex-col gap-sm rounded-md border border-border-subtle bg-surface px-md py-sm"
@@ -254,6 +280,10 @@ export function PropostaNegociacaoSheet({
                       proposta={item}
                       condominioNome={condominio}
                       unidadeIdentificacao={titulo}
+                      devedorNome={resumo.devedorNome}
+                      descontoConcedido={resumo.descontoConcedido}
+                      descontoPercent={resumo.descontoPercent}
+                      valorParcelaIndicativo={resumo.valorParcelaIndicativo}
                     />
                     {item.observacoes ? (
                       <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p>
@@ -344,7 +374,8 @@ export function PropostaNegociacaoSheet({
                       </div>
                     ) : null}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </SheetPanel>
@@ -424,5 +455,19 @@ export function PropostaNegociacaoSheet({
         </SheetBody>
       </SheetContent>
     </Sheet>
+      <NegociacaoProximoPassoDialog
+        open={proximoPassoAberto}
+        onOpenChange={setProximoPassoAberto}
+        proposta={propostaParaProximoPasso}
+        tituloUnidade={titulo}
+        tituloCondominio={condominio}
+        onConcluido={() => {
+          void refetch();
+          void carregar();
+          onSalvo?.();
+          onClose();
+        }}
+      />
+    </>
   );
 }

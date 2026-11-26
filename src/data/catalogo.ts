@@ -130,6 +130,17 @@ export type Debito = {
   /** ISO — última persistência (importação ou correção manual). */
   atualizadoEm: string;
   fonteValores: FonteValoresDebito;
+  /** Classificação jurídica da inadimplência (`Ativa` ou `Inadimplência prescrita`). */
+  situacaoInadimplencia: string;
+  usuarioPrescricaoId: number | null;
+  /** ISO — data da classificação como prescrita. */
+  prescritoEm: string;
+  justificativaPrescricao: string;
+  /** Situação operacional persistida (T24): Em aberto, Em negociação, Quitada, Prescrita. */
+  situacaoOperacional: string;
+  /** ISO — última alteração da situação operacional. */
+  situacaoOperacionalAlteradaEm: string;
+  usuarioSituacaoOperacionalId: number | null;
 };
 
 export type Atendimento = {
@@ -175,6 +186,38 @@ export type PropostaNegociacao = {
   quantidadeParcelas: number | null;
   valoresDefinidosPorId: number | null;
   valoresAprovadosPorId: number | null;
+  /** Momento em que a cobrança entrou na fila de negociação (T26). */
+  filaNegociacaoEm: string;
+  filaNegociacaoPorId: number | null;
+};
+
+/** Ações disponíveis após registrar proposta (T26). */
+export const acoesProximoPassoNegociacao = [
+  "forward_negotiation_queue",
+  "continue_service",
+  "forward_analysis",
+] as const;
+
+export type AcaoProximoPassoNegociacao = (typeof acoesProximoPassoNegociacao)[number];
+
+export const destinosAnaliseNegociacao = ["lawyer_negotiation", "juridico"] as const;
+
+export type DestinoAnaliseNegociacao = (typeof destinosAnaliseNegociacao)[number];
+
+export type DecisaoProximoPassoNegociacao = {
+  id: string;
+  propostaId: string;
+  condominioId: number;
+  unidadeId: number;
+  usuarioId: number;
+  decididoEm: string;
+  acao: AcaoProximoPassoNegociacao;
+  destinoAnalise: DestinoAnaliseNegociacao | "";
+  destinoRotulo: string;
+  responsavelUsuarioId: number | null;
+  encaminhamentoJuridicoId: string;
+  observacoes: string;
+  idempotencyKey: string;
 };
 
 /** Limites de negociação autorizados para um advogado. */
@@ -319,18 +362,19 @@ export type NotificacaoFalha = {
 export const tiposUnidade = ["Apartamento", "Casa", "Sala", "Loja"] as const;
 export const statusUnidade = ["Ativa", "Inativa"] as const;
 /** Sem cobrança = fora da fila de inadimplência; demais estados entram com débito/importação ou movimentação operacional. */
-export const SITUACAO_COBRANCA_PRESCRITA = "Unidade prescrita" as const;
-/** Código interno e alias de importação para {@link SITUACAO_COBRANCA_PRESCRITA}. */
-export const CODIGO_SITUACAO_COBRANCA_PRESCRITA = "PRESCRITA" as const;
 export const situacoesUnidade = [
   "Sem cobrança",
   "Em cobrança",
   "Em acordo",
   "Notificada",
   "Ajuizada",
-  SITUACAO_COBRANCA_PRESCRITA,
   "Quitada",
 ] as const;
+export const SITUACAO_INADIMPLENCIA_ATIVA = "Ativa" as const;
+export const SITUACAO_INADIMPLENCIA_PRESCRITA = "Inadimplência prescrita" as const;
+/** Código interno e alias em importações/planilhas. */
+export const CODIGO_SITUACAO_INADIMPLENCIA_PRESCRITA = "PRESCRITA" as const;
+export const situacoesInadimplencia = [SITUACAO_INADIMPLENCIA_ATIVA, SITUACAO_INADIMPLENCIA_PRESCRITA] as const;
 export const SITUACAO_COBRANCA_PADRAO: (typeof situacoesUnidade)[number] = "Sem cobrança";
 export const tiposPessoa = ["Fisica", "Juridica"] as const;
 export const tiposVinculo = ["Proprietario", "Inquilino", "Administrador", "Sindico"] as const;
@@ -819,6 +863,33 @@ export function debitoEmAberto(item: { status: string }) {
   return item.status === "Pendente" || item.status === "Vencido";
 }
 
+const ALIASES_SITUACAO_INADIMPLENCIA: Record<string, (typeof situacoesInadimplencia)[number]> = {
+  [CODIGO_SITUACAO_INADIMPLENCIA_PRESCRITA]: SITUACAO_INADIMPLENCIA_PRESCRITA,
+  Prescrita: SITUACAO_INADIMPLENCIA_PRESCRITA,
+  "Unidade prescrita": SITUACAO_INADIMPLENCIA_PRESCRITA,
+};
+
+export function situacaoInadimplenciaDebito(item: { situacaoInadimplencia?: string }) {
+  const raw = item.situacaoInadimplencia?.trim();
+  if (!raw) return SITUACAO_INADIMPLENCIA_ATIVA;
+  return ALIASES_SITUACAO_INADIMPLENCIA[raw] ?? (raw as (typeof situacoesInadimplencia)[number]);
+}
+
+export function debitoPrescrito(item: { situacaoInadimplencia?: string }) {
+  return situacaoInadimplenciaDebito(item) === SITUACAO_INADIMPLENCIA_PRESCRITA;
+}
+
+/** Débito em aberto ainda elegível para cobrança operacional (exclui prescrição jurídica). */
+export function debitoEmAbertoOperacional(
+  item: Pick<Debito, "status" | "situacaoInadimplencia" | "situacaoOperacional">,
+) {
+  const sit = item.situacaoOperacional?.trim();
+  if (sit) {
+    return sit === "Em aberto" || sit === "Em negociação";
+  }
+  return debitoEmAberto(item) && !debitoPrescrito(item);
+}
+
 type DebtBalanceFields = Pick<Debito, "valorAtualizado" | "valor" | "valorOriginal">;
 
 /** Saldo para totais e colunas: `valorAtualizado`, depois `valor`, depois `valorOriginal` (só campos gravados). */
@@ -852,19 +923,14 @@ export function unidadeComDebitoOperacional(item: { situacao?: string }, temDebi
   return temDebitoVencidoAberto;
 }
 
-const ALIASES_SITUACAO_COBRANCA: Record<string, (typeof situacoesUnidade)[number]> = {
-  [CODIGO_SITUACAO_COBRANCA_PRESCRITA]: SITUACAO_COBRANCA_PRESCRITA,
-  Prescrita: SITUACAO_COBRANCA_PRESCRITA,
-};
+/** Situações de cobrança da unidade que deixaram de existir (migradas para o débito). */
+const SITUACOES_COBRANCA_UNIDADE_LEGADO = new Set(["Unidade prescrita", "PRESCRITA", "Prescrita"]);
 
 export function situacaoCobrancaUnidade(item: { situacao?: string }) {
   const raw = item.situacao?.trim();
   if (!raw || raw === "Regular") return SITUACAO_COBRANCA_PADRAO;
-  return ALIASES_SITUACAO_COBRANCA[raw] ?? raw;
-}
-
-export function unidadePrescrita(item: { situacao?: string }) {
-  return situacaoCobrancaUnidade(item) === SITUACAO_COBRANCA_PRESCRITA;
+  if (SITUACOES_COBRANCA_UNIDADE_LEGADO.has(raw)) return SITUACAO_COBRANCA_PADRAO;
+  return raw;
 }
 
 export function debitoAbertoNaData(
@@ -875,6 +941,13 @@ export function debitoAbertoNaData(
   if (!item.dataVencimento || item.dataVencimento > dataBase) return false;
   if (item.status === "Pago" && item.dataPagamento && item.dataPagamento <= dataBase) return false;
   return true;
+}
+
+export function debitoAbertoOperacionalNaData(
+  item: Pick<Debito, "status" | "dataVencimento" | "dataPagamento" | "situacaoInadimplencia">,
+  dataBase: string,
+) {
+  return debitoAbertoNaData(item, dataBase) && !debitoPrescrito(item);
 }
 
 export function acimaDoLimite(dias: number, limite = LIMITE_AMIGAVEL_DIAS) {
@@ -891,7 +964,15 @@ export function dataCorteLimite(dataBase: string, limite = LIMITE_AMIGAVEL_DIAS)
 
 export function grupoDebito(descricao: string) {
   const texto = descricao.toLocaleLowerCase("pt-BR");
-  if (texto.includes("cota") || texto.includes("fundo de reserva")) return "Cota ordinária";
+  if (
+    texto.includes("cota") ||
+    texto.includes("fundo de reserva") ||
+    texto.includes("taxa condominial") ||
+    texto.includes("taxa de condominio") ||
+    texto.includes("taxa fundo de reserva")
+  ) {
+    return "Cota ordinária";
+  }
   if (texto.includes("taxa extra") || texto.includes("rateio extra") || texto.includes("limpeza de terreno")) return "Taxa extra";
   if (texto.includes("acordo") || texto.includes("honorário") || texto.includes("honorario")) return "Acordo";
   if (texto.includes("infra")) return "Multa por infração";

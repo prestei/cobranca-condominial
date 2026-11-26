@@ -3,7 +3,7 @@
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Share2, Users } from "lucide-react";
-import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
+import { BadgeSituacaoFila } from "@/components/badge-situacao-fila";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { EmptyState } from "@/components/empty-state";
@@ -340,7 +340,7 @@ export function DistribuicaoPanel() {
                       <TableCell>{nomeCondominio(item.condominioId)}</TableCell>
                       <TableCell>{item.identificacao}</TableCell>
                       <TableCell>
-                        <BadgeSituacaoCobranca situacao={item.situacao} />
+                        <BadgeSituacaoFila situacao={item.situacao} />
                       </TableCell>
                       <TableCell>{item.codigoRe ?? "Sem RE"}</TableCell>
                     </TableRow>
@@ -366,7 +366,7 @@ export function DistribuicaoPanel() {
                   <TableMobileFields>
                     <TableMobileField label="RE">{item.codigoRe ?? "Sem RE"}</TableMobileField>
                     <TableMobileField label="Situação">
-                      <BadgeSituacaoCobranca situacao={item.situacao} />
+                      <BadgeSituacaoFila situacao={item.situacao} />
                     </TableMobileField>
                   </TableMobileFields>
                 </TableMobileCard>

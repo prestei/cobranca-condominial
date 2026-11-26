@@ -3,7 +3,7 @@ import { requirePropostaCriar, requirePropostaLer } from "@/lib/api/require-prop
 import {
   AcordoServiceError,
   PropostaNegociacaoServiceError,
-  listarParcelasAcordo,
+  consultarCronogramaAcordo,
   obterResumoAcordo,
   registrarParcelasAcordo,
   requestMeta,
@@ -42,8 +42,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const parcelas = await listarParcelasAcordo(session.userId, id);
-    const resumo = await obterResumoAcordo(session.userId, id);
+    const { parcelas, resumo } = await consultarCronogramaAcordo(session.userId, id);
     return Response.json({ parcelas, resumo });
   } catch (error) {
     if (error instanceof AcordoServiceError || error instanceof PropostaNegociacaoServiceError) {

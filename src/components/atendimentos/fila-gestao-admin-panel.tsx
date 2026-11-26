@@ -1,6 +1,11 @@
-﻿"use client";
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  BotaoExpandirDebitosFila,
+  CelulaInadimplenciaExpansivel,
+} from "@/components/atendimentos/celula-inadimplencia-expansivel";
+import { FilaInadimplenciaDebitosExpandido } from "@/components/atendimentos/fila-inadimplencia-debitos-expandido";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ImportacaoWizardSheet,
@@ -29,7 +34,7 @@ import {
   agruparFilaPorCondominio,
   FilaPorGruposLista,
 } from "@/components/atendimentos/fila-por-grupos-lista";
-import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
+import { BadgeSituacaoFila } from "@/components/badge-situacao-fila";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
@@ -81,7 +86,6 @@ import {
   escopoCondominios,
   formatarData,
   nomeCondominio,
-  situacoesUnidade,
   type Atendimento,
   type AtribuicaoCobranca,
   type Cadastros,
@@ -90,6 +94,7 @@ import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { listarAtendentesComRe, snapshotAtendentesComRe } from "@/lib/colaboradores/re";
+import { SITUACOES_FILA_OPERACIONAL } from "@/lib/fila/situacao-operacional";
 import {
   colunasFilaExport,
   exportarListagem,
@@ -182,7 +187,9 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
     condominioId: number;
     unidade: string;
     condominio: string;
+    debitoIds?: number[];
   } | null>(null);
+  const [inadimplenciasExpandidas, setInadimplenciasExpandidas] = useState<Set<number>>(() => new Set());
   const [juridicoContexto, setJuridicoContexto] = useState<{
     unidadeId: number;
     condominioId: number;
@@ -207,13 +214,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
     [cadastros, user?.userId],
   );
 
-  const situacoesFila = useMemo(
-    () =>
-      situacoesUnidade.filter(
-        (item) => item !== "Sem cobrança" && item !== "Quitada" && item !== "Unidade prescrita",
-      ),
-    [],
-  );
+  const situacoesFila = SITUACOES_FILA_OPERACIONAL;
 
   const aplicarQueryInicial = useCallback(() => {
     const retornoQuery = searchParams?.get("retorno");
@@ -401,14 +402,31 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
     setHistoricoUnidadeId(item.unidadeId);
   }
 
-  function abrirProposta(item: FilaCobrancaItem) {
+  function abrirProposta(item: FilaCobrancaItem, debitoIds?: number[]) {
     setPropostaContexto({
       unidadeId: item.unidadeId,
       condominioId: item.condominioId,
       unidade: rotuloUnidade(item),
       condominio: nomeCondominio(item.condominioId, cadastros),
+      debitoIds,
     });
   }
+
+  function alternarInadimplenciaExpandida(unidadeId: number) {
+    setInadimplenciasExpandidas((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(unidadeId)) proximo.delete(unidadeId);
+      else proximo.add(unidadeId);
+      return proximo;
+    });
+  }
+
+  const podePropostaFila = pode("atendimentos", "criar");
+  const propsExpansaoDebitos = {
+    onPropostaComDebitos: (item: FilaCobrancaItem, debitoIds: number[]) => abrirProposta(item, debitoIds),
+    onVerDetalhesUnidade: (item: FilaCobrancaItem) => abrirHistorico(item),
+    podeProposta: podePropostaFila,
+  };
 
   function abrirJuridico(item: FilaCobrancaItem) {
     setJuridicoContexto({
@@ -749,6 +767,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                         ? undefined
                         : (unidadeId, canal) => registrarAtendimento(unidadeId, canal)
                     }
+                    {...propsExpansaoDebitos}
                   />
                 }
                 mobile={
@@ -768,6 +787,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                         ? undefined
                         : (unidadeId, canal) => registrarAtendimento(unidadeId, canal)
                     }
+                    {...propsExpansaoDebitos}
                   />
                 }
               />
@@ -792,6 +812,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                       destaqueUnidadeId={destaqueUnidadeId}
                       onToggleUnidade={toggleUnidade}
                       acoesLinha={acoesLinha}
+                      {...propsExpansaoDebitos}
                     />
                   }
                   mobile={
@@ -806,6 +827,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                       destaqueUnidadeId={destaqueUnidadeId}
                       onToggleUnidade={toggleUnidade}
                       acoesLinha={acoesLinha}
+                      {...propsExpansaoDebitos}
                     />
                   }
                 />
@@ -822,7 +844,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                   desktop={
                     <Table aria-label="Fila de cobranças" showExport={false}>
                       <TableBody>
-                        <TableEmpty colSpan={visaoGeral ? 9 : 8}>{emptyStateFila}</TableEmpty>
+                        <TableEmpty colSpan={9}>{emptyStateFila}</TableEmpty>
                       </TableBody>
                     </Table>
                   }
@@ -856,27 +878,20 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                           </colgroup>
                         ) : (
                           <colgroup>
-                            <col className="w-[14%]" />
+                            <col className="w-[4%]" />
+                            <col className="w-[13%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[13%]" />
                             <col className="w-[11%]" />
-                            <col className="w-[14%]" />
-                            <col className="w-[12%]" />
-                            <col className="w-[18%]" />
-                            <col className="w-[14%]" />
-                            <col className="w-[12%]" />
+                            <col className="w-[17%]" />
+                            <col className="w-[13%]" />
+                            <col className="w-[11%]" />
                             <col className="w-[5%]" />
                           </colgroup>
                         )}
                         <TableHeader className="bg-[#E8EEF7]">
                           <TableRow className="border-b border-border-subtle hover:bg-transparent">
-                            {visaoGeral ? (
-                              <TableHead
-                                selection
-                                selectionChecked={allSelected}
-                                selectionIndeterminate={someSelected}
-                                selectionLabel="Selecionar todas nesta página"
-                                onSelectionChange={toggleAll}
-                              />
-                            ) : null}
+                            <TableHead className="w-12" scope="col" aria-label="Expandir débitos" />
                             <TableHead
                               align="center"
                               sortable
@@ -941,23 +956,24 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {itens.map((item) => (
+                          {itens.map((item) => {
+                            const expandido = inadimplenciasExpandidas.has(item.unidadeId);
+                            const colSpanGeral = 9;
+                            return (
+                            <Fragment key={item.unidadeId}>
                             <TableRow
-                              key={item.unidadeId}
                               id={`fila-unidade-${item.unidadeId}`}
                               className={destaqueUnidadeId === item.unidadeId ? "bg-[#FFF8E6]" : undefined}
                             >
-                              {visaoGeral ? (
-                                <TableCell align="center" className="w-12">
-                                  <div className="flex justify-center">
-                                    <Checkbox
-                                      aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                                      checked={selecionadas.has(item.unidadeId)}
-                                      onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
-                                    />
-                                  </div>
-                                </TableCell>
-                              ) : null}
+                              <TableCell align="center" className="w-12">
+                                <div className="flex justify-center">
+                                  <BotaoExpandirDebitosFila
+                                    expandido={expandido}
+                                    rotuloUnidade={rotuloUnidade(item)}
+                                    onToggle={() => alternarInadimplenciaExpandida(item.unidadeId)}
+                                  />
+                                </div>
+                              </TableCell>
                               <TableCell align="center" className="text-on-surface">
                                 {nomeCondominio(item.condominioId, cadastros)}
                               </TableCell>
@@ -965,20 +981,11 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                                 {rotuloUnidade(item)}
                               </TableCell>
                               <TableCell align="center">
-                                {item.valorInadimplencia ? (
-                                  <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
-                                ) : (
-                                  "—"
-                                )}
-                                {item.diasAtrasoMax > 0 ? (
-                                  <span className="mt-xs block text-body-sm text-on-surface-variant">
-                                    {item.diasAtrasoMax} dias em atraso
-                                  </span>
-                                ) : null}
+                                <CelulaInadimplenciaExpansivel item={item} />
                               </TableCell>
                               <TableCell align="center" className="align-middle">
                                 <div className="flex justify-center">
-                                  <BadgeSituacaoCobranca situacao={item.situacao} />
+                                  <BadgeSituacaoFila situacao={item.situacao} />
                                 </div>
                               </TableCell>
                               {visaoGeral ? (
@@ -1014,13 +1021,32 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                                 actions={acoesLinha(item)}
                               />
                             </TableRow>
-                          ))}
+                            {expandido ? (
+                              <TableRow className="bg-surface-subtle/40 hover:bg-surface-subtle/40">
+                                <TableCell colSpan={colSpanGeral} className="p-sm">
+                                  <FilaInadimplenciaDebitosExpandido
+                                    cadastros={cadastros}
+                                    unidadeId={item.unidadeId}
+                                    totalRotulo={item.valorInadimplencia}
+                                    variante="desktop"
+                                    podeProposta={podePropostaFila}
+                                    onFechar={() => alternarInadimplenciaExpandida(item.unidadeId)}
+                                    onVerDetalhes={() => abrirHistorico(item)}
+                                    onFazerProposta={(debitoIds) => abrirProposta(item, debitoIds)}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ) : null}
+                            </Fragment>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     }
                     mobile={
                       <TableMobileList aria-label="Fila de cobranças">
                         {itens.map((item, index) => {
+                          const expandido = inadimplenciasExpandidas.has(item.unidadeId);
                           const acoes = acoesLinha(item);
                           const acoesRapidas = acoes.filter((acao) =>
                             ["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
@@ -1039,20 +1065,13 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                               }
                             >
                               <TableMobileCardHeader>
-                                {visaoGeral ? (
-                                  <Checkbox
-                                    aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                                    checked={selecionadas.has(item.unidadeId)}
-                                    onChange={(event) => toggleUnidade(item.unidadeId, event.target.checked)}
+                                <span className="flex size-10 shrink-0 items-center justify-center">
+                                  <BotaoExpandirDebitosFila
+                                    expandido={expandido}
+                                    rotuloUnidade={rotuloUnidade(item)}
+                                    onToggle={() => alternarInadimplenciaExpandida(item.unidadeId)}
                                   />
-                                ) : (
-                                  <span
-                                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brass/15 text-brass"
-                                    aria-hidden="true"
-                                  >
-                                    <Icon icon={ClipboardList} size="sm" />
-                                  </span>
-                                )}
+                                </span>
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                                     <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
@@ -1076,16 +1095,9 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                                 <div className="flex items-start justify-between gap-md">
                                   <div className="min-w-0">
                                     <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
-                                    <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                                      {item.valorInadimplencia ?? "—"}
-                                    </p>
-                                    {item.diasAtrasoMax > 0 ? (
-                                      <p className="text-body-sm text-on-surface-variant">
-                                        {item.diasAtrasoMax} dias em atraso
-                                      </p>
-                                    ) : null}
+                                    <CelulaInadimplenciaExpansivel item={item} alinhamento="start" />
                                   </div>
-                                  <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
+                                  <BadgeSituacaoFila situacao={item.situacao} className="shrink-0" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-sm text-body-sm">
                                   {visaoGeral ? (
@@ -1113,6 +1125,18 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
                                   </div>
                                 </div>
                               </div>
+                              {expandido ? (
+                                <FilaInadimplenciaDebitosExpandido
+                                  cadastros={cadastros}
+                                  unidadeId={item.unidadeId}
+                                  totalRotulo={item.valorInadimplencia}
+                                  variante="mobile"
+                                  podeProposta={podePropostaFila}
+                                  onFechar={() => alternarInadimplenciaExpandida(item.unidadeId)}
+                                  onVerDetalhes={() => abrirHistorico(item)}
+                                  onFazerProposta={(debitoIds) => abrirProposta(item, debitoIds)}
+                                />
+                              ) : null}
                               {!visaoGeral ? (
                                 <div className="mt-sm">
                                   <AtalhosContatoAtendente
@@ -1187,6 +1211,7 @@ export function FilaGestaoAdminPanel({ className }: { className?: string }) {
         condominioId={propostaContexto?.condominioId ?? null}
         tituloUnidade={propostaContexto?.unidade}
         tituloCondominio={propostaContexto?.condominio}
+        debitoIdsIniciais={propostaContexto?.debitoIds ?? null}
         onClose={() => setPropostaContexto(null)}
       />
       <EncaminhamentoJuridicoSheet

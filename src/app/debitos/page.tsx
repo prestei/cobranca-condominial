@@ -33,18 +33,34 @@ import {
   Wallet,
 } from "lucide-react";
 import { useAgendarAtendimento } from "@/context/agendar-atendimento-context";
-import { Badge } from "@/components/badge";
-import { GraficoBarras, GraficoRosca } from "@/components/charts";
+import {
+  InadimplenciaPainelGraficos,
+  type VisaoGraficoPainel,
+} from "@/components/debitos/inadimplencia-painel-graficos";
+import { InadimplenciaHistoricoPainel } from "@/components/debitos/inadimplencia-historico-painel";
+import { InadimplenciaRecorteListagem } from "@/components/debitos/inadimplencia-recorte-listagem";
+import { InadimplenciaRecortePorCondominioLista } from "@/components/debitos/inadimplencia-recorte-por-condominio-lista";
+import { InadimplenciaRecorteSituacaoTabs } from "@/components/debitos/inadimplencia-recorte-situacao-tabs";
+import { HistoricoUnidadeSheet } from "@/components/unidades/historico-unidade-sheet";
 import { Button } from "@/components/button";
 import { CardMetric } from "@/components/card-metric";
 import { KpiMobileCard } from "@/components/kpi-mobile-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { FilterBar } from "@/components/filter-bar";
 import { FiltrosSection } from "@/components/filtros-section";
 import { FormSteps } from "@/components/form-steps";
 import { Icon } from "@/components/icon";
-import { FormField, Input, Select } from "@/components/input";
+import { FormField, Input, Select, Textarea } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { resolverPeriodo, type PeriodValue } from "@/components/period-input";
@@ -64,27 +80,7 @@ import {
   SheetTitle,
 } from "@/components/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
-import {
-  ResponsiveTable,
-  Table,
-  TableDataBar,
-  TableActionsButton,
-  TableActionsCell,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableMobileCard,
-  TableMobileCardHeader,
-  TableMobileEmpty,
-  TableMobileField,
-  TableMobileList,
-  TableMobileTitle,
-  TableRow,
-  type TableExportFormat,
-  type TableSortDirection,
-} from "@/components/table";
+import { ResponsiveTable, TableDataBar, type TableExportFormat, type TableSortDirection } from "@/components/table";
 import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
@@ -94,6 +90,7 @@ import {
 import {
   dataCorteLimite,
   debitoAbertoNaData,
+  debitoEmAberto,
   diasDeAtraso,
   formatarData,
   formatarMoeda,
@@ -104,13 +101,18 @@ import {
   nomeCondominio,
   nomeUnidade,
   origensDebito,
+  debitoPrescrito,
   situacaoCobrancaUnidade,
+  situacaoInadimplenciaDebito,
+  situacoesInadimplencia,
   situacoesUnidade,
+  SITUACAO_INADIMPLENCIA_ATIVA,
+  SITUACAO_INADIMPLENCIA_PRESCRITA,
   statusDebito,
-  unidadePrescrita,
   type Debito,
   type Unidade,
 } from "@/data/catalogo";
+import type { DebitoNegociacaoFinanceira } from "@/lib/debitos/negotiation-financial-sync";
 import { DelinquencyTrackingBadge } from "@/components/debitos/delinquency-tracking-badge";
 import {
   computeDelinquencyTrackingForDebt,
@@ -122,15 +124,21 @@ import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 import { calcularIndicadoresInadimplencia } from "@/lib/debitos/indicadores";
+import {
+  colunasExportacaoRecorte,
+  contextoCobrancaUnidade,
+  formatoLinhaExportacaoRecorte,
+} from "@/lib/debitos/recorte-listagem-operacional";
+import {
+  filtrarDebitosPorRecorteListagem,
+  montarResumoPainelSituacao,
+  ROTULOS_RECORTE_LISTAGEM,
+  type RecorteListagemInadimplenciaId,
+} from "@/lib/debitos/painel-situacao";
+import { montarResumoPainelUnidade } from "@/lib/debitos/painel-unidade";
 import { exportarCsv, exportarExcel, exportarPdf } from "@/lib/exportar";
 
 const etapas = ["Identificação", "Valores e acréscimos", "Pagamento"] as const;
-const badgeStatus: Record<string, "success" | "error" | "secondary"> = {
-  Pendente: "secondary",
-  Pago: "success",
-  Vencido: "error",
-  Cancelado: "error",
-};
 type SortKey = "referencia" | "unidade" | "grupo" | "vencimento" | "dias" | "status" | "original" | "atualizado";
 type VisaoListagem = "geral" | "condominio";
 type ErroCampo =
@@ -146,9 +154,38 @@ type ErroCampo =
   | "correcao"
   | "valorAtualizado"
   | "dataPagamento"
-  | "valorPago";
+  | "valorPago"
+  | "situacaoInadimplencia"
+  | "justificativaPrescricao";
 function moeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function corpoAtualizacaoDebito(
+  item: Debito,
+  extra?: { situacaoInadimplencia?: string; justificativaPrescricao?: string },
+) {
+  const canon = (value: string) => (value ?? "").trim().replace(",", ".");
+  return {
+    condominioId: item.condominioId,
+    unidadeId: item.unidadeId,
+    referencia: item.referencia,
+    descricao: item.descricao ?? "",
+    dataVencimento: item.dataVencimento,
+    valor: canon(item.valor),
+    valorOriginal: canon(item.valorOriginal),
+    multa: canon(item.multa),
+    juros: canon(item.juros),
+    correcao: canon(item.correcao),
+    valorAtualizado: canon(item.valorAtualizado),
+    status: item.status,
+    dataPagamento: item.dataPagamento ?? "",
+    valorPago: canon(item.valorPago),
+    origem: item.origem ?? "",
+    identificadorExterno: item.identificadorExterno ?? "",
+    situacaoInadimplencia: extra?.situacaoInadimplencia ?? situacaoInadimplenciaDebito(item),
+    justificativaPrescricao: extra?.justificativaPrescricao ?? item.justificativaPrescricao ?? "",
+  };
 }
 
 function percentual(valor: number) {
@@ -173,6 +210,8 @@ function debitoParaFormulario(item: Debito) {
     valorPago: item.valorPago ?? "",
     origem: item.origem ?? "",
     identificadorExterno: item.identificadorExterno ?? "",
+    situacaoInadimplencia: situacaoInadimplenciaDebito(item),
+    justificativaPrescricao: item.justificativaPrescricao ?? "",
   };
 }
 
@@ -181,7 +220,9 @@ function rotuloUnidadeForm(item: Unidade) {
   return bloco ? `${item.identificacao} · ${bloco}` : item.identificacao;
 }
 
-const formularioVazio = {
+type FormDebitoState = typeof formularioVazioBase;
+
+const formularioVazioBase = {
   condominioId: "",
   unidadeId: "",
   referencia: "",
@@ -198,7 +239,11 @@ const formularioVazio = {
   valorPago: "",
   origem: "",
   identificadorExterno: "",
+  situacaoInadimplencia: SITUACAO_INADIMPLENCIA_ATIVA as string,
+  justificativaPrescricao: "",
 };
+
+const formularioVazio: FormDebitoState = formularioVazioBase;
 
 const dinheiro = /^\d+([.,]\d{1,2})?$/;
 const periodoTodos: PeriodValue = { preset: "todos", de: "", ate: "" };
@@ -234,18 +279,35 @@ function DebitosPage() {
   const [appliedUnidadeId, setAppliedUnidadeId] = useState("todas");
   const [situacaoCobranca, setSituacaoCobranca] = useState("todas");
   const [appliedSituacaoCobranca, setAppliedSituacaoCobranca] = useState("todas");
+  const [situacaoInadimplencia, setSituacaoInadimplencia] = useState("todas");
+  const [appliedSituacaoInadimplencia, setAppliedSituacaoInadimplencia] = useState("todas");
   const [visao, setVisao] = useState<VisaoListagem>("condominio");
+  const [recorteSituacao, setRecorteSituacao] = useState<RecorteListagemInadimplenciaId>("em_aberto");
+  const [visaoGrafico, setVisaoGrafico] = useState<VisaoGraficoPainel>("situacao");
   const [sortKey, setSortKey] = useState<SortKey>("vencimento");
   const [sortDirection, setSortDirection] = useState<Exclude<TableSortDirection, "none">>("desc");
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [reopenSheetAfterLeaveDismiss, setReopenSheetAfterLeaveDismiss] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Debito | null>(null);
   const [step, setStep] = useState(0);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState(formularioVazio);
+  const [form, setForm] = useState<FormDebitoState>(formularioVazio);
+  const [baseline, setBaseline] = useState<FormDebitoState>(formularioVazio);
   const [errors, setErrors] = useState<Partial<Record<ErroCampo, string>>>({});
   const [carregandoEdicao, setCarregandoEdicao] = useState(false);
+  const [prescricaoTarget, setPrescricaoTarget] = useState<Debito | null>(null);
+  const [prescricaoJustificativa, setPrescricaoJustificativa] = useState("");
+  const [prescricaoErro, setPrescricaoErro] = useState("");
+  const [prescricaoSalvando, setPrescricaoSalvando] = useState(false);
+  const [removerPrescricaoTarget, setRemoverPrescricaoTarget] = useState<Debito | null>(null);
+  const [negociacaoPorDebito, setNegociacaoPorDebito] = useState<Map<number, DebitoNegociacaoFinanceira>>(
+    () => new Map(),
+  );
+  const [codigoRe, setCodigoRe] = useState("todos");
+  const [appliedCodigoRe, setAppliedCodigoRe] = useState("todos");
+  const [historicoUnidadeId, setHistoricoUnidadeId] = useState<number | null>(null);
 
   const condominiosVisiveis = escopoCondominios(cadastros, sessao?.userId);
   const unidadesVisiveis = escopoUnidades(cadastros, sessao?.userId);
@@ -262,8 +324,21 @@ function DebitosPage() {
   async function recarregarDebitosDoServidor() {
     const response = await fetch("/api/debitos", { credentials: "same-origin" });
     if (!response.ok) return;
-    const payload = (await response.json()) as { debitos?: Debito[] };
-    if (payload.debitos) void refetch()
+    const payload = (await response.json()) as {
+      debitos?: Array<Debito & { negociacaoFinanceira?: DebitoNegociacaoFinanceira }>;
+    };
+    if (payload.debitos) {
+      const mapa = new Map<number, DebitoNegociacaoFinanceira>();
+      for (const item of payload.debitos) {
+        if (item.negociacaoFinanceira) mapa.set(item.id, item.negociacaoFinanceira);
+      }
+      setNegociacaoPorDebito(mapa);
+      void refetch();
+    }
+  }
+
+  function negociacaoFinanceiraDoDebito(item: Debito): DebitoNegociacaoFinanceira | undefined {
+    return negociacaoPorDebito.get(item.id);
   }
 
   useEffect(() => {
@@ -339,81 +414,161 @@ function DebitosPage() {
   );
   const condominiosOrdenados = [...cadastros.condominios].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const faixaPeriodo = resolverPeriodo(appliedPeriodo, hojeIso());
-  const visible = debitos
-    .filter((item) => {
-      const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
-      const matchesOrigem = appliedOrigem === "todas" || item.origem === appliedOrigem;
-      const matchesCondominio = appliedCondominioId === "todos" || String(item.condominioId) === appliedCondominioId;
-      const cidadeDebito = cadastros.condominios.find((condominio) => condominio.id === item.condominioId)?.cidade.trim() ?? "";
-      const matchesCidade = appliedCidade === "todas" || cidadeDebito === appliedCidade;
-      const matchesPeriodo =
-        (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
-        (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
-      const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
-      const unidadeDebito = cadastros.unidades.find((u) => u.id === item.unidadeId);
-      const cobrancaUnidade = unidadeDebito ? situacaoCobrancaUnidade(unidadeDebito) : "";
-      const matchesSituacaoCobranca =
-        appliedSituacaoCobranca === "todas" || cobrancaUnidade === appliedSituacaoCobranca;
-      const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId, cadastros)} ${nomeCondominio(item.condominioId, cadastros)}`.toLocaleLowerCase("pt-BR");
-      return (
-        matchesStatus &&
-        matchesOrigem &&
-        matchesCondominio &&
-        matchesCidade &&
-        matchesPeriodo &&
-        matchesUnidade &&
-        matchesSituacaoCobranca &&
-        (query.length === 0 || haystack.includes(query))
-      );
-    })
-    .sort((a, b) => {
-      if (visao === "condominio") {
-        const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(nomeCondominio(b.condominioId, cadastros), "pt-BR");
-        if (condo !== 0) return condo;
-        const unidade = nomeUnidade(a.unidadeId, cadastros).localeCompare(nomeUnidade(b.unidadeId, cadastros), "pt-BR");
-        if (unidade !== 0) return unidade;
-        return a.dataVencimento.localeCompare(b.dataVencimento);
-      }
-      const factor = sortDirection === "asc" ? 1 : -1;
-      const diasDe = (item: Debito) =>
-        item.dataVencimento && item.dataVencimento <= appliedDataBase
-          ? diasDeAtraso(item.dataVencimento, appliedDataBase)
-          : -1;
-      if (sortKey === "atualizado") return (Number(a.valorAtualizado) - Number(b.valorAtualizado)) * factor;
-      if (sortKey === "original") return (Number(a.valorOriginal) - Number(b.valorOriginal)) * factor;
-      if (sortKey === "dias") return (diasDe(a) - diasDe(b)) * factor;
-      const left =
-        sortKey === "unidade"
-          ? nomeUnidade(a.unidadeId, cadastros)
-          : sortKey === "grupo"
-            ? grupoDebito(a.descricao)
-            : sortKey === "vencimento"
-              ? a.dataVencimento
-              : sortKey === "status"
-                ? a.status
-                : a.referencia;
-      const right =
-        sortKey === "unidade"
-          ? nomeUnidade(b.unidadeId, cadastros)
-          : sortKey === "grupo"
-            ? grupoDebito(b.descricao)
-            : sortKey === "vencimento"
-              ? b.dataVencimento
-              : sortKey === "status"
-                ? b.status
-                : b.referencia;
-      return left.localeCompare(right, "pt-BR") * factor;
+  const debitosFiltrados = useMemo(
+    () =>
+      debitos
+        .filter((item) => {
+          const matchesStatus = appliedStatus === "todos" || item.status === appliedStatus;
+          const matchesOrigem = appliedOrigem === "todas" || item.origem === appliedOrigem;
+          const matchesCondominio = appliedCondominioId === "todos" || String(item.condominioId) === appliedCondominioId;
+          const cidadeDebito =
+            cadastros.condominios.find((condominio) => condominio.id === item.condominioId)?.cidade.trim() ?? "";
+          const matchesCidade = appliedCidade === "todas" || cidadeDebito === appliedCidade;
+          const matchesPeriodo =
+            (!faixaPeriodo.inicio || item.dataVencimento >= faixaPeriodo.inicio) &&
+            (!faixaPeriodo.fim || item.dataVencimento <= faixaPeriodo.fim);
+          const matchesUnidade = appliedUnidadeId === "todas" || String(item.unidadeId) === appliedUnidadeId;
+          const unidadeDebito = cadastros.unidades.find((u) => u.id === item.unidadeId);
+          const cobrancaUnidade = unidadeDebito ? situacaoCobrancaUnidade(unidadeDebito) : "";
+          const matchesSituacaoCobranca =
+            appliedSituacaoCobranca === "todas" || cobrancaUnidade === appliedSituacaoCobranca;
+          const inadimplenciaDebito = situacaoInadimplenciaDebito(item);
+          const matchesSituacaoInadimplencia =
+            appliedSituacaoInadimplencia === "todas" || inadimplenciaDebito === appliedSituacaoInadimplencia;
+          const haystack = `${item.referencia} ${item.descricao} ${nomeUnidade(item.unidadeId, cadastros)} ${nomeCondominio(item.condominioId, cadastros)}`.toLocaleLowerCase(
+            "pt-BR",
+          );
+          return (
+            matchesStatus &&
+            matchesOrigem &&
+            matchesCondominio &&
+            matchesCidade &&
+            matchesPeriodo &&
+            matchesUnidade &&
+            matchesSituacaoCobranca &&
+            matchesSituacaoInadimplencia &&
+            (query.length === 0 || haystack.includes(query))
+          );
+        })
+        .sort((a, b) => {
+          if (visao === "condominio") {
+            const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(
+              nomeCondominio(b.condominioId, cadastros),
+              "pt-BR",
+            );
+            if (condo !== 0) return condo;
+            const unidade = nomeUnidade(a.unidadeId, cadastros).localeCompare(
+              nomeUnidade(b.unidadeId, cadastros),
+              "pt-BR",
+            );
+            if (unidade !== 0) return unidade;
+            return a.dataVencimento.localeCompare(b.dataVencimento);
+          }
+          const factor = sortDirection === "asc" ? 1 : -1;
+          const diasDe = (item: Debito) =>
+            item.dataVencimento && item.dataVencimento <= appliedDataBase
+              ? diasDeAtraso(item.dataVencimento, appliedDataBase)
+              : -1;
+          if (sortKey === "atualizado") return (Number(a.valorAtualizado) - Number(b.valorAtualizado)) * factor;
+          if (sortKey === "original") return (Number(a.valorOriginal) - Number(b.valorOriginal)) * factor;
+          if (sortKey === "dias") return (diasDe(a) - diasDe(b)) * factor;
+          const left =
+            sortKey === "unidade"
+              ? nomeUnidade(a.unidadeId, cadastros)
+              : sortKey === "grupo"
+                ? grupoDebito(a.descricao)
+                : sortKey === "vencimento"
+                  ? a.dataVencimento
+                  : sortKey === "status"
+                    ? a.status
+                    : a.referencia;
+          const right =
+            sortKey === "unidade"
+              ? nomeUnidade(b.unidadeId, cadastros)
+              : sortKey === "grupo"
+                ? grupoDebito(b.descricao)
+                : sortKey === "vencimento"
+                  ? b.dataVencimento
+                  : sortKey === "status"
+                    ? b.status
+                    : b.referencia;
+          return left.localeCompare(right, "pt-BR") * factor;
+        }),
+    [
+      debitos,
+      appliedStatus,
+      appliedOrigem,
+      appliedCondominioId,
+      appliedCidade,
+      faixaPeriodo.inicio,
+      faixaPeriodo.fim,
+      appliedUnidadeId,
+      appliedSituacaoCobranca,
+      appliedSituacaoInadimplencia,
+      query,
+      cadastros,
+      visao,
+      sortDirection,
+      appliedDataBase,
+      sortKey,
+    ],
+  );
+
+  const visible = useMemo(
+    () => filtrarDebitosPorRecorteListagem(debitosFiltrados, recorteSituacao, appliedDataBase, cadastros),
+    [debitosFiltrados, recorteSituacao, appliedDataBase, cadastros],
+  );
+
+  const visibleComRe = useMemo(() => {
+    if (appliedCodigoRe === "todos") return visible;
+    const alvo = appliedCodigoRe.trim().toUpperCase();
+    return visible.filter((item) => {
+      const re = contextoCobrancaUnidade(cadastros, item.unidadeId).codigoRe;
+      return re?.toUpperCase() === alvo;
     });
+  }, [visible, appliedCodigoRe, cadastros]);
+
+  const usarRelatorioCondominio = visao === "condominio" && recorteSituacao === "em_aberto";
+  const usarRecortePorCondominio = visao === "condominio" && recorteSituacao !== "em_aberto";
+  const destacarCondominiosGeral = visao === "geral" && recorteSituacao !== "em_aberto";
+  const unidadeHistoricoPainel =
+    recorteSituacao === "historico" && appliedUnidadeId !== "todas" ? Number(appliedUnidadeId) : null;
+
+  const reOpcoes = useMemo(() => {
+    const codigos = new Set<string>();
+    for (const usuario of cadastros.usuarios) {
+      const codigo = usuario.codigoRe?.trim();
+      if (codigo) codigos.add(codigo.toUpperCase());
+    }
+    return [...codigos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [cadastros.usuarios]);
 
   const gruposCondominio = useMemo(
-    () => agruparDebitosPorCondominio(visible, cadastros),
-    [visible, cadastros],
+    () => agruparDebitosPorCondominio(visibleComRe, cadastros),
+    [visibleComRe, cadastros],
   );
   const descricaoPrazoCondominio = (condominioId: number) =>
     delinquencyTrackingDaysCaptionForCondominiumId(condominioId, cadastros);
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const itensRecorteListagem = useMemo(() => {
+    if (!destacarCondominiosGeral) return visibleComRe;
+    return [...visibleComRe].sort((a, b) => {
+      const condo = nomeCondominio(a.condominioId, cadastros).localeCompare(
+        nomeCondominio(b.condominioId, cadastros),
+        "pt-BR",
+      );
+      if (condo !== 0) return condo;
+      const unidade = nomeUnidade(a.unidadeId, cadastros).localeCompare(
+        nomeUnidade(b.unidadeId, cadastros),
+        "pt-BR",
+      );
+      if (unidade !== 0) return unidade;
+      return a.dataVencimento.localeCompare(b.dataVencimento);
+    });
+  }, [visibleComRe, destacarCondominiosGeral, cadastros]);
+
+  const pageCount = Math.max(1, Math.ceil(itensRecorteListagem.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageRows = itensRecorteListagem.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const condominioFiltrado =
     appliedCondominioId !== "todos"
       ? cadastros.condominios.find((item) => String(item.id) === appliedCondominioId)
@@ -427,7 +582,7 @@ function DebitosPage() {
     : "Acima do prazo do condomínio";
   const corte =
     prazoReferenciaKpi != null ? dataCorteLimite(appliedDataBase, prazoReferenciaKpi) : "";
-  const emAbertoNaData = visible.filter((item) => debitoAbertoNaData(item, appliedDataBase));
+  const emAbertoNaData = debitosFiltrados.filter((item) => debitoAbertoNaData(item, appliedDataBase));
   const condominiosNoFiltro = cadastros.condominios.filter((item) => {
     const matchesCondominio = appliedCondominioId === "todos" || String(item.id) === appliedCondominioId;
     const matchesCidade = appliedCidade === "todas" || item.cidade.trim() === appliedCidade;
@@ -437,7 +592,7 @@ function DebitosPage() {
     condominiosNoFiltro.some((condominio) => condominio.id === item.condominioId),
   );
   const unidadesCarteira = unidadesNoRecorte.length;
-  const unidadesPrescritasRecorte = unidadesNoRecorte.filter((item) => unidadePrescrita(item)).length;
+  const inadimplenciasPrescritasRecorte = emAbertoNaData.filter((item) => debitoPrescrito(item)).length;
   const indicadores = calcularIndicadoresInadimplencia({
     debitos: emAbertoNaData,
     dataBase: appliedDataBase,
@@ -449,34 +604,36 @@ function DebitosPage() {
   const ateLimite = indicadores.ateLimite;
   const acimaLimite = indicadores.acimaLimite;
   const unidadesDevedoras = indicadores.unidadesDevedoras;
-  const percentualUnidades = indicadores.percentualUnidades;
-  const unidadesEmDia = Math.max(0, unidadesCarteira - unidadesDevedoras);
   const percentualValorAcima =
     totalAtualizado > 0 ? (acimaLimite / totalAtualizado) * 100 : null;
   const percentualValorAte =
     totalAtualizado > 0 ? (ateLimite / totalAtualizado) * 100 : null;
-  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedSituacaoCobranca}-${appliedOrigem}-${appliedDataBase}-${query}`;
+  const chaveGraficos = `${appliedCondominioId}-${appliedUnidadeId}-${appliedCidade}-${appliedStatus}-${appliedSituacaoCobranca}-${appliedSituacaoInadimplencia}-${appliedOrigem}-${appliedDataBase}-${query}`;
+  const resumoPainelSituacao = useMemo(
+    () => montarResumoPainelSituacao(debitosFiltrados, appliedDataBase, cadastros),
+    [debitosFiltrados, appliedDataBase, cadastros],
+  );
+  const resumoPainelUnidade = useMemo(
+    () => montarResumoPainelUnidade(unidadesNoRecorte, visible, appliedDataBase, cadastros),
+    [unidadesNoRecorte, visible, appliedDataBase, cadastros],
+  );
+  const subtituloUnidadesGrafico =
+    unidadesCarteira > 0
+      ? `${unidadesDevedoras} de ${unidadesCarteira} unidades com débito vencido na data-base ${formatarData(appliedDataBase)}${
+          inadimplenciasPrescritasRecorte > 0
+            ? ` · ${inadimplenciasPrescritasRecorte} inadimplência(s) prescrita(s) no recorte`
+            : ""
+        }`
+      : "Sem unidades no recorte filtrado";
+  const subtituloFaixasGrafico =
+    totalAtualizado > 0
+      ? corte
+        ? `Total atualizado em aberto ${moeda(totalAtualizado)} · corte ${formatarData(corte)} (${prazoReferenciaKpi} dias)`
+        : `Total atualizado em aberto ${moeda(totalAtualizado)} · prazos individuais por condomínio`
+      : "Sem valor em aberto no recorte filtrado";
   const vazioGrafico = (
     <p className="py-lg text-center text-body-sm text-on-surface-variant">Sem dados no recorte.</p>
   );
-
-  function directionFor(key: SortKey): TableSortDirection {
-    return sortKey === key ? sortDirection : "none";
-  }
-
-  function handleSort(key: SortKey) {
-    if (sortKey !== key) {
-      setSortKey(key);
-      setSortDirection(key === "vencimento" || key === "atualizado" || key === "original" || key === "dias" ? "desc" : "asc");
-      return;
-    }
-    if (sortDirection === "asc") {
-      setSortDirection("desc");
-      return;
-    }
-    setSortKey("vencimento");
-    setSortDirection("desc");
-  }
 
   function handleApply() {
     setAppliedSearch(search);
@@ -488,6 +645,10 @@ function DebitosPage() {
     setAppliedOrigem(origem);
     setAppliedUnidadeId(unidadeId);
     setAppliedSituacaoCobranca(situacaoCobranca);
+    setAppliedSituacaoInadimplencia(situacaoInadimplencia);
+    setAppliedCodigoRe(
+      recorteSituacao === "em_aberto" || recorteSituacao === "em_negociacao" ? codigoRe : "todos",
+    );
     setPage(1);
   }
 
@@ -511,12 +672,17 @@ function DebitosPage() {
     setAppliedUnidadeId("todas");
     setSituacaoCobranca("todas");
     setAppliedSituacaoCobranca("todas");
+    setSituacaoInadimplencia("todas");
+    setAppliedSituacaoInadimplencia("todas");
+    setCodigoRe("todos");
+    setAppliedCodigoRe("todos");
     setPage(1);
   }
 
   function openCreate() {
     setEditingId(null);
     setForm(formularioVazio);
+    setBaseline(formularioVazio);
     setErrors({});
     setStep(0);
     setSheetOpen(true);
@@ -528,7 +694,9 @@ function DebitosPage() {
     setEditingId(item.id);
     setErrors({});
     setStep(0);
-    setForm(debitoParaFormulario(item));
+    const formularioInicial = debitoParaFormulario(item);
+    setForm(formularioInicial);
+    setBaseline(formularioInicial);
     try {
       await sincronizarCadastrosRelacionados();
       const response = await fetch(`/api/debitos/${item.id}`, { credentials: "same-origin" });
@@ -544,9 +712,13 @@ function DebitosPage() {
           description: body.error ?? "Exibindo os dados disponíveis na listagem.",
         });
       }
-      setForm(debitoParaFormulario(debito));
+      const formularioAtualizado = debitoParaFormulario(debito);
+      setForm(formularioAtualizado);
+      setBaseline(formularioAtualizado);
     } catch {
-      setForm(debitoParaFormulario(item));
+      const formularioFallback = debitoParaFormulario(item);
+      setForm(formularioFallback);
+      setBaseline(formularioFallback);
       toast({
         variant: "error",
         title: "Erro ao carregar",
@@ -557,17 +729,35 @@ function DebitosPage() {
     }
   }
 
+  function formularioSujo() {
+    return (Object.keys(formularioVazio) as Array<keyof FormDebitoState>).some(
+      (key) => form[key] !== baseline[key],
+    );
+  }
+
   function closeSheet() {
-    const preenchido = Object.entries(form).some(([, value]) => value.trim() !== "");
-    if (preenchido) {
+    if (formularioSujo()) {
+      setReopenSheetAfterLeaveDismiss(true);
+      setSheetOpen(false);
       setLeaveConfirmOpen(true);
       return;
     }
     setSheetOpen(false);
+    setStep(0);
+  }
+
+  function handleLeaveConfirmOpenChange(open: boolean) {
+    setLeaveConfirmOpen(open);
+    if (!open && reopenSheetAfterLeaveDismiss) {
+      setReopenSheetAfterLeaveDismiss(false);
+      setSheetOpen(true);
+    }
   }
 
   function confirmLeave() {
+    setReopenSheetAfterLeaveDismiss(false);
     setLeaveConfirmOpen(false);
+    setStep(0);
     setSheetOpen(false);
   }
 
@@ -620,6 +810,73 @@ function DebitosPage() {
     await recarregarDebitosDoServidor();
   }
 
+  function abrirDialogPrescricao(item: Debito) {
+    setPrescricaoErro("");
+    setPrescricaoJustificativa(item.justificativaPrescricao?.trim() ?? "");
+    setPrescricaoTarget(item);
+  }
+
+  function fecharDialogPrescricao() {
+    if (prescricaoSalvando) return;
+    setPrescricaoTarget(null);
+    setPrescricaoJustificativa("");
+    setPrescricaoErro("");
+  }
+
+  async function confirmarMarcarPrescrita() {
+    if (!prescricaoTarget) return;
+    const justificativa = prescricaoJustificativa.trim();
+    if (justificativa.length < 10) {
+      setPrescricaoErro("Informe a justificativa com pelo menos 10 caracteres.");
+      return;
+    }
+    setPrescricaoSalvando(true);
+    setPrescricaoErro("");
+    const response = await fetch(`/api/debitos/${prescricaoTarget.id}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        corpoAtualizacaoDebito(prescricaoTarget, {
+          situacaoInadimplencia: SITUACAO_INADIMPLENCIA_PRESCRITA,
+          justificativaPrescricao: justificativa,
+        }),
+      ),
+    });
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    setPrescricaoSalvando(false);
+    if (!response.ok) {
+      toast({ variant: "error", title: body.error ?? "Não foi possível classificar a inadimplência." });
+      return;
+    }
+    toast({ variant: "success", title: "Inadimplência marcada como prescrita" });
+    fecharDialogPrescricao();
+    await recarregarDebitosDoServidor();
+  }
+
+  async function confirmarRemoverPrescricao() {
+    if (!removerPrescricaoTarget) return;
+    const response = await fetch(`/api/debitos/${removerPrescricaoTarget.id}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        corpoAtualizacaoDebito(removerPrescricaoTarget, {
+          situacaoInadimplencia: SITUACAO_INADIMPLENCIA_ATIVA,
+          justificativaPrescricao: "",
+        }),
+      ),
+    });
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      toast({ variant: "error", title: body.error ?? "Não foi possível remover a prescrição." });
+      return;
+    }
+    toast({ variant: "success", title: "Prescrição removida; inadimplência ativa novamente" });
+    setRemoverPrescricaoTarget(null);
+    await recarregarDebitosDoServidor();
+  }
+
   function iniciarAtendimento(item: Debito) {
     const params = new URLSearchParams({
       novo: "1",
@@ -645,6 +902,20 @@ function DebitosPage() {
       });
     }
     if (pode("debitos", "editar")) lista.push({ label: "Editar", icon: Pencil, onSelect: () => openEdit(item) });
+    if (pode("debitos", "editar") && debitoEmAberto(item) && !debitoPrescrito(item)) {
+      lista.push({
+        label: "Marcar como prescrita",
+        icon: Scale,
+        onSelect: () => abrirDialogPrescricao(item),
+      });
+    }
+    if (pode("debitos", "editar") && debitoPrescrito(item)) {
+      lista.push({
+        label: "Remover prescrição",
+        icon: Scale,
+        onSelect: () => setRemoverPrescricaoTarget(item),
+      });
+    }
     if (pode("debitos", "editar") || pode("unidades", "editar")) {
       const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
       if (unidade && unidade.situacao !== "Quitada") {
@@ -676,6 +947,15 @@ function DebitosPage() {
     if (!referencia) nextErrors.referencia = "Informe a referência. Ex.: 09/2026.";
     if (!form.dataVencimento) nextErrors.dataVencimento = "Informe o vencimento.";
     if (!form.status) nextErrors.status = "Selecione a situação.";
+    if (
+      form.situacaoInadimplencia === SITUACAO_INADIMPLENCIA_PRESCRITA &&
+      form.justificativaPrescricao.trim().length < 10
+    ) {
+      nextErrors.justificativaPrescricao = "Informe a justificativa com pelo menos 10 caracteres.";
+    }
+    if (!situacoesInadimplencia.includes(form.situacaoInadimplencia as (typeof situacoesInadimplencia)[number])) {
+      nextErrors.situacaoInadimplencia = "Selecione a situação da inadimplência.";
+    }
 
     const quitado = form.status === "Pago";
     if (step === etapas.length - 1 && quitado) {
@@ -756,6 +1036,8 @@ function DebitosPage() {
       valorPago: quitado ? canon(form.valorPago) : "",
       origem: form.origem,
       identificadorExterno: form.identificadorExterno.trim(),
+      situacaoInadimplencia: form.situacaoInadimplencia,
+      justificativaPrescricao: form.justificativaPrescricao.trim(),
     };
 
     const url = editingId === null ? "/api/debitos" : `/api/debitos/${editingId}`;
@@ -792,7 +1074,11 @@ function DebitosPage() {
       description={
         debitos.length === 0
           ? "Cadastre os encargos das unidades ou importe o relatório da administradora."
-          : "Ajuste a busca ou os filtros."
+          : debitosFiltrados.length === 0
+            ? "Ajuste a busca ou os filtros."
+            : recorteSituacao === "historico" && appliedUnidadeId === "todas"
+              ? `Não há registros no histórico no recorte atual. Selecione uma unidade nos filtros para ver períodos e a linha do tempo completa.`
+              : `Não há registros em ${ROTULOS_RECORTE_LISTAGEM[recorteSituacao].toLocaleLowerCase("pt-BR")} no recorte atual.`
       }
       action={
         pode("debitos", "criar") ? (
@@ -815,41 +1101,14 @@ function DebitosPage() {
     return computeDelinquencyTrackingForDebt(item.condominioId, item.dataVencimento, appliedDataBase, cadastros);
   }
 
-  function celulaDias(item: Debito) {
-    const metricas = metricasPrazoDebito(item);
-    if (!metricas) return "—";
-    return (
-      <div className="flex flex-col items-center gap-xs">
-        <span
-          className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-error-container px-sm py-xs text-label-sm tabular-nums text-status-critical"
-          title={`Prazo do condomínio: ${metricas.trackingDays} dias`}
-        >
-          {metricas.elapsedDays}
-        </span>
-        <DelinquencyTrackingBadge status={metricas.status} />
-      </div>
-    );
-  }
-
-  function celulaDiasRestantes(item: Debito) {
-    const metricas = metricasPrazoDebito(item);
-    if (!metricas || metricas.status === "no_arrears") return "—";
-    return (
-      <span className="tabular-nums text-body-sm text-on-surface">
-        {metricas.remainingDays}
-        <span className="text-on-surface-variant"> / {metricas.trackingDays}</span>
-      </span>
-    );
-  }
-
   function linhasExportacao() {
-    if (visao === "condominio") {
-      return visible.map((item) => {
+    if (usarRelatorioCondominio) {
+      return visibleComRe.map((item) => {
         const unidade = cadastros.unidades.find((u) => u.id === item.unidadeId);
         return [
           nomeCondominio(item.condominioId, cadastros),
           unidade?.identificacao ?? nomeUnidade(item.unidadeId, cadastros),
-          grupoDebito(item.descricao) || item.descricao || "—",
+          item.descricao?.trim() || "—",
           item.referencia,
           formatarData(item.dataVencimento),
           formatarMoeda(item.valorOriginal || item.valor),
@@ -861,21 +1120,15 @@ function DebitosPage() {
         ];
       });
     }
-    return visible.map((item) => [
-      item.referencia,
-      nomeUnidade(item.unidadeId, cadastros),
-      grupoDebito(item.descricao),
-      formatarData(item.dataVencimento),
-      (() => {
-        const metricas = metricasPrazoDebito(item);
-        return metricas ? String(metricas.elapsedDays) : "—";
-      })(),
-      formatarMoeda(item.valorOriginal),
-      formatarMoeda(item.valorAtualizado),
-      item.status,
-      rotuloFonteValores(item),
-      formatarData(item.atualizadoEm),
-    ]);
+    return visibleComRe.map((item) =>
+      formatoLinhaExportacaoRecorte(
+        recorteSituacao,
+        item,
+        cadastros,
+        appliedDataBase,
+        negociacaoFinanceiraDoDebito(item),
+      ),
+    );
   }
 
   function abrirImportacao() {
@@ -883,7 +1136,7 @@ function DebitosPage() {
   }
 
   function aoExportar(formato: TableExportFormat) {
-    if (visible.length === 0) {
+    if (visibleComRe.length === 0) {
       toast({
         variant: "info",
         title: "Nada para exportar",
@@ -891,33 +1144,21 @@ function DebitosPage() {
       });
       return;
     }
-    const colunas =
-      visao === "condominio"
-        ? [
-            "Condomínio",
-            "Unidade",
-            "Lançamento",
-            "Mês ref.",
-            "Vencimento",
-            "Valor",
-            "Juros",
-            "Multa",
-            "Correção",
-            "Proj. rec.",
-            "Situação",
-          ]
-        : [
-            "Referência",
-            "Unidade",
-            "Tipo",
-            "Vencimento",
-            "Dias",
-            "Original",
-            "Atualizado",
-            "Situação",
-            "Origem",
-            "Atualização",
-          ];
+    const colunas = usarRelatorioCondominio
+      ? [
+          "Condomínio",
+          "Unidade",
+          "Lançamento",
+          "Mês ref.",
+          "Vencimento",
+          "Valor",
+          "Juros",
+          "Multa",
+          "Correção",
+          "Proj. rec.",
+          "Situação",
+        ]
+      : colunasExportacaoRecorte(recorteSituacao);
     const linhas = linhasExportacao();
     const arquivoBase = `inadimplencia-${appliedDataBase}`;
     if (formato === "csv") {
@@ -939,134 +1180,6 @@ function DebitosPage() {
       toast({ variant: "error", title: "Não foi possível abrir a visualização para impressão." });
     }
   }
-
-  const desktopTableGeral = (
-    <Table aria-label="Inadimplência geral" showExport={false}>
-      <TableHeader>
-        <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          <TableHead sortable sortDirection={directionFor("referencia")} onSort={() => handleSort("referencia")}>
-            Referência
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("unidade")} onSort={() => handleSort("unidade")}>
-            Unidade
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("grupo")} onSort={() => handleSort("grupo")}>
-            Tipo
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("vencimento")} onSort={() => handleSort("vencimento")}>
-            Vencimento
-          </TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("dias")} onSort={() => handleSort("dias")}>
-            Dias em atraso
-          </TableHead>
-          <TableHead align="center">Restantes</TableHead>
-          <TableHead align="center" sortable sortDirection={directionFor("original")} onSort={() => handleSort("original")}>
-            Original
-          </TableHead>
-          <TableHead align="right" sortable sortDirection={directionFor("atualizado")} onSort={() => handleSort("atualizado")}>
-            Atualizado
-          </TableHead>
-          <TableHead sortable sortDirection={directionFor("status")} onSort={() => handleSort("status")}>
-            Situação
-          </TableHead>
-          <TableHead>Origem / atualização</TableHead>
-          <TableHead actions />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {visible.length === 0 ? (
-          <TableEmpty colSpan={11}>{emptyState}</TableEmpty>
-        ) : (
-          pageRows.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.referencia}</TableCell>
-              <TableCell>{nomeUnidade(item.unidadeId, cadastros)}</TableCell>
-              <TableCell>{grupoDebito(item.descricao)}</TableCell>
-              <TableCell>{formatarData(item.dataVencimento)}</TableCell>
-              <TableCell>{celulaDias(item)}</TableCell>
-              <TableCell align="right" className="tabular-nums">
-                {formatarMoeda(item.valorOriginal)}
-              </TableCell>
-              <TableCell align="right" className="tabular-nums">
-                {formatarMoeda(item.valorAtualizado)}
-              </TableCell>
-              <TableCell>
-                <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-              </TableCell>
-              <TableCell className="text-body-sm text-on-surface-variant">
-                <span className="block">{rotuloFonteValores(item)}</span>
-                <span className="block tabular-nums">{formatarData(item.atualizadoEm)}</span>
-              </TableCell>
-              <TableActionsCell label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
-  );
-
-  const mobileTableGeral =
-    visible.length === 0 ? (
-      <TableMobileEmpty>{emptyState}</TableMobileEmpty>
-    ) : (
-      <TableMobileList aria-label="Inadimplência geral">
-        {pageRows.map((item, index) => (
-          <TableMobileCard key={item.id}>
-            <TableMobileCardHeader>
-              <span
-                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-on-surface-variant"
-                aria-hidden="true"
-              >
-                <Icon icon={Receipt} size="sm" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
-                  <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
-                    {item.referencia}
-                  </TableMobileTitle>
-                  <span className="shrink-0 rounded-full border border-border-subtle bg-surface-subtle px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant">
-                    {index + 1 + (currentPage - 1) * PAGE_SIZE} de {visible.length}
-                  </span>
-                </div>
-                <p className="mt-xs truncate text-body-sm text-on-surface-variant">{nomeUnidade(item.unidadeId, cadastros)}</p>
-              </div>
-              <TableActionsButton label={`Ações do débito ${item.referencia}`} actions={acoes(item)} />
-            </TableMobileCardHeader>
-            <div className="mt-sm flex flex-col gap-sm border-t border-border-subtle/30 pt-sm">
-              <div className="flex items-start justify-between gap-md">
-                <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Valor atualizado</p>
-                  <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                    {formatarMoeda(item.valorAtualizado)}
-                  </p>
-                  <p className="text-body-sm text-on-surface-variant">
-                    Original {formatarMoeda(item.valorOriginal)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-xs">
-                  <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-                  {celulaDias(item)}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-sm text-body-sm">
-                <div className="min-w-0">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Vencimento</p>
-                  <p className="text-body-md text-on-surface">{formatarData(item.dataVencimento)}</p>
-                </div>
-                <div className="min-w-0 text-end">
-                  <p className="text-label-sm uppercase text-on-surface-variant">Tipo</p>
-                  <p className="text-body-md text-on-surface">{grupoDebito(item.descricao)}</p>
-                </div>
-              </div>
-              <TableMobileField label="Origem / atualização" stacked>
-                <span className="block">{rotuloFonteValores(item)}</span>
-                <span className="block tabular-nums text-on-surface-variant">{formatarData(item.atualizadoEm)}</span>
-              </TableMobileField>
-            </div>
-          </TableMobileCard>
-        ))}
-      </TableMobileList>
-    );
 
   const desktopTableCondominio = (
     <InadimplenciaPorCondominioLista
@@ -1224,6 +1337,16 @@ function DebitosPage() {
               ],
             },
             {
+              id: "situacao-inadimplencia",
+              label: "Situação da inadimplência",
+              value: situacaoInadimplencia,
+              onChange: setSituacaoInadimplencia,
+              options: [
+                { value: "todas", label: "Todas" },
+                ...situacoesInadimplencia.map((item) => ({ value: item, label: item })),
+              ],
+            },
+            {
               id: "origem",
               label: "Origem dos dados",
               value: origem,
@@ -1233,94 +1356,58 @@ function DebitosPage() {
                 ...origensDebito.map((item) => ({ value: item, label: item })),
               ],
             },
+            ...(recorteSituacao === "em_aberto" || recorteSituacao === "em_negociacao"
+              ? [
+                  {
+                    id: "responsavel-re",
+                    label: "Responsável (RE)",
+                    value: codigoRe,
+                    onChange: setCodigoRe,
+                    options: [
+                      { value: "todos", label: "Todos" },
+                      ...reOpcoes.map((item) => ({ value: item, label: item })),
+                    ],
+                  },
+                ]
+              : []),
             ]}
           />
         </FiltrosSection>
 
-        <section className="flex flex-col gap-md rounded-xl border border-border-subtle bg-surface-card p-md shadow-card min-[768px]:p-lg">
-          <div className="grid grid-cols-1 gap-lg min-[768px]:grid-cols-2 min-[768px]:items-stretch min-[768px]:gap-0">
-            <div className="flex min-w-0 flex-col gap-md min-[768px]:pr-lg">
-              <div>
-                <h3 className="text-label-lg text-on-surface">Inadimplência das unidades</h3>
-                <p className="mt-xs text-body-sm text-on-surface-variant">
-                  {unidadesCarteira > 0
-                    ? `${unidadesDevedoras} de ${unidadesCarteira} unidades com débito vencido na data-base ${formatarData(appliedDataBase)}${
-                        unidadesPrescritasRecorte > 0
-                          ? ` · ${unidadesPrescritasRecorte} unidade(s) prescrita(s) no recorte`
-                          : ""
-                      }`
-                    : "Sem unidades no recorte filtrado"}
-                </p>
-              </div>
-              {unidadesCarteira > 0 ? (
-                <GraficoRosca
-                  chave={`${chaveGraficos}-unidades`}
-                  vazio={vazioGrafico}
-                  centro={percentualUnidades === null ? "—" : percentual(percentualUnidades)}
-                  legenda="unidades"
-                  fatias={[
-                    {
-                      nome: "Com débito vencido",
-                      valor: unidadesDevedoras,
-                      detalhe:
-                        percentualUnidades === null
-                          ? String(unidadesDevedoras)
-                          : `${unidadesDevedoras} · ${percentual(percentualUnidades)}`,
-                      tom: "critical",
-                    },
-                    {
-                      nome: "Sem débito vencido",
-                      valor: unidadesEmDia,
-                      detalhe:
-                        percentualUnidades === null
-                          ? String(unidadesEmDia)
-                          : `${unidadesEmDia} · ${percentual(100 - percentualUnidades)}`,
-                      tom: "navy",
-                    },
-                  ]}
-                />
-              ) : (
-                vazioGrafico
-              )}
-            </div>
-            <div className="flex min-w-0 flex-col gap-md border-t border-border-subtle pt-lg min-[768px]:border-l min-[768px]:border-t-0 min-[768px]:pl-lg min-[768px]:pt-0">
-              <div>
-                <h3 className="text-label-lg text-on-surface">Valor por faixa de atraso</h3>
-                <p className="mt-xs text-body-sm text-on-surface-variant">
-                  {totalAtualizado > 0
-                    ? corte
-                      ? `Total atualizado em aberto ${moeda(totalAtualizado)} · corte ${formatarData(corte)} (${prazoReferenciaKpi} dias)`
-                      : `Total atualizado em aberto ${moeda(totalAtualizado)} · prazos individuais por condomínio`
-                    : "Sem valor em aberto no recorte filtrado"}
-                </p>
-              </div>
-              <GraficoBarras
-                chave={`${chaveGraficos}-faixas`}
-                vazio={vazioGrafico}
-                itens={[
-                  {
-                    nome: rotuloDentroPrazo,
-                    valor: ateLimite,
-                    detalhe:
-                      percentualValorAte === null
-                        ? moeda(ateLimite)
-                        : `${moeda(ateLimite)} · ${percentual(percentualValorAte)}`,
-                    tom: "brass",
-                  },
-                  {
-                    nome: rotuloAcimaPrazo,
-                    valor: acimaLimite,
-                    detalhe:
-                      percentualValorAcima === null
-                        ? moeda(acimaLimite)
-                        : `${moeda(acimaLimite)} · ${percentual(percentualValorAcima)}`,
-                    tom: "critical",
-                  },
-                ]}
-              />
-            </div>
-          </div>
-        </section>
+        <InadimplenciaPainelGraficos
+          chaveGraficos={chaveGraficos}
+          vazioGrafico={vazioGrafico}
+          resumo={resumoPainelSituacao}
+          visaoGrafico={visaoGrafico}
+          onVisaoGraficoChange={setVisaoGrafico}
+          unidades={{
+            resumo: resumoPainelUnidade,
+            subtitulo: subtituloUnidadesGrafico,
+          }}
+          faixas={{
+            subtitulo: subtituloFaixasGrafico,
+            itens: [
+              {
+                nome: rotuloDentroPrazo,
+                valor: ateLimite,
+                detalhe:
+                  percentualValorAte === null
+                    ? moeda(ateLimite)
+                    : `${moeda(ateLimite)} · ${percentual(percentualValorAte)}`,
+                tom: "brass",
+              },
+              {
+                nome: rotuloAcimaPrazo,
+                valor: acimaLimite,
+                detalhe:
+                  percentualValorAcima === null
+                    ? moeda(acimaLimite)
+                    : `${moeda(acimaLimite)} · ${percentual(percentualValorAcima)}`,
+                tom: "critical",
+              },
+            ],
+          }}
+        />
 
         <Tabs
           value={visao}
@@ -1343,27 +1430,119 @@ function DebitosPage() {
               showImport={podeImportar}
             />
           </div>
-          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTableCondominio}
-              mobile={mobileTableCondominio}
-              onExport={aoExportar}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              showExport={false}
+          <InadimplenciaRecorteSituacaoTabs
+            value={recorteSituacao}
+            onValueChange={(next) => {
+              setRecorteSituacao(next);
+              if (next !== "em_aberto" && next !== "em_negociacao") {
+                setCodigoRe("todos");
+                setAppliedCodigoRe("todos");
+              }
+              setPage(1);
+            }}
+          />
+
+          {recorteSituacao === "historico" && appliedUnidadeId === "todas" ? (
+            <p className="rounded-lg border border-border-subtle bg-surface-subtle px-md py-sm text-body-sm text-on-surface-variant">
+              Selecione uma <strong>unidade</strong> nos filtros e clique em Aplicar para carregar períodos de
+              inadimplência e a linha do tempo completa. A tabela abaixo lista todos os registros do recorte histórico.
+            </p>
+          ) : null}
+
+          {unidadeHistoricoPainel ? (
+            <InadimplenciaHistoricoPainel
+              unidadeId={unidadeHistoricoPainel}
+              tituloUnidade={nomeUnidade(unidadeHistoricoPainel, cadastros)}
             />
+          ) : null}
+
+          <TabsContent value="condominio" className="flex flex-col gap-md !bg-transparent !p-0">
+            {usarRelatorioCondominio ? (
+              <ResponsiveTable
+                desktop={desktopTableCondominio}
+                mobile={mobileTableCondominio}
+                onExport={aoExportar}
+                onImport={abrirImportacao}
+                showImport={podeImportar}
+                showExport={false}
+              />
+            ) : usarRecortePorCondominio ? (
+              <>
+                <div className="hidden min-[768px]:block">
+                  <InadimplenciaRecortePorCondominioLista
+                    recorte={recorteSituacao}
+                    condominios={gruposCondominio}
+                    cadastros={cadastros}
+                    dataBase={appliedDataBase}
+                    negociacaoPorDebito={negociacaoPorDebito}
+                    emptyState={emptyState}
+                    acoes={acoes}
+                    variante="desktop"
+                    onAbrirHistoricoUnidade={
+                      recorteSituacao === "historico" ? (id) => setHistoricoUnidadeId(id) : undefined
+                    }
+                  />
+                </div>
+                <div className="min-[768px]:hidden">
+                  <InadimplenciaRecortePorCondominioLista
+                    recorte={recorteSituacao}
+                    condominios={gruposCondominio}
+                    cadastros={cadastros}
+                    dataBase={appliedDataBase}
+                    negociacaoPorDebito={negociacaoPorDebito}
+                    emptyState={emptyState}
+                    acoes={acoes}
+                    variante="mobile"
+                    onAbrirHistoricoUnidade={
+                      recorteSituacao === "historico" ? (id) => setHistoricoUnidadeId(id) : undefined
+                    }
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <InadimplenciaRecorteListagem
+                  recorte={recorteSituacao}
+                  itens={itensRecorteListagem}
+                  pageRows={pageRows}
+                  cadastros={cadastros}
+                  dataBase={appliedDataBase}
+                  negociacaoPorDebito={negociacaoPorDebito}
+                  emptyState={emptyState}
+                  acoes={acoes}
+                  currentPage={currentPage}
+                  total={itensRecorteListagem.length}
+                  pageSize={PAGE_SIZE}
+                  onAbrirHistoricoUnidade={
+                    recorteSituacao === "historico" ? (id) => setHistoricoUnidadeId(id) : undefined
+                  }
+                />
+                {itensRecorteListagem.length > 0 ? (
+                  <Pagination page={currentPage} total={itensRecorteListagem.length} onPageChange={setPage} />
+                ) : null}
+              </>
+            )}
           </TabsContent>
           <TabsContent value="geral" className="flex flex-col gap-md !bg-transparent !p-0">
-            <ResponsiveTable
-              desktop={desktopTableGeral}
-              mobile={mobileTableGeral}
-              onExport={aoExportar}
-              onImport={abrirImportacao}
-              showImport={podeImportar}
-              showExport={false}
+            <InadimplenciaRecorteListagem
+              recorte={recorteSituacao}
+              itens={itensRecorteListagem}
+              pageRows={pageRows}
+              cadastros={cadastros}
+              dataBase={appliedDataBase}
+              negociacaoPorDebito={negociacaoPorDebito}
+              emptyState={emptyState}
+              acoes={acoes}
+              currentPage={currentPage}
+              total={itensRecorteListagem.length}
+              pageSize={PAGE_SIZE}
+              destacarCondominios={destacarCondominiosGeral}
+              onAbrirHistoricoUnidade={
+                recorteSituacao === "historico" ? (id) => setHistoricoUnidadeId(id) : undefined
+              }
             />
-            {visible.length > 0 ? (
-              <Pagination page={currentPage} total={visible.length} onPageChange={setPage} />
+            {itensRecorteListagem.length > 0 ? (
+              <Pagination page={currentPage} total={itensRecorteListagem.length} onPageChange={setPage} />
             ) : null}
           </TabsContent>
         </Tabs>
@@ -1533,6 +1712,54 @@ function DebitosPage() {
                       ))}
                     </Select>
                   </FormField>
+                  <FormField
+                    label="Situação da inadimplência"
+                    htmlFor={`${formId}-situacao-inadimplencia`}
+                    required
+                    error={errors.situacaoInadimplencia}
+                  >
+                    <Select
+                      id={`${formId}-situacao-inadimplencia`}
+                      icon={Scale}
+                      value={form.situacaoInadimplencia}
+                      invalid={Boolean(errors.situacaoInadimplencia)}
+                      disabled={!pode("debitos", "editar")}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          situacaoInadimplencia: event.target.value,
+                          ...(event.target.value !== SITUACAO_INADIMPLENCIA_PRESCRITA
+                            ? { justificativaPrescricao: "" }
+                            : {}),
+                        }))
+                      }
+                    >
+                      {situacoesInadimplencia.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  {form.situacaoInadimplencia === SITUACAO_INADIMPLENCIA_PRESCRITA ? (
+                    <FormField
+                      label="Justificativa da prescrição"
+                      htmlFor={`${formId}-justificativa-prescricao`}
+                      required
+                      error={errors.justificativaPrescricao}
+                    >
+                      <Textarea
+                        id={`${formId}-justificativa-prescricao`}
+                        value={form.justificativaPrescricao}
+                        invalid={Boolean(errors.justificativaPrescricao)}
+                        disabled={!pode("debitos", "editar")}
+                        rows={3}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, justificativaPrescricao: event.target.value }))
+                        }
+                      />
+                    </FormField>
+                  ) : null}
                   <FormField label="Valor" htmlFor={`${formId}-valor`} error={errors.valor}>
                     <Input
                       id={`${formId}-valor`}
@@ -1644,9 +1871,72 @@ function DebitosPage() {
         </SheetContent>
       </Sheet>
 
+      <Dialog
+        open={prescricaoTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) fecharDialogPrescricao();
+        }}
+      >
+        <DialogContent aria-labelledby="prescricao-debito-title" aria-describedby="prescricao-debito-desc">
+          <DialogHeader>
+            <DialogTitle id="prescricao-debito-title">Marcar inadimplência prescrita</DialogTitle>
+            <DialogDescription id="prescricao-debito-desc">
+              {prescricaoTarget
+                ? `Referência ${prescricaoTarget.referencia} · ${nomeUnidade(prescricaoTarget.unidadeId, cadastros)}. A classificação vale só para este débito; valores e histórico não são alterados.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="flex flex-col gap-md">
+            <FormField
+              label="Justificativa"
+              htmlFor="prescricao-debito-justificativa"
+              required
+              error={prescricaoErro || undefined}
+            >
+              <Textarea
+                id="prescricao-debito-justificativa"
+                rows={4}
+                value={prescricaoJustificativa}
+                invalid={Boolean(prescricaoErro)}
+                disabled={prescricaoSalvando}
+                placeholder="Descreva o fundamento jurídico ou administrativo da prescrição."
+                onChange={(event) => {
+                  setPrescricaoJustificativa(event.target.value);
+                  if (prescricaoErro) setPrescricaoErro("");
+                }}
+              />
+            </FormField>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={prescricaoSalvando} onClick={fecharDialogPrescricao}>
+              Cancelar
+            </Button>
+            <Button type="button" disabled={prescricaoSalvando} onClick={() => void confirmarMarcarPrescrita()}>
+              {prescricaoSalvando ? "Salvando…" : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={removerPrescricaoTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoverPrescricaoTarget(null);
+        }}
+        title="Remover prescrição?"
+        description={
+          removerPrescricaoTarget
+            ? `A referência ${removerPrescricaoTarget.referencia} voltará para inadimplência ativa na cobrança operacional.`
+            : undefined
+        }
+        confirmLabel="Remover prescrição"
+        cancelLabel="Cancelar"
+        onConfirm={() => void confirmarRemoverPrescricao()}
+      />
+
       <ConfirmDialog
         open={leaveConfirmOpen}
-        onOpenChange={setLeaveConfirmOpen}
+        onOpenChange={handleLeaveConfirmOpenChange}
         title="Tem certeza que quer sair?"
         description="As informações preenchidas serão perdidas."
         confirmLabel="Sair"
@@ -1673,6 +1963,11 @@ function DebitosPage() {
           onConcluida={() => void recarregarDebitosDoServidor()}
         />
       ) : null}
+      <HistoricoUnidadeSheet
+        unidadeId={historicoUnidadeId}
+        tituloUnidade={historicoUnidadeId ? nomeUnidade(historicoUnidadeId, cadastros) : undefined}
+        onClose={() => setHistoricoUnidadeId(null)}
+      />
     </WorkspaceShell>
   );
 }

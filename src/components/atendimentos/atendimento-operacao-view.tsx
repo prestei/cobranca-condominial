@@ -34,7 +34,7 @@ type Props = {
   filtroRapido?: FiltroRapidoFila;
   onFiltroRapidoChange?: (filtro: FiltroRapidoFila) => void;
   onLimparFiltros?: () => void;
-  onNovaProposta?: (item: FilaCobrancaItem) => void;
+  onNovaProposta?: (item: FilaCobrancaItem, debitoIds?: number[]) => void;
   onEncaminharJuridico?: (item: FilaCobrancaItem) => void;
   onConcluirRetorno?: (item: FilaCobrancaItem) => void;
   onSalvoAtendimento: () => void;

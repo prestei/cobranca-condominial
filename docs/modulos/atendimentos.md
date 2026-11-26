@@ -16,7 +16,7 @@ Fila operacional de cobrança ativa (T08) e registro/consulta de tentativas de c
 
 | Rota | Descrição |
 | --- | --- |
-| `/atendimentos` | **Atendimentos** — **atendente:** layout operação master–detail (fila + painel): chips **Período**, **Sem retorno** e **Atrasados**, painel com **linha do tempo** (`GET /api/unidades/:id/historico`), atalhos de contato e ações no rodapé. **Administradora:** KPIs da carteira, filtros, abas **Por condomínio** / **Por atendente** / **Geral**, distribuição em lote e tabelas agrupadas (`fila-gestao-admin-panel.tsx`); consulta detalhe via menu **Histórico** / ações da linha. Query `?retorno=` (atalhos) e `?operacional=` (painel de indicadores) aplicam-se conforme o perfil. |
+| `/atendimentos` | **Atendimentos** — **atendente:** layout operação master–detail (fila + painel): chips **Período**, **Sem retorno** e **Atrasados**, painel com **linha do tempo** (`GET /api/unidades/:id/historico`), atalhos de contato e ações no rodapé. **Administradora:** KPIs da carteira, filtros, abas **Por condomínio** / **Por atendente** / **Geral**, distribuição em lote e tabelas agrupadas (`fila-gestao-admin-panel.tsx`); na coluna **Inadimplência**, seta expande **débitos vinculados** (seleção por débito e **Fazer proposta**); consulta detalhe via menu **Histórico** / ações da linha. Query `?retorno=` (atalhos) e `?operacional=` (painel de indicadores) aplicam-se conforme o perfil. |
 | `/minha-agenda` | **Agenda do atendente** — calendário mensal com todos os dias; contatos realizados e retornos agendados; navegação mês a mês (somente perfil atendente) |
 | `/atendimentos?retorno=hoje` (ou `atrasado`, `semana`, `sem`) | Pré-seleciona filtros: `hoje` = Hoje; `atrasado` = chip Atrasados + até ontem; `semana` = de amanhã a 7 dias; `sem` = unidades sem data de retorno |
 | `/atendimentos?novo=1&unidade=` | Abre sheet de registro de contato (palitagem) |
@@ -56,12 +56,14 @@ Escopo de condomínios: `escopoCondominios` em `catalogo.ts`.
 | GET | `/api/unidades/:id/historico` | `unidades.ler` ou `atendimentos.ler` | Linha do tempo da unidade (T12); ver [unidades](unidades.md) |
 | GET/POST | `/api/propostas` | `atendimentos.ler` / `criar` | Propostas de negociação (T15); ver [negociacoes.md](negociacoes.md) |
 | GET/PATCH | `/api/propostas/[id]` | `atendimentos.ler` / `editar` | Detalhe e alteração de status da proposta |
+| GET/POST | `/api/propostas/[id]/proximo-passo` | `atendimentos.criar` | T26: resumo (GET) e confirmação da decisão após nova proposta (POST) |
 
-Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/atendimentos/service.ts`, `src/lib/retornos/service.ts`, `src/lib/historico-unidade/service.ts`, `src/lib/negociacoes/service.ts`.
+Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/atendimentos/service.ts`, `src/lib/retornos/service.ts`, `src/lib/historico-unidade/service.ts`, `src/lib/negociacoes/service.ts`, `src/lib/negociacoes/next-step-decision.ts`.
 
 ## Regras de negócio (fila)
 
-- Unidade na fila: situação `Em cobrança`, `Em acordo`, `Notificada` ou `Ajuizada`; cadastro **Inativa**, **Quitada** ou **Unidade prescrita** fora da fila.
+- Coluna **Situação** na fila (`GET /api/fila`, campo `situacao`): estado operacional do caso na carteira — **Novo** (inadimplência na fila sem `collection_assignment` vigente), **Em cobrança** (com RE atribuído) e **Em negociação** (unidade em acordo, proposta aceita/encaminhada à fila de negociação ou débito com `situacao_operacional` **Em negociação**). Distinto da situação de cobrança cadastral da unidade (`unit.situacao`). Lógica em `src/lib/fila/situacao-operacional.ts`.
+- Unidade na fila: situação `Em cobrança`, `Em acordo`, `Notificada` ou `Ajuizada`; cadastro **Inativa** ou **Quitada** fora da fila. Unidade com proposta **Aceita** e acordo confirmado (`acordo_confirmado_em`) **não** entra em `GET /api/fila` — acompanhamento exclusivo em `/negociacoes`. Débitos com **Inadimplência prescrita** não entram na cobrança operacional, mas a unidade pode permanecer ativa com outros débitos.
 - Inadimplência exibida a partir de débitos `Pendente`/`Vencido` da unidade.
 - RE responsável: vigência em `AtribuicaoCobranca` / `collection_assignment` (`encerrado_em` nulo = vigente).
 - Redistribuição encerra a vigência anterior, grava `anterior_atendente_id`, autor (`atribuido_por_id`), data/hora e motivo opcional; **não altera** `usuario_id` dos atendimentos já registrados.
@@ -78,6 +80,7 @@ Regras: `src/lib/fila/service.ts`, `src/lib/distribuicao/service.ts`, `src/lib/a
 5. **Registrar contato** — menu de ações, atalho WhatsApp/E-mail do atendente ou `?novo=1&unidade=` (`&canal=` opcional) → `POST /api/atendimentos` (um registro por canal marcado). Sheet: débitos (linha), **assunto**/**descrição**; **respondeu**; **canais** em linha (multisseleção); motivo se Sim; data e próxima ação opcionais na mesma linha; situação `Pendente` automática.
 6. **Agendar atendimento** — ação com `atendimentos.criar` em unidades, débitos, detalhe/histórico da unidade, `/minha-agenda` e home do atendente (não na fila: lá o fluxo é **Registrar contato**). Abre sheet dedicado que cria um `service_ticket` com `data_proxima_acao` e `proxima_acao`; o compromisso entra na agenda e no filtro de retornos.
 7. Cada tentativa acrescenta um `service_ticket`; registros anteriores não são sobrescritos.
+8. **Proposta de negociação (T26)** — após **Registrar proposta** no sheet, o diálogo **Próximo passo** oferece: encaminhar para fila de negociação (sai da carteira do atendente), continuar atendimento (permanece na fila) ou encaminhar para análise (advogado ou jurídico conforme permissão). Confirmação obrigatória; evento na linha do tempo com RE do autor.
 
 ## Regras de negócio (agenda de retornos — T11)
 

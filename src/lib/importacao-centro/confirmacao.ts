@@ -175,6 +175,23 @@ export async function executarConfirmacaoImportacaoTransacional<TPayload, TConte
       );
     }
 
+    if (adapter.modulo === "debitos") {
+      const { reavaliarQuitacaoESituacaoUnidade } = await import("@/lib/debitos/settlement-sync");
+      const ctx = contexto as {
+        debitosMutaveis?: Array<{ unidadeId: number }>;
+      };
+      const unitIds = new Set((ctx.debitosMutaveis ?? []).map((item) => item.unidadeId));
+      for (const unitId of unitIds) {
+        await reavaliarQuitacaoESituacaoUnidade(unitId, {
+          userId,
+          ip: meta?.ip,
+          userAgent: meta?.userAgent,
+          source: "importacao",
+          observacao: "Reavaliação após importação de débitos (T28)",
+        });
+      }
+    }
+
     return resultado;
     });
   });

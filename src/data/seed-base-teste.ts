@@ -33,6 +33,13 @@ function debitoBase(
     identificadorExterno: `TEST-DEB-${id}`,
     atualizadoEm: ISO_SEED,
     fonteValores: "origem",
+    situacaoInadimplencia: "Ativa",
+    usuarioPrescricaoId: null,
+    prescritoEm: "",
+    justificativaPrescricao: "",
+    situacaoOperacional: "Em aberto",
+    situacaoOperacionalAlteradaEm: ISO_SEED,
+    usuarioSituacaoOperacionalId: null,
   };
 }
 

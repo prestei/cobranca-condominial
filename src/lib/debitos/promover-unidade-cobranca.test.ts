@@ -10,11 +10,6 @@ test("promove Quitada para Em cobrança ao reabrir inadimplência manual", () =>
   assert.equal(situacaoDestinoAposDebitoEmAberto({ situacao: "Quitada" }), "Em cobrança");
 });
 
-test("não altera unidade prescrita", () => {
-  assert.equal(situacaoDestinoAposDebitoEmAberto({ situacao: "Unidade prescrita" }), null);
-  assert.equal(situacaoDestinoAposDebitoEmAberto({ situacao: "PRESCRITA" }), null);
-});
-
 test("não altera unidade já na fila operacional", () => {
   assert.equal(situacaoDestinoAposDebitoEmAberto({ situacao: "Em cobrança" }), null);
   assert.equal(situacaoDestinoAposDebitoEmAberto({ situacao: "Em acordo" }), null);
