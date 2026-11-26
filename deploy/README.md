@@ -12,21 +12,30 @@ npm run vps:subir
 # ou: ./deploy/scripts/push.sh --assistente
 ```
 
-A tela pede:
+**Windows (PowerShell):**
+
+```powershell
+.\deploy\scripts\subir-vps.ps1
+# ou sem perguntas: .\deploy\scripts\subir-vps.ps1 -Host 203.0.113.10 -Password '…'
+```
+
+A tela pede **somente**:
 
 1. IP da VPS  
 2. Senha SSH (root)  
-3. Domínio (padrão: `danieljorgeadv.com`)
 
-O assistente gera segredos, envia o código, instala Node/Caddy/PostgreSQL, abre firewall, roda migrate/build e deixa o serviço no ar.
+O domínio HTTPS usa o padrão `danieljorgeadv.com` (altere com `--domain` no script Python ou `-Domain` no `.ps1`).
+
+O assistente gera segredos, **exige `git push` no `main`**, atualiza a VPS com **git fetch/reset** (não envia arquivo a arquivo), instala Node/Caddy/PostgreSQL, abre firewall, roda migrate/build e deixa o serviço no ar.
 
 Depois aponte o DNS `A` do domínio e `www` para esse IP (HTTPS/Let's Encrypt).
 
 Atualizações seguintes (já com secrets salvos):
 
-```bash
-npm run vps:push
-```
+1. `git push origin main` (o deploy usa o que está no GitHub)  
+2. `npm run vps:push` (ou `python3 deploy/scripts/deploy_git.py sync` + bootstrap/deploy)
+
+Repositório **privado** na VPS: coloque um PAT read-only em `deploy/secrets/vps.env` como `GITHUB_DEPLOY_TOKEN=…`.
 
 ## Arquitetura
 
@@ -38,6 +47,8 @@ Internet → Caddy :443/:80 → 127.0.0.1:3000 (Next.js / systemd)
 | Peça | Função |
 | --- | --- |
 | `scripts/subir-vps.py` | Assistente: IP + senha → VPS no ar |
+| `scripts/deploy_git.py` | Preflight local + git sync na VPS |
+| `scripts/remote-git-sync.sh` | Na VPS: clone ou fetch+reset (preserva `.env.production`) |
 | `scripts/push.sh` | Re-deploy (ou abre o assistente se faltar config) |
 | `scripts/remote-bootstrap.sh` | Node, Caddy, Postgres, UFW, systemd |
 | `scripts/ci-remote-deploy.sh` | migrate + build + restart |
@@ -45,7 +56,8 @@ Internet → Caddy :443/:80 → 127.0.0.1:3000 (Next.js / systemd)
 
 ## Pré-requisitos no seu PC
 
-- `python3`, `ssh`, `rsync`
+- **Linux/macOS:** `python3`, `ssh`, `git`
+- **Windows:** Python 3 (`py -3`); o assistente instala `paramiko` de `deploy/requirements-deploy.txt` (não precisa de WSL nem rsync)
 - VPS Ubuntu limpa com acesso SSH root + senha
 
 ## Deploy manual (só se precisar)
@@ -62,7 +74,7 @@ Há **dois** caminhos (podem coexistir):
 
 ### 1. GitHub Actions (push em `main`)
 
-Workflow: `.github/workflows/deploy.yml` — rsync + `ci-remote-deploy.sh` na VPS.
+Workflow: `.github/workflows/deploy.yml` — git sync na VPS + `ci-remote-deploy.sh`.
 
 Secrets do repositório (Settings → Secrets and variables → Actions):
 
@@ -72,6 +84,7 @@ Secrets do repositório (Settings → Secrets and variables → Actions):
 | `VPS_USER` | Usuário SSH (ex.: `root`) |
 | `VPS_APP_DIR` | Diretório da app (ex.: `/opt/cobranca-condominial`) |
 | `VPS_SSH_PRIVATE_KEY` | Chave privada ed25519 (local: `deploy/secrets/deploy_vps_ed25519`) |
+| `DEPLOY_REPO_TOKEN` | (Opcional) PAT read-only se o repositório for privado |
 
 A chave pública correspondente deve estar em `~/.ssh/authorized_keys` na VPS (comentário típico: `github-actions-deploy@cobranca`).
 

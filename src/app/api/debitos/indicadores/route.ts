@@ -2,6 +2,7 @@ import { loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
 import { isErrorResponse, requirePermissao, requireSession } from "@/lib/api/require-auth";
 import { escopoCondominios } from "@/data/catalogo";
 import { DebitoServiceError, obterIndicadoresDebitos, type DebitoFiltros } from "@/lib/debitos/service";
+import { hojeIsoOperacional } from "@/lib/datetime/fuso-operacional";
 
 function parseFiltros(searchParams: URLSearchParams): DebitoFiltros {
   const filtros: DebitoFiltros = {};
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
-  const dataBase = searchParams.get("dataBase")?.trim() || new Date().toISOString().slice(0, 10);
+  const dataBase = searchParams.get("dataBase")?.trim() || hojeIsoOperacional();
   const limiteRaw = Number(searchParams.get("limiteDias"));
   const limiteDias = Number.isFinite(limiteRaw) && limiteRaw >= 1 ? limiteRaw : 60;
   const cidade = searchParams.get("cidade")?.trim();

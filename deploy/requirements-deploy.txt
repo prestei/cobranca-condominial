@@ -1,0 +1,2 @@
+# Dependências só do assistente de deploy (SSH com senha no Windows).
+paramiko>=3.4.0

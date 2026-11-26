@@ -59,7 +59,7 @@ export function AtendimentoPainelCaso({
   const { pode } = usePermissao();
   const podeProposta = pode("atendimentos", "criar");
   const podeRegistrar = pode("atendimentos", "criar");
-  const podeJuridico = pode("juridico", "ler");
+  const podeJuridico = pode("juridico", "criar");
   const [canalPreferido, setCanalPreferido] = useState<"WhatsApp" | "E-mail" | "Telefone">("WhatsApp");
   const [refreshLinhaTempo, setRefreshLinhaTempo] = useState(0);
 
@@ -199,7 +199,7 @@ export function AtendimentoPainelCaso({
                 onClick={onEncaminharJuridico}
               >
                 <Icon icon={Scale} size="sm" className="shrink-0" aria-hidden />
-                <span className="truncate">Encaminhar p/ jurídico</span>
+                <span className="truncate">Solicitar jurídico</span>
               </Button>
             ) : null}
             {podeRegistrar ? (

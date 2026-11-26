@@ -117,7 +117,7 @@ export const GUIAS_MANUAL: GuiaManual[] = [
       "Mostra contatos que você registrou e retornos que ainda estão pendentes ou já foram concluídos.",
       "Compromisso agendado em outra tela aparece aqui e também na fila de atendimentos na data combinada.",
       "Retorno vencido precisa ser tratado na fila — a agenda só avisa, não encerra sozinha.",
-      "Datas seguem o fuso de São Paulo, alinhado às notificações do sistema.",
+      "Datas seguem o fuso da Bahia, alinhado às notificações do sistema.",
     ],
     passos: [
       { titulo: "Navegue pelo mês", descricao: "Dias com movimento ficam destacados; clique no dia para ver a lista." },
@@ -196,7 +196,7 @@ export const GUIAS_MANUAL: GuiaManual[] = [
       "O sistema não envia petição nem protocolo a tribunal — só organiza andamento interno.",
       "Encaminhamento nasce na unidade em cobrança; o advogado sugerido vem do cadastro do condomínio.",
       "Advogado só enxerga condomínios em que está vinculado no cadastro.",
-      "Atendente de cobrança não acessa este módulo; encaminhar é papel da gestão ou fluxo autorizado.",
+      "Atendente solicita encaminhamento na fila; a gestão aprova ou rejeita antes do advogado acompanhar.",
       "Mudanças de status e observações ficam visíveis para quem tem permissão; eventos também aparecem no histórico da unidade.",
     ],
     passos: [

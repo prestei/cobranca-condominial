@@ -29,9 +29,10 @@ Módulo **`juridico`** (`src/lib/permissions/modulos.ts`):
 
 | Ação | Administradora | Advogado | Atendente |
 | --- | --- | --- | --- |
-| Ver listagem / detalhe / documentos | Sim | Sim (condomínios vinculados) | Não |
-| Encaminhar caso | Sim | Não | Não |
-| Atualizar status, observações, documentos | Sim | Sim (escopo) | Não |
+| Ver listagem / detalhe / documentos | Sim | Sim (condomínios vinculados; sem pendentes) | Não (consulta só no sheet da fila) |
+| Solicitar encaminhamento | Sim (direto como **Encaminhado**) | Não | Sim (**Aguardando aprovação**) |
+| Aprovar ou rejeitar solicitação | Sim | Não | Não |
+| Atualizar status, observações, documentos | Sim | Sim (escopo; após aprovação) | Não |
 
 Escopo de condomínio: `escopoCondominios` — advogado vê apenas condomínios em que consta em `advogados`.
 
@@ -40,7 +41,7 @@ Escopo de condomínio: `escopoCondominios` — advogado vê apenas condomínios 
 | Método | Path | Permissão | Descrição |
 | --- | --- | --- | --- |
 | GET | `/api/juridico/encaminhamentos` | `juridico.ler` | Query: `unidadeId`, `condominioId`, `status`, `advogado` |
-| POST | `/api/juridico/encaminhamentos` | `juridico.criar` | Novo encaminhamento — status **Encaminhado** |
+| POST | `/api/juridico/encaminhamentos` | `juridico.criar` | Nova solicitação — atendente: **Aguardando aprovação**; gestão: **Encaminhado** |
 | GET | `/api/juridico/encaminhamentos/[id]` | `juridico.ler` | Detalhe (+ documentos se `ler`) |
 | PATCH | `/api/juridico/encaminhamentos/[id]` | `juridico.editar` | `status`, `advogadoResponsavel`, `observacoes` |
 | GET | `/api/juridico/encaminhamentos/[id]/documentos` | `juridico.ler` | Lista de metadados |
@@ -52,6 +53,8 @@ Regras: `src/lib/juridico/service.ts`. Histórico da unidade: `src/lib/historico
 
 - Advogado responsável deve constar no vínculo do condomínio (`advogados`).
 - Débitos opcionais no encaminhamento; snapshot em `debitoIds` e `resumoContexto`.
+- **Aprovação:** atendente registra com status **Aguardando aprovação**; apenas administradora aprova (**Encaminhado**) ou rejeita (**Rejeitado**). Uma solicitação pendente por unidade.
+- Advogado não vê solicitações pendentes nem rejeitadas na listagem.
 - Transições de status controladas no servidor (estados provisórios em `statusEncaminhamentoJuridico`).
 - Documentos: metadados apenas; acesso via API exige `juridico.ler`.
 - Alterações auditadas em `audit_log` (`legal_case_referral`, `legal_document`).
@@ -59,6 +62,7 @@ Regras: `src/lib/juridico/service.ts`. Histórico da unidade: `src/lib/historico
 
 ## Fluxos
 
-1. **Encaminhar** — administradora na fila ou histórico → sheet → POST encaminhamento.
-2. **Acompanhar** — advogado em `/juridico` ou sheet → PATCH status/observações; POST documentos.
-3. **Consultar histórico** — linha do tempo da unidade inclui encaminhamento e alterações auditadas.
+1. **Solicitar** — atendente na fila → sheet → POST com **Aguardando aprovação**.
+2. **Aprovar / rejeitar** — administradora em `/juridico` ou sheet da fila → PATCH para **Encaminhado** ou **Rejeitado** (encaminhamento direto pela gestão nasce **Encaminhado**).
+3. **Acompanhar** — advogado em `/juridico` ou sheet → PATCH status/observações; POST documentos.
+4. **Consultar histórico** — linha do tempo da unidade inclui encaminhamento e alterações auditadas.

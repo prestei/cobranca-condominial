@@ -1,4 +1,5 @@
 import { confirmacaoPagamentoAcordo, statusParcelaAcordo as statusParcelaAcordoCatalogo, type PagamentoAcordo, type ParcelaAcordo, type PropostaNegociacao } from "@/data/catalogo";
+import { FUSO_OPERACIONAL } from "@/lib/datetime/fuso-operacional";
 
 export type StatusParcelaAcordo = (typeof statusParcelaAcordoCatalogo)[number];
 
@@ -35,7 +36,7 @@ function deCentavos(c: number): string {
   return (c / 100).toFixed(2);
 }
 
-export function dataReferenciaHoje(timeZone = "America/Sao_Paulo"): string {
+export function dataReferenciaHoje(timeZone = FUSO_OPERACIONAL): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
     new Date(),
   );

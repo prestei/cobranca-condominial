@@ -22,6 +22,7 @@ const atendente: PermissoesCargo = {
   negociacoes: { ler: true, criar: true },
   debitos: { ler: true },
   importacoes: { ler: true, criar: true, editar: true },
+  juridico: { criar: true },
 };
 
 const advogado: PermissoesCargo = {

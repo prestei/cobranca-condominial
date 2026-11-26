@@ -271,7 +271,7 @@ export async function montarExportRelatorio(
 
   await assertCondominioNoEscopo(userId, filtros.condominioId);
 
-  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Bahia" });
   const metaFiltros = rotulosFiltrosAplicados(cadastros, filtros, tipo);
   const dataBase = filtros.dataBase || hojeIso();
 

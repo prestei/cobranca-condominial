@@ -40,7 +40,9 @@ type Props = {
 };
 
 const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral"> = {
+  "Aguardando aprovação": "neutral",
   Encaminhado: "secondary",
+  Rejeitado: "error",
   "Em análise": "secondary",
   "Documentação pendente": "neutral",
   "Aguardando decisão": "secondary",
@@ -65,6 +67,8 @@ export function EncaminhamentoJuridicoSheet({
   const podeCriar = pode("juridico", "criar");
   const podeEditar = pode("juridico", "editar");
   const podeLerDocs = pode("juridico", "ler");
+  const podeAprovar = pode("usuarios", "criar");
+  const ehSolicitacao = podeCriar && !podeAprovar;
 
   const [lista, setLista] = useState<EncaminhamentoJuridicoDetalhe[]>([]);
   const [detalhe, setDetalhe] = useState<EncaminhamentoJuridicoDetalhe | null>(null);
@@ -200,12 +204,52 @@ export function EncaminhamentoJuridicoSheet({
       });
       const payload = (await response.json()) as { error?: string; encaminhamento?: EncaminhamentoJuridico };
       if (!response.ok) {
-        toast({ variant: "error", title: "Não foi possível encaminhar", description: payload.error });
+        toast({
+          variant: "error",
+          title: ehSolicitacao ? "Não foi possível solicitar" : "Não foi possível encaminhar",
+          description: payload.error,
+        });
         return;
       }
-      toast({ variant: "success", title: "Encaminhamento registrado" });
+      toast({
+        variant: "success",
+        title: ehSolicitacao ? "Solicitação enviada à gestão" : "Encaminhamento registrado",
+        description: ehSolicitacao
+          ? "Aguarde a aprovação ou rejeição do administrador."
+          : undefined,
+      });
       setObservacoes("");
       setResumoContexto("");
+      onSalvo?.();
+      void carregar();
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function atualizarStatusEncaminhamento(id: string, status: string, observacoesAtual?: string) {
+    if (!podeEditar && !podeAprovar) return;
+    setSalvando(true);
+    try {
+      const obs = observacoesAtual ?? observacoesPorId[id] ?? "";
+      const response = await fetch(`/api/juridico/encaminhamentos/${id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, observacoes: obs }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast({ variant: "error", title: "Erro ao atualizar", description: payload.error });
+        return;
+      }
+      const titulo =
+        status === "Encaminhado"
+          ? "Encaminhamento aprovado"
+          : status === "Rejeitado"
+            ? "Solicitação rejeitada"
+            : "Acompanhamento atualizado";
+      toast({ variant: "success", title: titulo });
       onSalvo?.();
       void carregar();
     } finally {
@@ -312,7 +356,38 @@ export function EncaminhamentoJuridicoSheet({
         {item.resumoContexto ? <p className="text-body-sm text-on-surface">{item.resumoContexto}</p> : null}
         {item.observacoes ? <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p> : null}
 
-        {podeEditar ? (
+        {podeAprovar && item.status === "Aguardando aprovação" ? (
+          <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
+            <FormField label="Observações da gestão">
+              <Textarea
+                icon={FileText}
+                value={obsAtual}
+                onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
+                rows={3}
+                placeholder="Motivo da aprovação ou rejeição (opcional)."
+              />
+            </FormField>
+            <div className="flex flex-wrap gap-sm">
+              <Button
+                type="button"
+                size="sm"
+                disabled={salvando}
+                onClick={() => void atualizarStatusEncaminhamento(item.id, "Encaminhado", obsAtual)}
+              >
+                Aprovar encaminhamento
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={salvando}
+                onClick={() => void atualizarStatusEncaminhamento(item.id, "Rejeitado", obsAtual)}
+              >
+                Rejeitar solicitação
+              </Button>
+            </div>
+          </div>
+        ) : podeEditar ? (
           <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
             <FormField label="Status">
               <Select
@@ -320,11 +395,13 @@ export function EncaminhamentoJuridicoSheet({
                 value={statusAtual}
                 onChange={(event) => setStatusPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
               >
-                {statusEncaminhamentoJuridico.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
+                {statusEncaminhamentoJuridico
+                  .filter((status) => status !== "Aguardando aprovação" && status !== "Rejeitado")
+                  .map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
               </Select>
             </FormField>
             <FormField label="Observações">
@@ -399,9 +476,13 @@ export function EncaminhamentoJuridicoSheet({
           <SheetForm id={`${formId}-novo`} className="flex min-h-0 flex-1 flex-col" onSubmit={enviarNovo}>
             <SheetBody className="flex flex-col gap-md">
               <div className="flex flex-col gap-md">
-                <p className="text-label-md text-on-surface">Novo encaminhamento</p>
+                <p className="text-label-md text-on-surface">
+                  {ehSolicitacao ? "Solicitar encaminhamento jurídico" : "Novo encaminhamento"}
+                </p>
                 <SheetHelpText>
-                  Registra análise jurídica sem ajuizar ações nem enviar documentos a tribunais automaticamente.
+                  {ehSolicitacao
+                    ? "Identifique o caso e envie para aprovação da gestão. O advogado só acompanha após aprovação."
+                    : "Registra análise jurídica sem ajuizar ações nem enviar documentos a tribunais automaticamente."}
                 </SheetHelpText>
                 <div className="flex flex-col gap-md">
                   <FormField label="Advogado responsável">
@@ -475,7 +556,15 @@ export function EncaminhamentoJuridicoSheet({
             </SheetBody>
             <SheetFooterForm
               onClose={onClose}
-              saveLabel={salvando ? "Encaminhando…" : "Encaminhar para análise"}
+              saveLabel={
+                salvando
+                  ? ehSolicitacao
+                    ? "Enviando…"
+                    : "Encaminhando…"
+                  : ehSolicitacao
+                    ? "Enviar solicitação"
+                    : "Encaminhar para análise"
+              }
               saveDisabled={salvando || condominioId === null}
             />
           </SheetForm>

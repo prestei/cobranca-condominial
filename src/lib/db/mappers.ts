@@ -20,6 +20,7 @@ import type {
   User,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { instantParaIsoDataHoraOperacional, instantParaIsoDataOperacional } from "@/lib/datetime/fuso-operacional";
 
 function money(value: Decimal | null | undefined): string {
   if (value === null || value === undefined) return "";
@@ -28,12 +29,12 @@ function money(value: Decimal | null | undefined): string {
 
 function isoDate(value: Date | null | undefined): string {
   if (!value) return "";
-  return value.toISOString().slice(0, 10);
+  return instantParaIsoDataOperacional(value);
 }
 
 function isoDateTime(value: Date | null | undefined): string {
   if (!value) return "";
-  return value.toISOString();
+  return instantParaIsoDataHoraOperacional(value, "min");
 }
 
 export function mapRoleToCargo(row: Role): Cargo {

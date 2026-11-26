@@ -31,6 +31,16 @@ describe("rotuloSituacaoListagemUnidade", () => {
     assert.equal(rotuloSituacaoListagemUnidade(u, true), "Inadimplente");
   });
 
+  test("inadimplente com débito aberto mesmo fora da fila (Sem cobrança)", () => {
+    const u = unidadeBase({ situacao: "Sem cobrança" });
+    assert.equal(rotuloSituacaoListagemUnidade(u, true), "Inadimplente");
+  });
+
+  test("em dia quando quitada com débito histórico em aberto", () => {
+    const u = unidadeBase({ situacao: "Quitada" });
+    assert.equal(rotuloSituacaoListagemUnidade(u, true), "Em dia");
+  });
+
   test("aguardando débitos na fila ativa sem débito aberto", () => {
     const u = unidadeBase({ situacao: "Em cobrança" });
     assert.equal(rotuloSituacaoListagemUnidade(u, false), "Aguardando débitos");

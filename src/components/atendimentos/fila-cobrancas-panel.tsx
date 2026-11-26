@@ -289,7 +289,7 @@ function FilaCobrancasOperacaoPanel({ topoAcoes, className }: { topoAcoes?: Reac
         onFiltroRapidoChange={alternarFiltroRapido}
         onLimparFiltros={limparFiltros}
         onNovaProposta={pode("atendimentos", "criar") ? abrirProposta : undefined}
-        onEncaminharJuridico={pode("juridico", "ler") ? abrirJuridico : undefined}
+        onEncaminharJuridico={pode("juridico", "criar") ? abrirJuridico : undefined}
         onConcluirRetorno={pode("atendimentos", "editar") ? solicitarConcluirRetorno : undefined}
         onSalvoAtendimento={() => void recarregar()}
         onRegistrarCompleto={registrarAtendimento}

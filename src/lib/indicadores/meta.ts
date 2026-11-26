@@ -6,7 +6,7 @@ export type MetaPainelIndicadores = {
 };
 
 export function geradoEmBr(): string {
-  return new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  return new Date().toLocaleString("pt-BR", { timeZone: "America/Bahia" });
 }
 
 export function metaDashboard(dataBase: string, limiteDias: number): MetaPainelIndicadores {

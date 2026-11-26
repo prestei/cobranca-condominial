@@ -55,7 +55,9 @@ import { usePermissao } from "@/hooks/use-permissao";
 import type { EncaminhamentoJuridicoDetalhe } from "@/lib/juridico/service";
 
 const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral"> = {
+  "Aguardando aprovação": "neutral",
   Encaminhado: "secondary",
+  Rejeitado: "error",
   "Em análise": "secondary",
   "Documentação pendente": "neutral",
   "Aguardando decisão": "secondary",

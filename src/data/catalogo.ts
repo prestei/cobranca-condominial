@@ -14,6 +14,12 @@ import {
   unidadesBaseTeste,
   vinculosBaseTeste,
 } from "@/data/seed-base-teste";
+import {
+  agoraIsoOperacional,
+  dataHoraPartesOperacional,
+  formatarDataOperacional,
+  hojeIsoOperacional,
+} from "@/lib/datetime/fuso-operacional";
 
 export const advogados = ["Dra. Thamires", "Dra. Jullyane", "Dr. João"] as const;
 
@@ -391,7 +397,9 @@ export const statusAtendimento = ["Pendente", "Resolvido"] as const;
 export const statusPropostaNegociacao = ["Em análise", "Aceita", "Recusada", "Cancelada"] as const;
 /** Estados operacionais provisórios — checklist e campos processuais em DECISOES_PENDENTES. */
 export const statusEncaminhamentoJuridico = [
+  "Aguardando aprovação",
   "Encaminhado",
+  "Rejeitado",
   "Em análise",
   "Documentação pendente",
   "Aguardando decisão",
@@ -399,6 +407,17 @@ export const statusEncaminhamentoJuridico = [
   "Retornado à cobrança amigável",
   "Arquivado",
 ] as const;
+
+/** Encaminamento efetivo ao jurídico (após aprovação da gestão). */
+export function encaminhamentoJuridicoEmAndamento(status: string): boolean {
+  return (
+    status !== "Arquivado" &&
+    status !== "Retornado à cobrança amigável" &&
+    status !== "Aguardando aprovação" &&
+    status !== "Rejeitado"
+  );
+}
+
 export const confirmacaoPagamentoAcordo = ["Informado", "Confirmado"] as const;
 export const statusParcelaAcordo = ["Pendente", "Paga", "Vencida", "Cancelada"] as const;
 
@@ -640,13 +659,7 @@ export function usuariosLoginLegado(): readonly Usuario[] {
 }
 
 export function formatarData(value: string) {
-  if (!value) return "—";
-  const [datePart, timePart] = value.split("T");
-  const [year, month, day] = datePart.split("-");
-  if (!year || !month || !day) return value;
-  const data = `${day}/${month}/${year}`;
-  if (!timePart) return data;
-  return `${data} ${timePart.slice(0, 5)}`;
+  return formatarDataOperacional(value);
 }
 
 export function formatarMoeda(value: string) {
@@ -657,20 +670,19 @@ export function formatarMoeda(value: string) {
 }
 
 export function agoraIso() {
-  const now = new Date();
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return agoraIsoOperacional();
 }
 
 export function hojeIso() {
-  return agoraIso().slice(0, 10);
+  return hojeIsoOperacional();
 }
 
 /** @deprecated Use o ID da sessão autenticada (`useAuth` / `getUsuarioLogadoId`). */
 export const ID_USUARIO_SESSAO = 1;
 
 export function saudacaoDoDia(agora = new Date()) {
-  const hora = agora.getHours();
+  const partes = dataHoraPartesOperacional(agora.toISOString());
+  const hora = partes ? Number(partes.hora.slice(0, 2)) : agora.getHours();
   if (hora < 12) return "Bom dia";
   if (hora < 18) return "Boa tarde";
   return "Boa noite";
@@ -846,10 +858,12 @@ export function unidadeNaFilaCobrancaAtiva(item: { situacao?: string }) {
   return SITUACOES_FILA_COBRANCA_ATIVA.has(situacaoCobrancaUnidade(item));
 }
 
-/** Indica se a listagem deve tratar a unidade como inadimplente (débito vencido em aberto). */
+/** Indica se a listagem deve tratar a unidade como inadimplente (débito em aberto na listagem). */
 export function unidadeComDebitoOperacional(item: { situacao?: string }, temDebitoVencidoAberto: boolean) {
-  if (!unidadeNaFilaCobrancaAtiva(item)) return false;
-  return temDebitoVencidoAberto;
+  if (!temDebitoVencidoAberto) return false;
+  const situacao = situacaoCobrancaUnidade(item);
+  if (situacao === "Quitada" || situacao === SITUACAO_COBRANCA_PRESCRITA) return false;
+  return true;
 }
 
 const ALIASES_SITUACAO_COBRANCA: Record<string, (typeof situacoesUnidade)[number]> = {

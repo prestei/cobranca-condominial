@@ -72,6 +72,7 @@ Implementação: `src/lib/unidades/service.ts`, `src/lib/historico-unidade/servi
 - Sem duplicidade de identificação no mesmo condomínio
 - CPF/CNPJ não é identificador da unidade; usado apenas em `responsible_party`
 - Exclusão física bloqueada quando há histórico operacional
+- Coluna **Situações** e **Dias em atraso** derivam de débitos **Pendente/Vencido** em aberto (`unidadeComDebitoOperacional` em `src/data/catalogo.ts`): **Inadimplente** quando há saldo em aberto, exceto **Quitada** ou **Unidade prescrita** (rótulo próprio). **Aguardando débitos** só para unidade na fila operacional sem débito em aberto. Importação/cadastro de débito ainda promove **Sem cobrança** → **Em cobrança** no servidor; a listagem não depende só da situação cadastral para exibir inadimplência.
 
 ## Integrações
 

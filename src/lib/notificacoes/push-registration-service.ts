@@ -1,6 +1,5 @@
 import "server-only";
 
-import { agoraIso } from "@/data/catalogo";
 import {
   deletePushTokenByValue,
   upsertPushTokenForUser,
@@ -41,7 +40,7 @@ export async function registrarPushTokenUsuario(
     typeof input.userAgent === "string" && input.userAgent.trim()
       ? input.userAgent.trim().slice(0, 512)
       : null;
-  const agora = new Date(agoraIso());
+  const agora = new Date();
   await upsertPushTokenForUser({ userId, fcmToken, userAgent, now: agora });
   return { ok: true };
 }
