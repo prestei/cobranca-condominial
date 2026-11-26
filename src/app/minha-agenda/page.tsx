@@ -127,7 +127,6 @@ export default function MinhaAgendaPage() {
           rotuloPeriodo={periodo.rotulo}
           onAnterior={() => setRefMes((atual) => deslocarMes(atual.ano, atual.mes, -1))}
           onProximo={() => setRefMes((atual) => deslocarMes(atual.ano, atual.mes, 1))}
-          onHoje={() => setRefMes(mesAtualRef())}
           onAbrirAtendimento={(unidadeId) =>
             router.push(`/atendimentos?novo=1&unidade=${unidadeId}`)
           }

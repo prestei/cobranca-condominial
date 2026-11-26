@@ -20,7 +20,7 @@ Alertar colaboradores sobre retornos e redistribuição de cobrança **dentro do
 | `POST|DELETE /api/notificacoes/push/registrar` | Vincula ou remove token FCM do usuário logado (`dashboard.ler`) |
 | `/firebase-messaging-sw.js` | Service worker FCM (gerado pelo servidor) |
 
-Código: `src/lib/notificacoes/service.ts`, `src/lib/notificacoes/alertas-prazo-inadimplencia-service.ts`, `src/lib/notificacoes/push-dispatch.ts`, `src/hooks/use-notificacoes.ts`, `src/hooks/use-firebase-push.ts` (registro no `WorkspaceShell`, **todos** os perfis com menu autenticado).
+Código: `src/lib/notificacoes/service.ts`, `src/lib/notificacoes/alertas-prazo-inadimplencia-service.ts`, `src/lib/notificacoes/push-dispatch.ts`, `src/lib/notificacoes/notification-sound.ts`, `src/hooks/use-notificacoes.ts`, `src/hooks/use-firebase-push.ts`, `src/hooks/use-notification-sound.ts` (registro no `WorkspaceShell`, **todos** os perfis com menu autenticado).
 
 ## Regras de negócio
 
@@ -72,6 +72,7 @@ Por usuário, em memória: lembrete diário de retorno (`lembreteRetornoHoje`, p
 3. **Lembrete:** ao listar/contar notificações, `processarLembretesRetornoHoje` (idempotente por dia).
 4. **Prazo de inadimplência (T03):** job horário + `processarAlertasPrazoInadimplencia` ao listar/contar; deep link para `/debitos?condominio=…`.
 5. **UI:** clique no sino → abrir registro (`/atendimentos?…` ou débitos) ou mensagem de erro; marcar como lida atualiza contagem.
+6. **Som (aba em foco):** ao chegar push Firebase ou quando a contagem de não lidas **aumenta**, o workspace toca um alerta curto (`notification-sound.ts` / `use-notification-sound.ts`). Exige pelo menos um clique ou tecla na sessão (política de autoplay do navegador). Notificação em segundo plano usa o som padrão do sistema operacional.
 
 ## Conexões
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
+import { playNotificationSound } from "@/lib/notificacoes/notification-sound";
 import { useEffect, useRef } from "react";
 
 type PushRegistrarPayload = {
@@ -85,6 +86,7 @@ export function useFirebasePush(onForeground?: () => void) {
       iniciado.current = true;
 
       onMessage(messaging, () => {
+        playNotificationSound();
         onForeground?.();
       });
     })().catch(() => {});

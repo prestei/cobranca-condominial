@@ -31,13 +31,15 @@ import {
   AppShellNavSection,
   AppShellSidebar,
 } from "@/components/app-shell";
+import { NotificationDetailSheet } from "@/components/notificacoes/notification-detail-sheet";
 import { SkeletonSidebarNav } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/context/auth-context";
 import { retornoPendente, usuarioSessaoApp } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { useFirebasePush } from "@/hooks/use-firebase-push";
-import { useNotificacoes } from "@/hooks/use-notificacoes";
+import { useNotificationSound } from "@/hooks/use-notification-sound";
+import { useNotificacoes, type NotificacaoUi } from "@/hooks/use-notificacoes";
 import { usePermissao } from "@/hooks/use-permissao";
 import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { podeVerModuloNoMenu } from "@/lib/permissions/check";
@@ -211,6 +213,9 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       ? undefined
       : usuarioSessaoApp(cadastros, sessao.userId, sessao);
   const { itens, naoLidas, carregando, marcarTodasLidas, abrirNotificacao, recarregar } = useNotificacoes();
+  const [notificacaoSelecionada, setNotificacaoSelecionada] = useState<NotificacaoUi | null>(null);
+  const [sheetNotificacaoAberto, setSheetNotificacaoAberto] = useState(false);
+  useNotificationSound(naoLidas, carregando);
   const recarregarNotificacoes = useCallback(() => {
     void recarregar();
   }, [recarregar]);
@@ -221,22 +226,22 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
   /** Fila operacional (admin e atendente): viewport fixa para rolagem só no conteúdo. */
   const layoutViewportFilaAtendimentos = rotaAtendimentos;
 
-  const handleAbrirNotificacao = useCallback(
+  const handleAbrirNotificacao = useCallback((id: number) => {
+    const item = itens.find((entrada) => entrada.id === id);
+    if (!item) return;
+    setNotificacaoSelecionada(item);
+    setSheetNotificacaoAberto(true);
+  }, [itens]);
+
+  const consultarNotificacaoHeader = useCallback(
     async (id: number) => {
       const resultado = await abrirNotificacao(id);
       if (!resultado.ok) {
         toast({ variant: "error", title: "Notificação", description: resultado.error });
-        return;
       }
-      const url = resultado.notificacao?.urlRegistro;
-      if (url) {
-        router.push(url);
-      } else {
-        router.push("/notificacoes");
-      }
-      void recarregar();
+      return resultado;
     },
-    [abrirNotificacao, recarregar, router, toast],
+    [abrirNotificacao, toast],
   );
 
   return (
@@ -305,6 +310,14 @@ function WorkspaceShellInner({ children }: { children: ReactNode }) {
       >
         {children}
       </AppShellMain>
+
+      <NotificationDetailSheet
+        open={sheetNotificacaoAberto}
+        onOpenChange={setSheetNotificacaoAberto}
+        notificacao={notificacaoSelecionada}
+        onConsultar={consultarNotificacaoHeader}
+        onAtualizado={() => void recarregar()}
+      />
     </AppShell>
   );
 }

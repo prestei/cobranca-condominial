@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
+import { NotificationDetailSheet } from "@/components/notificacoes/notification-detail-sheet";
+import { NotificationListCard } from "@/components/notificacoes/notification-list-card";
 import { PageContent, PageHeader } from "@/components/page-header";
 import { SkeletonCardList } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
@@ -13,10 +14,11 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { useNotificacoes, type NotificacaoUi } from "@/hooks/use-notificacoes";
 
 export default function NotificacoesPage() {
-  const router = useRouter();
   const { toast } = useToast();
   const { itens, naoLidas, carregando, recarregar, marcarTodasLidas, abrirNotificacao } = useNotificacoes();
   const [listaCompleta, setListaCompleta] = useState<NotificacaoUi[]>([]);
+  const [selecionada, setSelecionada] = useState<NotificacaoUi | null>(null);
+  const [sheetAberto, setSheetAberto] = useState(false);
 
   const carregarLista = useCallback(async () => {
     const response = await fetch("/api/notificacoes?limit=50", { credentials: "same-origin" });
@@ -29,17 +31,21 @@ export default function NotificacoesPage() {
     void carregarLista();
   }, [carregarLista, itens.length, naoLidas]);
 
-  async function handleAbrir(item: NotificacaoUi) {
-    const resultado = await abrirNotificacao(item.id);
-    if (!resultado.ok) {
-      toast({ variant: "error", title: "Não foi possível abrir", description: resultado.error });
-      return;
-    }
-    await carregarLista();
-    void recarregar();
-    const url = resultado.notificacao?.urlRegistro;
-    if (url) router.push(url);
+  function handleSelecionar(item: NotificacaoUi) {
+    setSelecionada(item);
+    setSheetAberto(true);
   }
+
+  const consultarNotificacao = useCallback(
+    async (id: number) => {
+      const resultado = await abrirNotificacao(id);
+      if (!resultado.ok) {
+        toast({ variant: "error", title: "Notificação", description: resultado.error });
+      }
+      return resultado;
+    },
+    [abrirNotificacao, toast],
+  );
 
   return (
     <WorkspaceShell>
@@ -63,27 +69,33 @@ export default function NotificacoesPage() {
             description="Quando houver retornos, prazos de inadimplência ou redistribuições, os alertas aparecem aqui."
           />
         ) : (
-          <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-surface-card">
+          <ul className="flex flex-col gap-sm">
             {listaCompleta.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => void handleAbrir(item)}
-                  className="flex w-full flex-col gap-xs px-md py-sm text-left hover:bg-surface-muted"
-                >
-                  <div className="flex items-start justify-between gap-md">
-                    <p className={`text-body-lg ${item.lidaEm ? "font-medium text-on-surface-variant" : "font-bold text-on-surface"}`}>
-                      {item.titulo}
-                    </p>
-                    <span className="shrink-0 text-body-sm text-on-surface-variant">{item.relativo}</span>
-                  </div>
-                  <p className="text-body-md text-on-surface-variant">{item.descricao}</p>
-                </button>
-              </li>
+              <NotificationListCard
+                key={item.id}
+                titulo={item.titulo}
+                descricao={item.descricao}
+                evento={item.evento}
+                criadoEm={item.criadoEm}
+                relativo={item.relativo}
+                lida={Boolean(item.lidaEm)}
+                onClick={() => handleSelecionar(item)}
+              />
             ))}
           </ul>
         )}
       </PageContent>
+
+      <NotificationDetailSheet
+        open={sheetAberto}
+        onOpenChange={setSheetAberto}
+        notificacao={selecionada}
+        onConsultar={consultarNotificacao}
+        onAtualizado={() => {
+          void carregarLista();
+          void recarregar();
+        }}
+      />
     </WorkspaceShell>
   );
 }

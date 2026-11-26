@@ -569,12 +569,14 @@ function AppShellNotificationItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full gap-md border-t border-[#EEF1F6] px-md py-sm text-left hover:bg-[#F8FAFC]"
+      className="flex w-full cursor-pointer gap-md border-t border-[#EEF1F6] px-md py-sm text-left hover:bg-[#F8FAFC]"
     >
       <span className={`mt-[6px] size-[10px] shrink-0 rounded-full ${dotClassName}`} aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className={`text-[15px] font-semibold text-on-surface ${unread ? "" : "font-medium opacity-90"}`}>{title}</p>
-        <p className="mt-[2px] text-body-sm text-[#52607A]">{description}</p>
+      <div className="flex min-w-0 flex-1 flex-col gap-px">
+        <p className={`text-[15px] leading-snug font-semibold text-on-surface ${unread ? "" : "font-medium opacity-90"}`}>
+          {title}
+        </p>
+        <p className="text-body-sm leading-snug text-[#52607A]">{description}</p>
       </div>
     </button>
   );

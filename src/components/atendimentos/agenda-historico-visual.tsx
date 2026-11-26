@@ -1,20 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import {
   CalendarClock,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
-  Mail,
-  MessageCircle,
-  Phone,
+  Clock,
+  LayoutGrid,
 } from "lucide-react";
-import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { Icon } from "@/components/icon";
 import { SkeletonCardList } from "@/components/skeleton";
-import type { HistoricoAgendaDia } from "@/lib/atendimentos/agrupar-historico-por-dia";
+import { AgendaDiaSheet } from "@/components/atendimentos/agenda-dia-sheet";
+import type { HistoricoAgendaDia, HistoricoAgendaItem } from "@/lib/atendimentos/agrupar-historico-por-dia";
 
 type Props = {
   dias: HistoricoAgendaDia[];
@@ -22,20 +22,13 @@ type Props = {
   rotuloPeriodo: string;
   onAnterior: () => void;
   onProximo: () => void;
-  onHoje: () => void;
   onAbrirAtendimento?: (unidadeId: number) => void;
   onAgendarDia?: (diaIso: string) => void;
 };
 
-const ROTULOS_DIA_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
+type VistaAgenda = "mes" | "semana" | "dia";
 
-function iconeCanal(canal: string) {
-  const chave = canal.toLocaleLowerCase("pt-BR");
-  if (chave.includes("whats")) return MessageCircle;
-  if (chave.includes("mail") || chave.includes("e-mail") || chave.includes("email")) return Mail;
-  if (chave.includes("telef") || chave.includes("lig")) return Phone;
-  return ClipboardList;
-}
+const ROTULOS_DIA_SEMANA = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"] as const;
 
 function indiceDiaSemana(diaIso: string) {
   const [y, m, d] = diaIso.split("-").map(Number);
@@ -43,103 +36,277 @@ function indiceDiaSemana(diaIso: string) {
   return new Date(y, m - 1, d).getDay();
 }
 
-function AgendaCabecalhoMes({
+function rotuloEventoCelula(item: HistoricoAgendaItem) {
+  return item.tipo === "retorno" ? "Retorno" : "Atendimento";
+}
+
+function identificacaoCurtaAgenda(item: HistoricoAgendaItem) {
+  const texto = item.unidadeLabel.trim();
+  if (!texto || texto === "—") return null;
+  const partes = texto.split(" · ");
+  const curto = (partes.length > 1 ? partes[partes.length - 1] : texto).trim();
+  return curto.length > 22 ? `${curto.slice(0, 20)}…` : curto;
+}
+
+/** Retorno tem prioridade na célula quando há mais de um tipo no mesmo dia. */
+function itemDestaqueCelula(dia: HistoricoAgendaDia) {
+  return dia.itens.find((item) => item.tipo === "retorno") ?? dia.itens[0] ?? null;
+}
+
+function horaEventoCelula(item: HistoricoAgendaItem) {
+  const hora = item.hora.trim();
+  if (hora && hora !== "Retorno") return hora;
+  const ref = item.tipo === "retorno" ? item.dataProximaAcao : item.dataHora;
+  if (ref.includes("T")) return ref.slice(11, 16);
+  return null;
+}
+
+function visualEvento(item: HistoricoAgendaItem) {
+  if (item.tipo === "retorno") {
+    return {
+      dot: "bg-status-pending",
+      cartao: "border-status-pending/25 bg-secondary-fixed/40",
+    };
+  }
+  return {
+    dot: "bg-status-settled",
+    cartao: "border-status-settled/25 bg-badge-success-subtle",
+  };
+}
+
+const OPCOES_VISTA: { value: VistaAgenda; label: string; icon: typeof LayoutGrid }[] = [
+  { value: "mes", label: "Mês", icon: LayoutGrid },
+  { value: "semana", label: "Semana", icon: CalendarDays },
+  { value: "dia", label: "Dia", icon: CalendarClock },
+];
+
+function AgendaBarraControles({
   rotuloPeriodo,
+  vista,
+  onVista,
   onAnterior,
   onProximo,
-  onHoje,
-  subtitulo,
 }: {
   rotuloPeriodo: string;
+  vista: VistaAgenda;
+  onVista: (vista: VistaAgenda) => void;
   onAnterior: () => void;
   onProximo: () => void;
-  onHoje: () => void;
-  subtitulo?: string;
 }) {
   return (
-    <header className="border-b border-border-subtle px-md py-md">
-      <span className="mb-sm block text-center text-label-lg font-semibold text-on-surface min-[520px]:hidden">
-        {rotuloPeriodo}
-      </span>
-      <div className="flex flex-wrap items-center justify-center gap-sm min-[520px]:grid min-[520px]:grid-cols-[1fr_auto_1fr] min-[520px]:justify-items-stretch">
-        <div className="flex items-center justify-center gap-xs min-[520px]:justify-start">
-          <Button type="button" size="sm" variant="ghost" aria-label="Mês anterior" onClick={onAnterior}>
-            <Icon icon={ChevronLeft} size="sm" />
-          </Button>
-          <Button type="button" size="sm" variant="surface" onClick={onHoje}>
-            Hoje
-          </Button>
-          <Button type="button" size="sm" variant="ghost" aria-label="Próximo mês" onClick={onProximo}>
-            <Icon icon={ChevronRight} size="sm" />
-          </Button>
+    <div className="flex flex-col gap-md border-b border-border-subtle px-md py-md sm:px-lg">
+      <div className="flex flex-col gap-md lg:flex-row lg:items-center lg:justify-between">
+        <nav
+          aria-label="Navegação do mês"
+          className="flex flex-wrap items-center gap-sm"
+        >
+          <div className="flex min-w-0 items-center gap-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="size-9 shrink-0 border-0 p-0 shadow-none"
+              aria-label="Mês anterior"
+              onClick={onAnterior}
+            >
+              <Icon icon={ChevronLeft} size="sm" />
+            </Button>
+            <h2 className="min-w-0 truncate text-headline-sm text-primary-container">{rotuloPeriodo}</h2>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="size-9 shrink-0 border-0 p-0 shadow-none"
+              aria-label="Próximo mês"
+              onClick={onProximo}
+            >
+              <Icon icon={ChevronRight} size="sm" />
+            </Button>
+          </div>
+        </nav>
+
+        <div className="flex flex-col gap-md sm:flex-row sm:items-center sm:justify-end sm:gap-lg">
+          <div
+            role="radiogroup"
+            aria-label="Visualização da agenda"
+            className="flex w-full gap-xs rounded-xl border border-border-subtle bg-surface-card p-1 sm:w-auto"
+          >
+            {OPCOES_VISTA.map((opcao) => {
+              const selecionado = vista === opcao.value;
+              return (
+                <button
+                  key={opcao.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selecionado}
+                  onClick={() => onVista(opcao.value)}
+                  className={`flex h-9 min-w-[4.75rem] flex-1 items-center justify-center gap-xs rounded-lg px-sm text-label-md font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass sm:flex-initial ${
+                    selecionado
+                      ? "bg-primary-container text-on-primary shadow-sm"
+                      : "text-on-surface-variant hover:bg-surface-subtle"
+                  }`}
+                >
+                  <Icon
+                    icon={opcao.icon}
+                    size="sm"
+                    className={selecionado ? "text-on-primary" : undefined}
+                  />
+                  {opcao.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <h2 className="hidden text-center text-label-lg font-semibold text-on-surface min-[520px]:block">
-          {rotuloPeriodo}
-        </h2>
-        <div className="hidden min-[520px]:block" aria-hidden />
       </div>
-      {subtitulo ? (
-        <p className="mt-sm text-center text-body-sm text-on-surface-variant">{subtitulo}</p>
-      ) : null}
-    </header>
+    </div>
   );
 }
 
-function AgendaGradeMesVazio({
-  dias,
-  onAgendarDia,
-}: {
-  dias: HistoricoAgendaDia[];
-  onAgendarDia?: (diaIso: string) => void;
-}) {
-  const offset = dias[0] ? indiceDiaSemana(dias[0].dia) : 0;
+function CartaoEventoCelula({ item }: { item: HistoricoAgendaItem }) {
+  const visual = visualEvento(item);
+  const hora = horaEventoCelula(item);
+  const identificacao = identificacaoCurtaAgenda(item);
 
   return (
-    <div className="border-b border-border-subtle px-md py-md">
-      <div className="mb-sm grid grid-cols-7 gap-1">
-        {ROTULOS_DIA_SEMANA.map((rotulo, indice) => (
-          <span
-            key={`${rotulo}-${indice}`}
-            className="pb-xs text-center text-label-sm font-medium uppercase text-on-surface-variant"
-          >
-            {rotulo}
-          </span>
-        ))}
+    <div
+      className={`mt-sm flex min-w-0 flex-col gap-0.5 rounded-lg border px-sm py-xs ${visual.cartao}`}
+    >
+      <div className="flex min-w-0 items-center gap-xs">
+        <span className={`size-2 shrink-0 rounded-full ${visual.dot}`} aria-hidden />
+        <span className="truncate text-label-md font-semibold text-on-surface">
+          {rotuloEventoCelula(item)}
+        </span>
       </div>
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: offset }, (_, i) => (
-          <span key={`pad-${i}`} className="aspect-square" aria-hidden />
-        ))}
-        {dias.map((dia) => {
-          const temEvento = dia.itens.length > 0;
-          const CellTag = onAgendarDia ? "button" : "span";
-          return (
-            <CellTag
-              key={dia.dia}
-              id={dia.eHoje ? "agenda-hoje" : undefined}
-              type={onAgendarDia ? "button" : undefined}
-              onClick={onAgendarDia ? () => onAgendarDia(dia.dia) : undefined}
-              className={`flex aspect-square flex-col items-center justify-center rounded-lg text-label-md tabular-nums transition-colors ${
-                dia.eHoje
-                  ? "bg-brass font-semibold text-primary-container shadow-card"
-                  : temEvento
-                    ? "bg-gold-subtle font-semibold text-on-surface hover:bg-gold-subtle/80"
-                    : onAgendarDia
-                      ? "bg-surface-subtle/80 text-on-surface hover:bg-gold-subtle/40"
-                      : "bg-surface-subtle/50 text-on-surface-variant"
-              }`}
-              title={onAgendarDia ? `Agendar em ${dia.rotuloLongo}` : undefined}
-            >
-              {dia.diaNumero}
-            </CellTag>
-          );
-        })}
-      </div>
-      {onAgendarDia ? (
-        <p className="mt-md text-center text-body-sm text-on-surface-variant">
-          Toque em um dia para agendar um retorno.
-        </p>
+      {hora || identificacao ? (
+        <div className="flex min-w-0 flex-col gap-px pl-[calc(0.5rem+2px)]">
+          {hora ? (
+            <div className="flex items-center gap-xs text-body-sm tabular-nums text-on-surface-variant">
+              <Icon icon={Clock} size="sm" className="shrink-0" />
+              {hora}
+            </div>
+          ) : null}
+          {identificacao ? (
+            <span className="truncate text-body-sm text-on-surface-variant">{identificacao}</span>
+          ) : null}
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+function AgendaGradeMes({
+  dias,
+  diaAberto,
+  onAbrirDia,
+}: {
+  dias: HistoricoAgendaDia[];
+  diaAberto: string | null;
+  onAbrirDia: (dia: HistoricoAgendaDia) => void;
+}) {
+  const offset = dias[0] ? indiceDiaSemana(dias[0].dia) : 0;
+  const totalCelulas = offset + dias.length;
+  const linhas = Math.ceil(totalCelulas / 7);
+
+  return (
+    <div className="px-md py-md sm:px-lg sm:pb-lg">
+      <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card">
+        <div className="grid grid-cols-7 border-b border-border-subtle bg-surface-subtle/60">
+          {ROTULOS_DIA_SEMANA.map((rotulo) => (
+            <span
+              key={rotulo}
+              className="border-r border-border-subtle px-xs py-sm text-center text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant last:border-r-0"
+            >
+              {rotulo}
+            </span>
+          ))}
+        </div>
+        <div
+          className="grid grid-cols-7"
+          style={{ gridTemplateRows: `repeat(${linhas}, minmax(6.25rem, auto))` }}
+        >
+          {Array.from({ length: offset }, (_, i) => (
+            <span
+              key={`pad-${i}`}
+              className="border-b border-r border-border-subtle bg-surface-subtle/30"
+              aria-hidden
+            />
+          ))}
+          {dias.map((dia, indice) => {
+            const temEvento = dia.itens.length > 0;
+            const aberto = diaAberto === dia.dia;
+            const destaque = itemDestaqueCelula(dia);
+            const restantes = dia.itens.length - (destaque ? 1 : 0);
+            const coluna = (offset + indice) % 7;
+            const ehUltimaColuna = coluna === 6;
+
+            return (
+              <button
+                key={dia.dia}
+                id={dia.eHoje ? "agenda-hoje" : undefined}
+                type="button"
+                onClick={() => onAbrirDia(dia)}
+                className={`relative flex min-h-[7rem] cursor-pointer flex-col items-stretch border-b border-border-subtle bg-surface-card p-md text-left transition-colors focus-visible:z-[1] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brass ${
+                  ehUltimaColuna ? "border-r-0" : "border-r"
+                } ${aberto ? "z-[1] bg-surface-subtle/50" : ""} ${
+                  !temEvento ? "hover:bg-surface-subtle/80" : "hover:bg-surface-subtle/40"
+                }`}
+                title={dia.rotuloLongo}
+                aria-label={
+                  temEvento
+                    ? `${dia.rotuloLongo}, ${dia.itens.length} compromisso(s). Toque para ver a lista.`
+                    : `${dia.rotuloLongo}. Toque para ver o dia ou agendar.`
+                }
+              >
+                <div className="mb-sm flex h-7 shrink-0 items-center justify-end">
+                  <span
+                    className={`inline-flex min-w-7 items-center justify-center text-label-lg font-semibold tabular-nums ${
+                      dia.eHoje
+                        ? "rounded-full bg-brass px-xs text-on-primary"
+                        : "text-on-surface"
+                    }`}
+                  >
+                    {dia.diaNumero}
+                  </span>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col gap-xs">
+                  {destaque ? <CartaoEventoCelula item={destaque} /> : null}
+                  {restantes > 0 ? (
+                    <span className="mt-auto inline-flex w-fit max-w-full truncate rounded-full border border-border-subtle bg-surface-subtle px-sm py-0.5 text-body-sm font-medium text-on-surface-variant">
+                      +{restantes} compromisso{restantes > 1 ? "s" : ""}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+          {Array.from({ length: linhas * 7 - totalCelulas }, (_, i) => {
+            const posicao = totalCelulas + i;
+            const ehUltimaColuna = posicao % 7 === 6;
+            return (
+              <span
+                key={`trail-${i}`}
+                className={`min-h-[6.25rem] border-b border-border-subtle bg-surface-subtle/30 ${
+                  ehUltimaColuna ? "border-r-0" : "border-r"
+                }`}
+                aria-hidden
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgendaVistaEmBreve({ rotulo }: { rotulo: string }) {
+  return (
+    <div className="px-md py-xl sm:px-lg">
+      <EmptyState
+        icon={<Icon icon={CalendarDays} size="lg" />}
+        title={rotulo}
+        description="Esta visualização ainda não está disponível. Use o modo Mês."
+        className="py-lg"
+      />
     </div>
   );
 }
@@ -150,28 +317,35 @@ export function AgendaHistoricoVisual({
   rotuloPeriodo,
   onAnterior,
   onProximo,
-  onHoje,
   onAbrirAtendimento,
   onAgendarDia,
 }: Props) {
-  const temAlgumEvento = dias.some((dia) => dia.itens.length > 0);
+  const [diaNoSheet, setDiaNoSheet] = useState<HistoricoAgendaDia | null>(null);
+  const [sheetAberto, setSheetAberto] = useState(false);
+  const [vista, setVista] = useState<VistaAgenda>("mes");
+
+  function abrirDia(dia: HistoricoAgendaDia) {
+    setDiaNoSheet(dia);
+    setSheetAberto(true);
+  }
+
+  function agendarNoDia(diaIso: string) {
+    setSheetAberto(false);
+    onAgendarDia?.(diaIso);
+  }
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-card shadow-card">
-      <AgendaCabecalhoMes
+      <AgendaBarraControles
         rotuloPeriodo={rotuloPeriodo}
+        vista={vista}
+        onVista={setVista}
         onAnterior={onAnterior}
         onProximo={onProximo}
-        onHoje={onHoje}
-        subtitulo={
-          !carregando && dias.length > 0 && !temAlgumEvento
-            ? "Nenhum atendimento neste mês — use a grade ou volte em Hoje."
-            : undefined
-        }
       />
 
       {carregando ? (
-        <div className="p-md">
+        <div className="p-md sm:p-lg">
           <SkeletonCardList rows={6} label="Carregando agenda" />
         </div>
       ) : dias.length === 0 ? (
@@ -181,103 +355,25 @@ export function AgendaHistoricoVisual({
           description="Não foi possível montar os dias deste mês."
           className="py-xl"
         />
-      ) : !temAlgumEvento ? (
-        <AgendaGradeMesVazio dias={dias} onAgendarDia={onAgendarDia} />
+      ) : vista === "mes" ? (
+        <AgendaGradeMes
+          dias={dias}
+          diaAberto={sheetAberto ? diaNoSheet?.dia ?? null : null}
+          onAbrirDia={abrirDia}
+        />
+      ) : vista === "semana" ? (
+        <AgendaVistaEmBreve rotulo="Visualização por semana" />
       ) : (
-        <ul className="max-h-[min(70vh,40rem)] divide-y divide-border-subtle overflow-y-auto">
-          {dias.map((dia) => (
-            <li
-              key={dia.dia}
-              id={dia.eHoje ? "agenda-hoje" : undefined}
-              className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-0 min-[640px]:grid-cols-[6.5rem_minmax(0,1fr)]"
-            >
-              <div
-                className={`flex flex-col items-center justify-start gap-xs border-r border-border-subtle px-sm py-md ${
-                  dia.eHoje ? "bg-gold-subtle" : "bg-surface-subtle/80"
-                }`}
-              >
-                <span
-                  className={`text-label-sm uppercase ${dia.eHoje ? "text-brass" : "text-on-surface-variant"}`}
-                >
-                  {dia.diaSemanaCurto}
-                </span>
-                <span
-                  className={`flex size-10 items-center justify-center rounded-full text-headline-sm tabular-nums ${
-                    dia.eHoje
-                      ? "bg-brass text-primary-container"
-                      : "bg-surface-card text-on-surface shadow-card"
-                  }`}
-                >
-                  {dia.diaNumero}
-                </span>
-                {dia.eHoje ? <span className="text-label-sm text-brass">Hoje</span> : null}
-              </div>
-
-              {dia.itens.length === 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-sm px-md py-sm">
-                  <p className="text-body-sm text-on-surface-variant">Sem atendimentos</p>
-                  {onAgendarDia ? (
-                    <Button type="button" size="sm" variant="ghost" onClick={() => onAgendarDia(dia.dia)}>
-                      <Icon icon={CalendarClock} size="sm" />
-                      Agendar
-                    </Button>
-                  ) : null}
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-sm p-md">
-                  {dia.itens.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={`flex w-full items-start gap-md rounded-xl border px-md py-sm text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass ${
-                          item.tipo === "retorno"
-                            ? "border-brass/40 bg-gold-subtle/70 hover:bg-gold-subtle"
-                            : "border-border-subtle bg-surface-card hover:border-brass/40 hover:bg-gold-subtle/50"
-                        }`}
-                        onClick={() => onAbrirAtendimento?.(item.unidadeId)}
-                      >
-                        <span className="mt-0.5 w-14 shrink-0 text-label-md tabular-nums text-brass">
-                          {item.hora}
-                        </span>
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed/40 text-primary-container">
-                          <Icon
-                            icon={item.tipo === "retorno" ? CalendarClock : iconeCanal(item.canal)}
-                            size="sm"
-                            aria-hidden
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-sm">
-                            <span className="truncate text-body-md font-semibold text-on-surface">
-                              {item.unidadeLabel}
-                            </span>
-                            <Badge
-                              variant={
-                                item.tipo === "retorno"
-                                  ? "secondary"
-                                  : item.status === "Resolvido"
-                                    ? "success"
-                                    : "neutral"
-                              }
-                            >
-                              {item.tipo === "retorno" ? "Retorno" : item.status}
-                            </Badge>
-                          </span>
-                          <span className="mt-xs block text-body-sm text-on-surface-variant">
-                            {item.tipo === "retorno"
-                              ? item.proximaAcao || "Retorno agendado"
-                              : `${item.canal}${item.respondeu ? ` · Respondeu: ${item.respondeu}` : ""}${item.motivo ? ` · ${item.motivo}` : ""}`}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+        <AgendaVistaEmBreve rotulo="Visualização por dia" />
       )}
+
+      <AgendaDiaSheet
+        dia={diaNoSheet}
+        open={sheetAberto}
+        onOpenChange={setSheetAberto}
+        onAbrirAtendimento={onAbrirAtendimento}
+        onAgendarDia={onAgendarDia ? agendarNoDia : undefined}
+      />
     </section>
   );
 }

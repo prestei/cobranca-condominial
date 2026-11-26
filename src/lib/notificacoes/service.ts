@@ -19,6 +19,8 @@ import { processarAlertasPrazoInadimplencia } from "@/lib/notificacoes/alertas-p
 import { destinatarioPodeReceberNotificacaoOperacional } from "@/lib/notificacoes/recipient-eligibility";
 import { dispatchPushForInternalNotification } from "@/lib/notificacoes/push-dispatch";
 import { pushFirebaseHabilitadoNoServidor } from "@/lib/notificacoes/firebase-config";
+import { resolverUrlRegistroNotificacao } from "@/lib/notificacoes/notification-deep-link";
+import { formatRelativeNotificationTime } from "@/lib/notificacoes/relative-time";
 
 export class NotificacaoServiceError extends Error {
   constructor(
@@ -235,19 +237,7 @@ export type NotificacaoApresentacao = NotificacaoInterna & {
   relativo: string;
 };
 
-function formatarRelativo(iso: string) {
-  const instant = Date.parse(iso);
-  if (Number.isNaN(instant)) return "";
-  const diffMin = Math.floor((Date.now() - instant) / 60_000);
-  if (diffMin < 1) return "agora";
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `há ${diffH} h`;
-  const diffD = Math.floor(diffH / 24);
-  return `há ${diffD} d`;
-}
-
-export { resolverUrlRegistroNotificacao } from "@/lib/notificacoes/notification-deep-link";
+export { resolverUrlRegistroNotificacao };
 
 async function usuarioAcessaRegistro(userId: number, item: NotificacaoInterna, cadastros: Cadastros): Promise<boolean> {
   const idsCondominio = new Set(escopoCondominios(cadastros, userId).map((c) => c.id));
@@ -287,7 +277,7 @@ function montarApresentacao(item: NotificacaoInterna): NotificacaoApresentacao {
   return {
     ...item,
     urlRegistro: resolverUrlRegistroNotificacao(item),
-    relativo: formatarRelativo(item.criadoEm),
+    relativo: formatRelativeNotificationTime(item.criadoEm),
   };
 }
 

@@ -20,11 +20,8 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [montado, setMontado] = useState(false);
-  const [ambienteLocal, setAmbienteLocal] = useState(false);
 
   useEffect(() => {
-    const host = window.location.hostname;
-    setAmbienteLocal(host === "localhost" || host === "127.0.0.1");
     setMontado(true);
   }, []);
 
@@ -129,12 +126,6 @@ function LoginForm() {
             >
               {submitting ? "Entrando…" : "Entrar"}
             </Button>
-            {ambienteLocal ? (
-              <p className="text-center text-body-xs leading-relaxed text-on-primary/80">
-                Demonstração: MILENA (administradora), RAQUEL ou TASSIA (atendente), ADRYELLE (advogada). Senha
-                padrão: 12345.
-              </p>
-            ) : null}
           </form>
         </div>
       </div>
