@@ -1,4 +1,5 @@
 .data/
+data/legal-documents/
 
 node_modules/
 .next/

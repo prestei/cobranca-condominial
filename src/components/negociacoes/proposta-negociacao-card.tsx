@@ -87,6 +87,8 @@ type Props = {
   selecionada?: boolean;
   onClick: () => void;
   onEncaminharJuridico?: () => void;
+  onAssumirJuridicamente?: () => void;
+  assumindoJuridicamente?: boolean;
 };
 
 export function PropostaNegociacaoCard({
@@ -96,6 +98,8 @@ export function PropostaNegociacaoCard({
   selecionada,
   onClick,
   onEncaminharJuridico,
+  onAssumirJuridicamente,
+  assumindoJuridicamente,
 }: Props) {
   const condominio = nomeCondominio(proposta.condominioId, cadastros);
   const unidade = identificacaoUnidade(proposta.unidadeId, cadastros);
@@ -193,21 +197,35 @@ export function PropostaNegociacaoCard({
         </div>
       </div>
       </button>
-      <div className="mt-[calc(var(--spacing-sm)+4px)] flex shrink-0 items-end justify-between gap-sm">
-        <span className="min-w-0 truncate text-body-sm leading-none text-on-surface-variant">{advogadoRotulo}</span>
-        <div className="flex shrink-0 flex-col items-end gap-xs text-right">
-          <time
-            className="text-body-sm leading-none tabular-nums text-on-surface-variant"
-            dateTime={proposta.criadoEm}
-          >
-            {formatarDataHoraCard(proposta.criadoEm)}
-          </time>
-          {onEncaminharJuridico ? (
+      <div className="mt-[calc(var(--spacing-sm)+4px)] flex shrink-0 flex-col gap-xs">
+        <time
+          className="self-end text-body-sm leading-none tabular-nums text-on-surface-variant"
+          dateTime={proposta.criadoEm}
+        >
+          {formatarDataHoraCard(proposta.criadoEm)}
+        </time>
+        <div className="flex items-center justify-between gap-sm">
+          <span className="min-w-0 truncate text-body-sm leading-none text-on-surface-variant">{advogadoRotulo}</span>
+          {onAssumirJuridicamente ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className="min-h-8 shrink-0 gap-1 whitespace-nowrap px-sm text-label-sm"
+              disabled={assumindoJuridicamente}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAssumirJuridicamente();
+              }}
+            >
+              {assumindoJuridicamente ? "Assumindo…" : "Assumir juridicamente"}
+            </Button>
+          ) : onEncaminharJuridico ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="!h-auto !min-h-0 gap-1 !px-0 !py-0 text-label-sm font-normal leading-none text-on-surface-variant hover:bg-transparent hover:text-on-surface"
+              className="!h-auto !min-h-0 shrink-0 gap-1 !px-0 !py-0 text-label-sm font-normal leading-none text-on-surface-variant hover:bg-transparent hover:text-on-surface"
               onClick={(event) => {
                 event.stopPropagation();
                 onEncaminharJuridico();

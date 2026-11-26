@@ -124,3 +124,8 @@ export function calcularResumoAcordo(
     parcelas: enriquecidas,
   };
 }
+
+/** Parcelas em que ainda faz sentido registrar pagamento (exclui quitadas e canceladas). */
+export function parcelasElegiveisParaPagamento(parcelas: ParcelaAcordoEnriquecida[]): ParcelaAcordoEnriquecida[] {
+  return parcelas.filter((parcela) => parcela.status !== "Paga" && parcela.status !== "Cancelada");
+}

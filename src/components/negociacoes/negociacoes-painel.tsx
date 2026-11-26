@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Briefcase, CalendarX2, CircleCheck, Clock, Handshake, TriangleAlert, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
@@ -14,8 +15,11 @@ import {
   type Cadastros,
   type PropostaNegociacao,
 } from "@/data/catalogo";
+import { useToast } from "@/components/toast";
 import { usePermissao } from "@/hooks/use-permissao";
 import type { ResumoAcordo } from "@/lib/acordos/resumo";
+import { negociacaoExigeIntervencaoAdvogado } from "@/lib/negociacoes/intervencao-advogado-juridico";
+import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 
 type Metricas = {
   total: number;
@@ -90,8 +94,14 @@ export function NegociacoesPainel({
   status,
   onStatusChange,
 }: Props) {
-  const { pode } = usePermissao();
-  const podeEncaminharJuridico = pode("juridico", "criar");
+  const router = useRouter();
+  const { toast } = useToast();
+  const { pode, permissoes } = usePermissao();
+  const perfil = useMemo(() => resolverPerfilOperacional(permissoes), [permissoes]);
+  const visaoAdvogado = perfil === "advogado";
+  const podeEncaminharJuridico = !visaoAdvogado && pode("juridico", "criar");
+  const podeAssumirJuridicamente = visaoAdvogado && pode("juridico", "editar");
+  const [assumindoId, setAssumindoId] = useState<string | null>(null);
   const [juridicoContexto, setJuridicoContexto] = useState<{
     unidadeId: number;
     condominioId: number;
@@ -114,6 +124,31 @@ export function NegociacoesPainel({
   function selecionarChip(novoStatus: string) {
     onStatusChange(novoStatus);
     onPageChange(1);
+  }
+
+  async function assumirJuridicamente(proposta: PropostaNegociacao) {
+    if (assumindoId) return;
+    setAssumindoId(proposta.id);
+    try {
+      const response = await fetch(`/api/propostas/${proposta.id}/assumir-juridicamente`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const payload = (await response.json()) as { error?: string; encaminhamentoId?: string };
+      if (!response.ok) {
+        toast({ variant: "error", title: "Não foi possível assumir", description: payload.error });
+        return;
+      }
+      toast({
+        variant: "success",
+        title: "Assunção registrada",
+        description: "Encaminhado ao Jurídico. O acordo permanece vigente.",
+      });
+      onRecarregar();
+      router.push("/juridico");
+    } finally {
+      setAssumindoId(null);
+    }
   }
 
   return (
@@ -212,6 +247,13 @@ export function NegociacoesPainel({
                 selecionada={false}
                 onClick={() => onSelecionar(item.id)}
                 onEncaminharJuridico={podeEncaminharJuridico ? () => abrirJuridico(item) : undefined}
+                onAssumirJuridicamente={
+                  podeAssumirJuridicamente &&
+                  negociacaoExigeIntervencaoAdvogado(item, resumoPorProposta.get(item.id))
+                    ? () => void assumirJuridicamente(item)
+                    : undefined
+                }
+                assumindoJuridicamente={assumindoId === item.id}
               />
             ))
           )}

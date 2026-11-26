@@ -347,10 +347,11 @@ export function SkeletonTimeline({
         <Skeleton className="h-6 w-20 rounded-full" />
         <Skeleton className="h-6 w-32 rounded-full" />
       </div>
-      <div className="flex flex-col gap-md border-l border-border-subtle pl-md">
+      <div className="relative flex flex-col gap-md pl-7">
+        <span className="pointer-events-none absolute inset-y-0 left-[11px] w-px bg-border-subtle" aria-hidden />
         {Array.from({ length: items }, (_, index) => (
           <div key={index} className="relative flex flex-col gap-xs">
-            <Skeleton className="absolute -left-[calc(0.5rem+5px)] top-1 size-2.5 rounded-full" />
+            <Skeleton className="absolute left-[11px] top-1 size-2.5 -translate-x-1/2 rounded-full" />
             <Skeleton className="h-3.5 w-40" />
             <Skeleton className="h-3 w-full" />
             <Skeleton className="h-3 w-[66%]" />

@@ -96,7 +96,7 @@ function ToastViewport({
 
   return createPortal(
     <div
-      className="pointer-events-none fixed bottom-md left-1/2 z-[200] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col items-center gap-sm"
+      className="pointer-events-none fixed bottom-md left-1/2 z-[200] flex w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 flex-col items-stretch gap-sm"
       aria-live="polite"
       aria-relevant="additions"
     >
@@ -117,17 +117,17 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: () => 
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
-      className={`pointer-events-auto flex max-w-sm gap-sm rounded-lg border pl-md pr-sm opacity-100 shadow-popover ${hasDescription ? "items-start py-md" : "items-center py-sm"} ${toastContainerVariants[variant]}`}
+      className={`pointer-events-auto flex w-full gap-sm rounded-lg border pl-md pr-sm opacity-100 shadow-popover ${hasDescription ? "items-start py-md" : "items-center py-sm"} ${toastContainerVariants[variant]}`}
     >
       <Icon
         icon={config.icon}
         size="md"
         className={`${config.iconClass} ${hasDescription ? "mt-0.5" : ""}`}
       />
-      <div className="min-w-0 text-left">
+      <div className="min-w-0 flex-1 text-left">
         <p className="text-label-lg text-on-surface">{toast.title}</p>
         {toast.description ? (
-          <p className="mt-xs text-body-sm text-on-surface-variant">{toast.description}</p>
+          <p className="mt-xs text-balance text-body-sm text-on-surface-variant">{toast.description}</p>
         ) : null}
       </div>
       <button

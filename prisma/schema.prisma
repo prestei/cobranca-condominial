@@ -68,6 +68,7 @@ model User {
   proposalDebtsFormalized     NegotiationProposalDebt[] @relation("ProposalDebtFormalizedBy")
   proposalDebtFinancialChanges NegotiationProposalDebtFinancialChange[] @relation("ProposalDebtFinancialChangeUser")
   proposalsNegotiationQueued NegotiationProposal[] @relation("ProposalNegotiationQueueBy")
+  proposalsLegalAssumption   NegotiationProposal[] @relation("ProposalLegalAssumptionBy")
   negotiationNextStepDecisions NegotiationNextStepDecision[] @relation("NextStepDecisionUser")
   negotiationNextStepResponsible NegotiationNextStepDecision[] @relation("NextStepDecisionResponsible")
 
@@ -366,6 +367,9 @@ model NegotiationProposal {
   valuesApprovedByUserId Int?   @map("valores_aprovados_por_id")
   negotiationQueueAt    DateTime? @map("negotiation_queue_at")
   negotiationQueueByUserId Int? @map("negotiation_queue_by_user_id")
+  legalAssumptionAt        DateTime? @map("legal_assumption_at")
+  legalAssumptionByUserId  Int?      @map("legal_assumption_by_user_id")
+  legalAssumptionReferralId String?  @map("legal_assumption_referral_id") @db.VarChar(64)
 
   condominium      Condominium              @relation(fields: [condominiumId], references: [id])
   unit             Unit                     @relation(fields: [unitId], references: [id])
@@ -379,6 +383,8 @@ model NegotiationProposal {
   installments     AgreementInstallment[]
   payments         AgreementPayment[]
   negotiationQueueBy User? @relation("ProposalNegotiationQueueBy", fields: [negotiationQueueByUserId], references: [id])
+  legalAssumptionBy User? @relation("ProposalLegalAssumptionBy", fields: [legalAssumptionByUserId], references: [id])
+  legalAssumptionReferral LegalCaseReferral? @relation("ProposalLegalAssumptionReferral", fields: [legalAssumptionReferralId], references: [id])
   nextStepDecision NegotiationNextStepDecision?
   debtSettlements  DebtSettlement[]
 
@@ -513,6 +519,7 @@ model LegalCaseReferral {
   updatedBy   User            @relation("LegalReferralUpdatedBy", fields: [updatedById], references: [id])
   documents   LegalDocument[]
   negotiationNextStepDecisions NegotiationNextStepDecision[]
+  negotiationLegalAssumptions  NegotiationProposal[] @relation("ProposalLegalAssumptionReferral")
 
   @@map("legal_case_referral")
 }

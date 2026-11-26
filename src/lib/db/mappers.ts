@@ -261,6 +261,9 @@ export function mapProposalToProposta(row: NegotiationProposal): PropostaNegocia
     valoresAprovadosPorId: row.valuesApprovedByUserId ?? null,
     filaNegociacaoEm: row.negotiationQueueAt ? isoDateTime(row.negotiationQueueAt) : "",
     filaNegociacaoPorId: row.negotiationQueueByUserId ?? null,
+    assuncaoJuridicaEm: row.legalAssumptionAt ? isoDateTime(row.legalAssumptionAt) : "",
+    assuncaoJuridicaPorId: row.legalAssumptionByUserId ?? null,
+    encaminhamentoJuridicoAssuncaoId: row.legalAssumptionReferralId ?? "",
   };
 }
 

@@ -17,7 +17,7 @@ Registrar tratativas de negociação vinculadas à unidade e aos débitos pertin
 
 | Onde | Descrição |
 | --- | --- |
-| **`/negociacoes`** | Tela exclusiva **sem tabela**: painel `NegociacoesPainel` (carteira em cards + detalhe fixo no desktop), `PropostaNegociacaoCard` (link discreto «Encaminhar p/ jurídico» no rodapé do card, com `juridico.criar`), `PropostaNegociacaoDetalheConteudo`, sheet mobile (`PropostaDetalheSheet`), **Novo** (`NegociacaoNovaPropostaSheet`) |
+| **`/negociacoes`** | Tela exclusiva **sem tabela**: painel `NegociacoesPainel` (carteira em cards + detalhe fixo no desktop), `PropostaNegociacaoCard` — **Advogado:** botão **Assumir juridicamente** quando a negociação exige intervenção (`juridico.editar`); **demais perfis:** link «Encaminhar p/ jurídico» (`juridico.criar`); `PropostaNegociacaoDetalheConteudo`, sheet mobile (`PropostaDetalheSheet`), **Novo** (`NegociacaoNovaPropostaSheet`) |
 | Fila de cobranças | Ação **Proposta** por unidade → `PropostaNegociacaoSheet` |
 | Histórico da unidade | Botão **Proposta** no sheet de linha do tempo |
 | Acordo confirmado | Bloco **Acompanhamento do acordo** no sheet (parcelas + pagamentos) |
@@ -51,6 +51,7 @@ Reutiliza o módulo **atendimentos** (palitagem na mesma carteira):
 | POST | `/api/propostas` | `atendimentos.criar` | Nova proposta — status **Em análise** |
 | GET | `/api/propostas/[id]` | `atendimentos.ler` | Detalhe |
 | PATCH | `/api/propostas/[id]` | Status: `negociacoes.confirmar` / `recusar` / `cancelar` conforme destino. Conteúdo (**Em análise**): `negociacoes.editar` ou `atendimentos.editar` | Status; `termosAprovados` obrigatório se **Aceita**. Ajuste: `valorProposto`, `debitoIds`, `quantidadeParcelas`, `observacoes` |
+| POST | `/api/propostas/[id]/assumir-juridicamente` | Perfil **advogado** + `juridico.editar` + `negociacoes.ler` | Registra advogado e data/hora da assunção, cria `legal_case_referral` (**Encaminhado**) e grava vínculo na proposta — **não** altera status do acordo |
 
 ### Parcelas e pagamentos (T16)
 
@@ -84,6 +85,7 @@ Regras: `src/lib/negociacoes/service.ts`, `src/lib/acordos/service.ts`, cálculo
 - **Pendente / Paga / Vencida / Cancelada:** status calculado (quitação só com pagamentos **Confirmados** ≥ valor previsto; cancelamento sem pagamento confirmado).
 - **Integridade:** soma das parcelas ativas = valor negociado (±1 centavo); pagamento confirmado duplicado na mesma parcela é rejeitado.
 - **Potencial descumprimento:** indício quando há parcela **Vencida** sem quitação confirmada — **não** equivale a “acordo quebrado” (regra oficial pendente).
+- **Assunção jurídica (advogado):** botão **Assumir juridicamente** só quando `negociacaoExigeIntervencaoAdvogado` — **Em análise**; acordo **Aceita** com parcelas vencidas ou potencial descumprimento. Uma assunção por proposta (`legal_assumption_at`). O histórico da negociação permanece; o acordo **não** é cancelado automaticamente.
 - **Saldo restante (T25):** ao confirmar acordo, o sistema grava snapshot financeiro por débito em `negotiation_proposal_debt` (valor original registrado, valor negociado alocado, desconto, pago confirmado e saldo restante) e atualiza o **valor atualizado exibido** no painel `/debitos` sem nova importação. Pagamentos **Confirmados** recalculam o saldo; **Informado** não conta. Importação não sobrescreve `valor_original` nem `valor_atualizado` de débitos em acordo formalizado (`Aceita`). Histórico em `negotiation_proposal_debt_financial_change` e `audit_log` (`debt`).
 - Correções administrativas geram `audit_log` com estado anterior (`agreement_installment`, `agreement_payment`).
 

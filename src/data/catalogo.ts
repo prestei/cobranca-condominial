@@ -195,6 +195,10 @@ export type PropostaNegociacao = {
   /** Momento em que a cobrança entrou na fila de negociação (T26). */
   filaNegociacaoEm: string;
   filaNegociacaoPorId: number | null;
+  /** Assunção jurídica pelo advogado (encaminhamento ao módulo Jurídico sem cancelar o acordo). */
+  assuncaoJuridicaEm: string;
+  assuncaoJuridicaPorId: number | null;
+  encaminhamentoJuridicoAssuncaoId: string;
 };
 
 /** Ações disponíveis após registrar proposta (T26). */

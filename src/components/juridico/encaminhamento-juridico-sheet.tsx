@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Flag, FileText, FolderOpen, Scale, UserRound } from "lucide-react";
+import { Flag, FileText, Scale, UserRound } from "lucide-react";
+import { EncaminhamentoJuridicoDocumentosTab } from "@/components/juridico/encaminhamento-juridico-documentos-tab";
+import { Alert } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
@@ -21,11 +23,19 @@ import {
   SheetHeaderLead,
   SheetHeaderText,
   SheetHelpText,
+  SheetPanel,
   SheetTitle,
 } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { debitoEmAberto, formatarData, nomeUsuario, statusEncaminhamentoJuridico, type DocumentoJuridico, type EncaminhamentoJuridico } from "@/data/catalogo";
+import {
+  debitoEmAberto,
+  formatarData,
+  formatarMoeda,
+  statusEncaminhamentoJuridico,
+  type EncaminhamentoJuridico,
+} from "@/data/catalogo";
 import type { EncaminhamentoJuridicoDetalhe } from "@/lib/juridico/service";
+import { valorDebitosEncaminhamento } from "@/lib/juridico/valor-encaminhamento";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
 
@@ -49,6 +59,16 @@ const badgeStatus: Record<string, "success" | "secondary" | "error" | "neutral">
   "Pronto para ajuizamento": "success",
   "Retornado à cobrança amigável": "neutral",
   Arquivado: "neutral",
+};
+
+const orientacaoPorStatus: Record<string, string> = {
+  Encaminhado: "Esta demanda está aguardando sua análise para definir a próxima ação.",
+  "Em análise": "Análise em andamento. Atualize o status conforme documentação e estratégia definidas.",
+  "Documentação pendente": "Há pendências documentais. Registre referências internas nos documentos do caso.",
+  "Aguardando decisão": "Ação jurídica definida. Execute ou atualize o acompanhamento conforme o plano.",
+  "Pronto para ajuizamento": "Caso em processo. O sistema não envia automaticamente a tribunais.",
+  "Retornado à cobrança amigável": "Caso devolvido à cobrança extrajudicial.",
+  Arquivado: "Encaminhamento encerrado e arquivado.",
 };
 
 export function EncaminhamentoJuridicoSheet({
@@ -82,11 +102,6 @@ export function EncaminhamentoJuridicoSheet({
 
   const [statusPorId, setStatusPorId] = useState<Record<string, string>>({});
   const [observacoesPorId, setObservacoesPorId] = useState<Record<string, string>>({});
-  const [docTitulo, setDocTitulo] = useState("");
-  const [docDescricao, setDocDescricao] = useState("");
-  const [docReferencia, setDocReferencia] = useState("");
-  const [docSalvando, setDocSalvando] = useState(false);
-
   const condominio = useMemo(() => {
     if (condominioId === null) return undefined;
     return cadastros.condominios.find((item) => item.id === condominioId);
@@ -283,166 +298,140 @@ export function EncaminhamentoJuridicoSheet({
     }
   }
 
-  async function registrarDocumento(encaminhamentoRef: string) {
-    if (!podeEditar || !podeLerDocs) return;
-    setDocSalvando(true);
-    try {
-      const response = await fetch(`/api/juridico/encaminhamentos/${encaminhamentoRef}/documentos`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          titulo: docTitulo,
-          descricao: docDescricao,
-          referenciaArquivo: docReferencia,
-        }),
-      });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        toast({ variant: "error", title: "Erro ao registrar documento", description: payload.error });
-        return;
-      }
-      setDocTitulo("");
-      setDocDescricao("");
-      setDocReferencia("");
-      toast({ variant: "success", title: "Documento registrado" });
-      onSalvo?.();
-      void carregar();
-    } finally {
-      setDocSalvando(false);
-    }
-  }
-
-  function renderDocumentos(documentos: DocumentoJuridico[] | undefined) {
-    if (!podeLerDocs) {
-      return (
-        <p className="text-body-sm text-on-surface-variant">
-          Documentos disponíveis apenas para perfis com permissão jurídica.
-        </p>
-      );
-    }
-    if (!documentos?.length) {
-      return <p className="text-body-sm text-on-surface-variant">Nenhum documento registrado.</p>;
-    }
-    return (
-      <ul className="flex flex-col gap-sm text-body-sm">
-        {documentos.map((doc) => (
-          <li key={doc.id} className="rounded-md border border-border-subtle px-md py-sm">
-            <p className="font-medium text-on-surface">{doc.titulo}</p>
-            {doc.descricao ? <p className="text-on-surface-variant">{doc.descricao}</p> : null}
-            {doc.referenciaArquivo ? (
-              <p className="text-label-sm text-on-surface-variant">Ref.: {doc.referenciaArquivo}</p>
-            ) : null}
-            <p className="text-label-sm text-on-surface-variant">
-              {formatarData(doc.registradoEm)} · {nomeUsuario(doc.registradoPorId, cadastros)}
-            </p>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
   function renderItem(item: EncaminhamentoJuridicoDetalhe) {
     const statusAtual = statusPorId[item.id] ?? item.status;
-    const obsAtual = observacoesPorId[item.id] ?? item.observacoes;
+    const obsAtual = observacoesPorId[item.id] ?? item.observacoes ?? "";
+    const valorTotal = valorDebitosEncaminhamento(item, cadastros);
+    const editaAcompanhamento = podeEditar && item.status !== "Aguardando aprovação";
+    const exibeObservacoesSomenteLeitura =
+      !editaAcompanhamento && !(podeAprovar && item.status === "Aguardando aprovação") && Boolean(item.observacoes);
+
     return (
-      <div key={item.id} className="flex flex-col gap-md rounded-lg border border-border-subtle p-md">
-        <div className="flex flex-wrap items-center gap-sm">
-          <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
-          <span className="text-body-sm text-on-surface-variant">
-            {formatarData(item.encaminhadoEm)} · Adv. {item.advogadoResponsavel}
-          </span>
-        </div>
-        {item.resumoContexto ? <p className="text-body-sm text-on-surface">{item.resumoContexto}</p> : null}
-        {item.observacoes ? <p className="text-body-sm text-on-surface-variant">{item.observacoes}</p> : null}
+      <div key={item.id} className="flex flex-col gap-lg">
+        <SheetPanel className="flex flex-col gap-md">
+          <div className="flex flex-wrap items-center justify-between gap-sm">
+            <Badge variant={badgeStatus[item.status] ?? "secondary"}>{item.status}</Badge>
+            <p className="text-body-sm text-on-surface-variant">
+              <time className="tabular-nums" dateTime={item.encaminhadoEm}>
+                {formatarData(item.encaminhadoEm)}
+              </time>
+              {" · "}
+              Adv. {item.advogadoResponsavel}
+            </p>
+          </div>
+
+          {orientacaoPorStatus[item.status] ? (
+            <Alert variant="info">{orientacaoPorStatus[item.status]}</Alert>
+          ) : null}
+
+          <p className="text-body-sm text-on-surface">
+            <span className="text-on-surface-variant">Total em cobrança: </span>
+            <span className="font-semibold tabular-nums">{formatarMoeda(String(valorTotal))}</span>
+          </p>
+
+          {item.resumoContexto ? (
+            <div>
+              <p className="text-label-sm text-on-surface-variant">Contexto do encaminhamento</p>
+              <p className="mt-xs break-words whitespace-pre-wrap text-body-sm text-on-surface">{item.resumoContexto}</p>
+            </div>
+          ) : null}
+
+          {exibeObservacoesSomenteLeitura ? (
+            <div>
+              <p className="text-label-sm text-on-surface-variant">Observações registradas</p>
+              <p className="mt-xs whitespace-pre-wrap text-body-sm text-on-surface-variant">{item.observacoes}</p>
+            </div>
+          ) : null}
+        </SheetPanel>
 
         {podeAprovar && item.status === "Aguardando aprovação" ? (
-          <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
-            <FormField label="Observações da gestão">
-              <Textarea
-                icon={FileText}
-                value={obsAtual}
-                onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
-                rows={3}
-                placeholder="Motivo da aprovação ou rejeição (opcional)."
-              />
-            </FormField>
-            <div className="flex flex-wrap gap-sm">
-              <Button
-                type="button"
-                size="sm"
-                disabled={salvando}
-                onClick={() => void atualizarStatusEncaminhamento(item.id, "Encaminhado", obsAtual)}
-              >
-                Aprovar encaminhamento
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={salvando}
-                onClick={() => void atualizarStatusEncaminhamento(item.id, "Rejeitado", obsAtual)}
-              >
-                Rejeitar solicitação
-              </Button>
-            </div>
+          <div className="flex flex-col gap-md">
+            <h3 className="text-label-lg text-on-surface">Decisão da gestão</h3>
+            <SheetPanel className="flex flex-col gap-md">
+              <FormField label="Observações da gestão">
+                <Textarea
+                  icon={FileText}
+                  value={obsAtual}
+                  onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
+                  rows={3}
+                  placeholder="Motivo da aprovação ou rejeição (opcional)."
+                />
+              </FormField>
+              <div className="flex flex-wrap gap-sm">
+                <Button
+                  type="button"
+                  disabled={salvando}
+                  onClick={() => void atualizarStatusEncaminhamento(item.id, "Encaminhado", obsAtual)}
+                >
+                  Aprovar encaminhamento
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={salvando}
+                  onClick={() => void atualizarStatusEncaminhamento(item.id, "Rejeitado", obsAtual)}
+                >
+                  Rejeitar solicitação
+                </Button>
+              </div>
+            </SheetPanel>
           </div>
-        ) : podeEditar ? (
-          <div className="flex flex-col gap-sm border-t border-border-subtle pt-md">
-            <FormField label="Status">
-              <Select
-                icon={Flag}
-                value={statusAtual}
-                onChange={(event) => setStatusPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
-              >
-                {statusEncaminhamentoJuridico
-                  .filter((status) => status !== "Aguardando aprovação" && status !== "Rejeitado")
-                  .map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-              </Select>
-            </FormField>
-            <FormField label="Observações">
-              <Textarea
-                icon={FileText}
-                value={obsAtual}
-                onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
-                rows={3}
-              />
-            </FormField>
-            <Button type="button" size="sm" disabled={salvando} onClick={() => void salvarEncaminhamento(item.id)}>
-              Salvar acompanhamento
-            </Button>
+        ) : editaAcompanhamento ? (
+          <div className="flex flex-col gap-md">
+            <h3 className="text-label-lg text-on-surface">Definir ação</h3>
+            <SheetPanel className="flex flex-col gap-md">
+              <SheetHelpText>
+                Atualize o status do caso e, se precisar, registre observações internas. O contexto do encaminhamento
+                permanece no bloco acima.
+              </SheetHelpText>
+              <FormField label="Próximo status">
+                <Select
+                  icon={Flag}
+                  value={statusAtual}
+                  onChange={(event) => setStatusPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
+                >
+                  {statusEncaminhamentoJuridico
+                    .filter((status) => status !== "Aguardando aprovação" && status !== "Rejeitado")
+                    .map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                </Select>
+              </FormField>
+              <FormField label="Observações internas">
+                <Textarea
+                  icon={FileText}
+                  value={obsAtual}
+                  onChange={(event) => setObservacoesPorId((atual) => ({ ...atual, [item.id]: event.target.value }))}
+                  rows={4}
+                  placeholder="Estratégia ou decisão (opcional)."
+                />
+              </FormField>
+              <Button type="button" disabled={salvando} onClick={() => void salvarEncaminhamento(item.id)}>
+                {salvando ? "Salvando…" : "Salvar ação"}
+              </Button>
+            </SheetPanel>
           </div>
         ) : null}
 
-        <div className="border-t border-border-subtle pt-md">
-          <p className="text-label-md text-on-surface">Documentos</p>
-          <div className="mt-sm">{renderDocumentos(item.documentos)}</div>
-          {podeEditar && podeLerDocs ? (
-            <div className="mt-md flex flex-col gap-sm">
-              <FormField label="Título do documento">
-                <Input icon={FileText} value={docTitulo} onChange={(event) => setDocTitulo(event.target.value)} />
-              </FormField>
-              <FormField label="Descrição">
-                <Textarea icon={FileText} value={docDescricao} onChange={(event) => setDocDescricao(event.target.value)} rows={2} />
-              </FormField>
-              <FormField label="Referência (pasta, arquivo interno)">
-                <Input icon={FolderOpen} value={docReferencia} onChange={(event) => setDocReferencia(event.target.value)} />
-              </FormField>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={docSalvando}
-                onClick={() => void registrarDocumento(item.id)}
-              >
-                Registrar documento
-              </Button>
-            </div>
-          ) : null}
+        <div className="flex flex-col gap-md">
+          <h3 className="text-label-lg text-on-surface">Documentos</h3>
+          {!podeLerDocs ? (
+            <p className="text-body-sm text-on-surface-variant">
+              Documentos disponíveis apenas para perfis com permissão jurídica.
+            </p>
+          ) : (
+            <EncaminhamentoJuridicoDocumentosTab
+              encaminhamentoId={item.id}
+              documentos={item.documentos}
+              podeEditar={editaAcompanhamento}
+              onRegistrado={() => {
+                onSalvo?.();
+                void carregar();
+              }}
+            />
+          )}
         </div>
       </div>
     );

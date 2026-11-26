@@ -559,6 +559,11 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         valuesDefinedByUserId: item.valoresDefinidosPorId,
         valuesApprovedByUserId: item.valoresAprovadosPorId,
         ...negotiationQueueFields(item),
+        legalAssumptionAt: item.assuncaoJuridicaEm?.trim()
+          ? dateFromIsoDateTime(item.assuncaoJuridicaEm)
+          : null,
+        legalAssumptionByUserId: item.assuncaoJuridicaPorId,
+        legalAssumptionReferralId: item.encaminhamentoJuridicoAssuncaoId?.trim() || null,
       },
       update: {
         condominiumId: item.condominioId,
@@ -579,6 +584,11 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         valuesDefinedByUserId: item.valoresDefinidosPorId,
         valuesApprovedByUserId: item.valoresAprovadosPorId,
         ...negotiationQueueFields(item, { clearWhenEmpty: true }),
+        legalAssumptionAt: item.assuncaoJuridicaEm?.trim()
+          ? dateFromIsoDateTime(item.assuncaoJuridicaEm)
+          : null,
+        legalAssumptionByUserId: item.assuncaoJuridicaPorId,
+        legalAssumptionReferralId: item.encaminhamentoJuridicoAssuncaoId?.trim() || null,
       },
     });
 

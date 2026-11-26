@@ -17,11 +17,11 @@ Registrar encaminhamentos de cobrança para análise jurídica, associar advogad
 
 | Onde | Descrição |
 | --- | --- |
-| `/juridico` | **Administradora:** abas **Por advogados** (padrão) e **Geral**. **Advogado:** painel com indicadores, filtros por **etapa** (status oficiais T17 agrupados), lista + resumo lateral; sheet para acompanhamento completo — sem aba por advogado |
+| `/juridico` | **Administradora:** abas **Por advogados** (padrão) e **Geral**. **Advogado:** KPIs, filtros, **Kanban** (4 colunas); em **Em processo**, **Finalizar caso** → **Arquivado** (sai do board; contagem em KPI **Finalizados**); sheet com abas Resumo / **Ação** / Histórico / **Documentos**; **Salvar ação** no rodapé |
 | Fila de cobranças | Ação **Jurídico** por unidade |
 | Histórico da unidade (T12) | Botão **Jurídico** e eventos na linha do tempo |
 
-Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/juridico-advogado-painel.tsx`, `src/components/juridico/encaminhamento-juridico-painel-detalhe.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/components/juridico/juridico-por-grupos-lista.tsx`, `src/lib/juridico/etapas-advogado.ts`, `src/lib/juridico/service.ts`.
+Arquivos: `src/app/juridico/page.tsx`, `src/components/juridico/juridico-advogado-hero.tsx`, `src/components/juridico/juridico-advogado-painel.tsx`, `src/components/juridico/juridico-kanban-card.tsx`, `src/components/juridico/encaminhamento-juridico-detalhe-sheet.tsx`, `src/components/juridico/encaminhamento-juridico-acao-form.tsx`, `src/components/juridico/encaminhamento-juridico-documentos-tab.tsx`, `src/components/juridico/encaminhamento-juridico-painel-detalhe.tsx`, `src/components/juridico/encaminhamento-juridico-sheet.tsx`, `src/components/juridico/juridico-por-grupos-lista.tsx`, `src/lib/juridico/kanban-colunas.ts`, `src/lib/juridico/etapas-advogado.ts`, `src/lib/juridico/service.ts`.
 
 ## Perfis e permissões
 
@@ -45,7 +45,8 @@ Escopo de condomínio: `escopoCondominios` — advogado vê apenas condomínios 
 | GET | `/api/juridico/encaminhamentos/[id]` | `juridico.ler` | Detalhe (+ documentos se `ler`) |
 | PATCH | `/api/juridico/encaminhamentos/[id]` | `juridico.editar` | `status`, `advogadoResponsavel`, `observacoes` |
 | GET | `/api/juridico/encaminhamentos/[id]/documentos` | `juridico.ler` | Lista de metadados |
-| POST | `/api/juridico/encaminhamentos/[id]/documentos` | `juridico.editar` | Registra título, descrição e referência interna |
+| POST | `/api/juridico/encaminhamentos/[id]/documentos` | `juridico.editar` | `multipart/form-data` campo `arquivo` (upload); JSON legado (metadados) |
+| GET | `/api/juridico/encaminhamentos/[id]/documentos/[docId]/arquivo` | `juridico.ler` | Download do anexo |
 
 Regras: `src/lib/juridico/service.ts`. Histórico da unidade: `src/lib/historico-unidade/service.ts` (tipo `encaminhamento_juridico`).
 

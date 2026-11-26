@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { PagamentoAcordo, ParcelaAcordo, PropostaNegociacao } from "@/data/catalogo";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -36,6 +37,11 @@ function propostaToData(item: PropostaNegociacao, options?: { clearQueueWhenEmpt
     valuesDefinedByUserId: item.valoresDefinidosPorId,
     valuesApprovedByUserId: item.valoresAprovadosPorId,
     ...negotiationQueueFields(item, { clearWhenEmpty: options?.clearQueueWhenEmpty }),
+    legalAssumptionAt: item.assuncaoJuridicaEm?.trim()
+      ? dateFromIsoDateTime(item.assuncaoJuridicaEm)
+      : null,
+    legalAssumptionByUserId: item.assuncaoJuridicaPorId,
+    legalAssumptionReferralId: item.encaminhamentoJuridicoAssuncaoId?.trim() || null,
   };
 }
 
@@ -76,12 +82,35 @@ export async function createNegotiationProposal(item: PropostaNegociacao): Promi
 }
 
 export async function updateNegotiationProposal(item: PropostaNegociacao): Promise<PropostaNegociacao> {
-  const data = propostaToData(item, { clearQueueWhenEmpty: true });
+  const { id: _omitId, ...data } = propostaToData(item, { clearQueueWhenEmpty: true });
+  // Campos escalares (condominiumId, legalAssumptionReferralId, …) exigem UncheckedUpdateInput no Prisma 6.
   const row = await prisma.negotiationProposal.update({
     where: { id: item.id },
-    data: { ...data, id: undefined },
+    data: data as Prisma.NegotiationProposalUncheckedUpdateInput,
   });
   await syncProposalDebts(item.id, item.debitoIds ?? []);
+  return mapProposalToProposta(row);
+}
+
+/** Grava assunção jurídica sem reenviar FKs da proposta (evita conflito UpdateInput vs Unchecked no Prisma 6). */
+export async function registrarAssuncaoJuridicaProposta(
+  propostaId: string,
+  payload: {
+    assuncaoEm: string;
+    advogadoUserId: number;
+    encaminhamentoId: string;
+    definirAdvogadoResponsavelSeVazio?: boolean;
+  },
+): Promise<PropostaNegociacao> {
+  const data: Prisma.NegotiationProposalUpdateInput = {
+    legalAssumptionAt: dateFromIsoDateTime(payload.assuncaoEm) ?? new Date(),
+    legalAssumptionBy: { connect: { id: payload.advogadoUserId } },
+    legalAssumptionReferral: { connect: { id: payload.encaminhamentoId } },
+  };
+  if (payload.definirAdvogadoResponsavelSeVazio) {
+    data.responsibleLawyer = { connect: { id: payload.advogadoUserId } };
+  }
+  const row = await prisma.negotiationProposal.update({ where: { id: propostaId }, data });
   return mapProposalToProposta(row);
 }
 

@@ -314,6 +314,9 @@ export async function criarPropostaNegociacao(
     valoresAprovadosPorId: null,
     filaNegociacaoEm: "",
     filaNegociacaoPorId: null,
+    assuncaoJuridicaEm: "",
+    assuncaoJuridicaPorId: null,
+    encaminhamentoJuridicoAssuncaoId: "",
   };
 
   const criada = await createNegotiationProposal(registro);

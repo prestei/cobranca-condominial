@@ -137,16 +137,17 @@ export function HistoricoLinhaTempo({ referencia, eventos, loading, erro, secao 
         </p>
       ) : (
         <ol
-          className="relative flex flex-col gap-0 border-l border-border-subtle pl-md"
+          className="relative flex flex-col gap-md pl-7"
           aria-label={secao === "atendimento" ? "Linha do tempo de atendimento" : "Linha do tempo de débito"}
         >
-          {eventosFiltrados.map((evento, index) => (
-            <li
-              key={evento.id}
-              className={`relative pb-md ${index === eventosFiltrados.length - 1 ? "pb-0" : ""}`}
-            >
+          <span
+            className="pointer-events-none absolute inset-y-0 left-[11px] w-px bg-border-subtle"
+            aria-hidden
+          />
+          {eventosFiltrados.map((evento) => (
+            <li key={evento.id} className="relative">
               <span
-                className="absolute -left-[calc(0.5rem+1px)] top-1.5 size-2 rounded-full bg-primary"
+                className="absolute left-[11px] top-4 size-2.5 -translate-x-1/2 rounded-full border-2 border-surface bg-primary-container"
                 aria-hidden
               />
               <article className="flex flex-col gap-xs rounded-md border border-border-subtle bg-surface px-md py-sm">

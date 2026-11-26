@@ -60,7 +60,7 @@ import {
   podeDecidirPropostaEmAnalise,
   podeDecidirStatusProposta,
 } from "@/lib/negociacoes/proposta-status-permission";
-import type { ResumoAcordo } from "@/lib/acordos/resumo";
+import { parcelasElegiveisParaPagamento, type ResumoAcordo } from "@/lib/acordos/resumo";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
 import type { PropostaNegociacaoDetalhe } from "@/lib/negociacoes/detalhe";
 import type { ParcelaAcordoEnriquecida } from "@/lib/acordos/resumo";
@@ -247,6 +247,11 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
     if (parcelasExpandidas) return ordenadas;
     return ordenadas.slice(0, PARCELAS_PREVIEW);
   }, [parcelasExpandidas, resumo]);
+
+  const parcelasAbertasParaPagamento = useMemo(
+    () => (resumo ? parcelasElegiveisParaPagamento(resumo.parcelas) : []),
+    [resumo],
+  );
 
   const historicoVisivel = useMemo(() => {
     if (historicoCompleto) return historico;
@@ -436,7 +441,7 @@ export function PropostaNegociacaoExclusiva({ propostaId, cadastros, onVoltar, o
                     type="button"
                     variant="secondary"
                     size="sm"
-                    disabled={!resumo?.parcelas.length}
+                    disabled={parcelasAbertasParaPagamento.length === 0}
                     onClick={() => setSheetPagamentoAberto(true)}
                   >
                     <Icon icon={Wallet} size="sm" aria-hidden />

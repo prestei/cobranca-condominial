@@ -326,6 +326,9 @@ Proposta de negociação (T15). Não representa pagamento recebido. Protótipo: 
 | valores_aprovados_por_id | INT | sim | FK → user.id | Quem aprovou o acordo |
 | negotiation_queue_at | TIMESTAMPTZ | sim | | Entrada na fila de negociação (T26 opção A) |
 | negotiation_queue_by_user_id | INT | sim | FK → user.id | Atendente que encaminhou |
+| legal_assumption_at | TIMESTAMPTZ | sim | | Data/hora da assunção jurídica pelo advogado |
+| legal_assumption_by_user_id | INT | sim | FK → user.id | Advogado que assumiu |
+| legal_assumption_referral_id | VARCHAR(64) | sim | FK → legal_case_referral.id | Encaminhamento gerado na assunção |
 
 ## negotiation_next_step_decision
 

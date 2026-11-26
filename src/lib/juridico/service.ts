@@ -8,6 +8,13 @@ import {
   type DocumentoJuridico,
   type EncaminhamentoJuridico,
 } from "@/data/catalogo";
+import {
+  chaveArmazenamento,
+  lerArquivoJuridico,
+  nomeArquivoDaChave,
+  salvarArquivoJuridico,
+} from "@/lib/juridico/document-file-storage";
+import { validarArquivoJuridico } from "@/lib/juridico/document-file-limits";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
@@ -22,6 +29,7 @@ import {
   updateLegalReferral,
 } from "@/lib/db/repositories/legal-repository";
 import { requireUnitInScope, scopeCondominiumIds } from "@/lib/db/service-context";
+import { resolverPerfilOperacional } from "@/lib/perfil-operacional";
 import { ehAdministradora, temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
@@ -341,6 +349,80 @@ export async function criarEncaminhamentoJuridico(
   return criado;
 }
 
+/** Encaminhamento criado pelo advogado ao assumir juridicamente uma negociação (status Encaminhado, sem fila de aprovação). */
+export async function criarEncaminhamentoAssuncaoAdvogado(
+  userId: number,
+  input: EncaminhamentoJuridicoInput,
+  meta?: { ip?: string; userAgent?: string },
+): Promise<EncaminhamentoJuridico> {
+  if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
+    throw new JuridicoServiceError("Selecione o condomínio.", 400);
+  }
+  if (!Number.isFinite(input.unidadeId) || input.unidadeId <= 0) {
+    throw new JuridicoServiceError("Selecione a unidade.", 400);
+  }
+  await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+
+  const perm = await resolverPermissoesUsuario(userId);
+  if (resolverPerfilOperacional(perm) !== "advogado") {
+    throw new JuridicoServiceError("Apenas advogados podem registrar assunção jurídica.", 403);
+  }
+  if (!temPermissao(perm, "juridico", "editar")) {
+    throw new JuridicoServiceError("Sem permissão para encaminhar ao jurídico.", 403);
+  }
+
+  const cadastros = await loadCadastrosForScope();
+  const usuario = cadastros.usuarios.find((item) => item.id === userId);
+  const nomeLogado = usuario?.nome?.trim();
+  if (!nomeLogado) {
+    throw new JuridicoServiceError("Não foi possível identificar o advogado logado.", 400);
+  }
+
+  const advogadoResponsavel = await validarAdvogadoResponsavel(
+    input.condominioId,
+    (input.advogadoResponsavel ?? nomeLogado).trim(),
+  );
+  if (advogadoResponsavel !== nomeLogado) {
+    throw new JuridicoServiceError("A assunção jurídica deve registrar o advogado logado como responsável.", 403);
+  }
+
+  const debitoIds = await validarDebitos(input.unidadeId, input.debitoIds);
+  const agora = agoraIso();
+  const registro: EncaminhamentoJuridico = {
+    id: crypto.randomUUID(),
+    condominioId: input.condominioId,
+    unidadeId: input.unidadeId,
+    usuarioId: userId,
+    encaminhadoEm: agora,
+    status: "Encaminhado",
+    advogadoResponsavel,
+    observacoes: (input.observacoes ?? "").trim(),
+    debitoIds,
+    resumoContexto: await montarResumoContexto(input.unidadeId, debitoIds, input.resumoContexto ?? ""),
+    atualizadoEm: agora,
+    atualizadoPorId: userId,
+  };
+
+  const criado = await createLegalReferral(registro);
+  await writeAuditLog({
+    entity: "legal_case_referral",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      unidadeId: criado.unidadeId,
+      status: criado.status,
+      advogadoResponsavel: criado.advogadoResponsavel,
+      origem: "assuncao_negociacao",
+    }),
+    changedFields: "unidade_id, status, advogado_responsavel",
+    userId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
+}
+
 export async function atualizarEncaminhamentoJuridico(
   userId: number,
   id: string,
@@ -478,6 +560,84 @@ export async function registrarDocumentoJuridico(
     userAgent: meta?.userAgent,
   });
   return criado;
+}
+
+/** Anexa arquivo físico ao encaminhamento (armazenamento local; chave em `referenciaArquivo`). */
+export async function registrarDocumentoJuridicoComArquivo(
+  userId: number,
+  encaminhamentoId: string,
+  arquivo: { nome: string; buffer: Buffer },
+  meta?: { ip?: string; userAgent?: string },
+): Promise<DocumentoJuridico> {
+  await assertPermissaoJuridico(userId, "editar");
+  const encaminhamento = await findLegalReferralById(encaminhamentoId);
+  if (!encaminhamento) {
+    throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
+  }
+  const idsCondominio = await scopeCondominiumIds(userId);
+  if (!idsCondominio.has(encaminhamento.condominioId)) {
+    throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
+  }
+
+  const nome = arquivo.nome.trim();
+  const erroValidacao = validarArquivoJuridico(nome, arquivo.buffer.length);
+  if (erroValidacao) {
+    throw new JuridicoServiceError(erroValidacao, 400);
+  }
+
+  const documentoId = crypto.randomUUID();
+  const chave = chaveArmazenamento(encaminhamentoId, documentoId, nome);
+  await salvarArquivoJuridico(chave, arquivo.buffer);
+
+  const titulo = nomeArquivoDaChave(chave);
+  const registro: DocumentoJuridico = {
+    id: documentoId,
+    encaminhamentoId,
+    titulo,
+    descricao: "",
+    referenciaArquivo: chave,
+    registradoEm: agoraIso(),
+    registradoPorId: userId,
+  };
+
+  const criado = await createLegalDocument(registro);
+  await writeAuditLog({
+    entity: "legal_document",
+    recordId: criado.id,
+    action: "INSERT",
+    previousData: "",
+    newData: JSON.stringify({
+      encaminhamentoId,
+      titulo: criado.titulo,
+      referenciaArquivo: criado.referenciaArquivo,
+      origem: "upload",
+    }),
+    changedFields: "encaminhamento_id, titulo, referencia_arquivo",
+    userId,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
+  return criado;
+}
+
+export async function obterArquivoDocumentoJuridico(
+  userId: number,
+  encaminhamentoId: string,
+  documentoId: string,
+): Promise<{ buffer: Buffer; nomeArquivo: string }> {
+  await assertPermissaoJuridico(userId, "ler");
+  const encaminhamento = await obterEncaminhamentoJuridico(userId, encaminhamentoId);
+  const documento = encaminhamento.documentos?.find((item) => item.id === documentoId);
+  if (!documento?.referenciaArquivo?.trim()) {
+    throw new JuridicoServiceError("Documento sem arquivo anexado.", 404);
+  }
+
+  try {
+    const buffer = await lerArquivoJuridico(documento.referenciaArquivo);
+    return { buffer, nomeArquivo: nomeArquivoDaChave(documento.referenciaArquivo) };
+  } catch {
+    throw new JuridicoServiceError("Arquivo não encontrado no armazenamento.", 404);
+  }
 }
 
 export async function excluirEncaminhamentoJuridico(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCadastrosStatus } from "@/hooks/use-cadastros";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Calendar, Flag, Wallet } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { confirmacaoPagamentoAcordo, formatarData, formatarMoeda, type PagamentoAcordo } from "@/data/catalogo";
 import { useCadastros } from "@/hooks/use-cadastros";
 import { identificadorColaboradorPorId } from "@/lib/colaboradores/re";
-import type { ResumoAcordo } from "@/lib/acordos/resumo";
+import { parcelasElegiveisParaPagamento, type ResumoAcordo } from "@/lib/acordos/resumo";
 import { aplicarMascaraMoedaPtBr } from "@/lib/moeda-input";
 
 type ModoAcordoAcompanhamento = "completo" | "nova-parcela" | "registrar-pagamento";
@@ -64,6 +64,22 @@ export function AcordoAcompanhamentoBlock({
   const [referenciaPagamento, setReferenciaPagamento] = useState("");
   const [confirmacaoPagamento, setConfirmacaoPagamento] = useState<string>("Informado");
 
+  const parcelasParaPagamento = useMemo(
+    () => (resumo ? parcelasElegiveisParaPagamento(resumo.parcelas) : []),
+    [resumo],
+  );
+
+  useEffect(() => {
+    if (parcelasParaPagamento.length === 0) {
+      if (parcelaPagamentoId) setParcelaPagamentoId("");
+      return;
+    }
+    const selecionadaAindaElegivel = parcelasParaPagamento.some((parcela) => parcela.id === parcelaPagamentoId);
+    if (!selecionadaAindaElegivel) {
+      setParcelaPagamentoId(parcelasParaPagamento[0]!.id);
+    }
+  }, [parcelasParaPagamento, parcelaPagamentoId]);
+
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
@@ -79,9 +95,6 @@ export function AcordoAcompanhamentoBlock({
         return;
       }
       setResumo(payload.resumo);
-      if (!parcelaPagamentoId && payload.resumo.parcelas.length > 0) {
-        setParcelaPagamentoId(payload.resumo.parcelas[0]?.id ?? "");
-      }
       const proximoNumero = payload.resumo.parcelas.reduce((max, item) => Math.max(max, item.numero), 0) + 1;
       setNovaNumero(String(proximoNumero));
     } finally {
@@ -213,7 +226,7 @@ export function AcordoAcompanhamentoBlock({
     ) : null;
 
   const camposPagamento =
-    podeRegistrar && resumo && resumo.parcelas.length > 0 ? (
+    podeRegistrar && parcelasParaPagamento.length > 0 ? (
       <>
         <FormField label="Parcela">
           <Select
@@ -221,7 +234,7 @@ export function AcordoAcompanhamentoBlock({
             value={parcelaPagamentoId}
             onChange={(event) => setParcelaPagamentoId(event.target.value)}
           >
-            {resumo.parcelas.map((parcela) => (
+            {parcelasParaPagamento.map((parcela) => (
               <option key={parcela.id} value={parcela.id}>
                 {parcela.numero} — {formatarMoeda(parcela.valorPrevisto)} — venc. {formatarData(parcela.vencimentoEm)}
               </option>
@@ -276,16 +289,20 @@ export function AcordoAcompanhamentoBlock({
     ) : null;
 
   const formularioPagamento =
-    podeRegistrar && resumo && resumo.parcelas.length > 0 ? (
-      <div className="flex flex-col gap-sm">
-        {camposPagamento}
-        <Button type="button" disabled={salvando} onClick={() => void registrarPagamento()}>
-          Registrar pagamento
-        </Button>
-      </div>
-    ) : (
-      <p className="text-body-sm text-on-surface-variant">Cadastre ao menos uma parcela antes de registrar pagamento.</p>
-    );
+    podeRegistrar && resumo ? (
+      parcelasParaPagamento.length > 0 ? (
+        <div className="flex flex-col gap-sm">
+          {camposPagamento}
+          <Button type="button" disabled={salvando} onClick={() => void registrarPagamento()}>
+            Registrar pagamento
+          </Button>
+        </div>
+      ) : resumo.parcelas.length > 0 ? (
+        <p className="text-body-sm text-on-surface-variant">Todas as parcelas estão pagas ou canceladas.</p>
+      ) : (
+        <p className="text-body-sm text-on-surface-variant">Cadastre ao menos uma parcela antes de registrar pagamento.</p>
+      )
+    ) : null;
 
   const parcelaInvalida =
     !novaNumero.trim() || !novaValor.trim() || !novaVencimento.trim() || Number.isNaN(Number(novaNumero));
@@ -343,13 +360,15 @@ export function AcordoAcompanhamentoBlock({
 
   if (modo === "registrar-pagamento") {
     if (!podeRegistrar) return null;
-    if (!resumo.parcelas.length) {
+    if (parcelasParaPagamento.length === 0) {
+      const mensagemSemParcela =
+        resumo.parcelas.length > 0
+          ? "Não há parcelas pendentes para registrar pagamento."
+          : "Cadastre ao menos uma parcela antes de registrar pagamento.";
       return (
         <>
           <SheetBody>
-            <p className="text-body-sm text-on-surface-variant">
-              Cadastre ao menos uma parcela antes de registrar pagamento.
-            </p>
+            <p className="text-body-sm text-on-surface-variant">{mensagemSemParcela}</p>
           </SheetBody>
           <SheetFooterForm onClose={() => onFechar?.()} saveLabel="Registrar pagamento" saveDisabled />
         </>
@@ -479,7 +498,7 @@ export function AcordoAcompanhamentoBlock({
         </div>
       ) : null}
 
-      {podeRegistrar && resumo.parcelas.length > 0 ? (
+      {podeRegistrar && resumo ? (
         <div className="flex flex-col gap-sm rounded-md border border-border-subtle bg-surface px-md py-sm">
           <p className="text-label-sm text-on-surface">Registrar pagamento</p>
           {formularioPagamento}

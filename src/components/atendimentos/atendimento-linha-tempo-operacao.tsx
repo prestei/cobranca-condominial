@@ -153,11 +153,15 @@ export function AtendimentoLinhaTempoOperacao({ unidadeId, refreshNonce = 0, aca
       ) : eventos.length === 0 ? (
         <p className="text-body-sm text-on-surface-variant">Nenhum evento registrado ainda.</p>
       ) : (
-        <ol className="relative flex flex-col gap-md border-l border-border-strong pl-md">
-          {eventos.map((evento, index) => (
-            <li key={evento.id} className={`relative ${index === eventos.length - 1 ? "" : ""}`}>
+        <ol className="relative flex flex-col gap-md pl-7">
+          <span
+            className="pointer-events-none absolute inset-y-0 left-[11px] w-px bg-border-strong"
+            aria-hidden
+          />
+          {eventos.map((evento) => (
+            <li key={evento.id} className="relative">
               <span
-                className="absolute -left-[calc(0.5rem+1px)] top-4 size-2.5 rounded-full border-2 border-surface-subtle bg-primary-container"
+                className="absolute left-[11px] top-4 size-2.5 -translate-x-1/2 rounded-full border-2 border-surface-subtle bg-primary-container"
                 aria-hidden
               />
               <EventoLinhaTempo evento={evento} />

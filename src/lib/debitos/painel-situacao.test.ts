@@ -152,6 +152,9 @@ test("unidade em negociação na fila inclui todos os débitos ativos no recorte
         valoresAprovadosPorId: null,
         filaNegociacaoEm: "2025-02-01T10:00:00.000Z",
         filaNegociacaoPorId: 1,
+        assuncaoJuridicaEm: "",
+        assuncaoJuridicaPorId: null,
+        encaminhamentoJuridicoAssuncaoId: "",
       },
     ],
   };
@@ -200,6 +203,9 @@ test("débito com inadimplência prescrita permanece em negociação quando há 
         valoresAprovadosPorId: null,
         filaNegociacaoEm: "",
         filaNegociacaoPorId: null,
+        assuncaoJuridicaEm: "",
+        assuncaoJuridicaPorId: null,
+        encaminhamentoJuridicoAssuncaoId: "",
       },
     ],
   };
@@ -240,6 +246,9 @@ test("proposta ativa classifica em negociação mesmo com situacao_operacional E
         valoresAprovadosPorId: null,
         filaNegociacaoEm: "",
         filaNegociacaoPorId: null,
+        assuncaoJuridicaEm: "",
+        assuncaoJuridicaPorId: null,
+        encaminhamentoJuridicoAssuncaoId: "",
       },
     ],
   };
