@@ -201,7 +201,7 @@ export function AtendimentoOperacaoView({
               detalheMobileAberto ? "max-[1023px]:hidden" : "max-[1023px]:flex max-[1023px]:min-h-0 max-[1023px]:flex-1"
             }`}
           >
-            <div className="relative z-20 flex shrink-0 items-center gap-2 border-b border-border-subtle px-2 py-2">
+            <div className="relative z-20 flex shrink-0 items-center gap-2 border-b border-border-subtle bg-surface-container-low px-2 py-2">
               <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 overflow-hidden">
                 <PeriodInput
                   id="fila-data-retorno"

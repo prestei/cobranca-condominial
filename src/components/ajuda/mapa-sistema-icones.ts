@@ -1,0 +1,41 @@
+import {
+  BarChart3,
+  Bell,
+  Building2,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  Cloud,
+  DoorOpen,
+  Headset,
+  FileUp,
+  Handshake,
+  LayoutDashboard,
+  Scale,
+  ScrollText,
+  Shield,
+  Users,
+  Wallet,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { IconeMapaProcesso } from "@/lib/ajuda/mapa-processo-etapas";
+
+export const MAPA_PROCESSO_ICONES: Record<IconeMapaProcesso, LucideIcon> = {
+  building: Building2,
+  fileUp: FileUp,
+  wallet: Wallet,
+  door: DoorOpen,
+  users: Users,
+  clipboard: ClipboardList,
+  calendar: CalendarClock,
+  layout: LayoutDashboard,
+  handshake: Handshake,
+  scale: Scale,
+  checkCircle: CheckCircle2,
+  barChart: BarChart3,
+  shield: Shield,
+  scroll: ScrollText,
+  bell: Bell,
+  cloud: Cloud,
+  headset: Headset,
+};

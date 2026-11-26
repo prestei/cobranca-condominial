@@ -161,7 +161,7 @@ export async function obterOpcoesFiltrosRelatorio(userId: number): Promise<Relat
   return {
     condominios,
     advogados: advogadosLista.length ? advogadosLista : [...advogados],
-    atendentesRe: listarAtendentesComRe().map((item) => ({ codigoRe: item.codigoRe, nome: item.nome })),
+    atendentesRe: listarAtendentesComRe(cadastros).map((item) => ({ codigoRe: item.codigoRe, nome: item.nome })),
     podeFiltrarPorRe,
   };
 }
@@ -271,7 +271,7 @@ export async function montarExportRelatorio(
 
   await assertCondominioNoEscopo(userId, filtros.condominioId);
 
-  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Bahia" });
   const metaFiltros = rotulosFiltrosAplicados(cadastros, filtros, tipo);
   const dataBase = filtros.dataBase || hojeIso();
 

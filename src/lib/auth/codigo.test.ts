@@ -40,8 +40,8 @@ describe("entradaLoginCoincideCodigo", () => {
     assert.equal(entradaLoginCoincideCodigo("10002", "ATD003", "RE-10002"), true);
   });
 
-  test("12345 legado não confunde com RE", () => {
-    assert.equal(entradaLoginCoincideCodigo("12345", "12345", "RE-10005"), true);
-    assert.equal(entradaLoginCoincideCodigo("12345", "OUTRO", "RE-10005"), false);
+  test("código legado não confunde com RE", () => {
+    assert.equal(entradaLoginCoincideCodigo("USUARIOTST", "USUARIOTST", "RE-10005"), true);
+    assert.equal(entradaLoginCoincideCodigo("USUARIOTST", "OUTRO", "RE-10005"), false);
   });
 });

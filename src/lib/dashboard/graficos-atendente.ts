@@ -1,6 +1,7 @@
 import {
   debitoAbertoNaData,
   diasDeAtraso,
+  encaminhamentoJuridicoEmAndamento,
   escopoCondominios,
   escopoUnidades,
   hojeIso,
@@ -210,10 +211,7 @@ function encaminhamentoJuridicoAtivo(userId: number, unidadeId: number, cadastro
   const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "juridico", "ler")) return false;
   return cadastros.encaminhamentosJuridicos.some(
-    (item) =>
-      item.unidadeId === unidadeId &&
-      item.status !== "Arquivado" &&
-      item.status !== "Retornado à cobrança amigável",
+    (item) => item.unidadeId === unidadeId && encaminhamentoJuridicoEmAndamento(item.status),
   );
 }
 

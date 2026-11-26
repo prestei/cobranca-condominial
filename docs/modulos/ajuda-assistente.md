@@ -37,6 +37,16 @@ Corpo: `{ pergunta, pathname, contextoTela?, historico? }`. Resposta: `{ respost
 
 Sem `OPENROUTER_API_KEY`, o painel responde HTTP 503 e o toast orienta a administradora.
 
+## Rotas do manual
+
+| Rota | Conteúdo |
+| --- | --- |
+| `/ajuda` | Índice de guias por tela + atalho para o mapa do processo |
+| `/ajuda/mapa-processo` | Diagrama SVG por zonas (governança → cadastro → inadimplência → operação → acordos/jurídico → análise) |
+| `/ajuda/guia/[id]` | Regras detalhadas de uma tela |
+
+Componentes: `MapaProcessoView`, dados em `src/lib/ajuda/mapa-processo-etapas.ts`.
+
 ## Conexões
 
 - Manual: `src/lib/ajuda/manual-guias.ts`, páginas `/ajuda`.

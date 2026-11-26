@@ -41,7 +41,7 @@ export type EventoNotificacaoInterna = NotificacaoInterna["evento"];
 
 export type PreferenciasNotificacaoUsuario = {
   lembreteRetornoHoje: boolean;
-  /** HH:mm no fuso America/Sao_Paulo */
+  /** HH:mm no fuso America/Bahia */
   horarioLembrete: string;
 };
 

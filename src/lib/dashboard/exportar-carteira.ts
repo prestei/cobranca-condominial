@@ -183,7 +183,7 @@ export async function montarExportacaoCarteiraDashboard(
     throw error;
   }
 
-  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Bahia" });
   const metaFiltros = rotulosFiltrosAtivos(filtros, userId).map((item) => item.rotulo);
 
   if (listagem === "fila") {

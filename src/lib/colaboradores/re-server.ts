@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { Cadastros } from "@/data/catalogo";
 import { getCadastros } from "@/data/catalogo-store";
 import {

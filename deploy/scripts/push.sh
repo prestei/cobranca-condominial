@@ -32,16 +32,8 @@ fi
 echo "==> Preparando diretório remoto ${APP_DIR}"
 python3 "$PY" ssh "mkdir -p '${APP_DIR}/deploy'"
 
-echo "==> Sincronizando código -> ${VPS_USER}@${VPS_HOST}:${APP_DIR}"
-python3 "$PY" rsync "$ROOT" "$APP_DIR" \
-  node_modules \
-  .next \
-  .git \
-  .freebuff \
-  deploy/secrets \
-  "*.tsbuildinfo" \
-  .env \
-  .env.local
+echo "==> Atualizando código na VPS (git)"
+python3 "${DEPLOY}/scripts/deploy_git.py" sync
 
 echo "==> Enviando .env.production (600)"
 python3 - <<PY

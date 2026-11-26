@@ -1,5 +1,6 @@
 import { escopoCondominios, formatarData, hojeIso, type Condominio, type Cadastros } from "@/data/catalogo";
-import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
+import { loadCadastrosForScope, loadFullOperationalCadastros } from "@/lib/db/cadastros-scope";
+import { runWithCatalogAsync } from "@/lib/db/request-catalog";
 import { codigoReDoUsuario, listarAtendentesComRe } from "@/lib/colaboradores/re-server";
 import type { IndicadorProdutividadeId } from "@/lib/indicadores/catalogo-oficial";
 import { geradoEmBr } from "@/lib/indicadores/meta";
@@ -92,8 +93,8 @@ function combinaCarteira(condominio: Condominio | undefined, filtros: RelatorioF
   return true;
 }
 
-export function podeAcessarPainelProdutividadeGlobal(userId: number) {
-  const perm = permissoesDoUsuarioId(userId);
+export function podeAcessarPainelProdutividadeGlobal(userId: number, cadastros: Cadastros) {
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   return temPermissao(perm, "usuarios", "criar");
 }
 
@@ -127,10 +128,10 @@ export async function montarPainelProdutividadePorRe(
   filtros: RelatorioFiltros,
 ): Promise<PainelProdutividadePorRe> {
   const cadastros = await loadCadastrosForScope();
-  if (!podeAcessarPainelProdutividadeGlobal(userId)) {
+  if (!podeAcessarPainelProdutividadeGlobal(userId, cadastros)) {
     throw new RelatorioServiceError("Sem permissão para consultar o painel de produtividade da equipe.", 403);
   }
-  const perm = permissoesDoUsuarioId(userId);
+  const perm = permissoesDoUsuarioId(userId, cadastros);
   if (!temPermissao(perm, "relatorios", "ler")) {
     throw new RelatorioServiceError("Sem permissão para consultar relatórios.", 403);
   }
@@ -141,7 +142,9 @@ export async function montarPainelProdutividadePorRe(
   const ate = filtros.ate.trim();
   const hoje = hojeIso();
 
-  const atendentes = listarAtendentesComRe();
+  const operacional = await loadFullOperationalCadastros();
+  return runWithCatalogAsync(operacional, () => {
+  const atendentes = listarAtendentesComRe(operacional);
   let resRe = atendentes.map((item) => item.codigoRe);
   if (filtros.codigoRe !== "todos" && filtros.codigoRe.trim()) {
     const alvo = filtros.codigoRe.trim().toUpperCase();
@@ -212,4 +215,5 @@ export async function montarPainelProdutividadePorRe(
     linhas,
     totais: { ...totais, porMeio: porMeioTotais },
   };
+  });
 }

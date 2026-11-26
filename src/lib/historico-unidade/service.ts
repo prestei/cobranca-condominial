@@ -272,7 +272,10 @@ function eventoEncaminhamentoJuridico(
     dataHora: encaminhamento.encaminhadoEm,
     ator,
     atorPerfil,
-    titulo: "Encaminhamento jurídico",
+    titulo:
+      encaminhamento.status === "Aguardando aprovação"
+        ? "Solicitação de encaminhamento jurídico"
+        : "Encaminhamento jurídico",
     resultado: `Status: ${encaminhamento.status}`,
     observacao: observacao || undefined,
     registroOrigemId: encaminhamento.id,

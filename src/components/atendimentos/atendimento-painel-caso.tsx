@@ -52,7 +52,7 @@ export function AtendimentoPainelCaso({
   const { pode } = usePermissao();
   const podeProposta = pode("atendimentos", "criar");
   const podeRegistrar = pode("atendimentos", "criar");
-  const podeJuridico = pode("juridico", "ler");
+  const podeJuridico = pode("juridico", "criar");
   const [canalPreferido, setCanalPreferido] = useState<"WhatsApp" | "E-mail" | "Telefone">("WhatsApp");
   const [refreshLinhaTempo, setRefreshLinhaTempo] = useState(0);
 
@@ -166,7 +166,7 @@ export function AtendimentoPainelCaso({
         }
       />
 
-      <footer className="shrink-0 border-t border-border-subtle bg-surface-card px-md py-sm">
+      <footer className="shrink-0 border-t border-border-subtle bg-surface-container-low px-md py-sm">
         {podeProposta || podeJuridico || podeRegistrar ? (
           <div className="flex flex-col gap-1.5 min-[480px]:flex-row min-[480px]:items-stretch">
             {podeProposta ? (
@@ -192,7 +192,7 @@ export function AtendimentoPainelCaso({
                 onClick={onEncaminharJuridico}
               >
                 <Icon icon={Scale} size="sm" className="shrink-0" aria-hidden />
-                <span className="truncate">Encaminhar p/ jurídico</span>
+                <span className="truncate">Solicitar jurídico</span>
               </Button>
             ) : null}
             {podeRegistrar ? (

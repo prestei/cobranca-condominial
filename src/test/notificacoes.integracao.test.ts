@@ -142,7 +142,7 @@ describe("T34 — falha do serviço", () => {
 });
 
 describe("T34 — lembrete e fuso", () => {
-  test("lembrete idempotente no dia (America/Sao_Paulo)", () => {
+  test("lembrete idempotente no dia (America/Bahia)", () => {
     const hoje = hojeEmFuso();
     atualizarPreferenciasNotificacao(ATENDENTE_RAQUEL_ID, { horarioLembrete: "00:00" });
     criarAtendimento(ATENDENTE_RAQUEL_ID, {

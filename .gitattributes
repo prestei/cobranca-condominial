@@ -1,0 +1,3 @@
+# Scripts shell e bash na VPS exigem LF; no Windows o checkout não pode virar CRLF.
+*.sh text eol=lf
+deploy/scripts/*.py text eol=lf

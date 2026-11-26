@@ -1,24 +1,10 @@
+import { FUSO_OPERACIONAL, dataHoraPartesOperacional } from "@/lib/datetime/fuso-operacional";
+
 /** Fuso operacional para lembretes internos (T34). */
-export const FUSO_NOTIFICACOES = "America/Sao_Paulo";
+export const FUSO_NOTIFICACOES = FUSO_OPERACIONAL;
 
 export function dataHoraPartesEmFuso(iso: string, timeZone = FUSO_NOTIFICACOES) {
-  const instant = Date.parse(iso);
-  if (Number.isNaN(instant)) return null;
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(new Date(instant));
-  const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return {
-    data: `${pick("year")}-${pick("month")}-${pick("day")}`,
-    hora: `${pick("hour")}:${pick("minute")}`,
-  };
+  return dataHoraPartesOperacional(iso, timeZone);
 }
 
 export function hojeEmFuso(timeZone = FUSO_NOTIFICACOES) {

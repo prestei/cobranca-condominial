@@ -1,14 +1,14 @@
 import {
   NEGOCIACAO_DESCONTO_MAX_PADRAO,
   NEGOCIACAO_PARCELAS_MAX_PADRAO,
-  agoraIso,
   type RegraNegociacaoAdvogado,
 } from "@/data/catalogo";
+import { instantParaIsoDataHoraOperacional } from "@/lib/datetime/fuso-operacional";
 import { prisma } from "@/lib/db/prisma";
 import { decimalFromString } from "@/lib/db/mappers";
 
 function isoDateTime(value: Date): string {
-  return value.toISOString();
+  return instantParaIsoDataHoraOperacional(value, "min");
 }
 
 function mapRow(row: {
@@ -58,13 +58,13 @@ export async function upsertLawyerNegotiationRule(
       userId: usuarioId,
       maxDiscountPercent: decimalFromString(input.descontoMaximoPercent) ?? NEGOCIACAO_DESCONTO_MAX_PADRAO,
       maxInstallments: input.parcelasMaximas,
-      updatedAt: new Date(agoraIso()),
+      updatedAt: new Date(),
       updatedById: atualizadoPorId,
     },
     update: {
       maxDiscountPercent: decimalFromString(input.descontoMaximoPercent) ?? NEGOCIACAO_DESCONTO_MAX_PADRAO,
       maxInstallments: input.parcelasMaximas,
-      updatedAt: new Date(agoraIso()),
+      updatedAt: new Date(),
       updatedById: atualizadoPorId,
     },
   });

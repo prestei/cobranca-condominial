@@ -24,6 +24,7 @@ import { canaisAtendimento, condominioAtivo, escopoCondominios, escopoUnidades, 
 import { useAuth } from "@/context/auth-context";
 import { useCadastros, useCadastrosStatus } from "@/hooks/use-cadastros";
 import { usePermissao } from "@/hooks/use-permissao";
+import { agoraIsoOperacional } from "@/lib/datetime/fuso-operacional";
 
 type Props = {
   open: boolean;
@@ -36,9 +37,7 @@ type Props = {
 };
 
 function agoraDatetimeLocal() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
+  return agoraIsoOperacional();
 }
 
 function dataPreferidaParaInput(valor?: string) {

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Sobe o sistema numa VPS pedindo IP, senha SSH e domínio.
+Sobe o sistema numa VPS pedindo só IP e senha SSH (domínio padrão automático).
 
-Gera segredos, instala Node/Caddy/PostgreSQL, sincroniza o código,
+Gera segredos, publica via git (origin), instala Node/Caddy/PostgreSQL,
 roda migrations/build e deixa o app no ar via systemd + Caddy.
 """
 from __future__ import annotations
 
+import argparse
 import base64
 import getpass
 import os
@@ -29,19 +30,42 @@ DEFAULT_APP_DIR = "/opt/cobranca-condominial"
 DEFAULT_DB_NAME = "cobranca_condominial"
 DEFAULT_DB_USER = "cobranca"
 
-
 def die(msg: str, code: int = 1) -> None:
     print(f"\nERROR: {msg}", file=sys.stderr)
     raise SystemExit(code)
 
 
+def normalize_domain(domain_raw: str) -> str:
+    domain = domain_raw.strip().lower()
+    for prefix in ("https://", "http://"):
+        if domain.startswith(prefix):
+            domain = domain[len(prefix) :]
+    domain = domain.split("/")[0].split(":")[0]
+    if domain.startswith("www."):
+        domain = domain[4:]
+    if not domain or "." not in domain:
+        die("Domínio inválido. Ex.: meuescritorio.com.br")
+    return domain
+
+
+def use_paramiko_transport() -> bool:
+    if sys.platform == "win32":
+        return True
+    try:
+        import termios  # noqa: F401
+    except ImportError:
+        return True
+    return False
+
+
 def banner() -> None:
     print()
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║        Cobrança condominial — subir VPS               ║")
+    print("║        Cobrança condominial — subir VPS                    ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()
-    print("Informe o IP, a senha SSH e o domínio. O restante é automático.")
+    print("Informe o IP e a senha SSH. Domínio e demais segredos são automáticos.")
+    print(f"(Domínio padrão: {DEFAULT_DOMAIN} — use --domain para outro.)")
     print()
 
 
@@ -59,7 +83,20 @@ def ask(label: str, *, default: str | None = None, secret: bool = False) -> str:
 
 
 def ensure_local_tools() -> None:
-    for bin_name in ("python3", "rsync", "ssh", "ssh-keyscan"):
+    if use_paramiko_transport():
+        try:
+            import paramiko  # noqa: F401
+        except ImportError:
+            print("Instalando dependências de deploy (paramiko)…")
+            req = DEPLOY / "requirements-deploy.txt"
+            code = subprocess.call([sys.executable, "-m", "pip", "install", "-q", "-r", str(req)])
+            if code != 0:
+                die(f"Falha ao instalar paramiko. Rode: {sys.executable} -m pip install -r deploy/requirements-deploy.txt")
+        if shutil.which("ssh-keyscan") is None:
+            print("Aviso: ssh-keyscan ausente; a conexão ainda funciona via Paramiko.")
+        return
+
+    for bin_name in ("python3", "ssh", "ssh-keyscan"):
         if shutil.which(bin_name) is None:
             die(f"Ferramenta local ausente: {bin_name}")
 
@@ -106,18 +143,80 @@ def write_env_production(domain: str, db_password: str, auth_secret: str) -> Non
     ENV_PROD.chmod(0o600)
 
 
-def run_ssh_pty(*args: str, env: dict[str, str] | None = None) -> None:
-    cmd = [sys.executable, str(SSH_PTY), *args]
-    merged = os.environ.copy()
-    if env:
-        merged.update(env)
-    print(f"\n$ {' '.join(args)}")
-    code = subprocess.call(cmd, cwd=str(ROOT), env=merged)
-    if code != 0:
-        die(f"comando remoto falhou (exit {code}): {' '.join(args)}")
+class DeployTransport:
+    def __init__(self, host: str, user: str, password: str) -> None:
+        self.host = host
+        self.user = user
+        self.password = password
+        self._paramiko = use_paramiko_transport()
+
+    def ssh(self, command: str) -> None:
+        print(f"\n$ ssh {self.user}@{self.host} {command[:80]}{'…' if len(command) > 80 else ''}")
+        if self._paramiko:
+            from ssh_paramiko import run_ssh
+
+            code = run_ssh(
+                command,
+                host=self.host,
+                user=self.user,
+                password=self.password,
+            )
+        else:
+            env = {
+                "VPS_HOST": self.host,
+                "VPS_USER": self.user,
+                "VPS_PASSWORD": self.password,
+            }
+            cmd = [sys.executable, str(SSH_PTY), "ssh", command]
+            code = subprocess.call(cmd, cwd=str(ROOT), env={**os.environ, **env})
+        if code != 0:
+            die(f"comando remoto falhou (exit {code})")
+
+    def git_sync_project(self, app_dir: str, remote_url: str, branch: str, github_token: str | None) -> None:
+        sys.path.insert(0, str(DEPLOY / "scripts"))
+        from deploy_git import remote_git_sync_command, ssh_to_https
+
+        deploy_url = remote_url
+        if github_token and deploy_url.startswith("git@"):
+            deploy_url = ssh_to_https(deploy_url)
+
+        cmd = remote_git_sync_command(
+            app_dir=app_dir,
+            remote_url=deploy_url,
+            branch=branch,
+            github_token=github_token,
+        )
+        print(f"\n$ git sync → {self.user}@{self.host}:{app_dir} ({branch})")
+        code = self._run_ssh_raw(cmd)
+        if code != 0:
+            die(f"git sync falhou (exit {code})")
+
+    def _run_ssh_raw(self, command: str) -> int:
+        if self._paramiko:
+            sys.path.insert(0, str(DEPLOY / "scripts"))
+            from ssh_paramiko import run_ssh
+
+            return run_ssh(
+                command,
+                host=self.host,
+                user=self.user,
+                password=self.password,
+            )
+        env = {
+            "VPS_HOST": self.host,
+            "VPS_USER": self.user,
+            "VPS_PASSWORD": self.password,
+        }
+        return subprocess.call(
+            [sys.executable, str(SSH_PTY), "ssh", command],
+            cwd=str(ROOT),
+            env={**os.environ, **env},
+        )
 
 
 def trust_host(host: str) -> None:
+    if shutil.which("ssh-keyscan") is None:
+        return
     known = Path.home() / ".ssh" / "known_hosts"
     known.parent.mkdir(parents=True, exist_ok=True)
     subprocess.call(
@@ -127,21 +226,29 @@ def trust_host(host: str) -> None:
     )
 
 
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Sobe a aplicação numa VPS Ubuntu limpa (só IP + senha SSH).",
+    )
+    parser.add_argument("--host", "--ip", dest="host", help="IP ou hostname da VPS")
+    parser.add_argument("--password", "--senha", dest="password", help="Senha SSH do root")
+    parser.add_argument(
+        "--domain",
+        default=DEFAULT_DOMAIN,
+        help=f"Domínio HTTPS (padrão: {DEFAULT_DOMAIN})",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> int:
-    banner()
+    args = parse_args(sys.argv[1:])
+    if not args.host or not args.password:
+        banner()
     ensure_local_tools()
 
-    host = ask("IP da VPS")
-    password = ask("Senha SSH (root)", secret=True)
-    domain_raw = ask("Domínio", default=DEFAULT_DOMAIN).strip().lower()
-    for prefix in ("https://", "http://"):
-        if domain_raw.startswith(prefix):
-            domain_raw = domain_raw[len(prefix) :]
-    domain = domain_raw.split("/")[0].split(":")[0]
-    if domain.startswith("www."):
-        domain = domain[4:]
-    if not domain or "." not in domain:
-        die("Domínio inválido. Ex.: meuescritorio.com.br")
+    host = args.host or ask("IP da VPS")
+    password = args.password or ask("Senha SSH (root)", secret=True)
+    domain = normalize_domain(args.domain)
     user = DEFAULT_USER
     app_dir = DEFAULT_APP_DIR
 
@@ -153,61 +260,45 @@ def main() -> int:
     write_env_production(domain, db_password, auth_secret)
     trust_host(host)
 
-    env = {
-        "VPS_HOST": host,
-        "VPS_USER": user,
-        "VPS_PASSWORD": password,
-        "VPS_APP_DIR": app_dir,
-        "DOMAIN": domain,
-    }
+    sys.path.insert(0, str(DEPLOY / "scripts"))
+    from deploy_git import load_secrets as load_deploy_secrets, preflight_deploy, ssh_to_https
+
+    print("\n==> Validando git local (commit publicado no origin)")
+    remote_url, branch = preflight_deploy()
+
+    transport = DeployTransport(host, user, password)
+    deploy_secrets = load_deploy_secrets()
+    github_token = (
+        os.environ.get("GITHUB_DEPLOY_TOKEN", "").strip()
+        or deploy_secrets.get("GITHUB_DEPLOY_TOKEN", "").strip()
+        or None
+    )
 
     print("\n==> 1/5 Preparando pasta remota")
-    run_ssh_pty("ssh", f"mkdir -p '{app_dir}/deploy'", env=env)
+    transport.ssh(f"mkdir -p '{app_dir}/deploy'")
 
-    print("\n==> 2/5 Enviando código")
-    run_ssh_pty(
-        "rsync",
-        str(ROOT),
-        app_dir,
-        "node_modules",
-        ".next",
-        ".git",
-        ".freebuff",
-        "deploy/secrets",
-        "*.tsbuildinfo",
-        ".env",
-        ".env.local",
-        env=env,
-    )
+    print("\n==> 2/5 Atualizando código na VPS (git)")
+    deploy_url = remote_url
+    if github_token and deploy_url.startswith("git@"):
+        deploy_url = ssh_to_https(deploy_url)
+    transport.git_sync_project(app_dir, deploy_url, branch, github_token)
 
     print("\n==> 3/5 Enviando .env.production")
     payload = base64.b64encode(ENV_PROD.read_bytes()).decode()
-    run_ssh_pty(
-        "ssh",
-        (
-            f"mkdir -p {app_dir}/deploy && "
-            f"echo {payload} | base64 -d > {app_dir}/deploy/.env.production && "
-            f"chmod 600 {app_dir}/deploy/.env.production"
-        ),
-        env=env,
+    transport.ssh(
+        f"mkdir -p {app_dir}/deploy && "
+        f"echo {payload} | base64 -d > {app_dir}/deploy/.env.production && "
+        f"chmod 600 {app_dir}/deploy/.env.production"
     )
 
     print("\n==> 4/5 Bootstrap (Node, Caddy, PostgreSQL, firewall, systemd)")
-    run_ssh_pty(
-        "ssh",
-        (
-            f"DOMAIN='{domain}' APP_DIR='{app_dir}' INSTALL_LOCAL_POSTGRES=1 "
-            f"bash '{app_dir}/deploy/scripts/remote-bootstrap.sh'"
-        ),
-        env=env,
+    transport.ssh(
+        f"DOMAIN='{domain}' APP_DIR='{app_dir}' INSTALL_LOCAL_POSTGRES=1 "
+        f"bash '{app_dir}/deploy/scripts/remote-bootstrap.sh'"
     )
 
     print("\n==> 5/5 Build, migrate e start")
-    run_ssh_pty(
-        "ssh",
-        f"APP_DIR='{app_dir}' bash '{app_dir}/deploy/scripts/ci-remote-deploy.sh'",
-        env=env,
-    )
+    transport.ssh(f"APP_DIR='{app_dir}' bash '{app_dir}/deploy/scripts/ci-remote-deploy.sh'")
 
     print()
     print("╔══════════════════════════════════════════════════════════╗")

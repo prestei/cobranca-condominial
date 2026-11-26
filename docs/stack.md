@@ -114,7 +114,7 @@ npm run db:migrate          # prisma migrate deploy
 - Config app: `app_setting` (ex.: `distribuicao_automatica` em `src/lib/distribuicao/service.ts`; `alertas_prazo_inadimplencia` em `src/lib/notificacoes/alertas-prazo-inadimplencia-service.ts`).
 - Não há mais `catalogo_snapshot`, `pool.ts`, `operacional-pg.ts` nem drivers raw `pg` no `src/`.
 - Deploy: Node + systemd + Caddy — ver [`deploy/README.md`](../deploy/README.md). Sem Docker.
-- Anti-perda: `saveCatalogBulkToPostgres` recusa sobrescrever linhas operacionais existentes por estado operacional vazio; `TimeoutStopSec=30` no systemd para flush no restart.
+- Anti-perda: `saveCatalogBulkToPostgres` recusa sobrescrever linhas operacionais existentes por estado operacional vazio; `TimeoutStopSec=30` no systemd para flush no restart; deploy (`ci-remote-deploy.sh`) só substitui `.next` após build OK e restaura o artefato anterior em falha de build ou healthcheck.
 
 Rotas: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`. Cadastro de unidades: `GET|POST /api/unidades`, `GET|PATCH|DELETE /api/unidades/[id]`, vínculos em `/api/unidades/[id]/vinculos`. Proteção de rotas em `src/proxy.ts` (convenção Proxy do Next.js 16). Tela de entrada: `/login`.
 

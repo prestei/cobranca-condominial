@@ -31,30 +31,26 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Sincronizar código (preserva .env.production)
+      - name: Atualizar código na VPS (git)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          DEPLOY_REPO_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
         run: |
           set -euo pipefail
           USER_NAME="${VPS_USER:-root}"
           APP_DIR="${VPS_APP_DIR:-/opt/cobranca-condominial}"
-          RSYNC_RSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${USER_NAME}@${VPS_HOST}" "mkdir -p '${APP_DIR}'"
-          rsync -az --delete \
-            -e "$RSYNC_RSH" \
-            --exclude node_modules \
-            --exclude .next \
-            --exclude .git \
-            --exclude .freebuff \
-            --exclude deploy/secrets \
-            --exclude 'deploy/.env.production' \
-            --exclude 'deploy/.env.standby' \
-            --exclude '*.tsbuildinfo' \
-            --exclude .env \
-            --exclude .env.local \
-            ./ "${USER_NAME}@${VPS_HOST}:${APP_DIR}/"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          REMOTE_URL="https://github.com/${{ github.repository }}.git"
+          SCRIPT_B64="$(base64 -w0 deploy/scripts/remote-git-sync.sh)"
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${USER_NAME}@${VPS_HOST}" \
+            "mkdir -p '${APP_DIR}' && \
+            echo '${SCRIPT_B64}' | base64 -d > /tmp/cobranca-remote-git-sync.sh && \
+            chmod +x /tmp/cobranca-remote-git-sync.sh && \
+            APP_DIR='${APP_DIR}' DEPLOY_BRANCH='${BRANCH}' REMOTE_URL='${REMOTE_URL}' \
+            GITHUB_DEPLOY_TOKEN='${DEPLOY_REPO_TOKEN:-}' \
+            bash /tmp/cobranca-remote-git-sync.sh"
 
       - name: Build e restart na VPS
         env:

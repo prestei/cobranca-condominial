@@ -1,4 +1,13 @@
-import { advogadoPrincipalCondominio, agoraIso, debitoEmAberto, formatarMoeda, opcoesAdvogadosResponsaveis, statusEncaminhamentoJuridico, type DocumentoJuridico, type EncaminhamentoJuridico } from "@/data/catalogo";
+import {
+  advogadoPrincipalCondominio,
+  agoraIso,
+  debitoEmAberto,
+  formatarMoeda,
+  opcoesAdvogadosResponsaveis,
+  statusEncaminhamentoJuridico,
+  type DocumentoJuridico,
+  type EncaminhamentoJuridico,
+} from "@/data/catalogo";
 import { loadCadastrosForScope } from "@/lib/db/cadastros-scope";
 import { writeAuditLog } from "@/lib/db/repositories/audit-repository";
 import { findCondominiumById } from "@/lib/db/repositories/condominium-repository";
@@ -13,7 +22,7 @@ import {
   updateLegalReferral,
 } from "@/lib/db/repositories/legal-repository";
 import { requireUnitInScope, scopeCondominiumIds } from "@/lib/db/service-context";
-import { temPermissao } from "@/lib/permissions/check";
+import { ehAdministradora, temPermissao } from "@/lib/permissions/check";
 import { resolverPermissoesUsuario } from "@/lib/permissions/resolver";
 
 export class JuridicoServiceError extends Error {
@@ -58,7 +67,15 @@ export type EncaminhamentoJuridicoDetalhe = EncaminhamentoJuridico & {
   documentos?: DocumentoJuridico[];
 };
 
+const STATUS_VISIVEIS_ADVOGADO = new Set(
+  statusEncaminhamentoJuridico.filter(
+    (item) => item !== "Aguardando aprovação" && item !== "Rejeitado",
+  ),
+);
+
 const TRANSICOES_STATUS: Record<string, Set<string>> = {
+  "Aguardando aprovação": new Set(["Encaminhado", "Rejeitado"]),
+  Rejeitado: new Set(),
   Encaminhado: new Set(["Em análise", "Retornado à cobrança amigável", "Arquivado"]),
   "Em análise": new Set([
     "Documentação pendente",
@@ -78,11 +95,38 @@ const TRANSICOES_STATUS: Record<string, Set<string>> = {
   Arquivado: new Set(),
 };
 
+async function permissoesJuridico(userId: number) {
+  return resolverPermissoesUsuario(userId);
+}
+
+function podeConsultarEncaminhamentos(perm: Awaited<ReturnType<typeof permissoesJuridico>>): boolean {
+  return temPermissao(perm, "juridico", "ler") || temPermissao(perm, "juridico", "criar");
+}
+
 async function assertPermissaoJuridico(userId: number, acao: "ler" | "criar" | "editar") {
-  const perm = await resolverPermissoesUsuario(userId);
-  if (!temPermissao(perm, "juridico", acao)) {
-    throw new JuridicoServiceError(`Sem permissão para ${acao === "ler" ? "consultar" : acao} encaminhamentos jurídicos.`, 403);
+  const perm = await permissoesJuridico(userId);
+  if (acao === "ler") {
+    if (!podeConsultarEncaminhamentos(perm)) {
+      throw new JuridicoServiceError("Sem permissão para consultar encaminhamentos jurídicos.", 403);
+    }
+    return perm;
   }
+  if (!temPermissao(perm, "juridico", acao)) {
+    throw new JuridicoServiceError(`Sem permissão para ${acao} encaminhamentos jurídicos.`, 403);
+  }
+  return perm;
+}
+
+async function filtrarEncaminhamentosPorPerfil<T extends EncaminhamentoJuridico>(
+  userId: number,
+  lista: T[],
+): Promise<T[]> {
+  const perm = await permissoesJuridico(userId);
+  if (ehAdministradora(perm)) return lista;
+  if (temPermissao(perm, "juridico", "ler") && !temPermissao(perm, "juridico", "criar")) {
+    return lista.filter((item) => STATUS_VISIVEIS_ADVOGADO.has(item.status));
+  }
+  return lista;
 }
 
 async function assertUnidadeNoEscopo(userId: number, unidadeId: number, condominioId: number) {
@@ -165,7 +209,10 @@ export async function listarEncaminhamentosJuridicos(
 ): Promise<EncaminhamentoJuridicoDetalhe[]> {
   await assertPermissaoJuridico(userId, "ler");
   const idsCondominio = await scopeCondominiumIds(userId);
-  let lista = (await listLegalReferrals()).filter((item) => idsCondominio.has(item.condominioId));
+  let lista = await filtrarEncaminhamentosPorPerfil(
+    userId,
+    (await listLegalReferrals()).filter((item) => idsCondominio.has(item.condominioId)),
+  );
 
   if (filtros?.unidadeId) {
     lista = lista.filter((item) => item.unidadeId === filtros.unidadeId);
@@ -185,7 +232,7 @@ export async function listarEncaminhamentosJuridicos(
 }
 
 export async function obterEncaminhamentoJuridico(userId: number, id: string): Promise<EncaminhamentoJuridicoDetalhe> {
-  await assertPermissaoJuridico(userId, "ler");
+  const perm = await assertPermissaoJuridico(userId, "ler");
   const encaminhamento = await findLegalReferralById(id);
   if (!encaminhamento) {
     throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
@@ -193,6 +240,14 @@ export async function obterEncaminhamentoJuridico(userId: number, id: string): P
   const idsCondominio = await scopeCondominiumIds(userId);
   if (!idsCondominio.has(encaminhamento.condominioId)) {
     throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
+  }
+  if (
+    !ehAdministradora(perm) &&
+    temPermissao(perm, "juridico", "ler") &&
+    !temPermissao(perm, "juridico", "criar") &&
+    !STATUS_VISIVEIS_ADVOGADO.has(encaminhamento.status)
+  ) {
+    throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
   }
   return incluirDocumentos(userId, encaminhamento);
 }
@@ -217,7 +272,6 @@ export async function criarEncaminhamentoJuridico(
   input: EncaminhamentoJuridicoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<EncaminhamentoJuridico> {
-  await assertPermissaoJuridico(userId, "criar");
   if (!Number.isFinite(input.condominioId) || input.condominioId <= 0) {
     throw new JuridicoServiceError("Selecione o condomínio.", 400);
   }
@@ -225,6 +279,23 @@ export async function criarEncaminhamentoJuridico(
     throw new JuridicoServiceError("Selecione a unidade.", 400);
   }
   await assertUnidadeNoEscopo(userId, input.unidadeId, input.condominioId);
+
+  const idsCondominio = await scopeCondominiumIds(userId);
+  const jaAguardando = (await listLegalReferrals()).some(
+    (item) =>
+      idsCondominio.has(item.condominioId) &&
+      item.unidadeId === input.unidadeId &&
+      item.status === "Aguardando aprovação",
+  );
+  if (jaAguardando) {
+    throw new JuridicoServiceError(
+      "Já existe solicitação aguardando aprovação para esta unidade. Aguarde a decisão da gestão.",
+      409,
+    );
+  }
+
+  const perm = await assertPermissaoJuridico(userId, "criar");
+  const statusInicial = ehAdministradora(perm) ? "Encaminhado" : "Aguardando aprovação";
 
   const debitoIds = await validarDebitos(input.unidadeId, input.debitoIds);
   const condominio = await findCondominiumById(input.condominioId);
@@ -241,7 +312,7 @@ export async function criarEncaminhamentoJuridico(
     unidadeId: input.unidadeId,
     usuarioId: userId,
     encaminhadoEm: agora,
-    status: "Encaminhado",
+    status: statusInicial,
     advogadoResponsavel,
     observacoes: (input.observacoes ?? "").trim(),
     debitoIds,
@@ -276,7 +347,7 @@ export async function atualizarEncaminhamentoJuridico(
   input: EncaminhamentoJuridicoAtualizacaoInput,
   meta?: { ip?: string; userAgent?: string },
 ): Promise<EncaminhamentoJuridico> {
-  await assertPermissaoJuridico(userId, "editar");
+  const perm = await assertPermissaoJuridico(userId, "editar");
   const anterior = await findLegalReferralById(id);
   if (!anterior) {
     throw new JuridicoServiceError("Encaminhamento não encontrado.", 404);
@@ -284,6 +355,9 @@ export async function atualizarEncaminhamentoJuridico(
   const idsCondominio = await scopeCondominiumIds(userId);
   if (!idsCondominio.has(anterior.condominioId)) {
     throw new JuridicoServiceError("Encaminhamento fora do seu escopo de acesso.", 403);
+  }
+  if (anterior.status === "Aguardando aprovação" && !ehAdministradora(perm)) {
+    throw new JuridicoServiceError("Solicitação aguardando aprovação da gestão.", 403);
   }
 
   let status = anterior.status;
@@ -296,6 +370,13 @@ export async function atualizarEncaminhamentoJuridico(
       throw new JuridicoServiceError("Status jurídico inválido.", 400);
     }
     validarTransicaoStatus(anterior.status, proximo);
+    if (
+      anterior.status === "Aguardando aprovação" &&
+      (proximo === "Encaminhado" || proximo === "Rejeitado") &&
+      !ehAdministradora(perm)
+    ) {
+      throw new JuridicoServiceError("Apenas a gestão pode aprovar ou rejeitar a solicitação de encaminhamento.", 403);
+    }
     status = proximo;
   }
 
