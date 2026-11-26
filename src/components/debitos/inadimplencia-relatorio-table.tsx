@@ -35,7 +35,7 @@ import {
   TableRow,
   type TableAction,
 } from "@/components/table";
-import { formatarData, formatarMoeda, grupoDebito, nomeCondominio, nomeResponsavel, persistedDebtBalanceAmount, type Debito, type Cadastros } from "@/data/catalogo";
+import { formatarData, formatarMoeda, nomeCondominio, nomeResponsavel, persistedDebtBalanceAmount, type Debito, type Cadastros } from "@/data/catalogo";
 
 export type TotaisDebitoRelatorio = {
   valor: number;
@@ -264,8 +264,8 @@ export function InadimplenciaRelatorioDesktop({
                   key={item.id}
                   className="border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
                 >
-                  <TableCell className="pl-lg">
-                    {grupoDebito(item.descricao) || item.descricao || "—"}
+                  <TableCell className="pl-lg" title={item.descricao?.trim() || undefined}>
+                    {item.descricao?.trim() || "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {item.referencia || "—"}
@@ -385,7 +385,7 @@ export function InadimplenciaRelatorioMobile({
                     <div className="flex items-start justify-between gap-sm">
                       <div className="min-w-0">
                         <p className="text-body-md font-medium text-on-surface">
-                          {grupoDebito(item.descricao) || item.descricao || "—"}
+                          {item.descricao?.trim() || "—"}
                         </p>
                         <p className="text-body-sm text-on-surface-variant">
                           {item.referencia || "—"} · {formatarData(item.dataVencimento)}

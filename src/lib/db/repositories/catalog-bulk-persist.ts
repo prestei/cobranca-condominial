@@ -1,5 +1,6 @@
 import { Atendimento, AtribuicaoCobranca, Auditoria, Cadastros, Condominio, Debito, DocumentoJuridico, EncaminhamentoJuridico, Importacao, NotificacaoFalha, NotificacaoInterna, PagamentoAcordo, ParcelaAcordo, PropostaNegociacao, Responsavel, Unidade, Usuario, Vinculo, Cargo } from "@/data/catalogo";
 import { dateFromIsoDate, dateFromIsoDateTime, decimalFromString } from "@/lib/db/mappers";
+import { negotiationQueueFields } from "@/lib/db/negotiation-queue-fields";
 import {
   bumpPgAutoIncrementSequence,
   bumpOperationalAutoIncrementSequences,
@@ -315,6 +316,10 @@ async function upsertUnitLinks(tx: Tx, vinculos: Vinculo[]): Promise<void> {
 }
 
 async function upsertDebts(tx: Tx, debitos: Debito[]): Promise<void> {
+  const { debtIdsComNegociacaoFormalizadaAtiva } = await import(
+    "@/lib/db/repositories/negotiation-proposal-debt-repository"
+  );
+  const debitosNegociacaoFormalizada = await debtIdsComNegociacaoFormalizadaAtiva();
   for (const item of debitos) {
     await tx.debt.upsert({
       where: { id: item.id },
@@ -338,27 +343,55 @@ async function upsertDebts(tx: Tx, debitos: Debito[]): Promise<void> {
         externalId: trimText(item.identificadorExterno),
         updatedAt: dateFromIsoDateTime(item.atualizadoEm),
         valueSource: item.fonteValores,
+        delinquencySituation: item.situacaoInadimplencia?.trim() || "Ativa",
+        prescriptionUserId: item.usuarioPrescricaoId ?? null,
+        prescribedAt: dateFromIsoDateTime(item.prescritoEm),
+        prescriptionJustification: trimText(item.justificativaPrescricao),
+        operationalSituation: item.situacaoOperacional?.trim() || "Em aberto",
+        operationalSituationChangedAt: dateFromIsoDateTime(item.situacaoOperacionalAlteradaEm),
+        operationalSituationUserId: item.usuarioSituacaoOperacionalId ?? null,
       },
-      update: {
-        condominiumId: item.condominioId,
-        unitId: item.unidadeId,
-        reference: item.referencia,
-        description: trimText(item.descricao),
-        dueDate: requiredDueDate(item.dataVencimento),
-        amount: decimalFromString(item.valor),
-        originalAmount: decimalFromString(item.valorOriginal),
-        fine: decimalFromString(item.multa),
-        interest: decimalFromString(item.juros),
-        correction: decimalFromString(item.correcao),
-        updatedAmount: decimalFromString(item.valorAtualizado),
-        status: item.status,
-        paymentDate: dateFromIsoDate(item.dataPagamento),
-        paidAmount: decimalFromString(item.valorPago),
-        origin: trimText(item.origem),
-        externalId: trimText(item.identificadorExterno),
-        updatedAt: dateFromIsoDateTime(item.atualizadoEm),
-        valueSource: item.fonteValores,
-      },
+      update: await (async () => {
+        const base = {
+          condominiumId: item.condominioId,
+          unitId: item.unidadeId,
+          reference: item.referencia,
+          description: trimText(item.descricao),
+          dueDate: requiredDueDate(item.dataVencimento),
+          amount: decimalFromString(item.valor),
+          originalAmount: decimalFromString(item.valorOriginal),
+          fine: decimalFromString(item.multa),
+          interest: decimalFromString(item.juros),
+          correction: decimalFromString(item.correcao),
+          updatedAmount: decimalFromString(item.valorAtualizado),
+          status: item.status,
+          paymentDate: dateFromIsoDate(item.dataPagamento),
+          paidAmount: decimalFromString(item.valorPago),
+          origin: trimText(item.origem),
+          externalId: trimText(item.identificadorExterno),
+          updatedAt: dateFromIsoDateTime(item.atualizadoEm),
+          valueSource: item.fonteValores,
+          delinquencySituation: item.situacaoInadimplencia?.trim() || "Ativa",
+          prescriptionUserId: item.usuarioPrescricaoId ?? null,
+          prescribedAt: dateFromIsoDateTime(item.prescritoEm),
+          prescriptionJustification: trimText(item.justificativaPrescricao),
+          operationalSituation: item.situacaoOperacional?.trim() || "Em aberto",
+          operationalSituationChangedAt: dateFromIsoDateTime(item.situacaoOperacionalAlteradaEm),
+          operationalSituationUserId: item.usuarioSituacaoOperacionalId ?? null,
+        };
+        if (!debitosNegociacaoFormalizada.has(item.id)) return base;
+        const existente = await tx.debt.findUnique({
+          where: { id: item.id },
+          select: { originalAmount: true, updatedAmount: true, operationalSituation: true },
+        });
+        if (!existente) return base;
+        return {
+          ...base,
+          originalAmount: existente.originalAmount,
+          updatedAmount: existente.updatedAmount,
+          operationalSituation: existente.operationalSituation,
+        };
+      })(),
     });
   }
   await bumpAutoIncrementSequence(tx, "debt");
@@ -525,6 +558,7 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         installmentCount: item.quantidadeParcelas,
         valuesDefinedByUserId: item.valoresDefinidosPorId,
         valuesApprovedByUserId: item.valoresAprovadosPorId,
+        ...negotiationQueueFields(item),
       },
       update: {
         condominiumId: item.condominioId,
@@ -544,6 +578,7 @@ async function upsertNegotiationProposals(tx: Tx, itens: PropostaNegociacao[]): 
         installmentCount: item.quantidadeParcelas,
         valuesDefinedByUserId: item.valoresDefinidosPorId,
         valuesApprovedByUserId: item.valoresAprovadosPorId,
+        ...negotiationQueueFields(item, { clearWhenEmpty: true }),
       },
     });
 

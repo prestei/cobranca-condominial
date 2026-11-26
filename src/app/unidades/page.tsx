@@ -93,7 +93,29 @@ import { useToast } from "@/components/toast";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { garantirCondominiosPersistidosNoServidor } from "@/lib/condominios/ensure-server-sync";
 import { useAuth } from "@/context/auth-context";
-import { diasDeAtraso, escopoCondominios, escopoUnidades, formatarMoeda, nomeCondominio, persistedDebtBalanceAmount, SITUACAO_COBRANCA_PADRAO, situacaoCobrancaUnidade, situacoesUnidade, statusUnidade, tiposPessoa, tiposUnidade, tiposVinculo, unidadeComDebitoOperacional, unidadeNaFilaCobrancaAtiva, type Responsavel, type Unidade, type Vinculo } from "@/data/catalogo";
+import {
+  debitoEmAberto,
+  debitoEmAbertoOperacional,
+  debitoPrescrito,
+  diasDeAtraso,
+  escopoCondominios,
+  escopoUnidades,
+  formatarMoeda,
+  nomeCondominio,
+  persistedDebtBalanceAmount,
+  SITUACAO_COBRANCA_PADRAO,
+  situacaoCobrancaUnidade,
+  situacoesUnidade,
+  statusUnidade,
+  tiposPessoa,
+  tiposUnidade,
+  tiposVinculo,
+  unidadeComDebitoOperacional,
+  unidadeNaFilaCobrancaAtiva,
+  type Responsavel,
+  type Unidade,
+  type Vinculo,
+} from "@/data/catalogo";
 import { UnidadeSituacaoListagemBadge } from "@/components/unidades/unidade-situacao-listagem-badge";
 import { rotuloSituacaoListagemUnidade } from "@/lib/unidades/situacao-listagem";
 import { delinquencyTrackingDaysCaptionForCondominiumId } from "@/lib/inadimplencia/delinquency-tracking";
@@ -301,20 +323,27 @@ function UnidadesPage() {
   }, [cadastros.unidades, catalogLoading, router, searchParams, user?.userId]);
 
   const debitosAbertos = new Map<number, number>();
+  const debitosOperacionaisAbertos = new Set<number>();
+  const unidadesComDebitoPrescrito = new Set<number>();
   const diasAtrasoMax = new Map<number, number>();
   for (const item of cadastros.debitos) {
-    if (item.status !== "Pendente" && item.status !== "Vencido") continue;
+    if (!debitoEmAberto(item)) continue;
     debitosAbertos.set(
       item.unidadeId,
       (debitosAbertos.get(item.unidadeId) ?? 0) + persistedDebtBalanceAmount(item),
     );
+    if (debitoEmAbertoOperacional(item)) {
+      debitosOperacionaisAbertos.add(item.unidadeId);
+    } else if (debitoPrescrito(item)) {
+      unidadesComDebitoPrescrito.add(item.unidadeId);
+    }
     const dias = diasDeAtraso(item.dataVencimento);
     diasAtrasoMax.set(item.unidadeId, Math.max(diasAtrasoMax.get(item.unidadeId) ?? 0, dias));
   }
 
   const query = appliedSearch.trim().toLocaleLowerCase("pt-BR");
   function emDebitoOperacional(item: Unidade) {
-    return unidadeComDebitoOperacional(item, debitosAbertos.has(item.id));
+    return unidadeComDebitoOperacional(item, debitosOperacionaisAbertos.has(item.id));
   }
 
   const visible = unidades
@@ -614,7 +643,11 @@ function UnidadesPage() {
 
   function celulaSituacao(item: Unidade) {
     return (
-      <UnidadeSituacaoListagemBadge unidade={item} temDebitoVencidoAberto={debitosAbertos.has(item.id)} />
+      <UnidadeSituacaoListagemBadge
+        unidade={item}
+        temDebitoOperacionalAberto={debitosOperacionaisAbertos.has(item.id)}
+        temDebitoPrescritoAberto={unidadesComDebitoPrescrito.has(item.id)}
+      />
     );
   }
 
@@ -657,7 +690,11 @@ function UnidadesPage() {
   ] as const;
 
   function textoSituacaoExport(item: Unidade) {
-    return rotuloSituacaoListagemUnidade(item, debitosAbertos.has(item.id));
+    return rotuloSituacaoListagemUnidade(
+      item,
+      debitosOperacionaisAbertos.has(item.id),
+      unidadesComDebitoPrescrito.has(item.id),
+    );
   }
 
   function valorDebitoExport(item: Unidade) {
@@ -1397,8 +1434,8 @@ function UnidadesPage() {
                   ))}
                 </Select>
                 <SheetHelpText>
-                  Sem cobrança: fora da fila. Em cobrança, em acordo, notificada e ajuizada: operação ativa. Unidade
-                  prescrita: fora da fila; débitos permanecem apenas para consulta.
+                  Sem cobrança: fora da fila. Em cobrança, em acordo, notificada e ajuizada: operação ativa. A prescrição
+                  jurídica é classificada em cada inadimplência, na tela Débitos.
                 </SheetHelpText>
               </FormField>
                 </>

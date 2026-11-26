@@ -68,6 +68,10 @@ test("indicadores respeitam prazo distinto por condomínio", () => {
       identificadorExterno: "A1",
       fonteValores: "origem",
       atualizadoEm: "2026-01-01",
+      situacaoInadimplencia: "Ativa",
+      usuarioPrescricaoId: null,
+      prescritoEm: "",
+      justificativaPrescricao: "",
     },
     {
       id: 2,

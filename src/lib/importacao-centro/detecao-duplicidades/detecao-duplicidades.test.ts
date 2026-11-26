@@ -49,6 +49,10 @@ test("detectarDuplicidadeDebito não considera duplicata só pela referência", 
     origem: "manual",
     atualizadoEm: "",
     fonteValores: "manual",
+    situacaoInadimplencia: "Ativa",
+    usuarioPrescricaoId: null,
+    prescritoEm: "",
+    justificativaPrescricao: "",
   };
   const candidato = rowBase({ dataVencimento: "2026-10-10" });
   const detecao = detectarDuplicidadeDebito(candidato, [existente]);
@@ -62,6 +66,10 @@ test("detectarDuplicidadeDebito marca revisão quando ID externo coincide com di
     origem: "import",
     atualizadoEm: "",
     fonteValores: "origem",
+    situacaoInadimplencia: "Ativa",
+    usuarioPrescricaoId: null,
+    prescritoEm: "",
+    justificativaPrescricao: "",
   };
   const candidato = rowBase({ identificadorExterno: "ADM-1", valorAtualizado: "550.00" });
   const detecao = detectarDuplicidadeDebito(candidato, [existente]);

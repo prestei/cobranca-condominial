@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  BotaoExpandirDebitosFila,
+  CelulaInadimplenciaExpansivel,
+} from "@/components/atendimentos/celula-inadimplencia-expansivel";
+import { FilaInadimplenciaDebitosExpandido } from "@/components/atendimentos/fila-inadimplencia-debitos-expandido";
 import { Building2, CalendarClock, ChevronDown, ListOrdered, User } from "lucide-react";
 import { AtalhosContatoAtendente } from "@/components/atendimentos/atalhos-contato-atendente";
-import { BadgeSituacaoCobranca } from "@/components/badge-situacao-cobranca";
+import { BadgeSituacaoFila } from "@/components/badge-situacao-fila";
 import { Button } from "@/components/button";
 import { Icon } from "@/components/icon";
 import {
@@ -14,7 +19,6 @@ import {
   listGroupEmbeddedTableHeaderClassName,
   listGroupEmbeddedTableRowClassName,
 } from "@/components/list-group-accordion";
-import { Checkbox } from "@/components/input";
 import { PAGE_SIZE, Pagination } from "@/components/pagination";
 import {
   Table,
@@ -169,39 +173,42 @@ function ColgroupFilaDesktop({
   if (!visaoGeral && modo === "condominio") {
     return (
       <colgroup>
-        <col className="w-[12%]" />
-        <col className="w-[16%]" />
-        <col className="w-[14%]" />
-        <col className="w-[18%]" />
-        <col className="w-[16%]" />
-        <col className="w-[14%]" />
-        <col className="w-[10%]" />
+        <col className="w-[4%]" />
+        <col className="w-[11%]" />
+        <col className="w-[15%]" />
+        <col className="w-[13%]" />
+        <col className="w-[17%]" />
+        <col className="w-[15%]" />
+        <col className="w-[13%]" />
+        <col className="w-[9%]" />
       </colgroup>
     );
   }
   if (mostraContato) {
     return (
       <colgroup>
+        <col className="w-[4%]" />
+        <col className="w-[12%]" />
+        <col className="w-[10%]" />
         <col className="w-[13%]" />
         <col className="w-[11%]" />
-        <col className="w-[14%]" />
-        <col className="w-[12%]" />
-        <col className="w-[18%]" />
-        <col className="w-[14%]" />
+        <col className="w-[17%]" />
         <col className="w-[13%]" />
+        <col className="w-[12%]" />
         <col className="w-[5%]" />
       </colgroup>
     );
   }
   return (
     <colgroup>
-      <col className="w-[14%]" />
-      <col className="w-[12%]" />
-      <col className="w-[16%]" />
-      <col className="w-[14%]" />
-      <col className="w-[16%]" />
-      <col className="w-[14%]" />
-      <col className="w-[14%]" />
+      <col className="w-[4%]" />
+      <col className="w-[13%]" />
+      <col className="w-[11%]" />
+      <col className="w-[15%]" />
+      <col className="w-[13%]" />
+      <col className="w-[15%]" />
+      <col className="w-[13%]" />
+      <col className="w-[13%]" />
     </colgroup>
   );
 }
@@ -220,6 +227,9 @@ type TabelaProps = {
   embutida?: boolean;
   pageOffset?: number;
   totalItens?: number;
+  onPropostaComDebitos?: (item: FilaCobrancaItem, debitoIds: number[]) => void;
+  onVerDetalhesUnidade?: (item: FilaCobrancaItem) => void;
+  podeProposta?: boolean;
 };
 
 function TabelaDesktop({
@@ -234,10 +244,24 @@ function TabelaDesktop({
   acoesLinha,
   onIniciarCanal,
   embutida = false,
+  onPropostaComDebitos,
+  onVerDetalhesUnidade,
+  podeProposta = false,
 }: TabelaProps) {
+  const [expandidas, setExpandidas] = useState<Set<number>>(() => new Set());
+
+  function alternarExpansao(unidadeId: number) {
+    setExpandidas((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(unidadeId)) proximo.delete(unidadeId);
+      else proximo.add(unidadeId);
+      return proximo;
+    });
+  }
+
   const mostraContato = !visaoGeral && Boolean(onIniciarCanal);
   const colSpan =
-    (visaoGeral ? 1 : 0) +
+    1 +
     (modo === "condominio" ? 6 : 7) +
     (mostraContato && modo === "atendente" ? 1 : 0) +
     1;
@@ -252,7 +276,7 @@ function TabelaDesktop({
       <ColgroupFilaDesktop modo={modo} visaoGeral={visaoGeral} mostraContato={mostraContato} />
       <TableHeader className={embutida ? listGroupEmbeddedTableHeaderClassName : undefined}>
         <TableRow className="border-border-subtle/50 hover:bg-transparent">
-          {visaoGeral ? <TableHead className="w-12" /> : null}
+          <TableHead className="w-12" scope="col" aria-label="Expandir débitos" />
           {modo === "atendente" ? <TableHead>Condomínio</TableHead> : null}
           <TableHead>Unidade</TableHead>
           <TableHead>Inadimplência</TableHead>
@@ -270,102 +294,106 @@ function TabelaDesktop({
         {itens.length === 0 ? (
           <TableEmpty colSpan={colSpan}>{emptyState}</TableEmpty>
         ) : (
-          itens.map((item) => (
-            <TableRow
-              key={item.unidadeId}
-              id={`fila-unidade-${item.unidadeId}`}
-              className={
-                destaqueUnidadeId === item.unidadeId
-                  ? "border-b border-border-subtle bg-[#FFF8E6] hover:bg-[#FFF8E6]"
-                  : embutida
-                    ? listGroupEmbeddedTableRowClassName
-                    : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle"
-              }
-            >
-              {visaoGeral ? (
-                <TableCell className="w-12">
-                  <div className="flex justify-start">
-                    <Checkbox
-                      aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                      checked={selecionadas.has(item.unidadeId)}
-                      onChange={(event) => onToggleUnidade(item.unidadeId, event.target.checked)}
-                    />
-                  </div>
-                </TableCell>
-              ) : null}
-              {modo === "atendente" ? (
-                <TableCell className="text-on-surface">
-                  {nomeCondominio(item.condominioId, cadastros)}
-                </TableCell>
-              ) : null}
-              <TableCell className="font-medium text-on-surface">
-                {rotuloUnidade(item)}
-              </TableCell>
-              <TableCell>
-                {item.valorInadimplencia ? (
-                  <span className="font-semibold text-on-surface">{item.valorInadimplencia}</span>
-                ) : (
-                  "—"
-                )}
-                {item.diasAtrasoMax > 0 ? (
-                  <span className="mt-xs block text-body-sm text-on-surface-variant">
-                    {item.diasAtrasoMax} dias em atraso
-                  </span>
-                ) : null}
-              </TableCell>
-              <TableCell className="align-middle">
-                <div className="flex justify-start">
-                  <BadgeSituacaoCobranca situacao={item.situacao} />
-                </div>
-              </TableCell>
-              {modo === "condominio" ? (
-                visaoGeral ? (
-                  <TableCell className="text-on-surface">
-                    {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
-                  </TableCell>
-                ) : (
-                  <TableCell>
+          itens.map((item) => {
+            const expandido = expandidas.has(item.unidadeId);
+            const rowClass =
+              destaqueUnidadeId === item.unidadeId
+                ? "border-b border-border-subtle bg-[#FFF8E6] hover:bg-[#FFF8E6]"
+                : embutida
+                  ? listGroupEmbeddedTableRowClassName
+                  : "border-b border-border-subtle bg-surface-subtle/80 hover:bg-surface-subtle";
+            return (
+              <Fragment key={item.unidadeId}>
+                <TableRow id={`fila-unidade-${item.unidadeId}`} className={rowClass}>
+                  <TableCell className="w-12">
                     <div className="flex justify-start">
-                      <AtalhosContatoAtendente
-                        compacto
-                        unidadeId={item.unidadeId}
-                        condominioId={item.condominioId}
-                        identificacao={item.identificacao}
-                        bloco={item.bloco}
-                        onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                      <BotaoExpandirDebitosFila
+                        expandido={expandido}
+                        rotuloUnidade={rotuloUnidade(item)}
+                        onToggle={() => alternarExpansao(item.unidadeId)}
                       />
                     </div>
                   </TableCell>
-                )
-              ) : null}
-              {mostraContato && modo === "atendente" ? (
-                <TableCell>
-                  <div className="flex justify-start">
-                    <AtalhosContatoAtendente
-                      compacto
-                      unidadeId={item.unidadeId}
-                      condominioId={item.condominioId}
-                      identificacao={item.identificacao}
-                      bloco={item.bloco}
-                      onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
-                    />
-                  </div>
-                </TableCell>
-              ) : null}
-              <TableCell className="text-on-surface-variant">
-                {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
-              </TableCell>
-              <TableCell className="align-middle">
-                <div className="flex justify-start">
-                  <CelulaProximoRetorno data={item.proximoRetorno} />
-                </div>
-              </TableCell>
-              <TableActionsCell
-                label={`Ações da cobrança ${rotuloUnidade(item)}`}
-                actions={acoesLinha(item)}
-              />
-            </TableRow>
-          ))
+                  {modo === "atendente" ? (
+                    <TableCell className="text-on-surface">
+                      {nomeCondominio(item.condominioId, cadastros)}
+                    </TableCell>
+                  ) : null}
+                  <TableCell className="font-medium text-on-surface">{rotuloUnidade(item)}</TableCell>
+                  <TableCell>
+                    <CelulaInadimplenciaExpansivel item={item} alinhamento="start" />
+                  </TableCell>
+                  <TableCell className="align-middle">
+                    <div className="flex justify-start">
+                      <BadgeSituacaoFila situacao={item.situacao} />
+                    </div>
+                  </TableCell>
+                  {modo === "condominio" ? (
+                    visaoGeral ? (
+                      <TableCell className="text-on-surface">
+                        {item.codigoRe ?? <span className="text-on-surface-variant">Sem responsável</span>}
+                      </TableCell>
+                    ) : (
+                      <TableCell>
+                        <div className="flex justify-start">
+                          <AtalhosContatoAtendente
+                            compacto
+                            unidadeId={item.unidadeId}
+                            condominioId={item.condominioId}
+                            identificacao={item.identificacao}
+                            bloco={item.bloco}
+                            onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                          />
+                        </div>
+                      </TableCell>
+                    )
+                  ) : null}
+                  {mostraContato && modo === "atendente" ? (
+                    <TableCell>
+                      <div className="flex justify-start">
+                        <AtalhosContatoAtendente
+                          compacto
+                          unidadeId={item.unidadeId}
+                          condominioId={item.condominioId}
+                          identificacao={item.identificacao}
+                          bloco={item.bloco}
+                          onIniciar={(canal) => onIniciarCanal?.(item.unidadeId, canal)}
+                        />
+                      </div>
+                    </TableCell>
+                  ) : null}
+                  <TableCell className="text-on-surface-variant">
+                    {item.ultimoAtendimento ? formatarData(item.ultimoAtendimento) : "—"}
+                  </TableCell>
+                  <TableCell className="align-middle">
+                    <div className="flex justify-start">
+                      <CelulaProximoRetorno data={item.proximoRetorno} />
+                    </div>
+                  </TableCell>
+                  <TableActionsCell
+                    label={`Ações da cobrança ${rotuloUnidade(item)}`}
+                    actions={acoesLinha(item)}
+                  />
+                </TableRow>
+                {expandido ? (
+                  <TableRow className="border-b border-border-subtle bg-surface-subtle/40 hover:bg-surface-subtle/40">
+                    <TableCell colSpan={colSpan} className="p-sm">
+                      <FilaInadimplenciaDebitosExpandido
+                        cadastros={cadastros}
+                        unidadeId={item.unidadeId}
+                        totalRotulo={item.valorInadimplencia}
+                        variante="desktop"
+                        podeProposta={podeProposta}
+                        onFechar={() => alternarExpansao(item.unidadeId)}
+                        onVerDetalhes={() => onVerDetalhesUnidade?.(item)}
+                        onFazerProposta={(debitoIds) => onPropostaComDebitos?.(item, debitoIds)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
+            );
+          })
         )}
       </TableBody>
     </Table>
@@ -384,7 +412,21 @@ function TabelaMobile({
   onIniciarCanal,
   pageOffset = 0,
   totalItens = 0,
+  onPropostaComDebitos,
+  onVerDetalhesUnidade,
+  podeProposta = false,
 }: TabelaProps) {
+  const [expandidas, setExpandidas] = useState<Set<number>>(() => new Set());
+
+  function alternarExpansao(unidadeId: number) {
+    setExpandidas((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(unidadeId)) proximo.delete(unidadeId);
+      else proximo.add(unidadeId);
+      return proximo;
+    });
+  }
+
   if (itens.length === 0) {
     return <TableMobileEmpty>{emptyState}</TableMobileEmpty>;
   }
@@ -394,6 +436,7 @@ function TabelaMobile({
   return (
     <TableMobileList aria-label={modo === "condominio" ? "Fila do condomínio" : "Fila do atendente"}>
       {itens.map((item, index) => {
+        const expandido = expandidas.has(item.unidadeId);
         const acoes = acoesLinha(item);
         const acoesRapidas = acoes.filter((acao) =>
           ["Histórico", "Registrar contato", "Proposta", "Jurídico"].includes(acao.label),
@@ -412,22 +455,13 @@ function TabelaMobile({
             }
           >
             <TableMobileCardHeader>
-              {visaoGeral ? (
-                <Checkbox
-                  aria-label={`Selecionar ${rotuloUnidade(item)}`}
-                  checked={selecionadas.has(item.unidadeId)}
-                  onChange={(event) => onToggleUnidade(item.unidadeId, event.target.checked)}
+              <span className="flex size-10 shrink-0 items-center justify-center">
+                <BotaoExpandirDebitosFila
+                  expandido={expandido}
+                  rotuloUnidade={rotuloUnidade(item)}
+                  onToggle={() => alternarExpansao(item.unidadeId)}
                 />
-              ) : (
-                <span
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                    mostraContato ? "bg-brass/15 text-brass" : "bg-surface-subtle text-on-surface-variant"
-                  }`}
-                  aria-hidden="true"
-                >
-                  <Icon icon={ListOrdered} size="sm" />
-                </span>
-              )}
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-x-sm gap-y-xs">
                   <TableMobileTitle className="min-w-0 flex-1 text-body-md font-semibold leading-snug">
@@ -450,14 +484,9 @@ function TabelaMobile({
               <div className="flex items-start justify-between gap-md">
                 <div className="min-w-0">
                   <p className="text-label-sm uppercase text-on-surface-variant">Inadimplência</p>
-                  <p className="text-body-md font-semibold tabular-nums text-on-surface">
-                    {item.valorInadimplencia ?? "—"}
-                  </p>
-                  {item.diasAtrasoMax > 0 ? (
-                    <p className="text-body-sm text-on-surface-variant">{item.diasAtrasoMax} dias em atraso</p>
-                  ) : null}
+                  <CelulaInadimplenciaExpansivel item={item} alinhamento="start" />
                 </div>
-                <BadgeSituacaoCobranca situacao={item.situacao} className="shrink-0" />
+                <BadgeSituacaoFila situacao={item.situacao} className="shrink-0" />
               </div>
               <div className="grid grid-cols-2 gap-sm text-body-sm">
                 {modo === "condominio" && visaoGeral ? (
@@ -487,6 +516,18 @@ function TabelaMobile({
                 </div>
               </div>
             </div>
+            {expandido ? (
+              <FilaInadimplenciaDebitosExpandido
+                cadastros={cadastros}
+                unidadeId={item.unidadeId}
+                totalRotulo={item.valorInadimplencia}
+                variante="mobile"
+                podeProposta={podeProposta}
+                onFechar={() => alternarExpansao(item.unidadeId)}
+                onVerDetalhes={() => onVerDetalhesUnidade?.(item)}
+                onFazerProposta={(debitoIds) => onPropostaComDebitos?.(item, debitoIds)}
+              />
+            ) : null}
             {mostraContato ? (
               <div className="mt-sm">
                 <AtalhosContatoAtendente
@@ -555,6 +596,9 @@ function PainelGrupo({
   onToggleUnidade,
   acoesLinha,
   onIniciarCanal,
+  onPropostaComDebitos,
+  onVerDetalhesUnidade,
+  podeProposta,
 }: {
   grupo: GrupoFila;
   modo: "condominio" | "atendente";
@@ -568,6 +612,9 @@ function PainelGrupo({
   onToggleUnidade: (unidadeId: number, checked: boolean) => void;
   acoesLinha: (item: FilaCobrancaItem) => FilaLinhaAcao[];
   onIniciarCanal?: (unidadeId: number, canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
+  onPropostaComDebitos?: (item: FilaCobrancaItem, debitoIds: number[]) => void;
+  onVerDetalhesUnidade?: (item: FilaCobrancaItem) => void;
+  podeProposta?: boolean;
 }) {
   const painelId = useId();
   const [page, setPage] = useState(1);
@@ -641,6 +688,9 @@ function PainelGrupo({
               onToggleUnidade={onToggleUnidade}
               acoesLinha={acoesLinha}
               onIniciarCanal={onIniciarCanal}
+              onPropostaComDebitos={onPropostaComDebitos}
+              onVerDetalhesUnidade={onVerDetalhesUnidade}
+              podeProposta={podeProposta}
               embutida
             />
           ) : (
@@ -655,6 +705,9 @@ function PainelGrupo({
               onToggleUnidade={onToggleUnidade}
               acoesLinha={acoesLinha}
               onIniciarCanal={onIniciarCanal}
+              onPropostaComDebitos={onPropostaComDebitos}
+              onVerDetalhesUnidade={onVerDetalhesUnidade}
+              podeProposta={podeProposta}
               pageOffset={(currentPage - 1) * PAGE_SIZE}
               totalItens={total}
             />
@@ -682,6 +735,9 @@ type ListaProps = {
   onToggleUnidade: (unidadeId: number, checked: boolean) => void;
   acoesLinha: (item: FilaCobrancaItem) => FilaLinhaAcao[];
   onIniciarCanal?: (unidadeId: number, canal: Extract<CanalAtalhoContato, "WhatsApp" | "E-mail">) => void;
+  onPropostaComDebitos?: (item: FilaCobrancaItem, debitoIds: number[]) => void;
+  onVerDetalhesUnidade?: (item: FilaCobrancaItem) => void;
+  podeProposta?: boolean;
 };
 
 export function FilaPorGruposLista({
@@ -696,6 +752,9 @@ export function FilaPorGruposLista({
   onToggleUnidade,
   acoesLinha,
   onIniciarCanal,
+  onPropostaComDebitos,
+  onVerDetalhesUnidade,
+  podeProposta = false,
 }: ListaProps) {
   const [abertos, setAbertos] = useState<Set<number>>(() => new Set());
 
@@ -740,6 +799,9 @@ export function FilaPorGruposLista({
           onToggleUnidade={onToggleUnidade}
           acoesLinha={acoesLinha}
           onIniciarCanal={onIniciarCanal}
+          onPropostaComDebitos={onPropostaComDebitos}
+          onVerDetalhesUnidade={onVerDetalhesUnidade}
+          podeProposta={podeProposta}
         />
       ))}
     </div>

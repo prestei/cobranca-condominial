@@ -167,7 +167,7 @@ export const GUIAS_MANUAL: GuiaManual[] = [
       "Só depois de aceita entram parcelas previstas e registros de pagamento.",
       "Pagamento informado é anotação; só pagamento confirmado conta para quitar parcela e reduzir saldo do acordo.",
       "Parcela vencida sem pagamento confirmado gera alerta de possível descumprimento — ainda não é regra automática de ‘acordo quebrado’.",
-      "Saldo do acordo não baixa automaticamente o débito na tela de inadimplência; são controles paralelos até o escritório definir política única.",
+      "Com acordo confirmado, o painel de inadimplência passa a exibir saldo negociado e desconto automaticamente; pagamentos confirmados reduzem o saldo sem nova importação.",
       "Correção em parcela ou pagamento fica registrada em auditoria.",
     ],
     passos: [
@@ -243,7 +243,7 @@ export const GUIAS_MANUAL: GuiaManual[] = [
       "Situação da unidade define se ela entra na fila de atendimentos (em cobrança, acordo, etc.) ou fica fora (quitada, sem cobrança, prescrita).",
       "Unidade nova começa sem cobrança até importação de débito ou mudança manual autorizada.",
       "Responsável principal é o contato usado nos atalhos de WhatsApp e e-mail na operação.",
-      "Prescrita sai da fila ativa, mas débitos e histórico continuam consultáveis.",
+      "Inadimplência prescrita (por débito) fica fora da cobrança ativa; valores e histórico continuam consultáveis.",
       "Dados sensíveis do responsável podem aparecer mascarados para quem só consulta.",
       "Em dia na coluna de débito significa sem pendência registrada — não apaga histórico.",
     ],

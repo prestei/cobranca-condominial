@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
+    "predev": "prisma generate",
     "dev": "next dev",
+    "dev:clean": "sh -c 'fuser -k 3000/tcp 3001/tcp 2>/dev/null || true; prisma generate && next dev'",
     "build": "next build",
     "start": "next start",
     "modelo": "vite",

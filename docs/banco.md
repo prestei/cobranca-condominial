@@ -17,7 +17,8 @@ Modelo lógico do sistema de cobrança condominial. O desenho é genérico: os t
 | [debt](#debt) | Débito da unidade |
 | [service_ticket](#service_ticket) | Atendimento da unidade |
 | [negotiation_proposal](#negotiation_proposal) | Proposta de negociação / acordo (T15) |
-| [negotiation_proposal_debt](#negotiation_proposal_debt) | Débitos vinculados à proposta |
+| [negotiation_proposal_debt](#negotiation_proposal_debt) | Débitos vinculados à proposta + snapshot financeiro (T25) |
+| [negotiation_proposal_debt_financial_change](#negotiation_proposal_debt_financial_change) | Histórico de alteração financeira do vínculo (T25) |
 | [agreement_installment](#agreement_installment) | Parcelas previstas do acordo confirmado (T16) |
 | [agreement_payment](#agreement_payment) | Pagamentos vinculados a parcelas de acordo (T16) |
 | [collection_assignment](#collection_assignment) | Responsável vigente na fila (unidade → atendente) |
@@ -121,7 +122,7 @@ Unidade de um condomínio: apartamento, casa, sala ou loja.
 | bloco | VARCHAR | sim | | Bloco ou torre |
 | tipo | VARCHAR | não | | Apartamento, Casa, Sala, Loja |
 | status | VARCHAR | não | padrão `Ativa` | Ativa, Inativa |
-| situacao | VARCHAR | não | padrão `Sem cobrança` | Sem cobrança (fora da fila), Em cobrança, Em acordo, Notificada, Ajuizada, Unidade prescrita, Quitada |
+| situacao | VARCHAR | não | padrão `Sem cobrança` | Sem cobrança (fora da fila), Em cobrança, Em acordo, Notificada, Ajuizada, Quitada |
 
 ## responsible_party
 
@@ -177,6 +178,58 @@ Débito ou encargo de uma unidade.
 | identificador_externo | VARCHAR | sim | | ID ou código vindo da administradora |
 | atualizado_em | TIMESTAMP | sim | | Última persistência (importação ou correção manual) |
 | fonte_valores | VARCHAR | sim | | `origem` (valores da administradora) ou `manual` (correção no sistema; sem recálculo automático de encargos) |
+| situacao_inadimplencia | VARCHAR | não | padrão `Ativa` | `Ativa` ou `Inadimplência prescrita` (classificação jurídica manual por débito) |
+| usuario_prescricao_id | INT | sim | | Usuário que classificou como prescrita |
+| prescrito_em | TIMESTAMP | sim | | Data/hora da classificação |
+| justificativa_prescricao | TEXT | sim | | Motivo registrado na classificação |
+| situacao_operacional | VARCHAR | não | padrão `Em aberto` | Situação operacional do débito (T24): `Em aberto`, `Em negociação`, `Quitada`, `Prescrita` — distinta da situação de cobrança da unidade |
+| situacao_operacional_alterada_em | TIMESTAMP | sim | | Data/hora da última alteração da situação operacional |
+| usuario_situacao_operacional_id | INT | sim | FK → user.id | Autor da última alteração da situação operacional |
+
+## debt_settlement
+
+Registro de quitação automática do débito após confirmação financeira (T28). Não remove o débito; complementa `debt_operational_situation_change`.
+
+| Coluna | Tipo | Nulo | Descrição |
+| --- | --- | --- | --- |
+| id | INT | não | PK |
+| debt_id | INT | não | FK → debt.id |
+| unit_id | INT | não | FK → unit.id |
+| settled_at | TIMESTAMPTZ | não | Data/hora da quitação |
+| paid_amount | DECIMAL(12,2) | não | Valor efetivamente quitado |
+| proposal_id | VARCHAR(64) | sim | FK → negotiation_proposal.id, quando negociação formalizada |
+| confirmed_by_user_id | INT | sim | FK → user.id — quem confirmou o pagamento ou alteração |
+| unit_situation_before | VARCHAR(64) | sim | Situação de cobrança da unidade antes da reavaliação |
+| unit_situation_after | VARCHAR(64) | sim | Reservado para extensão; transição efetiva também em audit_log |
+| source | VARCHAR(32) | não | Origem (`pagamento_confirmado`, `importacao`, `debito_gravado`, etc.) |
+| notes | TEXT | sim | Observação contextual |
+
+## debt_operational_situation_change
+
+Histórico de alterações da situação operacional de cada débito (T24).
+
+| Coluna | Tipo | Nulo | Descrição |
+| --- | --- | --- | --- |
+| id | INT | não | PK |
+| debito_id | INT | não | FK → debt.id |
+| situacao_anterior | VARCHAR | sim | Valor anterior |
+| situacao_nova | VARCHAR | não | Novo valor |
+| usuario_id | INT | sim | FK → user.id |
+| alterado_em | TIMESTAMP | não | Data/hora |
+| observacoes | TEXT | sim | Contexto da alteração |
+
+## unit_delinquency_period
+
+Períodos em que a unidade permaneceu inadimplente (débito vencido em situação operacional ativa), sem sobrescrever intervalos anteriores (T24).
+
+| Coluna | Tipo | Nulo | Descrição |
+| --- | --- | --- | --- |
+| id | INT | não | PK |
+| unidade_id | INT | não | FK → unit.id |
+| inicio_em | DATE | não | Início do período (vencimento do primeiro débito ativo ou data de abertura) |
+| fim_em | DATE | sim | Fim do período quando a unidade volta a ficar em dia |
+| usuario_abertura_id | INT | sim | FK → user.id |
+| usuario_encerramento_id | INT | sim | FK → user.id |
 
 ## collection_assignment
 
@@ -271,6 +324,28 @@ Proposta de negociação (T15). Não representa pagamento recebido. Protótipo: 
 | quantidade_parcelas | INT | sim | | Parcelas acordadas na proposta |
 | valores_definidos_por_id | INT | sim | FK → user.id | Quem definiu valores |
 | valores_aprovados_por_id | INT | sim | FK → user.id | Quem aprovou o acordo |
+| negotiation_queue_at | TIMESTAMPTZ | sim | | Entrada na fila de negociação (T26 opção A) |
+| negotiation_queue_by_user_id | INT | sim | FK → user.id | Atendente que encaminhou |
+
+## negotiation_next_step_decision
+
+Decisão explícita do atendente após registrar proposta (T26). Uma linha por proposta (`proposal_id` único).
+
+| Coluna | Tipo | Nulo | Restrição | Descrição |
+| --- | --- | --- | --- | --- |
+| id | VARCHAR(64) | não | PK | |
+| proposal_id | VARCHAR(64) | não | FK → negotiation_proposal.id, UNIQUE | Proposta vinculada |
+| condominio_id | INT | não | FK → condominium.id | |
+| unidade_id | INT | não | FK → unit.id | |
+| usuario_id | INT | não | FK → user.id | Atendente que decidiu (RE no histórico) |
+| decided_at | TIMESTAMPTZ | não | | Data/hora da confirmação |
+| action | VARCHAR(64) | não | | `forward_negotiation_queue`, `continue_service`, `forward_analysis` |
+| analysis_target | VARCHAR(32) | sim | | `lawyer_negotiation` ou `juridico` (só opção C) |
+| destination_label | VARCHAR(255) | não | | Destino exibido no resumo |
+| responsible_user_id | INT | sim | FK → user.id | Responsável pelo recebimento quando aplicável |
+| legal_referral_id | VARCHAR(64) | sim | FK → legal_case_referral.id | Encaminhamento jurídico criado na opção C |
+| notes | TEXT | sim | | Observações do atendente |
+| idempotency_key | VARCHAR(128) | não | UNIQUE | Anti clique duplo |
 
 ## lawyer_negotiation_rule
 
@@ -329,6 +404,30 @@ Associação N:N entre proposta e débitos cobertos pela tratativa.
 | id | INT | não | PK, autoincremento | |
 | proposta_id | UUID | não | FK → negotiation_proposal.id | |
 | debito_id | INT | não | FK → debt.id | Débito da mesma unidade |
+| valor_original_registrado | DECIMAL(12,2) | sim | | Snapshot na formalização (T25) |
+| valor_negociado_alocado | DECIMAL(12,2) | sim | | Parcela do valor proposto no débito |
+| desconto_concedido | DECIMAL(12,2) | sim | | Diferença registrada no acordo |
+| valor_pago_confirmado | DECIMAL(12,2) | não | padrão 0 | Soma alocada dos pagamentos confirmados |
+| saldo_restante | DECIMAL(12,2) | sim | | Negociado − pago confirmado (por débito) |
+| formalizado_em | TIMESTAMP | sim | | Preenchido ao confirmar acordo |
+| formalizado_por_id | INT | sim | FK → user.id | |
+
+## negotiation_proposal_debt_financial_change
+
+Auditoria de correções do snapshot financeiro por vínculo débito–proposta (T25).
+
+| Coluna | Tipo | Nulo | Descrição |
+| --- | --- | --- | --- |
+| id | INT | não | PK |
+| vinculo_id | INT | não | FK → negotiation_proposal_debt.id |
+| debito_id | INT | não | FK → debt.id |
+| proposta_id | UUID | não | FK → negotiation_proposal.id |
+| campo | VARCHAR | não | Ex.: `saldo_restante`, `valor_pago_confirmado` |
+| valor_anterior | TEXT | sim | |
+| valor_novo | TEXT | sim | |
+| usuario_id | INT | sim | FK → user.id |
+| alterado_em | TIMESTAMP | não | |
+| observacoes | TEXT | sim | |
 
 ## import
 

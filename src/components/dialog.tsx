@@ -5,6 +5,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -54,7 +55,7 @@ export function DialogContent({ children, className, ...props }: DialogContentPr
   const ref = useRef<HTMLDialogElement>(null);
   const isClient = useIsClient();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
 
@@ -70,9 +71,17 @@ export function DialogContent({ children, className, ...props }: DialogContentPr
     const dialog = ref.current;
     if (!dialog) return;
 
+    const handleCancel = (event: Event) => {
+      event.preventDefault();
+      onOpenChange(false);
+    };
     const handleClose = () => onOpenChange(false);
+    dialog.addEventListener("cancel", handleCancel);
     dialog.addEventListener("close", handleClose);
-    return () => dialog.removeEventListener("close", handleClose);
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("close", handleClose);
+    };
   }, [onOpenChange]);
 
   if (!open || !isClient) return null;
@@ -80,7 +89,7 @@ export function DialogContent({ children, className, ...props }: DialogContentPr
   return createPortal(
     <dialog
       ref={ref}
-      className={`open:m-auto open:w-[min(28rem,calc(100%-var(--spacing-xl)))] rounded-xl border border-border-subtle bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
+      className={`m-auto flex w-[min(28rem,calc(100%-var(--spacing-xl)))] max-w-lg flex-col rounded-xl border border-border-subtle bg-surface-card p-0 shadow-modal [&::backdrop]:bg-overlay ${className ?? ""}`}
       {...props}
     >
       {children}

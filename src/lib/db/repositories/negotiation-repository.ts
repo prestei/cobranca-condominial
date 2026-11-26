@@ -8,13 +8,14 @@ import {
   mapPaymentToPagamento,
   mapProposalToProposta,
 } from "@/lib/db/mappers";
+import { negotiationQueueFields } from "@/lib/db/negotiation-queue-fields";
 
 function texto(value: string | null | undefined): string | null {
   const t = value?.trim();
   return t ? t : null;
 }
 
-function propostaToData(item: PropostaNegociacao) {
+function propostaToData(item: PropostaNegociacao, options?: { clearQueueWhenEmpty?: boolean }) {
   return {
     id: item.id,
     condominiumId: item.condominioId,
@@ -34,12 +35,22 @@ function propostaToData(item: PropostaNegociacao) {
     installmentCount: item.quantidadeParcelas,
     valuesDefinedByUserId: item.valoresDefinidosPorId,
     valuesApprovedByUserId: item.valoresAprovadosPorId,
+    ...negotiationQueueFields(item, { clearWhenEmpty: options?.clearQueueWhenEmpty }),
   };
 }
 
 async function syncProposalDebts(proposalId: string, debitoIds: number[]) {
-  await prisma.negotiationProposalDebt.deleteMany({ where: { proposalId } });
+  const existentes = await prisma.negotiationProposalDebt.findMany({ where: { proposalId } });
+  const idsNovos = new Set(debitoIds);
+  const remover = existentes.filter((item) => !idsNovos.has(item.debtId));
+  if (remover.length > 0) {
+    await prisma.negotiationProposalDebt.deleteMany({
+      where: { id: { in: remover.map((item) => item.id) } },
+    });
+  }
+  const idsExistentes = new Set(existentes.map((item) => item.debtId));
   for (const debtId of debitoIds) {
+    if (idsExistentes.has(debtId)) continue;
     await prisma.negotiationProposalDebt.create({
       data: { proposalId, debtId },
     });
@@ -65,7 +76,7 @@ export async function createNegotiationProposal(item: PropostaNegociacao): Promi
 }
 
 export async function updateNegotiationProposal(item: PropostaNegociacao): Promise<PropostaNegociacao> {
-  const data = propostaToData(item);
+  const data = propostaToData(item, { clearQueueWhenEmpty: true });
   const row = await prisma.negotiationProposal.update({
     where: { id: item.id },
     data: { ...data, id: undefined },
